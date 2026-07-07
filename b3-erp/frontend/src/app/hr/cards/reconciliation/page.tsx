@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Calendar, CreditCard, TrendingUp, FileText, Check, X } from 'lucide-react';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface ReconciliationItem {
   id: string;
@@ -208,6 +209,14 @@ export default function Page() {
       </div>
 
       {/* Reconciliation Items */}
+      {filteredReconciliation.length === 0 && !isLoading && (
+        <EmptyState
+          icon={CreditCard}
+          title={mockReconciliation.length === 0 ? 'No reconciliation records yet' : 'No matching records'}
+          description={mockReconciliation.length === 0 ? 'Card reconciliation items will appear here once statements are imported.' : 'Try adjusting the status or month filters.'}
+        />
+      )}
+
       <div className="space-y-2">
         {filteredReconciliation.map(item => (
           <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">

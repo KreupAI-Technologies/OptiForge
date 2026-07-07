@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Wallet, IndianRupee, Clock, CheckCircle, XCircle, Calendar, AlertCircle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface TravelAdvance {
@@ -182,6 +183,16 @@ export default function Page() {
           ))}
         </div>
       </div>
+
+      {rows.length === 0 && !isLoading && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <EmptyState
+            icon={Wallet}
+            title="No travel advances found"
+            description="No travel advance requests have been raised yet. New advance requests and settlements will appear here."
+          />
+        </div>
+      )}
 
       <div className="space-y-2">
         {filteredAdvances.map(advance => (

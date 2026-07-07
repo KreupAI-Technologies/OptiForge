@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Network, Users, Calendar, MessageCircle, Heart, Share2, Eye, TrendingUp, Award, Briefcase, MapPin, X, UserPlus, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface AlumniEvent {
   id: string;
@@ -412,7 +413,15 @@ export default function Page() {
         </div>
       )}
 
-      {selectedTab === 'events' && (
+      {selectedTab === 'events' && mockEvents.length === 0 && !isLoading && (
+        <EmptyState
+          icon={Calendar}
+          title="No events yet"
+          description="Upcoming alumni events will appear here once scheduled."
+        />
+      )}
+
+      {selectedTab === 'events' && mockEvents.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {mockEvents.map(event => (
             <div key={event.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">

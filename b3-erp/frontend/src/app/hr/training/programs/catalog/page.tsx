@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BookOpen, Search, Filter, Clock, Users, Award, Calendar, MapPin, IndianRupee, AlertCircle } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface TrainingProgram {
@@ -76,80 +77,7 @@ export default function ProgramCatalogPage() {
     };
   }, []);
 
-  const mockPrograms: TrainingProgram[] = rows.length ? rows : [
-    {
-      id: '1', code: 'TRN-TECH-001', title: 'Advanced CNC Programming', description: 'Master advanced CNC machining techniques',
-      category: 'technical', level: 'advanced', duration: 40, mode: 'hybrid', instructor: 'Rajesh Kumar',
-      department: 'Manufacturing', capacity: 20, enrolled: 15, cost: 25000, nextBatch: '2024-11-15',
-      location: 'Training Center A', certification: true, status: 'active'
-    },
-    {
-      id: '2', code: 'TRN-SAFE-001', title: 'Workplace Safety & OSHA Compliance', description: 'Comprehensive safety training program',
-      category: 'safety', level: 'beginner', duration: 16, mode: 'classroom', instructor: 'Suresh Patel',
-      department: 'Safety & Compliance', capacity: 30, enrolled: 28, cost: 8000, nextBatch: '2024-11-10',
-      location: 'Training Center B', certification: true, status: 'active'
-    },
-    {
-      id: '3', code: 'TRN-QUAL-001', title: 'Quality Management Systems (ISO 9001)', description: 'ISO 9001 quality standards training',
-      category: 'quality', level: 'intermediate', duration: 24, mode: 'hybrid', instructor: 'Meena Rao',
-      department: 'Quality Assurance', capacity: 25, enrolled: 18, cost: 18000, nextBatch: '2024-11-20',
-      location: 'Training Center A', certification: true, status: 'active'
-    },
-    {
-      id: '4', code: 'TRN-LEAD-001', title: 'Leadership & Team Management', description: 'Develop leadership and people management skills',
-      category: 'leadership', level: 'intermediate', duration: 32, mode: 'classroom', instructor: 'Priya Sharma',
-      department: 'Human Resources', capacity: 15, enrolled: 12, cost: 30000, nextBatch: '2024-11-25',
-      location: 'Training Center C', certification: false, status: 'active'
-    },
-    {
-      id: '5', code: 'TRN-TECH-002', title: 'Lean Manufacturing Fundamentals', description: 'Introduction to lean manufacturing principles',
-      category: 'technical', level: 'beginner', duration: 20, mode: 'online', instructor: 'Vikram Mehta',
-      department: 'Manufacturing', capacity: 50, enrolled: 35, cost: 12000, nextBatch: '2024-11-12',
-      certification: true, status: 'active'
-    },
-    {
-      id: '6', code: 'TRN-SOFT-001', title: 'Effective Communication Skills', description: 'Improve verbal and written communication',
-      category: 'soft_skills', level: 'beginner', duration: 12, mode: 'online', instructor: 'Anjali Nair',
-      department: 'Human Resources', capacity: 40, enrolled: 22, cost: 6000, nextBatch: '2024-11-18',
-      certification: false, status: 'active'
-    },
-    {
-      id: '7', code: 'TRN-COMP-001', title: 'Factory Act & Labor Law Compliance', description: 'Indian labor law and compliance training',
-      category: 'compliance', level: 'intermediate', duration: 16, mode: 'classroom', instructor: 'Anil Gupta',
-      department: 'Legal & Compliance', capacity: 20, enrolled: 15, cost: 15000, nextBatch: '2024-12-01',
-      location: 'Training Center B', certification: true, status: 'upcoming'
-    },
-    {
-      id: '8', code: 'TRN-TECH-003', title: 'Six Sigma Green Belt', description: 'Six Sigma methodology and certification',
-      category: 'quality', level: 'advanced', duration: 80, mode: 'hybrid', instructor: 'Ramesh Iyer',
-      department: 'Quality Assurance', capacity: 15, enrolled: 10, cost: 75000, nextBatch: '2024-12-05',
-      location: 'Training Center A', certification: true, status: 'upcoming'
-    },
-    {
-      id: '9', code: 'TRN-SAFE-002', title: 'Fire Safety & Emergency Response', description: 'Fire prevention and emergency procedures',
-      category: 'safety', level: 'beginner', duration: 8, mode: 'classroom', instructor: 'Deepa Singh',
-      department: 'Safety & Compliance', capacity: 35, enrolled: 30, cost: 5000, nextBatch: '2024-11-14',
-      location: 'Training Center B', certification: true, status: 'active'
-    },
-    {
-      id: '10', code: 'TRN-TECH-004', title: 'Preventive Maintenance Techniques', description: 'Equipment maintenance best practices',
-      category: 'technical', level: 'intermediate', duration: 24, mode: 'on_job', instructor: 'Sunil Verma',
-      department: 'Maintenance', capacity: 12, enrolled: 8, cost: 20000, nextBatch: '2024-11-22',
-      location: 'Production Floor', certification: false, status: 'active'
-    },
-    {
-      id: '11', code: 'TRN-SOFT-002', title: 'Problem Solving & Decision Making', description: 'Analytical thinking and decision making skills',
-      category: 'soft_skills', level: 'intermediate', duration: 16, mode: 'online', instructor: 'Kavita Desai',
-      department: 'Human Resources', capacity: 30, enrolled: 20, cost: 10000, nextBatch: '2024-11-28',
-      certification: false, status: 'active'
-    },
-    {
-      id: '12', code: 'TRN-QUAL-002', title: 'Statistical Process Control (SPC)', description: 'Quality control using statistical methods',
-      category: 'quality', level: 'intermediate', duration: 20, mode: 'classroom', instructor: 'Meena Rao',
-      department: 'Quality Assurance', capacity: 20, enrolled: 14, cost: 16000, nextBatch: '2024-12-10',
-      location: 'Training Center A', certification: true, status: 'upcoming'
-    }
-  ];
+  const mockPrograms: TrainingProgram[] = rows;
 
   const filteredPrograms = useMemo(() => {
     return mockPrograms.filter(program => {
@@ -431,9 +359,17 @@ export default function ProgramCatalogPage() {
         ))}
       </div>
 
-      {filteredPrograms.length === 0 && (
+      {rows.length === 0 && !isLoading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <EmptyState
+            icon={BookOpen}
+            title="No training programs found"
+            description="There are no training programs available yet. New programs will appear here once they are published."
+          />
+        </div>
+      ) : filteredPrograms.length === 0 && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <BookOpen className="h-12 w-12 text-gray-400 mb-2" />
+          <BookOpen className="h-12 w-12 text-gray-400 mb-2 mx-auto" />
           <p className="text-gray-600">No programs found matching your criteria</p>
         </div>
       )}

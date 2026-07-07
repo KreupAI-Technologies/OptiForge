@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { CreditCard, User, DollarSign, Calendar, AlertCircle, Lock, Unlock, Plus, Eye, Download } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
@@ -77,121 +78,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockCards: CorporateCard[] = rows.length ? rows : [
-    {
-      id: '1',
-      cardNumber: '****4523',
-      cardholderName: 'Rajesh Kumar',
-      employeeCode: 'EMP456',
-      department: 'Sales',
-      designation: 'Sales Manager',
-      cardType: 'visa',
-      cardLevel: 'gold',
-      creditLimit: 200000,
-      availableLimit: 165000,
-      currentBalance: 35000,
-      issueDate: '2024-01-15',
-      expiryDate: '2027-01-31',
-      status: 'active',
-      lastTransactionDate: '2025-11-05',
-      monthlySpend: 45000,
-      billingCycle: '1st to Last day of month'
-    },
-    {
-      id: '2',
-      cardNumber: '****6789',
-      cardholderName: 'Priya Sharma',
-      employeeCode: 'EMP789',
-      department: 'Engineering',
-      designation: 'Engineering Head',
-      cardType: 'mastercard',
-      cardLevel: 'platinum',
-      creditLimit: 300000,
-      availableLimit: 280000,
-      currentBalance: 20000,
-      issueDate: '2023-06-20',
-      expiryDate: '2026-06-30',
-      status: 'active',
-      lastTransactionDate: '2025-11-04',
-      monthlySpend: 52000,
-      billingCycle: '1st to Last day of month'
-    },
-    {
-      id: '3',
-      cardNumber: '****3421',
-      cardholderName: 'Amit Singh',
-      employeeCode: 'EMP234',
-      department: 'Operations',
-      designation: 'Operations Manager',
-      cardType: 'visa',
-      cardLevel: 'silver',
-      creditLimit: 150000,
-      availableLimit: 142000,
-      currentBalance: 8000,
-      issueDate: '2024-03-10',
-      expiryDate: '2027-03-31',
-      status: 'active',
-      lastTransactionDate: '2025-11-03',
-      monthlySpend: 28000,
-      billingCycle: '1st to Last day of month'
-    },
-    {
-      id: '4',
-      cardNumber: '****9087',
-      cardholderName: 'Meena Rao',
-      employeeCode: 'EMP567',
-      department: 'Quality',
-      designation: 'QA Manager',
-      cardType: 'amex',
-      cardLevel: 'gold',
-      creditLimit: 250000,
-      availableLimit: 250000,
-      currentBalance: 0,
-      issueDate: '2024-08-01',
-      expiryDate: '2027-08-31',
-      status: 'blocked',
-      lastTransactionDate: '2025-10-15',
-      monthlySpend: 0,
-      billingCycle: '1st to Last day of month'
-    },
-    {
-      id: '5',
-      cardNumber: '****5432',
-      cardholderName: 'Suresh Patel',
-      employeeCode: 'EMP890',
-      department: 'Maintenance',
-      designation: 'Maintenance Head',
-      cardType: 'visa',
-      cardLevel: 'silver',
-      creditLimit: 150000,
-      availableLimit: 138000,
-      currentBalance: 12000,
-      issueDate: '2024-02-20',
-      expiryDate: '2027-02-28',
-      status: 'active',
-      lastTransactionDate: '2025-11-06',
-      monthlySpend: 35000,
-      billingCycle: '1st to Last day of month'
-    },
-    {
-      id: '6',
-      cardNumber: '****7654',
-      cardholderName: 'Kavita Nair',
-      employeeCode: 'EMP345',
-      department: 'Marketing',
-      designation: 'Marketing Manager',
-      cardType: 'mastercard',
-      cardLevel: 'gold',
-      creditLimit: 200000,
-      availableLimit: 200000,
-      currentBalance: 0,
-      issueDate: '2025-10-01',
-      expiryDate: '2028-10-31',
-      status: 'pending_activation',
-      monthlySpend: 0,
-      billingCycle: '1st to Last day of month'
-    }
-  ];
+  const mockCards: CorporateCard[] = rows;
 
   const filteredCards = useMemo(() => {
     return mockCards.filter(card => {
@@ -199,7 +86,7 @@ export default function Page() {
       const matchesType = selectedCardType === 'all' || card.cardType === selectedCardType;
       return matchesStatus && matchesType;
     });
-  }, [selectedStatus, selectedCardType]);
+  }, [selectedStatus, selectedCardType, rows]);
 
   const stats = {
     totalCards: mockCards.length,
@@ -498,7 +385,18 @@ export default function Page() {
       </div>
 
       {/* Cards Table */}
-      <DataTable data={filteredCards} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <EmptyState
+            icon={CreditCard}
+            title="No corporate cards found"
+            description="No company-issued credit cards have been set up yet. Request a new card to get started."
+            action={{ label: 'Request New Card', onClick: handleRequestNewCard, icon: Plus }}
+          />
+        </div>
+      ) : (
+        <DataTable data={filteredCards} columns={columns} />
+      )}
 
       {/* Card Levels Info */}
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-3">

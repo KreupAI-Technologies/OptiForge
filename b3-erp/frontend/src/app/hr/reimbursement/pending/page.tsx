@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Clock, CheckCircle, User, Wallet, TrendingUp, AlertTriangle, AlertCircle, Eye, Check, X, XCircle, Download } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
@@ -73,56 +74,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: PendingReimbursement[] = rows.length ? rows : [
-    {
-      id: '1', employeeCode: 'KMF-2024-101', employeeName: 'Rajesh Kumar', department: 'Manufacturing',
-      designation: 'Production Manager', claimNumber: 'REIMB-2024-301', claimType: 'Medical',
-      amount: 8500, submittedDate: '2024-10-20', billDate: '2024-10-18',
-      description: 'Medical treatment - hospitalization', documentsCount: 4, pendingDays: 6, priority: 'high'
-    },
-    {
-      id: '2', employeeCode: 'KMF-2024-102', employeeName: 'Priya Sharma', department: 'Human Resources',
-      designation: 'HR Manager', claimNumber: 'REIMB-2024-302', claimType: 'Education',
-      amount: 15000, submittedDate: '2024-10-22', billDate: '2024-10-15',
-      description: 'Child education - school fees', documentsCount: 3, pendingDays: 4, priority: 'medium'
-    },
-    {
-      id: '3', employeeCode: 'KMF-2024-103', employeeName: 'Amit Singh', department: 'Warehouse & Logistics',
-      designation: 'Warehouse Manager', claimNumber: 'REIMB-2024-303', claimType: 'Conveyance',
-      amount: 3200, submittedDate: '2024-10-23', billDate: '2024-10-22',
-      description: 'Monthly conveyance allowance', documentsCount: 1, pendingDays: 3, priority: 'low'
-    },
-    {
-      id: '4', employeeCode: 'KMF-2024-104', employeeName: 'Meena Rao', department: 'Quality Assurance',
-      designation: 'QA Manager', claimNumber: 'REIMB-2024-304', claimType: 'Mobile',
-      amount: 1200, submittedDate: '2024-10-24', billDate: '2024-10-20',
-      description: 'Mobile bill reimbursement', documentsCount: 1, pendingDays: 2, priority: 'low'
-    },
-    {
-      id: '5', employeeCode: 'KMF-2024-105', employeeName: 'Suresh Patel', department: 'Maintenance',
-      designation: 'Maintenance Head', claimNumber: 'REIMB-2024-305', claimType: 'Uniform',
-      amount: 2500, submittedDate: '2024-10-18', billDate: '2024-10-15',
-      description: 'Safety shoes and uniform', documentsCount: 2, pendingDays: 8, priority: 'medium'
-    },
-    {
-      id: '6', employeeCode: 'KMF-2024-106', employeeName: 'Anil Verma', department: 'IT',
-      designation: 'IT Manager', claimNumber: 'REIMB-2024-306', claimType: 'Internet',
-      amount: 1800, submittedDate: '2024-10-25', billDate: '2024-10-22',
-      description: 'Home internet reimbursement', documentsCount: 1, pendingDays: 1, priority: 'low'
-    },
-    {
-      id: '7', employeeCode: 'KMF-2024-107', employeeName: 'Kavita Nair', department: 'Sales',
-      designation: 'Sales Manager', claimNumber: 'REIMB-2024-307', claimType: 'Relocation',
-      amount: 25000, submittedDate: '2024-10-15', billDate: '2024-10-10',
-      description: 'Relocation expenses - new city', documentsCount: 6, pendingDays: 11, priority: 'high'
-    },
-    {
-      id: '8', employeeCode: 'KMF-2024-108', employeeName: 'Deepak Joshi', department: 'Finance',
-      designation: 'Accounts Manager', claimNumber: 'REIMB-2024-308', claimType: 'Medical',
-      amount: 12000, submittedDate: '2024-10-21', billDate: '2024-10-19',
-      description: 'Medical expenses - surgery', documentsCount: 5, pendingDays: 5, priority: 'high'
-    }
-  ];
+  const mockReimbursements: PendingReimbursement[] = rows;
 
   const filteredReimbursements = useMemo(() => {
     return mockReimbursements.filter(reimb => {
@@ -466,7 +418,15 @@ export default function Page() {
       </div>
 
       {/* Reimbursements Table */}
-      <DataTable data={filteredReimbursements} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <EmptyState
+          icon={Clock}
+          title="No pending reimbursements found"
+          description="There are no pending reimbursement claims awaiting review."
+        />
+      ) : (
+        <DataTable data={filteredReimbursements} columns={columns} />
+      )}
 
       {/* Reimbursement Categories Info */}
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-3">

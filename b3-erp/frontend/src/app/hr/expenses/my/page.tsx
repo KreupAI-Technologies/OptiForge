@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, Plus, CheckCircle, Clock, XCircle, AlertTriangle, AlertCircle, Receipt, Eye, Download, X, Calendar, User, Building2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface ExpenseClaim {
@@ -69,61 +70,7 @@ export default function MyExpensesPage() {
     };
   }, []);
 
-  const mockExpenses: ExpenseClaim[] = rows.length ? rows : [
-    {
-      id: '1', claimNumber: 'EXP-2024-1201', submissionDate: '2024-10-20', category: 'travel',
-      description: 'Client visit - Mumbai', amount: 4500, billDate: '2024-10-18',
-      status: 'approved', approver: 'Rajesh Kumar', approvedDate: '2024-10-22', receiptAttached: true
-    },
-    {
-      id: '2', claimNumber: 'EXP-2024-1202', submissionDate: '2024-10-22', category: 'fuel',
-      description: 'Fuel for factory visit', amount: 2800, billDate: '2024-10-20',
-      status: 'submitted', approver: 'Rajesh Kumar', receiptAttached: true
-    },
-    {
-      id: '3', claimNumber: 'EXP-2024-1203', submissionDate: '2024-10-23', category: 'food',
-      description: 'Business lunch with client', amount: 1200, billDate: '2024-10-23',
-      status: 'submitted', approver: 'Rajesh Kumar', receiptAttached: true
-    },
-    {
-      id: '4', claimNumber: 'EXP-2024-1204', submissionDate: '2024-10-15', category: 'accommodation',
-      description: 'Hotel stay - Bangalore trip', amount: 6800, billDate: '2024-10-12',
-      status: 'paid', approver: 'Rajesh Kumar', approvedDate: '2024-10-17',
-      paidDate: '2024-10-25', receiptAttached: true
-    },
-    {
-      id: '5', claimNumber: 'EXP-2024-1205', submissionDate: '2024-10-18', category: 'supplies',
-      description: 'Office supplies purchase', amount: 3200, billDate: '2024-10-17',
-      status: 'rejected', approver: 'Rajesh Kumar',
-      rejectionReason: 'Receipt not clear - please resubmit with original bill', receiptAttached: true
-    },
-    {
-      id: '6', claimNumber: 'DRAFT-001', submissionDate: '', category: 'communication',
-      description: 'Mobile recharge', amount: 599, billDate: '2024-10-24',
-      status: 'draft', approver: '', receiptAttached: false
-    },
-    {
-      id: '7', claimNumber: 'EXP-2024-1206', submissionDate: '2024-10-25', category: 'travel',
-      description: 'Local conveyance', amount: 850, billDate: '2024-10-24',
-      status: 'submitted', approver: 'Rajesh Kumar', receiptAttached: true
-    },
-    {
-      id: '8', claimNumber: 'EXP-2024-1207', submissionDate: '2024-10-10', category: 'fuel',
-      description: 'Petrol - Site visit', amount: 1500, billDate: '2024-10-09',
-      status: 'paid', approver: 'Rajesh Kumar', approvedDate: '2024-10-12',
-      paidDate: '2024-10-20', receiptAttached: true
-    },
-    {
-      id: '9', claimNumber: 'EXP-2024-1208', submissionDate: '2024-11-02', category: 'travel',
-      description: 'Airport taxi', amount: 650, billDate: '2024-11-01',
-      status: 'approved', approver: 'Rajesh Kumar', approvedDate: '2024-11-04', receiptAttached: true
-    },
-    {
-      id: '10', claimNumber: 'DRAFT-002', submissionDate: '', category: 'food',
-      description: 'Team lunch', amount: 1800, billDate: '2024-11-05',
-      status: 'draft', approver: '', receiptAttached: false
-    }
-  ];
+  const mockExpenses: ExpenseClaim[] = rows;
 
   const filteredExpenses = useMemo(() => {
     return mockExpenses.filter(expense => {
@@ -383,10 +330,17 @@ export default function MyExpensesPage() {
 
       {/* Expenses Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {filteredExpenses.length === 0 ? (
+        {rows.length === 0 && !isLoading ? (
+          <EmptyState
+            icon={Wallet}
+            title="No expense claims yet"
+            description="You haven't submitted any expense claims. Create a new claim to get started."
+            action={{ label: 'New Claim', icon: Plus, onClick: handleNewClaim }}
+          />
+        ) : filteredExpenses.length === 0 ? (
           <div className="p-12 text-center">
-            <Wallet className="h-12 w-12 text-gray-300 mb-3" />
-            <p className="text-gray-500">No expenses found</p>
+            <Wallet className="h-12 w-12 text-gray-300 mb-3 mx-auto" />
+            <p className="text-gray-500">No expenses match the current filters</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

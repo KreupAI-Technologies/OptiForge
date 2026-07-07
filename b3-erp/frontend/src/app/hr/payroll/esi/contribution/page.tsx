@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Heart, Search, Download, FileText, Users, DollarSign, TrendingUp } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
   generateESIContributionReturn,
@@ -43,108 +44,25 @@ export default function ESIContributionPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
+  const [records, setRows] = useState<EmployeeESIContribution[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Summary/challan object derived from the real fetched records
+  const eligibleRecords = records.filter(r => r.eligible);
   const mockESIMonth: ESIContributionMonth = {
     id: 'ESI-2025-11',
     monthYear: 'November 2025',
     payPeriod: '01-Nov-2025 to 30-Nov-2025',
-    employeeCount: 4,
-    totalEmployeeContribution: 1183,
-    totalEmployerContribution: 4734,
-    totalWages: 157650,
-    totalPayable: 5917,
+    employeeCount: eligibleRecords.length,
+    totalEmployeeContribution: eligibleRecords.reduce((s, r) => s + r.employeeContribution, 0),
+    totalEmployerContribution: eligibleRecords.reduce((s, r) => s + r.employerContribution, 0),
+    totalWages: eligibleRecords.reduce((s, r) => s + r.esiWages, 0),
+    totalPayable: eligibleRecords.reduce((s, r) => s + r.totalContribution, 0),
     dueDate: '2025-12-21',
     status: 'verified',
-    records: [
-      {
-        id: 'ESI-001',
-        employeeId: 'EMP002',
-        employeeName: 'Priya Sharma',
-        designation: 'Quality Control Supervisor',
-        department: 'Quality',
-        esiNumber: 'ESI1234567890',
-        grossSalary: 35976,
-        esiWages: 35976,
-        employeeContribution: 270,
-        employerContribution: 1079,
-        totalContribution: 1349,
-        eligible: true
-      },
-      {
-        id: 'ESI-002',
-        employeeId: 'EMP003',
-        employeeName: 'Amit Patel',
-        designation: 'Production Operator',
-        department: 'Production',
-        esiNumber: 'ESI1234567891',
-        grossSalary: 21874,
-        esiWages: 21874,
-        employeeContribution: 164,
-        employerContribution: 656,
-        totalContribution: 820,
-        eligible: true
-      },
-      {
-        id: 'ESI-003',
-        employeeId: 'EMP004',
-        employeeName: 'Neha Singh',
-        designation: 'Maintenance Engineer',
-        department: 'Maintenance',
-        esiNumber: 'ESI1234567892',
-        grossSalary: 34101,
-        esiWages: 34101,
-        employeeContribution: 256,
-        employerContribution: 1023,
-        totalContribution: 1279,
-        eligible: true
-      },
-      {
-        id: 'ESI-004',
-        employeeId: 'EMP005',
-        employeeName: 'Vikram Desai',
-        designation: 'Logistics Coordinator',
-        department: 'Logistics',
-        esiNumber: 'ESI1234567893',
-        grossSalary: 31600,
-        esiWages: 31600,
-        employeeContribution: 237,
-        employerContribution: 948,
-        totalContribution: 1185,
-        eligible: true
-      },
-      {
-        id: 'ESI-005',
-        employeeId: 'EMP006',
-        employeeName: 'Kavita Mehta',
-        designation: 'HR Executive',
-        department: 'HR',
-        esiNumber: 'ESI1234567894',
-        grossSalary: 32849,
-        esiWages: 32849,
-        employeeContribution: 246,
-        employerContribution: 985,
-        totalContribution: 1231,
-        eligible: true
-      },
-      {
-        id: 'ESI-006',
-        employeeId: 'EMP001',
-        employeeName: 'Rajesh Kumar',
-        designation: 'Senior Production Manager',
-        department: 'Production',
-        esiNumber: '',
-        grossSalary: 49725,
-        esiWages: 0,
-        employeeContribution: 0,
-        employerContribution: 0,
-        totalContribution: 0,
-        eligible: false
-      }
-    ]
+    records,
   };
-
-  const [records, setRows] = useState<EmployeeESIContribution[]>(mockESIMonth.records);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -360,6 +278,14 @@ export default function ESIContributionPage() {
           </button>
         </div>
       </div>
+
+      {records.length === 0 && !isLoading && (
+        <EmptyState
+          icon={Heart}
+          title="No ESI contribution records"
+          description="No ESI contribution data is available for this period yet."
+        />
+      )}
 
       <div className="space-y-2">
         {filteredRecords.map(record => (

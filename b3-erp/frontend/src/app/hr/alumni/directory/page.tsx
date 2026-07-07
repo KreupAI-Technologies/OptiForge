@@ -5,6 +5,7 @@ import { Search, MapPin, Briefcase, Calendar, Mail, Phone, Linkedin, Award, Buil
 import { toast } from '@/hooks/use-toast';
 import { exportToCsv } from '@/lib/export';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface AlumniMember {
   id: string;
@@ -87,121 +88,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockAlumni: AlumniMember[] = rows.length ? rows : [
-    {
-      id: '1',
-      employeeCode: 'EMP001',
-      name: 'Rajesh Kumar',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      joinDate: '2018-03-15',
-      exitDate: '2024-08-31',
-      tenure: '6 years 5 months',
-      currentCompany: 'Tata Motors Ltd',
-      currentDesignation: 'General Manager - Manufacturing',
-      location: 'Pune, Maharashtra',
-      email: 'rajesh.kumar@tata.com',
-      phone: '+91 98765 43210',
-      linkedinUrl: 'https://linkedin.com/in/rajeshkumar',
-      achievements: ['Implemented Lean Manufacturing', 'Reduced waste by 35%', 'ISO 9001 Lead Auditor'],
-      industryExpertise: ['Lean Manufacturing', 'Quality Management', 'Production Planning'],
-      willingToMentor: true,
-      availableForRehire: true,
-      status: 'active',
-      lastContactDate: '2025-10-15',
-      reasonForLeaving: 'career_growth'
-    },
-    {
-      id: '2',
-      employeeCode: 'EMP045',
-      name: 'Priya Sharma',
-      designation: 'HR Manager',
-      department: 'Human Resources',
-      joinDate: '2019-07-01',
-      exitDate: '2024-09-15',
-      tenure: '5 years 2 months',
-      currentCompany: 'Mahindra & Mahindra',
-      currentDesignation: 'Head of HR - Operations',
-      location: 'Mumbai, Maharashtra',
-      email: 'priya.sharma@mahindra.com',
-      phone: '+91 98765 43211',
-      linkedinUrl: 'https://linkedin.com/in/priyasharma',
-      achievements: ['Employee Engagement Score 85%', 'Reduced Attrition by 20%', 'POSH Certified'],
-      industryExpertise: ['Talent Acquisition', 'Employee Relations', 'Compliance'],
-      willingToMentor: true,
-      availableForRehire: false,
-      status: 'active',
-      lastContactDate: '2025-09-30',
-      reasonForLeaving: 'career_growth'
-    },
-    {
-      id: '3',
-      employeeCode: 'EMP123',
-      name: 'Amit Patel',
-      designation: 'Quality Assurance Lead',
-      department: 'Quality',
-      joinDate: '2017-02-10',
-      exitDate: '2023-12-31',
-      tenure: '6 years 10 months',
-      currentCompany: 'Self-Employed',
-      currentDesignation: 'Quality Consultant',
-      location: 'Ahmedabad, Gujarat',
-      email: 'amit.patel.qa@gmail.com',
-      phone: '+91 98765 43212',
-      achievements: ['Six Sigma Black Belt', 'Zero Defect Month Champion', 'Kaizen Expert'],
-      industryExpertise: ['Six Sigma', 'Quality Auditing', 'Process Improvement'],
-      willingToMentor: true,
-      availableForRehire: true,
-      status: 'active',
-      lastContactDate: '2025-10-01',
-      reasonForLeaving: 'career_growth'
-    },
-    {
-      id: '4',
-      employeeCode: 'EMP078',
-      name: 'Sneha Reddy',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      joinDate: '2020-01-15',
-      exitDate: '2024-06-30',
-      tenure: '4 years 5 months',
-      currentCompany: 'Larsen & Toubro',
-      currentDesignation: 'Senior Engineer - Plant Maintenance',
-      location: 'Hyderabad, Telangana',
-      email: 'sneha.reddy@lnt.com',
-      phone: '+91 98765 43213',
-      achievements: ['TPM Implementation', 'CMMS Expert', 'OEE Improvement 15%'],
-      industryExpertise: ['Preventive Maintenance', 'TPM', 'Asset Management'],
-      willingToMentor: false,
-      availableForRehire: true,
-      status: 'active',
-      lastContactDate: '2025-08-20',
-      reasonForLeaving: 'career_growth'
-    },
-    {
-      id: '5',
-      employeeCode: 'EMP234',
-      name: 'Vikram Singh',
-      designation: 'IT Manager',
-      department: 'Information Technology',
-      joinDate: '2016-05-20',
-      exitDate: '2024-03-31',
-      tenure: '7 years 10 months',
-      currentCompany: 'Infosys Ltd',
-      currentDesignation: 'Project Manager',
-      location: 'Bangalore, Karnataka',
-      email: 'vikram.singh@infosys.com',
-      phone: '+91 98765 43214',
-      linkedinUrl: 'https://linkedin.com/in/vikramsingh',
-      achievements: ['ERP Implementation Lead', 'Cloud Migration', 'PMP Certified'],
-      industryExpertise: ['ERP Systems', 'Cloud Computing', 'Project Management'],
-      willingToMentor: true,
-      availableForRehire: false,
-      status: 'active',
-      lastContactDate: '2025-09-10',
-      reasonForLeaving: 'higher_studies'
-    }
-  ];
+  const mockAlumni: AlumniMember[] = rows;
 
   // Filter alumni
   const filteredAlumni = useMemo(() => {
@@ -496,12 +383,12 @@ export default function Page() {
         ))}
       </div>
 
-      {filteredAlumni.length === 0 && (
-        <div className="text-center py-12">
-          <Users className="h-12 w-12 text-gray-400 mb-2" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No alumni found</h3>
-          <p className="text-gray-600">Try adjusting your search or filters</p>
-        </div>
+      {filteredAlumni.length === 0 && !isLoading && (
+        <EmptyState
+          icon={Users}
+          title={rows.length === 0 ? 'No alumni yet' : 'No alumni found'}
+          description={rows.length === 0 ? 'Alumni records will appear here once added.' : 'Try adjusting your search or filters.'}
+        />
       )}
 
       {/* View Profile Modal */}

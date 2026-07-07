@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Wallet, Search, Download, FileText, Users, DollarSign, TrendingUp, Calendar, X, CheckCircle, AlertCircle, Building2, Mail } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeePFContribution {
@@ -417,141 +418,27 @@ export default function PFContributionPage() {
   const [showECRModal, setShowECRModal] = useState(false);
   const [showChallanModal, setShowChallanModal] = useState(false);
 
+  const [records, setRows] = useState<EmployeePFContribution[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Summary/challan object derived from the real fetched records
   const mockPFMonth: PFContributionMonth = {
     id: 'PF-2025-11',
     monthYear: 'November 2025',
     payPeriod: '01-Nov-2025 to 30-Nov-2025',
-    employeeCount: 6,
-    totalEmployeeContribution: 13550,
-    totalEmployerContribution: 9047,
-    totalPensionFund: 11083,
-    totalEPF: 2467,
-    totalEDLI: 271,
-    totalAdminCharges: 226,
-    totalPayable: 22597,
+    employeeCount: records.length,
+    totalEmployeeContribution: records.reduce((s, r) => s + r.employeeContribution, 0),
+    totalEmployerContribution: records.reduce((s, r) => s + r.employerContribution, 0),
+    totalPensionFund: records.reduce((s, r) => s + r.pensionFund, 0),
+    totalEPF: records.reduce((s, r) => s + r.epf, 0),
+    totalEDLI: records.reduce((s, r) => s + r.edli, 0),
+    totalAdminCharges: records.reduce((s, r) => s + r.adminCharges, 0),
+    totalPayable: records.reduce((s, r) => s + r.totalContribution, 0),
     dueDate: '2025-12-15',
     status: 'verified',
-    records: [
-      {
-        id: 'PF-001',
-        employeeId: 'EMP001',
-        employeeName: 'Rajesh Kumar',
-        designation: 'Senior Production Manager',
-        department: 'Production',
-        uan: 'UAN101234567890',
-        basicSalary: 31250,
-        pfBasic: 31250,
-        employeeContribution: 3750,
-        employerContribution: 2501,
-        pensionFund: 3125,
-        epf: 625,
-        edli: 45,
-        adminCharges: 38,
-        totalEmployer: 2626,
-        totalContribution: 6376,
-        pfAccountNumber: 'KA/BLR/0012345/001'
-      },
-      {
-        id: 'PF-002',
-        employeeId: 'EMP002',
-        employeeName: 'Priya Sharma',
-        designation: 'Quality Control Supervisor',
-        department: 'Quality',
-        uan: 'UAN101234567891',
-        basicSalary: 22917,
-        pfBasic: 22917,
-        employeeContribution: 2750,
-        employerContribution: 1834,
-        pensionFund: 2292,
-        epf: 458,
-        edli: 33,
-        adminCharges: 28,
-        totalEmployer: 1923,
-        totalContribution: 4673,
-        pfAccountNumber: 'KA/BLR/0012345/002'
-      },
-      {
-        id: 'PF-003',
-        employeeId: 'EMP003',
-        employeeName: 'Amit Patel',
-        designation: 'Production Operator',
-        department: 'Production',
-        uan: 'UAN101234567892',
-        basicSalary: 14583,
-        pfBasic: 14583,
-        employeeContribution: 1750,
-        employerContribution: 1167,
-        pensionFund: 1458,
-        epf: 292,
-        edli: 21,
-        adminCharges: 18,
-        totalEmployer: 1225,
-        totalContribution: 2975,
-        pfAccountNumber: 'KA/BLR/0012345/003'
-      },
-      {
-        id: 'PF-004',
-        employeeId: 'EMP004',
-        employeeName: 'Neha Singh',
-        designation: 'Maintenance Engineer',
-        department: 'Maintenance',
-        uan: 'UAN101234567893',
-        basicSalary: 21667,
-        pfBasic: 21667,
-        employeeContribution: 2600,
-        employerContribution: 1734,
-        pensionFund: 2167,
-        epf: 433,
-        edli: 31,
-        adminCharges: 26,
-        totalEmployer: 1817,
-        totalContribution: 4417,
-        pfAccountNumber: 'KA/BLR/0012345/004'
-      },
-      {
-        id: 'PF-005',
-        employeeId: 'EMP005',
-        employeeName: 'Vikram Desai',
-        designation: 'Logistics Coordinator',
-        department: 'Logistics',
-        uan: 'UAN101234567894',
-        basicSalary: 20000,
-        pfBasic: 20000,
-        employeeContribution: 2400,
-        employerContribution: 1600,
-        pensionFund: 2000,
-        epf: 400,
-        edli: 29,
-        adminCharges: 24,
-        totalEmployer: 1677,
-        totalContribution: 4077,
-        pfAccountNumber: 'KA/BLR/0012345/005'
-      },
-      {
-        id: 'PF-006',
-        employeeId: 'EMP006',
-        employeeName: 'Kavita Mehta',
-        designation: 'HR Executive',
-        department: 'HR',
-        uan: 'UAN101234567895',
-        basicSalary: 20833,
-        pfBasic: 20833,
-        employeeContribution: 2500,
-        employerContribution: 1667,
-        pensionFund: 2083,
-        epf: 417,
-        edli: 30,
-        adminCharges: 25,
-        totalEmployer: 1755,
-        totalContribution: 4255,
-        pfAccountNumber: 'KA/BLR/0012345/006'
-      }
-    ]
+    records,
   };
-
-  const [records, setRows] = useState<EmployeePFContribution[]>(mockPFMonth.records);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -755,6 +642,14 @@ export default function PFContributionPage() {
           </button>
         </div>
       </div>
+
+      {records.length === 0 && !isLoading && (
+        <EmptyState
+          icon={Wallet}
+          title="No PF contribution records"
+          description="No Provident Fund contribution data is available for this period yet."
+        />
+      )}
 
       <div className="space-y-2">
         {filteredRecords.map(record => (

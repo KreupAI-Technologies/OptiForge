@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, Calendar, MapPin, TrendingUp, TrendingDown, Filter, Download, Receipt, AlertCircle } from 'lucide-react';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface Transaction {
   id: string;
@@ -230,6 +231,14 @@ export default function Page() {
       </div>
 
       {/* Transactions List */}
+      {filteredTransactions.length === 0 && !isLoading && (
+        <EmptyState
+          icon={Receipt}
+          title={mockTransactions.length === 0 ? 'No transactions yet' : 'No matching transactions'}
+          description={mockTransactions.length === 0 ? 'Card transactions will appear here once recorded.' : 'Try adjusting the status, card type, or category filters.'}
+        />
+      )}
+
       <div className="space-y-2">
         {filteredTransactions.map(transaction => (
           <div key={transaction.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">

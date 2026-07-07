@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { UserPlus, Users, CheckCircle, Clock, XCircle, Calendar, Briefcase, Mail, Phone, TrendingUp, AlertCircle, X, Eye, ThumbsUp, ThumbsDown, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface RehireCandidate {
   id: string;
@@ -399,11 +400,13 @@ export default function Page() {
         </div>
       </div>
 
-      {filteredCandidates.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
-          <UserPlus className="h-12 w-12 text-gray-400 mb-2" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No rehire requests found</h3>
-          <p className="text-gray-600">No requests match the selected filter</p>
+      {filteredCandidates.length === 0 && !isLoading && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
+          <EmptyState
+            icon={UserPlus}
+            title={rows.length === 0 ? 'No rehire requests yet' : 'No rehire requests found'}
+            description={rows.length === 0 ? 'Rehire requests will appear here once submitted.' : 'No requests match the selected filter.'}
+          />
         </div>
       )}
 

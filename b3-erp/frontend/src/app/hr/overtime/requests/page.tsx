@@ -5,6 +5,7 @@ import { Clock, Plus, Search, Filter, Calendar, AlertCircle, CheckCircle, XCircl
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
 import { NewOvertimeRequestModal } from '@/components/hr/NewOvertimeRequestModal';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface OvertimeRequest {
@@ -331,7 +332,16 @@ export default function OvertimeRequestsPage() {
       </div>
 
       {/* Requests Table */}
-      <DataTable data={filteredData} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <EmptyState
+          icon={Clock}
+          title="No overtime requests yet"
+          description="No overtime requests have been recorded. Create a new request to get started."
+          action={{ label: 'New Request', icon: Plus, onClick: () => setShowRequestModal(true) }}
+        />
+      ) : (
+        <DataTable data={filteredData} columns={columns} />
+      )}
 
       {/* New Overtime Request Modal */}
       <NewOvertimeRequestModal

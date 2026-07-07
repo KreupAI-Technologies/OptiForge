@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { OnboardingService } from '@/services/onboarding.service';
 import { OffboardingService } from '@/services/offboarding.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 // Tab types
 type MainTab = 'onboarding' | 'probation' | 'offboarding';
@@ -152,6 +153,9 @@ function OnboardingDashboard() {
           <h3 className="text-lg font-semibold text-gray-900">Recent Onboardings</h3>
         </div>
         <div className="divide-y">
+          {recentOnboardings.length === 0 && (
+            <EmptyState icon={UserPlus} size="sm" title="No recent onboardings" description="New onboarding processes will appear here." />
+          )}
           {recentOnboardings.map((emp) => (
             <div key={emp.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
               <div className="flex items-center gap-4">
@@ -277,6 +281,13 @@ function PreJoiningSection() {
                 </tr>
               </thead>
               <tbody className="divide-y">
+                {offers.length === 0 && (
+                  <tr>
+                    <td colSpan={6}>
+                      <EmptyState icon={Send} size="sm" title="No offers yet" description="Created offers will appear here." />
+                    </td>
+                  </tr>
+                )}
                 {offers.map((offer) => (
                   <tr key={offer.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{offer.candidate}</td>
@@ -708,6 +719,9 @@ function ProbationDashboard() {
           <h3 className="text-lg font-semibold">Probation Ending Soon</h3>
         </div>
         <div className="divide-y">
+          {endingSoon.length === 0 && (
+            <EmptyState icon={Timer} size="sm" title="No probations ending soon" description="Probation periods ending within 30 days will appear here." />
+          )}
           {endingSoon.map((emp, idx) => (
             <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50">
               <div>
@@ -939,6 +953,9 @@ function OffboardingDashboard() {
           <h3 className="text-lg font-semibold">Recent Resignations</h3>
         </div>
         <div className="divide-y">
+          {recentResignations.length === 0 && (
+            <EmptyState icon={UserMinus} size="sm" title="No recent resignations" description="Submitted resignations will appear here." />
+          )}
           {recentResignations.map((emp, idx) => (
             <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50">
               <div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { History, MapPin, Calendar, IndianRupee, Plane, TrendingUp, Download, AlertCircle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface TravelHistory {
@@ -65,63 +66,14 @@ export default function Page() {
     };
   }, []);
 
-  const mockHistory: TravelHistory[] = rows.length ? rows : [
-    {
-      id: '1',
-      tripNumber: 'TR-2024-045',
-      employeeName: 'Rajesh Kumar',
-      department: 'Sales',
-      travelType: 'domestic',
-      purpose: 'Client Meeting - Mahindra',
-      destination: 'Mumbai, Maharashtra',
-      startDate: '2024-09-15',
-      endDate: '2024-09-17',
-      duration: 3,
-      totalCost: 28500,
-      advanceTaken: 20000,
-      expensesClaimed: 28500,
-      status: 'completed'
-    },
-    {
-      id: '2',
-      tripNumber: 'TR-2024-052',
-      employeeName: 'Priya Sharma',
-      department: 'Engineering',
-      travelType: 'domestic',
-      purpose: 'Technical Workshop - Bosch',
-      destination: 'Bangalore, Karnataka',
-      startDate: '2024-08-20',
-      endDate: '2024-08-25',
-      duration: 6,
-      totalCost: 42000,
-      advanceTaken: 30000,
-      expensesClaimed: 42000,
-      status: 'completed'
-    },
-    {
-      id: '3',
-      tripNumber: 'TR-2024-061',
-      employeeName: 'Amit Patel',
-      department: 'Quality',
-      travelType: 'international',
-      purpose: 'Quality Audit - Thailand Plant',
-      destination: 'Bangkok, Thailand',
-      startDate: '2024-07-10',
-      endDate: '2024-07-17',
-      duration: 8,
-      totalCost: 165000,
-      advanceTaken: 100000,
-      expensesClaimed: 0,
-      status: 'expenses_pending'
-    }
-  ];
+  const mockHistory: TravelHistory[] = rows;
 
   const stats = {
     totalTrips: mockHistory.length,
     domesticTrips: mockHistory.filter(t => t.travelType === 'domestic').length,
     internationalTrips: mockHistory.filter(t => t.travelType === 'international').length,
     totalSpent: mockHistory.reduce((sum, t) => sum + t.totalCost, 0),
-    avgTripCost: Math.round(mockHistory.reduce((sum, t) => sum + t.totalCost, 0) / mockHistory.length)
+    avgTripCost: mockHistory.length ? Math.round(mockHistory.reduce((sum, t) => sum + t.totalCost, 0) / mockHistory.length) : 0
   };
 
   return (
@@ -214,6 +166,15 @@ export default function Page() {
         </div>
       </div>
 
+      {rows.length === 0 && !isLoading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <EmptyState
+            icon={History}
+            title="No travel history found"
+            description="No completed trips are on record yet. Past travel records will appear here once trips are completed."
+          />
+        </div>
+      ) : (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -272,6 +233,7 @@ export default function Page() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

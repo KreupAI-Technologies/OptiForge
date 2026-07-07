@@ -5,6 +5,7 @@ import { Users, Search, Filter, Download, CheckCircle, Mail, Phone, Calendar, Bu
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { EmployeeService } from '@/services/employee.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface ActiveEmployee {
   id: string;
@@ -241,7 +242,17 @@ export default function ActiveEmployeesPage() {
         )}
       </div>
 
-      <DataTable data={filteredData} columns={columns} />
+      {filteredData.length === 0 && !isLoading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <EmptyState
+            icon={Users}
+            title={rows.length === 0 ? 'No active employees yet' : 'No employees found'}
+            description={rows.length === 0 ? 'Active employees will appear here once added.' : 'Try adjusting your search or filters.'}
+          />
+        </div>
+      ) : (
+        <DataTable data={filteredData} columns={columns} />
+      )}
     </div>
   );
 }

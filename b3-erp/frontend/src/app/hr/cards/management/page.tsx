@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, Users, CheckCircle, AlertTriangle, XCircle, Calendar, IndianRupee, AlertCircle } from 'lucide-react';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface Card {
   id: string;
@@ -209,6 +210,14 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {filteredCards.length === 0 && !isLoading && (
+        <EmptyState
+          icon={CreditCard}
+          title={mockCards.length === 0 ? 'No cards found' : 'No matching cards'}
+          description={mockCards.length === 0 ? 'Corporate cards will appear here once issued.' : 'Try adjusting the type or status filters.'}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {filteredCards.map(card => (

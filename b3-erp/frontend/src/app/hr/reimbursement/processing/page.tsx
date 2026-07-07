@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { RefreshCw, User, Wallet, Clock, CheckCircle, XCircle, AlertCircle, Eye, MessageSquare, Download } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
@@ -74,64 +75,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: ProcessingReimbursement[] = rows.length ? rows : [
-    {
-      id: '1', employeeCode: 'KMF-2024-101', employeeName: 'Rajesh Kumar', department: 'Manufacturing',
-      designation: 'Production Manager', claimNumber: 'REIMB-2024-201', claimType: 'Medical',
-      amount: 12500, submittedDate: '2024-10-05', approvedDate: '2024-10-08', approvedBy: 'Suresh Iyer',
-      description: 'Medical expenses - diagnostic tests', documentsCount: 3,
-      processingStage: 'verification', processingDays: 3, expectedPaymentDate: '2024-10-25'
-    },
-    {
-      id: '2', employeeCode: 'KMF-2024-102', employeeName: 'Priya Sharma', department: 'Human Resources',
-      designation: 'HR Manager', claimNumber: 'REIMB-2024-202', claimType: 'Education',
-      amount: 18000, submittedDate: '2024-10-03', approvedDate: '2024-10-06', approvedBy: 'Madhav Singh',
-      description: 'Child education - school fees', documentsCount: 2,
-      processingStage: 'accounts_review', processingDays: 5, expectedPaymentDate: '2024-10-25'
-    },
-    {
-      id: '3', employeeCode: 'KMF-2024-103', employeeName: 'Amit Singh', department: 'Warehouse & Logistics',
-      designation: 'Warehouse Manager', claimNumber: 'REIMB-2024-203', claimType: 'Conveyance',
-      amount: 2800, submittedDate: '2024-10-01', approvedDate: '2024-10-04', approvedBy: 'Ramesh Nair',
-      description: 'Monthly conveyance allowance', documentsCount: 1,
-      processingStage: 'payment_queue', processingDays: 7, expectedPaymentDate: '2024-10-25'
-    },
-    {
-      id: '4', employeeCode: 'KMF-2024-104', employeeName: 'Meena Rao', department: 'Quality Assurance',
-      designation: 'QA Manager', claimNumber: 'REIMB-2024-204', claimType: 'Mobile',
-      amount: 1400, submittedDate: '2024-09-28', approvedDate: '2024-10-01', approvedBy: 'Kavita Sharma',
-      description: 'Mobile bill reimbursement', documentsCount: 1,
-      processingStage: 'bank_processing', processingDays: 10, expectedPaymentDate: '2024-10-25'
-    },
-    {
-      id: '5', employeeCode: 'KMF-2024-105', employeeName: 'Suresh Patel', department: 'Maintenance',
-      designation: 'Maintenance Head', claimNumber: 'REIMB-2024-205', claimType: 'Uniform',
-      amount: 3200, submittedDate: '2024-10-02', approvedDate: '2024-10-05', approvedBy: 'Deepak Joshi',
-      description: 'Safety gear and uniform', documentsCount: 2,
-      processingStage: 'verification', processingDays: 6, expectedPaymentDate: '2024-10-25'
-    },
-    {
-      id: '6', employeeCode: 'KMF-2024-106', employeeName: 'Anil Verma', department: 'IT',
-      designation: 'IT Manager', claimNumber: 'REIMB-2024-206', claimType: 'Internet',
-      amount: 1900, submittedDate: '2024-10-04', approvedDate: '2024-10-07', approvedBy: 'Suresh Iyer',
-      description: 'Home internet reimbursement', documentsCount: 1,
-      processingStage: 'accounts_review', processingDays: 4, expectedPaymentDate: '2024-10-25'
-    },
-    {
-      id: '7', employeeCode: 'KMF-2024-107', employeeName: 'Kavita Nair', department: 'Sales',
-      designation: 'Sales Manager', claimNumber: 'REIMB-2024-207', claimType: 'Relocation',
-      amount: 28000, submittedDate: '2024-09-25', approvedDate: '2024-09-28', approvedBy: 'Madhav Singh',
-      description: 'Relocation expenses - Pune', documentsCount: 5,
-      processingStage: 'payment_queue', processingDays: 12, expectedPaymentDate: '2024-10-25'
-    },
-    {
-      id: '8', employeeCode: 'KMF-2024-108', employeeName: 'Deepak Joshi', department: 'Finance',
-      designation: 'Accounts Manager', claimNumber: 'REIMB-2024-208', claimType: 'Medical',
-      amount: 9500, submittedDate: '2024-10-06', approvedDate: '2024-10-09', approvedBy: 'Ramesh Nair',
-      description: 'Medical consultation and medicines', documentsCount: 4,
-      processingStage: 'verification', processingDays: 2, expectedPaymentDate: '2024-10-25'
-    }
-  ];
+  const mockReimbursements: ProcessingReimbursement[] = rows;
 
   const filteredReimbursements = useMemo(() => {
     return mockReimbursements.filter(reimb => {
@@ -454,7 +398,15 @@ export default function Page() {
       </div>
 
       {/* Reimbursements Table */}
-      <DataTable data={filteredReimbursements} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <EmptyState
+          icon={RefreshCw}
+          title="No processing reimbursements found"
+          description="There are no reimbursement claims currently in processing."
+        />
+      ) : (
+        <DataTable data={filteredReimbursements} columns={columns} />
+      )}
 
       {/* Processing Stages Info */}
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-3">

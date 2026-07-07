@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, XCircle, Eye, TrendingDown, Users, MapPin, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface SafetyIncident {
@@ -76,70 +77,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockIncidents: SafetyIncident[] = rows.length ? rows : [
-    {
-      id: '1', incidentNumber: 'INC-2024-101', reportedDate: '2024-10-20', incidentDate: '2024-10-20',
-      incidentTime: '10:30 AM', location: 'Production Floor - Section A', department: 'Manufacturing',
-      severity: 'moderate', type: 'injury', description: 'Machine operator hand injury while operating CNC machine',
-      reportedBy: 'Suresh Patel', employeeInvolved: 'Ramesh Kumar (KMF-2024-045)', witnessCount: 2,
-      status: 'resolved', investigator: 'Safety Officer', rootCause: 'Safety guard not properly positioned',
-      daysLost: 3, medicalAttention: true
-    },
-    {
-      id: '2', incidentNumber: 'INC-2024-102', reportedDate: '2024-10-22', incidentDate: '2024-10-22',
-      incidentTime: '02:15 PM', location: 'Warehouse - Loading Bay', department: 'Warehouse & Logistics',
-      severity: 'minor', type: 'near_miss', description: 'Forklift nearly collided with pedestrian',
-      reportedBy: 'Amit Singh', employeeInvolved: 'N/A', witnessCount: 3,
-      status: 'investigating', investigator: 'Safety Officer', daysLost: 0, medicalAttention: false
-    },
-    {
-      id: '3', incidentNumber: 'INC-2024-103', reportedDate: '2024-10-18', incidentDate: '2024-10-18',
-      incidentTime: '09:45 AM', location: 'Quality Lab', department: 'Quality Assurance',
-      severity: 'minor', type: 'chemical_spill', description: 'Small chemical spill during testing',
-      reportedBy: 'Meena Rao', employeeInvolved: 'Lab Technician', witnessCount: 1,
-      status: 'closed', investigator: 'Safety Officer', rootCause: 'Container improperly sealed',
-      daysLost: 0, medicalAttention: false
-    },
-    {
-      id: '4', incidentNumber: 'INC-2024-104', reportedDate: '2024-10-25', incidentDate: '2024-10-25',
-      incidentTime: '11:00 AM', location: 'Maintenance Workshop', department: 'Maintenance',
-      severity: 'serious', type: 'injury', description: 'Technician fell from ladder during maintenance work',
-      reportedBy: 'Suresh Patel', employeeInvolved: 'Anil Patil (KMF-2024-078)', witnessCount: 2,
-      status: 'action_pending', investigator: 'Safety Officer', rootCause: 'Ladder not properly secured',
-      daysLost: 7, medicalAttention: true
-    },
-    {
-      id: '5', incidentNumber: 'INC-2024-105', reportedDate: '2024-10-15', incidentDate: '2024-10-15',
-      incidentTime: '03:30 PM', location: 'Assembly Line 2', department: 'Manufacturing',
-      severity: 'minor', type: 'property_damage', description: 'Conveyor belt malfunction causing product damage',
-      reportedBy: 'Rajesh Kumar', employeeInvolved: 'N/A', witnessCount: 4,
-      status: 'closed', investigator: 'Maintenance Head', rootCause: 'Worn out belt, overdue maintenance',
-      daysLost: 0, medicalAttention: false
-    },
-    {
-      id: '6', incidentNumber: 'INC-2024-106', reportedDate: '2024-10-23', incidentDate: '2024-10-23',
-      incidentTime: '01:00 PM', location: 'Cafeteria', department: 'Administration',
-      severity: 'minor', type: 'injury', description: 'Employee slipped on wet floor',
-      reportedBy: 'Admin Staff', employeeInvolved: 'Priya Desai (KMF-2024-092)', witnessCount: 5,
-      status: 'resolved', investigator: 'Safety Officer', rootCause: 'Warning sign not placed after mopping',
-      daysLost: 1, medicalAttention: true
-    },
-    {
-      id: '7', incidentNumber: 'INC-2024-107', reportedDate: '2024-10-26', incidentDate: '2024-10-26',
-      incidentTime: '08:15 AM', location: 'Electrical Panel Room', department: 'Maintenance',
-      severity: 'critical', type: 'fire', description: 'Electrical panel short circuit causing small fire',
-      reportedBy: 'Security', employeeInvolved: 'N/A', witnessCount: 1,
-      status: 'investigating', investigator: 'Fire Safety Expert', daysLost: 0, medicalAttention: false
-    },
-    {
-      id: '8', incidentNumber: 'INC-2024-108', reportedDate: '2024-10-21', incidentDate: '2024-10-21',
-      incidentTime: '04:45 PM', location: 'Parking Area', department: 'Administration',
-      severity: 'minor', type: 'near_miss', description: 'Vehicle near collision in parking lot',
-      reportedBy: 'Security', employeeInvolved: 'N/A', witnessCount: 2,
-      status: 'closed', investigator: 'Security Head', rootCause: 'Inadequate signage in parking area',
-      daysLost: 0, medicalAttention: false
-    }
-  ];
+  const mockIncidents: SafetyIncident[] = rows;
 
   const filteredIncidents = useMemo(() => {
     return mockIncidents.filter(incident => {
@@ -406,7 +344,15 @@ export default function Page() {
       </div>
 
       {/* Incidents Table */}
-      <DataTable data={filteredIncidents} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <EmptyState
+          icon={AlertTriangle}
+          title="No safety incidents found"
+          description="There are no workplace safety incidents recorded yet."
+        />
+      ) : (
+        <DataTable data={filteredIncidents} columns={columns} />
+      )}
 
       {/* Severity Classification */}
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-3">

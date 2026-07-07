@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Receipt, Plus, Eye, CheckCircle, XCircle, Clock, User, Wallet, Calendar, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
@@ -78,119 +79,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockExpenses: TravelExpense[] = rows.length ? rows : [
-    {
-      id: '1',
-      expenseNumber: 'EXP-2025-089',
-      employeeName: 'Rajesh Kumar',
-      employeeCode: 'EMP456',
-      department: 'Sales',
-      travelRequestId: 'TR-2025-001',
-      destination: 'Bangalore, Karnataka',
-      travelDates: '10-Nov to 15-Nov 2025',
-      submittedDate: '2025-11-16',
-      totalExpenses: 28500,
-      advanceAmount: 15000,
-      cardExpenses: 12500,
-      netPayable: 1000,
-      status: 'pending',
-      itemsCount: 12,
-      approver: 'Suresh Iyer'
-    },
-    {
-      id: '2',
-      expenseNumber: 'EXP-2025-090',
-      employeeName: 'Priya Sharma',
-      employeeCode: 'EMP789',
-      department: 'Engineering',
-      travelRequestId: 'TR-2025-002',
-      destination: 'Mumbai, Maharashtra',
-      travelDates: '05-Nov to 08-Nov 2025',
-      submittedDate: '2025-11-09',
-      totalExpenses: 32000,
-      advanceAmount: 20000,
-      cardExpenses: 8500,
-      netPayable: 3500,
-      status: 'approved',
-      itemsCount: 10,
-      approver: 'Madhav Singh',
-      approvedDate: '2025-11-10'
-    },
-    {
-      id: '3',
-      expenseNumber: 'EXP-2025-091',
-      employeeName: 'Amit Singh',
-      employeeCode: 'EMP234',
-      department: 'Operations',
-      travelRequestId: 'TR-2025-003',
-      destination: 'Delhi, NCR',
-      travelDates: '12-Nov to 14-Nov 2025',
-      submittedDate: '2025-11-15',
-      totalExpenses: 18500,
-      advanceAmount: 10000,
-      cardExpenses: 7200,
-      netPayable: 1300,
-      status: 'rejected',
-      itemsCount: 8,
-      approver: 'Ramesh Nair',
-      approvedDate: '2025-11-16'
-    },
-    {
-      id: '4',
-      expenseNumber: 'EXP-2025-092',
-      employeeName: 'Meena Rao',
-      employeeCode: 'EMP567',
-      department: 'Quality',
-      travelRequestId: 'TR-2025-004',
-      destination: 'Pune, Maharashtra',
-      travelDates: '08-Nov to 10-Nov 2025',
-      submittedDate: '2025-11-11',
-      totalExpenses: 22000,
-      advanceAmount: 12000,
-      cardExpenses: 9500,
-      netPayable: 500,
-      status: 'paid',
-      itemsCount: 9,
-      approver: 'Kavita Sharma',
-      approvedDate: '2025-11-12',
-      paidDate: '2025-11-25'
-    },
-    {
-      id: '5',
-      expenseNumber: 'EXP-2025-093',
-      employeeName: 'Suresh Patel',
-      employeeCode: 'EMP890',
-      department: 'Maintenance',
-      travelRequestId: 'TR-2025-005',
-      destination: 'Chennai, Tamil Nadu',
-      travelDates: '15-Nov to 18-Nov 2025',
-      submittedDate: '',
-      totalExpenses: 15600,
-      advanceAmount: 8000,
-      cardExpenses: 0,
-      netPayable: 7600,
-      status: 'draft',
-      itemsCount: 6
-    },
-    {
-      id: '6',
-      expenseNumber: 'EXP-2025-094',
-      employeeName: 'Kavita Nair',
-      employeeCode: 'EMP345',
-      department: 'Marketing',
-      travelRequestId: 'TR-2025-006',
-      destination: 'Kolkata, West Bengal',
-      travelDates: '20-Nov to 22-Nov 2025',
-      submittedDate: '2025-11-23',
-      totalExpenses: 19800,
-      advanceAmount: 10000,
-      cardExpenses: 8200,
-      netPayable: 1600,
-      status: 'pending',
-      itemsCount: 7,
-      approver: 'Deepak Joshi'
-    }
-  ];
+  const mockExpenses: TravelExpense[] = rows;
 
   const filteredExpenses = useMemo(() => {
     return mockExpenses.filter(exp => {
@@ -198,7 +87,7 @@ export default function Page() {
       const matchesDept = selectedDepartment === 'all' || exp.department === selectedDepartment;
       return matchesStatus && matchesDept;
     });
-  }, [selectedStatus, selectedDepartment]);
+  }, [selectedStatus, selectedDepartment, rows]);
 
   const stats = {
     totalExpenses: mockExpenses.length,
@@ -467,7 +356,18 @@ export default function Page() {
       </div>
 
       {/* Expenses Table */}
-      <DataTable data={filteredExpenses} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <EmptyState
+            icon={Receipt}
+            title="No travel expenses found"
+            description="No travel expense claims have been submitted yet. Submit a new expense to get started."
+            action={{ label: 'Submit New Expense', onClick: handleNewExpense, icon: Plus }}
+          />
+        </div>
+      ) : (
+        <DataTable data={filteredExpenses} columns={columns} />
+      )}
 
       {/* Info Box */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-3">

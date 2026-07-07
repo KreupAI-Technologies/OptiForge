@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Check, X, AlertCircle, Search, Filter, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface OvertimeApproval {
@@ -71,57 +72,7 @@ export default function OTApprovalPage() {
     };
   }, []);
 
-  const mockApprovals: OvertimeApproval[] = rows.length ? rows : [
-    {
-      id: '1', requestId: 'OT001', employeeCode: 'KMF2020001', employeeName: 'Rajesh Kumar',
-      department: 'Production', designation: 'Manager', date: '2024-11-20',
-      shiftType: 'General Day Shift', regularHours: 8, overtimeHours: 3,
-      reason: 'Urgent production target completion', requestDate: '2024-11-19',
-      calculatedAmount: 750, status: 'pending'
-    },
-    {
-      id: '2', requestId: 'OT003', employeeCode: 'KMF2021003', employeeName: 'Arun Patel',
-      department: 'IT', designation: 'Sr. Engineer', date: '2024-11-21',
-      shiftType: 'Flexible Shift', regularHours: 9, overtimeHours: 4,
-      reason: 'Server maintenance and upgrade', requestDate: '2024-11-20',
-      calculatedAmount: 1200, status: 'pending'
-    },
-    {
-      id: '3', requestId: 'OT006', employeeCode: 'KMF2018006', employeeName: 'Suresh Babu',
-      department: 'Logistics', designation: 'Manager', date: '2024-11-22',
-      shiftType: 'Evening Shift', regularHours: 8, overtimeHours: 3,
-      reason: 'Critical shipment coordination', requestDate: '2024-11-21',
-      calculatedAmount: 900, status: 'pending'
-    },
-    {
-      id: '4', requestId: 'OT008', employeeCode: 'KMF2021008', employeeName: 'Kavita Desai',
-      department: 'HR', designation: 'Executive', date: '2024-11-23',
-      shiftType: 'General Day Shift', regularHours: 8, overtimeHours: 2,
-      reason: 'Recruitment drive support', requestDate: '2024-11-22',
-      calculatedAmount: 500, status: 'pending'
-    },
-    {
-      id: '5', requestId: 'OT009', employeeCode: 'KMF2019008', employeeName: 'Deepak Sharma',
-      department: 'Production', designation: 'Supervisor', date: '2024-11-24',
-      shiftType: 'Night Shift', regularHours: 8, overtimeHours: 2.5,
-      reason: 'Equipment installation supervision', requestDate: '2024-11-23',
-      calculatedAmount: 875, status: 'pending'
-    },
-    {
-      id: '6', requestId: 'OT010', employeeCode: 'KMF2020009', employeeName: 'Lakshmi Iyer',
-      department: 'Quality', designation: 'Inspector', date: '2024-11-24',
-      shiftType: 'Morning Shift', regularHours: 8, overtimeHours: 1.5,
-      reason: 'Final product quality check', requestDate: '2024-11-23',
-      calculatedAmount: 450, status: 'pending'
-    },
-    {
-      id: '7', requestId: 'OT011', employeeCode: 'KMF2022010', employeeName: 'Amit Verma',
-      department: 'Finance', designation: 'Sr. Accountant', date: '2024-11-25',
-      shiftType: 'General Day Shift', regularHours: 8, overtimeHours: 3,
-      reason: 'Audit preparation', requestDate: '2024-11-24',
-      calculatedAmount: 900, status: 'pending'
-    }
-  ];
+  const mockApprovals: OvertimeApproval[] = rows;
 
   const filteredData = useMemo(() => {
     return mockApprovals.filter(request => {
@@ -368,7 +319,15 @@ export default function OTApprovalPage() {
         <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
           <h3 className="text-lg font-semibold text-gray-900">Pending Requests ({filteredData.length})</h3>
         </div>
-        <DataTable data={filteredData} columns={columns} />
+        {rows.length === 0 && !isLoading ? (
+          <EmptyState
+            icon={CheckCircle}
+            title="No pending overtime approvals"
+            description="There are no overtime requests awaiting your approval right now."
+          />
+        ) : (
+          <DataTable data={filteredData} columns={columns} />
+        )}
       </div>
 
       {/* Approval Modal */}

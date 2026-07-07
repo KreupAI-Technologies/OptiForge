@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plane, MapPin, Calendar, IndianRupee, Users, Clock, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
@@ -304,9 +305,18 @@ export default function Page() {
         ))}
       </div>
 
-      {filteredRequests.length === 0 && (
+      {requests.length === 0 && !isLoading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <EmptyState
+            icon={Plane}
+            title="No travel requests found"
+            description="No business travel requests have been submitted yet. Create a new request to get started."
+            action={{ label: 'New Request', onClick: () => setShowAddModal(true) }}
+          />
+        </div>
+      ) : filteredRequests.length === 0 && !isLoading && (
         <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
-          <Plane className="h-12 w-12 text-gray-400 mb-2" />
+          <Plane className="h-12 w-12 text-gray-400 mb-2 mx-auto" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No travel requests found</h3>
           <p className="text-gray-600">No requests match the selected filter</p>
         </div>

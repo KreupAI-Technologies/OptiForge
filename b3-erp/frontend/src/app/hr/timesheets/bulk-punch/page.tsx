@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Users, Save, Download, Upload, Search, Filter, Calendar, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { EmployeeService } from '@/services/employee.service';
 import { HrPagesService } from '@/services/hr-pages.service';
 
@@ -191,8 +192,10 @@ export default function BulkPunchPage() {
   };
 
   const handleImport = () => {
-    // TODO: Import from Excel/CSV
-    alert('Import functionality coming soon...');
+    // NOTE: Bulk import from Excel/CSV is not yet implemented on the backend.
+    // The data view and per-row/bulk punch entry + save are fully wired to the
+    // live employees and attendance endpoints; only file import remains stubbed.
+    alert('Bulk import from Excel/CSV is not yet available. Please enter punch data directly in the table below and use "Save All Changes".');
   };
 
   return (
@@ -417,6 +420,17 @@ export default function BulkPunchPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {filteredData.length === 0 && !isLoading && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8">
+                    <EmptyState
+                      icon={Users}
+                      title="No employees found"
+                      description="No employees match the current filters, or none are available to record punches for."
+                    />
+                  </td>
+                </tr>
+              )}
               {filteredData.map((emp) => (
                 <tr key={emp.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, User, Wallet, Calendar, TrendingUp, Download, Eye, Search, XCircle, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
@@ -75,78 +76,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: PaidReimbursement[] = rows.length ? rows : [
-    {
-      id: '1', employeeCode: 'KMF-2024-101', employeeName: 'Rajesh Kumar', department: 'Manufacturing',
-      designation: 'Production Manager', claimNumber: 'REIMB-2024-101', claimType: 'Medical',
-      amount: 14500, submittedDate: '2024-08-10', approvedDate: '2024-08-15', paidDate: '2024-08-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-001',
-      description: 'Medical expenses - hospitalization', fiscalYear: '2024-25', quarter: 'Q2'
-    },
-    {
-      id: '2', employeeCode: 'KMF-2024-102', employeeName: 'Priya Sharma', department: 'Human Resources',
-      designation: 'HR Manager', claimNumber: 'REIMB-2024-102', claimType: 'Education',
-      amount: 20000, submittedDate: '2024-07-05', approvedDate: '2024-07-10', paidDate: '2024-07-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-002',
-      description: 'Child education - school fees', fiscalYear: '2024-25', quarter: 'Q1'
-    },
-    {
-      id: '3', employeeCode: 'KMF-2024-103', employeeName: 'Amit Singh', department: 'Warehouse & Logistics',
-      designation: 'Warehouse Manager', claimNumber: 'REIMB-2024-103', claimType: 'Conveyance',
-      amount: 3000, submittedDate: '2024-08-20', approvedDate: '2024-08-22', paidDate: '2024-08-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-003',
-      description: 'Monthly conveyance allowance', fiscalYear: '2024-25', quarter: 'Q2'
-    },
-    {
-      id: '4', employeeCode: 'KMF-2024-104', employeeName: 'Meena Rao', department: 'Quality Assurance',
-      designation: 'QA Manager', claimNumber: 'REIMB-2024-104', claimType: 'Mobile',
-      amount: 1500, submittedDate: '2024-08-18', approvedDate: '2024-08-20', paidDate: '2024-08-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-004',
-      description: 'Mobile bill reimbursement', fiscalYear: '2024-25', quarter: 'Q2'
-    },
-    {
-      id: '5', employeeCode: 'KMF-2024-105', employeeName: 'Suresh Patel', department: 'Maintenance',
-      designation: 'Maintenance Head', claimNumber: 'REIMB-2024-105', claimType: 'Uniform',
-      amount: 4200, submittedDate: '2024-07-12', approvedDate: '2024-07-15', paidDate: '2024-07-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-005',
-      description: 'Safety gear and uniform', fiscalYear: '2024-25', quarter: 'Q1'
-    },
-    {
-      id: '6', employeeCode: 'KMF-2024-106', employeeName: 'Anil Verma', department: 'IT',
-      designation: 'IT Manager', claimNumber: 'REIMB-2024-106', claimType: 'Internet',
-      amount: 2000, submittedDate: '2024-08-01', approvedDate: '2024-08-05', paidDate: '2024-08-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-006',
-      description: 'Home internet reimbursement', fiscalYear: '2024-25', quarter: 'Q2'
-    },
-    {
-      id: '7', employeeCode: 'KMF-2024-107', employeeName: 'Kavita Nair', department: 'Sales',
-      designation: 'Sales Manager', claimNumber: 'REIMB-2024-107', claimType: 'Relocation',
-      amount: 35000, submittedDate: '2024-06-10', approvedDate: '2024-06-15', paidDate: '2024-06-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-007',
-      description: 'Relocation expenses - Mumbai', fiscalYear: '2024-25', quarter: 'Q1'
-    },
-    {
-      id: '8', employeeCode: 'KMF-2024-108', employeeName: 'Deepak Joshi', department: 'Finance',
-      designation: 'Accounts Manager', claimNumber: 'REIMB-2024-108', claimType: 'Medical',
-      amount: 11000, submittedDate: '2024-08-08', approvedDate: '2024-08-12', paidDate: '2024-08-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-008',
-      description: 'Medical consultation and tests', fiscalYear: '2024-25', quarter: 'Q2'
-    },
-    {
-      id: '9', employeeCode: 'KMF-2024-109', employeeName: 'Vikram Reddy', department: 'Production',
-      designation: 'Supervisor', claimNumber: 'REIMB-2024-109', claimType: 'Conveyance',
-      amount: 2800, submittedDate: '2024-07-22', approvedDate: '2024-07-24', paidDate: '2024-07-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-009',
-      description: 'Local travel expenses', fiscalYear: '2024-25', quarter: 'Q1'
-    },
-    {
-      id: '10', employeeCode: 'KMF-2024-110', employeeName: 'Sunita Kapoor', department: 'Quality',
-      designation: 'Quality Engineer', claimNumber: 'REIMB-2024-110', claimType: 'Education',
-      amount: 18000, submittedDate: '2024-08-05', approvedDate: '2024-08-09', paidDate: '2024-08-25',
-      paymentMode: 'bank_transfer', transactionReference: 'TXN-2024-010',
-      description: 'Children school fees', fiscalYear: '2024-25', quarter: 'Q2'
-    }
-  ];
+  const mockReimbursements: PaidReimbursement[] = rows;
 
   const filteredReimbursements = useMemo(() => {
     return mockReimbursements.filter(reimb => {
@@ -460,7 +390,15 @@ export default function Page() {
       </div>
 
       {/* Reimbursements Table */}
-      <DataTable data={filteredReimbursements} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <EmptyState
+          icon={CheckCircle}
+          title="No paid reimbursements found"
+          description="There are no completed reimbursement payments to display yet."
+        />
+      ) : (
+        <DataTable data={filteredReimbursements} columns={columns} />
+      )}
 
       {/* Payment Summary by Type */}
       <div className="mt-6 bg-white border border-gray-200 rounded-lg p-3">

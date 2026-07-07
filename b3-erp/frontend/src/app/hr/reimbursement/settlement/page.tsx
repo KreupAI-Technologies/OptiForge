@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { DollarSign, User, Wallet, Calculator, TrendingDown, AlertCircle, Eye, Download, CheckCircle, XCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
@@ -84,78 +85,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: SettlementReimbursement[] = rows.length ? rows : [
-    {
-      id: '1', employeeCode: 'KMF-2024-101', employeeName: 'Rajesh Kumar', department: 'Manufacturing',
-      designation: 'Production Manager', claimNumber: 'REIMB-2024-401', claimType: 'Medical',
-      originalAmount: 18000, approvedAmount: 15000, rejectedAmount: 3000,
-      rejectionReason: 'Non-reimbursable items - cosmetic treatment',
-      submittedDate: '2024-10-10', reviewedDate: '2024-10-15', reviewedBy: 'Suresh Iyer',
-      description: 'Medical expenses - hospitalization', documentsCount: 4,
-      settlementType: 'partial_approval', netPayable: 15000
-    },
-    {
-      id: '2', employeeCode: 'KMF-2024-102', employeeName: 'Priya Sharma', department: 'Human Resources',
-      designation: 'HR Manager', claimNumber: 'REIMB-2024-402', claimType: 'Education',
-      originalAmount: 25000, approvedAmount: 20000, rejectedAmount: 5000,
-      rejectionReason: 'Exceeds annual limit per child',
-      submittedDate: '2024-10-08', reviewedDate: '2024-10-12', reviewedBy: 'Madhav Singh',
-      description: 'Child education fees', documentsCount: 3,
-      settlementType: 'partial_approval', netPayable: 20000
-    },
-    {
-      id: '3', employeeCode: 'KMF-2024-103', employeeName: 'Amit Singh', department: 'Warehouse & Logistics',
-      designation: 'Warehouse Manager', claimNumber: 'REIMB-2024-403', claimType: 'Conveyance',
-      originalAmount: 3500, approvedAmount: 3000, rejectedAmount: 500,
-      rejectionReason: 'Personal travel expenses excluded',
-      submittedDate: '2024-10-12', reviewedDate: '2024-10-16', reviewedBy: 'Ramesh Nair',
-      description: 'Monthly conveyance', documentsCount: 2,
-      settlementType: 'partial_approval', advanceAmount: 2000, netPayable: 1000
-    },
-    {
-      id: '4', employeeCode: 'KMF-2024-104', employeeName: 'Meena Rao', department: 'Quality Assurance',
-      designation: 'QA Manager', claimNumber: 'REIMB-2024-404', claimType: 'Relocation',
-      originalAmount: 45000, approvedAmount: 45000, rejectedAmount: 0,
-      submittedDate: '2024-10-05', reviewedDate: '2024-10-09', reviewedBy: 'Kavita Sharma',
-      description: 'Relocation expenses - Delhi', documentsCount: 6,
-      settlementType: 'advance_adjustment', advanceAmount: 30000, netPayable: 15000
-    },
-    {
-      id: '5', employeeCode: 'KMF-2024-105', employeeName: 'Suresh Patel', department: 'Maintenance',
-      designation: 'Maintenance Head', claimNumber: 'REIMB-2024-405', claimType: 'Uniform',
-      originalAmount: 5500, approvedAmount: 5000, rejectedAmount: 500,
-      rejectionReason: 'Exceeds annual uniform allowance',
-      submittedDate: '2024-10-14', reviewedDate: '2024-10-18', reviewedBy: 'Deepak Joshi',
-      description: 'Safety gear and uniform', documentsCount: 3,
-      settlementType: 'partial_approval', netPayable: 5000
-    },
-    {
-      id: '6', employeeCode: 'KMF-2024-106', employeeName: 'Anil Verma', department: 'IT',
-      designation: 'IT Manager', claimNumber: 'REIMB-2024-406', claimType: 'Mobile',
-      originalAmount: 2200, approvedAmount: 1500, rejectedAmount: 700,
-      rejectionReason: 'Exceeds monthly mobile limit',
-      submittedDate: '2024-10-16', reviewedDate: '2024-10-19', reviewedBy: 'Suresh Iyer',
-      description: 'Mobile bill reimbursement', documentsCount: 1,
-      settlementType: 'partial_approval', netPayable: 1500
-    },
-    {
-      id: '7', employeeCode: 'KMF-2024-107', employeeName: 'Kavita Nair', department: 'Sales',
-      designation: 'Sales Manager', claimNumber: 'REIMB-2024-407', claimType: 'Medical',
-      originalAmount: 12000, approvedAmount: 12000, rejectedAmount: 0,
-      submittedDate: '2024-10-11', reviewedDate: '2024-10-14', reviewedBy: 'Madhav Singh',
-      description: 'Medical consultation and tests', documentsCount: 4,
-      settlementType: 'full_settlement', netPayable: 12000
-    },
-    {
-      id: '8', employeeCode: 'KMF-2024-108', employeeName: 'Deepak Joshi', department: 'Finance',
-      designation: 'Accounts Manager', claimNumber: 'REIMB-2024-408', claimType: 'Internet',
-      originalAmount: 2500, approvedAmount: 2000, rejectedAmount: 500,
-      rejectionReason: 'Exceeds monthly internet limit',
-      submittedDate: '2024-10-09', reviewedDate: '2024-10-13', reviewedBy: 'Ramesh Nair',
-      description: 'Home internet reimbursement', documentsCount: 1,
-      settlementType: 'partial_approval', netPayable: 2000
-    }
-  ];
+  const mockReimbursements: SettlementReimbursement[] = rows;
 
   const filteredReimbursements = useMemo(() => {
     return mockReimbursements.filter(reimb => {
@@ -475,7 +405,15 @@ export default function Page() {
       </div>
 
       {/* Reimbursements Table */}
-      <DataTable data={filteredReimbursements} columns={columns} />
+      {rows.length === 0 && !isLoading ? (
+        <EmptyState
+          icon={DollarSign}
+          title="No settlements found"
+          description="There are no reimbursement settlements to review yet."
+        />
+      ) : (
+        <DataTable data={filteredReimbursements} columns={columns} />
+      )}
 
       {/* Settlement Analysis */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Receipt, Search, Download, FileText, Users, DollarSign, MapPin } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeePT {
@@ -34,94 +35,22 @@ export default function ProfessionalTaxPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedState, setSelectedState] = useState('all');
 
+  const [records, setRecords] = useState<EmployeePT[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Summary object derived from the real fetched records
   const mockPTMonth: PTMonth = {
     id: 'PT-2025-11',
     monthYear: 'November 2025',
     payPeriod: '01-Nov-2025 to 30-Nov-2025',
-    state: 'Karnataka',
-    employeeCount: 6,
-    totalPTCollected: 1200,
+    state: records[0]?.state ?? 'Karnataka',
+    employeeCount: records.filter(r => r.ptApplicable).length,
+    totalPTCollected: records.reduce((s, r) => s + r.ptAmount, 0),
     dueDate: '2025-12-20',
     status: 'verified',
-    records: [
-      {
-        id: 'PT-001',
-        employeeId: 'EMP001',
-        employeeName: 'Rajesh Kumar',
-        designation: 'Senior Production Manager',
-        department: 'Production',
-        state: 'Karnataka',
-        grossSalary: 49725,
-        ptSlab: '₹30,001 to ₹40,000',
-        ptAmount: 200,
-        ptApplicable: true
-      },
-      {
-        id: 'PT-002',
-        employeeId: 'EMP002',
-        employeeName: 'Priya Sharma',
-        designation: 'Quality Control Supervisor',
-        department: 'Quality',
-        state: 'Karnataka',
-        grossSalary: 35976,
-        ptSlab: '₹30,001 to ₹40,000',
-        ptAmount: 200,
-        ptApplicable: true
-      },
-      {
-        id: 'PT-003',
-        employeeId: 'EMP003',
-        employeeName: 'Amit Patel',
-        designation: 'Production Operator',
-        department: 'Production',
-        state: 'Karnataka',
-        grossSalary: 21874,
-        ptSlab: '₹15,001 to ₹30,000',
-        ptAmount: 200,
-        ptApplicable: true
-      },
-      {
-        id: 'PT-004',
-        employeeId: 'EMP004',
-        employeeName: 'Neha Singh',
-        designation: 'Maintenance Engineer',
-        department: 'Maintenance',
-        state: 'Karnataka',
-        grossSalary: 34101,
-        ptSlab: '₹30,001 to ₹40,000',
-        ptAmount: 200,
-        ptApplicable: true
-      },
-      {
-        id: 'PT-005',
-        employeeId: 'EMP005',
-        employeeName: 'Vikram Desai',
-        designation: 'Logistics Coordinator',
-        department: 'Logistics',
-        state: 'Karnataka',
-        grossSalary: 31600,
-        ptSlab: '₹30,001 to ₹40,000',
-        ptAmount: 200,
-        ptApplicable: true
-      },
-      {
-        id: 'PT-006',
-        employeeId: 'EMP006',
-        employeeName: 'Kavita Mehta',
-        designation: 'HR Executive',
-        department: 'HR',
-        state: 'Karnataka',
-        grossSalary: 32849,
-        ptSlab: '₹30,001 to ₹40,000',
-        ptAmount: 200,
-        ptApplicable: true
-      }
-    ]
+    records,
   };
-
-  const [records, setRecords] = useState<EmployeePT[]>(mockPTMonth.records);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -293,6 +222,14 @@ export default function ProfessionalTaxPage() {
           </button>
         </div>
       </div>
+
+      {records.length === 0 && !isLoading && (
+        <EmptyState
+          icon={Receipt}
+          title="No professional tax records"
+          description="No Professional Tax data is available for this period yet."
+        />
+      )}
 
       <div className="space-y-2">
         {filteredRecords.map(record => (
