@@ -1093,7 +1093,27 @@ class LogisticsManagementService {
       await new Promise(resolve => setTimeout(resolve, 300));
       return mockDashboard;
     }
-    throw new Error('API not implemented');
+    // Backend controller route: @Controller('logistics/management') -> @Get('dashboard')
+    // Returns { summary: {...} } with real Prisma counts.
+    const res = await apiRequest<{ summary?: Record<string, any> }>(
+      '/logistics/management/dashboard'
+    );
+    const s = (res && typeof res === 'object' && res.summary) ? res.summary : {};
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    return {
+      summary: {
+        totalShipments: num(s.totalShipments),
+        pendingShipments: num(s.pendingShipments),
+        inTransitShipments: num(s.inTransitShipments),
+        deliveredThisMonth: num(s.deliveredThisMonth),
+        activeVehicles: num(s.activeVehicles),
+        activeDrivers: num(s.activeDrivers),
+        activeCarriers: num(s.activeCarriers),
+        openExceptions: num(s.openExceptions),
+        todayDispatches: num(s.todayDispatches),
+        pendingGatePasses: num(s.pendingGatePasses),
+      },
+    };
   }
 
   // ============================================
