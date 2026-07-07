@@ -15170,6 +15170,18 @@ model Notification {
   @@map("notifications")
 }
 
+// Read-side model for per-user notification preferences.
+// Table created via prisma/manual/orphan_notifications.sql (additive DDL).
+model NotificationPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
 // ===================================================================
 // Orphan-endpoint tables (generated from prisma/manual/orphan_*.sql).
 // Additive: these back the net-new API endpoints so the Prisma schema

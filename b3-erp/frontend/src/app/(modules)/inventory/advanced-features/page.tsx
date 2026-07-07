@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Warehouse,
   Sparkles,
+  AlertTriangle,
+  DollarSign,
 } from 'lucide-react';
 import {
   DemandPlanning,
@@ -20,11 +22,44 @@ import {
   AutomatedReplenishment,
   MultiWarehouseOptimization,
 } from '@/components/inventory';
+import { inventoryService, StockBalance } from '@/services/InventoryService';
 
 type TabId = 'demand' | 'abc' | 'tasking' | 'barcode' | 'cycle-count' | 'replenishment' | 'multi-warehouse';
 
 export default function InventoryAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<TabId>('demand');
+
+  // Live inventory overview KPIs
+  const [balances, setBalances] = useState<StockBalance[]>([]);
+  const [balLoading, setBalLoading] = useState(true);
+  const [balError, setBalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setBalLoading(true);
+    setBalError(null);
+    inventoryService
+      .getStockBalances()
+      .then((data) => {
+        if (active) setBalances(Array.isArray(data) ? data : []);
+      })
+      .catch((err: unknown) => {
+        if (active) setBalError(err instanceof Error ? err.message : 'Failed to load inventory overview');
+      })
+      .finally(() => {
+        if (active) setBalLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const invStats = {
+    skus: balances.length,
+    totalValue: balances.reduce((sum, b) => sum + (b.stockValue ?? 0), 0),
+    belowReorder: balances.filter((b) => b.belowReorderLevel).length,
+    availableUnits: balances.reduce((sum, b) => sum + (b.availableQuantity ?? 0), 0),
+  };
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -62,6 +97,48 @@ export default function InventoryAdvancedFeaturesPage() {
               <p className="text-sm text-gray-600">WMS-grade inventory management capabilities</p>
             </div>
           </div>
+        </div>
+
+        {/* Live inventory overview KPIs */}
+        <div className="mb-2">
+          {balLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-lg border border-gray-200 animate-pulse" />
+              ))}
+            </div>
+          ) : balError ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm text-amber-700">
+              Unable to load live inventory overview. {balError}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <Package className="w-4 h-4" /> Stocked SKUs
+                </div>
+                <div className="mt-1 text-xl font-bold text-gray-900">{invStats.skus.toLocaleString()}</div>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <DollarSign className="w-4 h-4" /> Stock Value
+                </div>
+                <div className="mt-1 text-xl font-bold text-gray-900">₹{invStats.totalValue.toLocaleString()}</div>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <AlertTriangle className="w-4 h-4" /> Below Reorder
+                </div>
+                <div className="mt-1 text-xl font-bold text-gray-900">{invStats.belowReorder.toLocaleString()}</div>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <TrendingUp className="w-4 h-4" /> Available Units
+                </div>
+                <div className="mt-1 text-xl font-bold text-gray-900">{invStats.availableUnits.toLocaleString()}</div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-2">

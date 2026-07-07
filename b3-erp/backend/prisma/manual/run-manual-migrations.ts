@@ -48,6 +48,7 @@ const MIGRATION_ORDER: string[] = [
     'orphan_common-masters.sql',
     'orphan_it-admin.sql',
     'orphan_workflow.sql',
+    'orphan_notifications.sql',
     // Domain modules (independent orphan tables)
     'orphan_crm.sql',
     'orphan_sales.sql',

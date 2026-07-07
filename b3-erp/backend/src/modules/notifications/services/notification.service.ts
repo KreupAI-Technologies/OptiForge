@@ -128,6 +128,58 @@ export class NotificationService {
     }
 
     /**
+     * Get notification preferences for a user. Returns the stored preferences
+     * blob, or sensible defaults when the user has none yet.
+     */
+    async getPreferences(userId: string): Promise<{ userId: string; preferences: Record<string, any> }> {
+        const row = await this.prisma.notificationPreference.findUnique({
+            where: { userId },
+        });
+
+        return {
+            userId,
+            preferences: (row?.preferences as Record<string, any>) ?? this.defaultPreferences(),
+        };
+    }
+
+    /**
+     * Create or update (upsert) notification preferences for a user.
+     */
+    async savePreferences(
+        userId: string,
+        preferences: Record<string, any>,
+    ): Promise<{ userId: string; preferences: Record<string, any> }> {
+        const row = await this.prisma.notificationPreference.upsert({
+            where: { userId },
+            create: { userId, preferences: (preferences as any) ?? {} },
+            update: { preferences: (preferences as any) ?? {} },
+        });
+
+        return {
+            userId,
+            preferences: row.preferences as Record<string, any>,
+        };
+    }
+
+    private defaultPreferences(): Record<string, any> {
+        return {
+            enabled: true,
+            pushEnabled: false,
+            soundEnabled: true,
+            categories: {
+                alert: { enabled: true, push: true, sound: true },
+                approval: { enabled: true, push: true, sound: true },
+                mention: { enabled: true, push: true, sound: false },
+                update: { enabled: true, push: false, sound: false },
+                reminder: { enabled: true, push: true, sound: true },
+                system: { enabled: true, push: false, sound: false },
+            },
+            modules: {},
+            quietHours: { enabled: false, start: '22:00', end: '08:00' },
+        };
+    }
+
+    /**
      * Delete old read notifications
      */
     async cleanupOldNotifications(daysOld: number = 30): Promise<number> {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Zap, Map, Award, TrendingUp, Link2, DollarSign, BarChart3, Rocket } from 'lucide-react'
+import { Zap, Map, Award, TrendingUp, Link2, DollarSign, BarChart3, Rocket, ShoppingCart, Users } from 'lucide-react'
 
 import {
   QuoteToOrderAutomation,
@@ -12,6 +12,7 @@ import {
   RevenueRecognition,
   PipelineAnalytics
 } from '@/components/sales'
+import { salesAnalyticsService, SalesAnalyticsDashboard } from '@/services/sales-analytics.service'
 
 interface Tab {
   id: string
@@ -22,6 +23,33 @@ interface Tab {
 
 export default function SalesAdvancedFeatures() {
   const [activeTab, setActiveTab] = useState<string>('automation')
+
+  // Live sales overview KPIs
+  const [dashboard, setDashboard] = useState<SalesAnalyticsDashboard | null>(null)
+  const [dashLoading, setDashLoading] = useState(true)
+  const [dashError, setDashError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setDashLoading(true)
+    setDashError(null)
+    salesAnalyticsService
+      .getDashboard()
+      .then((data) => {
+        if (active) setDashboard(data ?? null)
+      })
+      .catch((err) => {
+        if (active) setDashError(err?.message || 'Failed to load sales overview')
+      })
+      .finally(() => {
+        if (active) setDashLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const stats = dashboard?.currentStats
 
   const tabs: Tab[] = [
     { id: 'automation', label: 'Quote-to-Order', icon: Zap, component: QuoteToOrderAutomation },
@@ -61,6 +89,57 @@ export default function SalesAdvancedFeatures() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="bg-white shadow-lg p-3">
+          {dashLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : dashError ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+              Unable to load live sales overview. {dashError}
+            </div>
+          ) : stats ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <DollarSign className="h-4 w-4" /> Revenue
+                </div>
+                <div className="mt-1 text-2xl font-bold text-gray-900">
+                  ₹{(stats.revenue ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <ShoppingCart className="h-4 w-4" /> Orders
+                </div>
+                <div className="mt-1 text-2xl font-bold text-gray-900">
+                  {(stats.orders ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <Users className="h-4 w-4" /> Customers
+                </div>
+                <div className="mt-1 text-2xl font-bold text-gray-900">
+                  {(stats.customers ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                  <TrendingUp className="h-4 w-4" /> Conversion
+                </div>
+                <div className="mt-1 text-2xl font-bold text-gray-900">
+                  {(stats.conversionRate ?? 0).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">No sales overview data available.</div>
+          )}
         </div>
 
         <div className="bg-white shadow-md">

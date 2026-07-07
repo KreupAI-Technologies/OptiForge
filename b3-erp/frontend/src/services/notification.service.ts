@@ -97,6 +97,29 @@ export const userNotificationService = {
       method: 'PATCH',
     });
   },
+
+  /** GET /notifications/preferences/:userId — load saved preferences */
+  async getPreferences<T = Record<string, unknown>>(
+    userId: string,
+  ): Promise<{ userId: string; preferences: T }> {
+    return domainRequest<{ userId: string; preferences: T }>(
+      `/notifications/preferences/${userId}`,
+    );
+  },
+
+  /** PUT /notifications/preferences/:userId — upsert preferences */
+  async savePreferences<T = Record<string, unknown>>(
+    userId: string,
+    preferences: T,
+  ): Promise<{ userId: string; preferences: T }> {
+    return domainRequest<{ userId: string; preferences: T }>(
+      `/notifications/preferences/${userId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ preferences }),
+      },
+    );
+  },
 };
 
 // ============================================================================

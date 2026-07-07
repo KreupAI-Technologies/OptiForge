@@ -2,6 +2,7 @@ import {
     Controller,
     Get,
     Post,
+    Put,
     Patch,
     Delete,
     Param,
@@ -107,6 +108,33 @@ export class NotificationsController {
     @ApiResponse({ status: 200, description: 'All notifications marked as read' })
     markAllAsRead(@Param('userId') userId: string) {
         return this.notificationService.markAllAsRead(userId);
+    }
+
+    /**
+     * GET /notifications/preferences/:userId
+     * Get notification preferences for a user (defaults if none saved yet)
+     */
+    @Get('preferences/:userId')
+    @ApiOperation({ summary: 'Get notification preferences for a user' })
+    @ApiParam({ name: 'userId', description: 'User identifier' })
+    @ApiResponse({ status: 200, description: 'User notification preferences' })
+    getPreferences(@Param('userId') userId: string) {
+        return this.notificationService.getPreferences(userId);
+    }
+
+    /**
+     * PUT /notifications/preferences/:userId
+     * Create or update notification preferences for a user
+     */
+    @Put('preferences/:userId')
+    @ApiOperation({ summary: 'Save (upsert) notification preferences for a user' })
+    @ApiParam({ name: 'userId', description: 'User identifier' })
+    @ApiResponse({ status: 200, description: 'Updated notification preferences' })
+    savePreferences(
+        @Param('userId') userId: string,
+        @Body() body: { preferences: Record<string, any> },
+    ) {
+        return this.notificationService.savePreferences(userId, body?.preferences ?? {});
     }
 
     /**
