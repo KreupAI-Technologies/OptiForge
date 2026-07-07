@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Building2, User, Users, Star, TrendingUp, ChevronLeft, ChevronRight, Download, Upload, Filter, Save, Check, UserPlus, List, X, Linkedin, Calendar, MapPin, Briefcase, Clock, FileSpreadsheet } from 'lucide-react';
 import { ConfirmDialog, useToast } from '@/components/ui';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ContactService, Contact, ContactRole, Department, ContactRoleData } from '@/services/contact.service';
+import { crmService } from '@/services/crm.service';
 
 interface ContactList {
   id: string;
@@ -26,13 +28,6 @@ interface SavedFilter {
     dateTo: string;
   };
 }
-
-const mockContactLists: ContactList[] = [
-  { id: '1', name: 'Marketing Campaign 2025', description: 'Q1 2025 Marketing Campaign', contactCount: 45 },
-  { id: '2', name: 'VIP Contacts', description: 'High-value contacts', contactCount: 12 },
-  { id: '3', name: 'Q4 Follow-ups', description: 'Contacts requiring follow-up', contactCount: 28 },
-  { id: '4', name: 'Trade Show Leads', description: 'Contacts from recent trade show', contactCount: 67 },
-];
 
 const statusColors = {
   active: 'bg-green-100 text-green-700',
@@ -84,6 +79,10 @@ export default function ContactsPage() {
   const [filterName, setFilterName] = useState('');
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddToListDialog, setShowAddToListDialog] = useState(false);
+  const [contactLists, setContactLists] = useState<ContactList[]>([]);
+  const [listsLoading, setListsLoading] = useState(false);
+  const [showCreateListForm, setShowCreateListForm] = useState(false);
+  const [newListName, setNewListName] = useState('');
   const [showRoleDropdown, setShowRoleDropdown] = useState<string | null>(null);
   const [showAddRoleDialog, setShowAddRoleDialog] = useState<string | null>(null);
   const [newRoleData, setNewRoleData] = useState<{ role: ContactRole; department: Department }>({
@@ -440,6 +439,86 @@ export default function ContactsPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Load contact lists from backend when the Add-to-List dialog opens
+  const fetchContactLists = async () => {
+    try {
+      setListsLoading(true);
+      const data = await crmService.contactLists.getAll();
+      const normalized: ContactList[] = (Array.isArray(data) ? data : []).map((l: any) => ({
+        id: String(l.id),
+        name: l.name ?? 'Untitled List',
+        description: l.description ?? '',
+        contactCount: l.contactCount ?? l.contacts?.length ?? 0,
+      }));
+      setContactLists(normalized);
+    } catch (err) {
+      console.error('Failed to fetch contact lists:', err);
+      setContactLists([]);
+    } finally {
+      setListsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showAddToListDialog) {
+      fetchContactLists();
+    }
+  }, [showAddToListDialog]);
+
+  const handleAddSelectedToList = async (list: ContactList) => {
+    const count = selectedContacts.size;
+    try {
+      await crmService.contactLists.update(list.id, {
+        contactIds: Array.from(selectedContacts),
+      });
+      addToast({
+        title: 'Added to List',
+        message: `${count} contact${count > 1 ? 's' : ''} added to "${list.name}".`,
+        variant: 'success'
+      });
+      setShowAddToListDialog(false);
+      setSelectedContacts(new Set());
+    } catch (err) {
+      addToast({
+        title: 'Failed to Add',
+        message: 'Unable to add contacts to the list. Please try again.',
+        variant: 'error'
+      });
+    }
+  };
+
+  const handleCreateList = async () => {
+    if (!newListName.trim()) {
+      addToast({ title: 'Error', message: 'Please enter a list name.', variant: 'error' });
+      return;
+    }
+    try {
+      const created = await crmService.contactLists.create({
+        name: newListName.trim(),
+        contactIds: Array.from(selectedContacts),
+      });
+      addToast({
+        title: 'List Created',
+        message: `List "${newListName.trim()}" created successfully.`,
+        variant: 'success'
+      });
+      setNewListName('');
+      setShowCreateListForm(false);
+      await fetchContactLists();
+      // Auto-assign selected contacts to the new list when possible
+      if (selectedContacts.size > 0 && created?.id) {
+        setShowAddToListDialog(false);
+        setSelectedContacts(new Set());
+      }
+    } catch (err) {
+      addToast({
+        title: 'Failed to Create List',
+        message: 'Unable to create the list. Please try again.',
+        variant: 'error'
+      });
     }
   };
 
@@ -1110,44 +1189,70 @@ export default function ContactsPage() {
               Add {selectedContacts.size} selected contact{selectedContacts.size > 1 ? 's' : ''} to a list
             </p>
             <div className="space-y-2 mb-2 max-h-64 overflow-y-auto">
-              {mockContactLists.map(list => (
-                <button
-                  key={list.id}
-                  onClick={() => {
-                    setShowAddToListDialog(false);
-                    addToast({
-                      title: 'Added to List',
-                      message: `${selectedContacts.size} contact${selectedContacts.size > 1 ? 's' : ''} added to "${list.name}".`,
-                      variant: 'success'
-                    });
-                    setSelectedContacts(new Set());
-                  }}
-                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-gray-900">{list.name}</div>
-                      <div className="text-sm text-gray-500">{list.description}</div>
+              {listsLoading ? (
+                <div className="animate-pulse space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-14 bg-gray-100 rounded-lg" />
+                  ))}
+                </div>
+              ) : contactLists.length === 0 ? (
+                <EmptyState
+                  icon={List}
+                  size="sm"
+                  title="No contact lists yet"
+                  description="Create your first list to organise these contacts."
+                />
+              ) : (
+                contactLists.map(list => (
+                  <button
+                    key={list.id}
+                    onClick={() => handleAddSelectedToList(list)}
+                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">{list.name}</div>
+                        {list.description && (
+                          <div className="text-sm text-gray-500">{list.description}</div>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500">{list.contactCount} contacts</div>
                     </div>
-                    <div className="text-sm text-gray-500">{list.contactCount} contacts</div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))
+              )}
             </div>
-            <button
-              onClick={() => {
-                setShowAddToListDialog(false);
-                addToast({
-                  title: 'Create New List',
-                  message: 'New list creation coming soon.',
-                  variant: 'info'
-                });
-              }}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Create New List</span>
-            </button>
+            {showCreateListForm ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  placeholder="New list name..."
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleCreateList}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => { setShowCreateListForm(false); setNewListName(''); }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCreateListForm(true)}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create New List</span>
+              </button>
+            )}
           </div>
         </div>
       )}

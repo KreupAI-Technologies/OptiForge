@@ -50,10 +50,8 @@ interface WarehouseData {
   id: string;
   name: string;
   location: string;
-  totalItems: number;
   capacity: number;
   used: number;
-  status: 'active' | 'inactive';
 }
 
 interface RecentMovement {
@@ -66,76 +64,6 @@ interface RecentMovement {
   date: string;
   status: 'completed' | 'pending' | 'in-transit';
 }
-
-const mockWarehouses: WarehouseData[] = [
-  {
-    id: '1',
-    name: 'Main Warehouse',
-    location: 'Building A',
-    totalItems: 1245,
-    capacity: 10000,
-    used: 7250,
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: 'FG Storage',
-    location: 'Building B',
-    totalItems: 458,
-    capacity: 5000,
-    used: 2890,
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'Tool Storage',
-    location: 'Building C',
-    totalItems: 312,
-    capacity: 2000,
-    used: 890,
-    status: 'active'
-  }
-];
-
-const mockRecentMovements: RecentMovement[] = [
-  {
-    id: '1',
-    type: 'receipt',
-    itemName: 'Steel Sheet 304',
-    quantity: 100,
-    to: 'Main Warehouse',
-    date: '2025-01-10 14:30',
-    status: 'completed'
-  },
-  {
-    id: '2',
-    type: 'transfer',
-    itemName: 'Kitchen Cabinet',
-    quantity: 25,
-    from: 'FG Storage',
-    to: 'Dispatch Area',
-    date: '2025-01-10 13:15',
-    status: 'in-transit'
-  },
-  {
-    id: '3',
-    type: 'issue',
-    itemName: 'Aluminum Rod',
-    quantity: 50,
-    from: 'Main Warehouse',
-    date: '2025-01-10 12:00',
-    status: 'completed'
-  },
-  {
-    id: '4',
-    type: 'adjustment',
-    itemName: 'Cutting Blade',
-    quantity: -5,
-    from: 'Tool Storage',
-    date: '2025-01-10 11:00',
-    status: 'completed'
-  }
-];
 
 const statusConfig = {
   optimal: { color: 'bg-green-100 text-green-700 border-green-300', icon: CheckCircle },
@@ -159,9 +87,15 @@ export default function InventoryPage() {
   const [filterStatus, setFilterStatus] = useState('all');
 
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseData[]>([]);
+  const [recentMovements, setRecentMovements] = useState<RecentMovement[]>([]);
+  const [loadingStock, setLoadingStock] = useState(true);
+  const [loadingWarehouses, setLoadingWarehouses] = useState(true);
+  const [loadingMovements, setLoadingMovements] = useState(true);
 
   useEffect(() => {
     setIsMounted(true);
+
     inventoryService
       .getStockBalances()
       .then((balances) => {
@@ -192,7 +126,67 @@ export default function InventoryPage() {
           })
         );
       })
-      .catch(() => setStockItems([]));
+      .catch(() => setStockItems([]))
+      .finally(() => setLoadingStock(false));
+
+    // Warehouse capacity utilisation (GET /inventory/warehouses/capacity-utilization)
+    inventoryService
+      .getCapacityUtilization()
+      .then((rows) => {
+        const list = Array.isArray(rows) ? rows : [];
+        setWarehouses(
+          list.map((w: any, i: number) => {
+            const capacity = Number(w.totalCapacity ?? 0);
+            const used = Number(
+              w.currentUtilization ?? Math.max(capacity - Number(w.availableCapacity ?? 0), 0)
+            );
+            return {
+              id: String(w.warehouseId ?? w.id ?? i),
+              name: w.warehouseName ?? w.warehouseCode ?? '—',
+              location: w.warehouseCode ?? '',
+              capacity,
+              used,
+            };
+          })
+        );
+      })
+      .catch(() => setWarehouses([]))
+      .finally(() => setLoadingWarehouses(false));
+
+    // Recent movements from stock entries (GET /inventory/stock-entries)
+    inventoryService
+      .getStockEntries()
+      .then((entries) => {
+        const rows = Array.isArray(entries) ? entries : [];
+        const typeMap: Record<string, RecentMovement['type']> = {
+          Receipt: 'receipt', Receive: 'receipt', In: 'receipt', Inbound: 'receipt', Purchase: 'receipt',
+          'Material Receipt': 'receipt',
+          Issue: 'issue', Out: 'issue', Outbound: 'issue', Sale: 'issue', Dispatch: 'issue',
+          'Material Issue': 'issue',
+          Transfer: 'transfer',
+          Adjustment: 'adjustment', Adjust: 'adjustment',
+        };
+        const statusMap: Record<string, RecentMovement['status']> = {
+          Completed: 'completed', Posted: 'completed', Approved: 'completed', Done: 'completed',
+          Pending: 'pending', Draft: 'pending', Submitted: 'pending',
+          'In Transit': 'in-transit', InTransit: 'in-transit',
+        };
+        const mapped: RecentMovement[] = rows
+          .map((e: any, i: number) => ({
+            id: String(e.id ?? i),
+            type: typeMap[e.entryType ?? e.movementType ?? e.type] ?? 'adjustment',
+            itemName: e.itemName ?? e.item?.itemName ?? e.entryNumber ?? 'Item',
+            quantity: Number(e.quantity ?? e.totalQuantity ?? 0),
+            from: e.fromWarehouseName ?? e.sourceLocation ?? undefined,
+            to: e.toWarehouseName ?? e.warehouseName ?? undefined,
+            date: e.entryDate ?? e.postingDate ?? e.date ?? e.createdAt ?? '',
+            status: statusMap[e.status] ?? 'completed',
+          }))
+          .sort((a: RecentMovement, b: RecentMovement) => (b.date > a.date ? 1 : -1));
+        setRecentMovements(mapped);
+      })
+      .catch(() => setRecentMovements([]))
+      .finally(() => setLoadingMovements(false));
   }, []);
 
   // Calculate statistics
@@ -303,8 +297,10 @@ export default function InventoryPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-purple-600">Warehouses</p>
-                <p className="text-2xl font-bold text-purple-900 mt-1">{mockWarehouses.length}</p>
-                <p className="text-xs text-purple-600 mt-1">All operational</p>
+                <p className="text-2xl font-bold text-purple-900 mt-1">
+                  {loadingWarehouses ? '—' : warehouses.length}
+                </p>
+                <p className="text-xs text-purple-600 mt-1">Active warehouses</p>
               </div>
               <Warehouse className="h-8 w-8 text-purple-600" />
             </div>
@@ -358,27 +354,42 @@ export default function InventoryPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Warehouse Capacity</h3>
             <div className="space-y-2">
-              {mockWarehouses.map(warehouse => {
-                const utilization = (warehouse.used / warehouse.capacity) * 100;
-                return (
-                  <div key={warehouse.id}>
+              {loadingWarehouses ? (
+                [1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">{warehouse.name}</span>
-                      <span className="text-sm text-gray-600">{utilization.toFixed(0)}%</span>
+                      <div className="h-3 w-32 bg-gray-200 rounded" />
+                      <div className="h-3 w-8 bg-gray-200 rounded" />
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${utilization > 80 ? 'bg-red-500' : utilization > 60 ? 'bg-yellow-500' : 'bg-green-500'
-                          }`}
-                        style={{ width: `${utilization}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {warehouse.used.toLocaleString()} / {warehouse.capacity.toLocaleString()} units
-                    </p>
+                    <div className="w-full bg-gray-200 rounded-full h-2" />
+                    <div className="h-2 w-24 bg-gray-100 rounded mt-1" />
                   </div>
-                );
-              })}
+                ))
+              ) : warehouses.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No warehouse capacity data available</p>
+              ) : (
+                warehouses.map(warehouse => {
+                  const utilization = warehouse.capacity > 0 ? (warehouse.used / warehouse.capacity) * 100 : 0;
+                  return (
+                    <div key={warehouse.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-700">{warehouse.name}</span>
+                        <span className="text-sm text-gray-600">{utilization.toFixed(0)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${utilization > 80 ? 'bg-red-500' : utilization > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                          style={{ width: `${Math.min(utilization, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {warehouse.used.toLocaleString()} / {warehouse.capacity.toLocaleString()} units
+                      </p>
+                    </div>
+                  );
+                })
+              )}
             </div>
             <button
               onClick={() => router.push('/inventory/warehouse')}
@@ -392,24 +403,38 @@ export default function InventoryPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Recent Movements</h3>
             <div className="space-y-3">
-              {mockRecentMovements.slice(0, 5).map(movement => {
-                const config = movementTypeConfig[movement.type] || movementTypeConfig.receipt;
-                const Icon = config.icon;
-                return (
-                  <div key={movement.id} className="flex items-start space-x-2">
-                    <Icon className={`h-4 w-4 mt-0.5 ${config.color}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{movement.itemName}</p>
-                      <p className="text-xs text-gray-500">
-                        {config.label}: {movement.quantity > 0 ? '+' : ''}{movement.quantity}
-                        {movement.from && ` from ${movement.from}`}
-                        {movement.to && ` to ${movement.to}`}
-                      </p>
-                      <p className="text-xs text-gray-400">{movement.date}</p>
+              {loadingMovements ? (
+                [1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-start space-x-2 animate-pulse">
+                    <div className="h-4 w-4 mt-0.5 bg-gray-200 rounded" />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="h-3 w-32 bg-gray-200 rounded" />
+                      <div className="h-2 w-40 bg-gray-100 rounded" />
                     </div>
                   </div>
-                );
-              })}
+                ))
+              ) : recentMovements.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No recent movements</p>
+              ) : (
+                recentMovements.slice(0, 5).map(movement => {
+                  const config = movementTypeConfig[movement.type] || movementTypeConfig.receipt;
+                  const Icon = config.icon;
+                  return (
+                    <div key={movement.id} className="flex items-start space-x-2">
+                      <Icon className={`h-4 w-4 mt-0.5 ${config.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{movement.itemName}</p>
+                        <p className="text-xs text-gray-500">
+                          {config.label}: {movement.quantity > 0 ? '+' : ''}{movement.quantity}
+                          {movement.from && ` from ${movement.from}`}
+                          {movement.to && ` to ${movement.to}`}
+                        </p>
+                        <p className="text-xs text-gray-400">{movement.date}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
             <button
               onClick={() => router.push('/inventory/movements')}
@@ -582,7 +607,14 @@ export default function InventoryPage() {
             </table>
           </div>
 
-          {filteredItems.length === 0 && (
+          {loadingStock && (
+            <div className="px-6 py-12 text-center text-gray-500">
+              <RefreshCw className="h-6 w-6 text-gray-400 mb-2 mx-auto animate-spin" />
+              Loading stock items…
+            </div>
+          )}
+
+          {!loadingStock && filteredItems.length === 0 && (
             <div className="px-6 py-12 text-center">
               <Package className="h-12 w-12 text-gray-400 mb-2" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No items found</h3>

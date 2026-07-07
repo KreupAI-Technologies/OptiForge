@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { estimationAnalyticsService } from '@/services/estimation-analytics.service';
+import { costEstimateService, CostEstimate } from '@/services/estimation-cost-estimate.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   Sparkles,
   Calculator,
@@ -12,7 +14,7 @@ import {
   BarChart3,
   Lightbulb,
 } from 'lucide-react';
-import { CostBreakdown, CostBreakdownData } from '@/components/estimation/CostBreakdown';
+import { CostBreakdown, CostBreakdownData, CostLineItem } from '@/components/estimation/CostBreakdown';
 import { VersionComparison, EstimateVersion } from '@/components/estimation/VersionComparison';
 import { RiskAnalysis, RiskItem } from '@/components/estimation/RiskAnalysis';
 import { WorkflowApprovals, ApprovalRequest, ApprovalThreshold } from '@/components/estimation/WorkflowApprovals';
@@ -20,36 +22,49 @@ import { BOMImport, BOMImportSession } from '@/components/estimation/BOMImport';
 import { HistoricalBenchmarking } from '@/components/estimation/HistoricalBenchmarking';
 import { WhatIfSimulation } from '@/components/estimation/WhatIfSimulation';
 
-// Mock Data - Cost Breakdown
-const mockCostData: CostBreakdownData = {
-  id: '1',
-  estimateId: 'EST-2025-001',
-  estimateName: 'Manufacturing Line Upgrade',
-  totalCost: 450000,
-  targetMargin: 35,
-  suggestedPrice: 656250,
-  contingency: 10,
-  contingencyAmount: 45000,
-  lastUpdated: '2025-01-20T15:00:00Z',
-  updatedBy: 'John Smith',
-  lineItems: [
-    { id: '1', category: 'material', description: 'High-grade Steel Components', quantity: 500, unit: 'kg', unitCost: 250, totalCost: 125000, vendor: 'Steel Co.', leadTime: 14 },
-    { id: '2', category: 'labor', description: 'Installation Engineers', quantity: 400, unit: 'hours', unitCost: 150, totalCost: 60000, notes: '2 engineers for 200 hours each' },
-    { id: '3', category: 'equipment', description: 'Specialized Tooling', quantity: 5, unit: 'sets', unitCost: 30000, totalCost: 150000, vendor: 'Tool Systems Inc.' },
-    { id: '4', category: 'overhead', description: 'Project Management & Admin', quantity: 1, unit: 'project', unitCost: 50000, totalCost: 50000 },
-    { id: '5', category: 'shipping', description: 'Freight & Logistics', quantity: 1, unit: 'project', unitCost: 35000, totalCost: 35000, vendor: 'Express Logistics' },
-    { id: '6', category: 'subcontractor', description: 'Electrical Installation', quantity: 1, unit: 'package', unitCost: 30000, totalCost: 30000, vendor: 'Power Solutions LLC' },
-  ],
-  categorySummary: [
-    { category: 'material', totalCost: 125000, percentage: 27.8, itemCount: 1, variance: 2.5, status: 'normal' },
-    { category: 'labor', totalCost: 60000, percentage: 13.3, itemCount: 1, variance: -1.2, status: 'normal' },
-    { category: 'equipment', totalCost: 150000, percentage: 33.3, itemCount: 1, variance: 5.8, status: 'warning' },
-    { category: 'overhead', totalCost: 50000, percentage: 11.1, itemCount: 1, variance: 0, status: 'normal' },
-    { category: 'shipping', totalCost: 35000, percentage: 7.8, itemCount: 1, variance: 1.2, status: 'normal' },
-    { category: 'subcontractor', totalCost: 30000, percentage: 6.7, itemCount: 1, variance: -0.5, status: 'normal' },
-    { category: 'other', totalCost: 0, percentage: 0, itemCount: 0, status: 'normal' },
-  ],
-};
+const COMPANY_ID = 'default-company-id';
+
+// Map a live CostEstimate into the CostBreakdown component shape.
+function toCostBreakdownData(e: CostEstimate): CostBreakdownData {
+  const total = Number(e.totalCost) || 0;
+  const pct = (v: number) => (total ? Number(((v / total) * 100).toFixed(1)) : 0);
+  const cat = (
+    category: CostBreakdownData['categorySummary'][number]['category'],
+    amount: number,
+  ) => ({
+    category,
+    totalCost: amount,
+    percentage: pct(amount),
+    itemCount: amount > 0 ? 1 : 0,
+    status: 'normal' as const,
+  });
+  return {
+    id: e.id,
+    estimateId: e.estimateNumber || e.id,
+    estimateName: e.title || 'Cost Estimate',
+    totalCost: total,
+    targetMargin: 0,
+    suggestedPrice: total,
+    contingency: Number(e.contingencyPercentage) || 0,
+    contingencyAmount: Number(e.contingency) || 0,
+    lastUpdated: e.updatedAt,
+    updatedBy: e.approvedBy || e.submittedBy || '',
+    lineItems: ([
+      { id: `${e.id}-material`, category: 'material', description: 'Material', quantity: 1, unit: 'lot', unitCost: e.materialCost, totalCost: e.materialCost },
+      { id: `${e.id}-labor`, category: 'labor', description: 'Labor', quantity: 1, unit: 'lot', unitCost: e.laborCost, totalCost: e.laborCost },
+      { id: `${e.id}-equipment`, category: 'equipment', description: 'Equipment', quantity: 1, unit: 'lot', unitCost: e.equipmentCost, totalCost: e.equipmentCost },
+      { id: `${e.id}-overhead`, category: 'overhead', description: 'Overhead', quantity: 1, unit: 'lot', unitCost: e.overheadCost, totalCost: e.overheadCost },
+      { id: `${e.id}-subcontractor`, category: 'subcontractor', description: 'Subcontractor', quantity: 1, unit: 'lot', unitCost: e.subcontractorCost, totalCost: e.subcontractorCost },
+    ] as CostLineItem[]).filter((li) => li.totalCost > 0),
+    categorySummary: [
+      cat('material', e.materialCost),
+      cat('labor', e.laborCost),
+      cat('equipment', e.equipmentCost),
+      cat('overhead', e.overheadCost),
+      cat('subcontractor', e.subcontractorCost),
+    ],
+  };
+}
 
 // Mock Data - Versions
 const mockVersions: EstimateVersion[] = [
@@ -120,10 +135,46 @@ export default function EstimationAdvancedFeaturesPage() {
   const [selectedVersion1, setSelectedVersion1] = useState<string>('1');
   const [selectedVersion2, setSelectedVersion2] = useState<string>('3');
 
+  // Primary view: live cost breakdown for the most recent estimate.
+  const [costData, setCostData] = useState<CostBreakdownData | null>(null);
+  const [costLoading, setCostLoading] = useState<boolean>(true);
+  const [costError, setCostError] = useState<string | null>(null);
+
   // Live analytics: pull historical benchmarks/projects.
   const [historicalProjects, setHistoricalProjects] = useState<HistoricalProject[]>([]);
   const [benchmarkMetrics, setBenchmarkMetrics] = useState(emptyBenchmarkMetrics);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setCostLoading(true);
+      try {
+        const estimates = (await costEstimateService.findAll(COMPANY_ID)) as CostEstimate[];
+        if (cancelled) return;
+        const first = Array.isArray(estimates) && estimates.length ? estimates[0] : null;
+        setCostData(first ? toCostBreakdownData(first) : null);
+      } catch (err) {
+        if (!cancelled) setCostError(err instanceof Error ? err.message : 'Failed to load cost estimate');
+      } finally {
+        if (!cancelled) setCostLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Identity used by decorative sub-tabs (labels only), derived from live data when present.
+  const estimateIdentity = {
+    estimateId: costData?.estimateId ?? '',
+    estimateName: costData?.estimateName ?? 'Estimate',
+    totalCost: costData?.totalCost ?? 0,
+    targetMargin: costData?.targetMargin ?? 0,
+    suggestedPrice: costData?.suggestedPrice ?? 0,
+    contingencyAmount: costData?.contingencyAmount ?? 0,
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -256,13 +307,23 @@ export default function EstimationAdvancedFeaturesPage() {
       {/* Feature Content */}
       <div>
         {activeTab === 'cost-breakdown' && (
-          <CostBreakdown data={mockCostData} editable={true} />
+          costLoading ? (
+            <div className="py-12 text-center text-sm text-gray-500">Loading cost breakdown…</div>
+          ) : costData ? (
+            <CostBreakdown data={costData} editable={true} />
+          ) : (
+            <EmptyState
+              icon={Calculator}
+              title="No cost estimates yet"
+              description={costError ?? 'Create a cost estimate to see the detailed cost breakdown here.'}
+            />
+          )
         )}
 
         {activeTab === 'version-comparison' && (
           <VersionComparison
-            estimateId={mockCostData.estimateId}
-            estimateName={mockCostData.estimateName}
+            estimateId={estimateIdentity.estimateId}
+            estimateName={estimateIdentity.estimateName}
             versions={mockVersions}
             selectedVersion1={selectedVersion1}
             selectedVersion2={selectedVersion2}
@@ -273,9 +334,9 @@ export default function EstimationAdvancedFeaturesPage() {
 
         {activeTab === 'risk-analysis' && (
           <RiskAnalysis
-            estimateId={mockCostData.estimateId}
+            estimateId={estimateIdentity.estimateId}
             risks={mockRisks}
-            totalContingency={mockCostData.contingencyAmount}
+            totalContingency={estimateIdentity.contingencyAmount}
             editable={true}
           />
         )}
@@ -294,7 +355,7 @@ export default function EstimationAdvancedFeaturesPage() {
 
         {activeTab === 'benchmarking' && (
           <HistoricalBenchmarking
-            currentEstimate={{ id: mockCostData.estimateId, name: mockCostData.estimateName, estimatedCost: mockCostData.totalCost, category: 'manufacturing' }}
+            currentEstimate={{ id: estimateIdentity.estimateId, name: estimateIdentity.estimateName, estimatedCost: estimateIdentity.totalCost, category: 'manufacturing' }}
             similarProjects={historicalProjects}
             metrics={benchmarkMetrics}
           />
@@ -302,7 +363,7 @@ export default function EstimationAdvancedFeaturesPage() {
 
         {activeTab === 'what-if' && (
           <WhatIfSimulation
-            baseEstimate={{ id: mockCostData.estimateId, name: mockCostData.estimateName, totalCost: mockCostData.totalCost, margin: mockCostData.targetMargin, suggestedPrice: mockCostData.suggestedPrice }}
+            baseEstimate={{ id: estimateIdentity.estimateId, name: estimateIdentity.estimateName, totalCost: estimateIdentity.totalCost, margin: estimateIdentity.targetMargin, suggestedPrice: estimateIdentity.suggestedPrice }}
             variables={mockSimulationVariables}
             scenarios={mockSimulationScenarios}
           />

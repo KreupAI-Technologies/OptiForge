@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Wifi, Activity, Thermometer, Droplets, Zap, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { iotService } from '@/services/iot.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface IoTDevice {
     id: string;
@@ -15,69 +16,6 @@ interface IoTDevice {
     uptime: string;
     lastPing: string;
 }
-
-const FALLBACK_DEVICES: IoTDevice[] = [
-        {
-            id: 'DEV-001',
-            name: 'CNC Milling Unit A',
-            status: 'online',
-            temp: '65°C',
-            vibration: 'Normal',
-            power: '12.5 kW',
-            uptime: '4d 12h',
-            lastPing: '2s ago'
-        },
-        {
-            id: 'DEV-002',
-            name: 'Hydraulic Press B',
-            status: 'warning',
-            temp: '82°C',
-            vibration: 'High',
-            power: '8.2 kW',
-            uptime: '12h 30m',
-            lastPing: '5s ago'
-        },
-        {
-            id: 'DEV-003',
-            name: 'Assembly Robot R1',
-            status: 'online',
-            temp: '45°C',
-            vibration: 'Normal',
-            power: '3.1 kW',
-            uptime: '15d 4h',
-            lastPing: '1s ago'
-        },
-        {
-            id: 'DEV-004',
-            name: 'Paint Booth System',
-            status: 'offline',
-            temp: '-',
-            vibration: '-',
-            power: '0 kW',
-            uptime: '-',
-            lastPing: '2h ago'
-        },
-        {
-            id: 'DEV-005',
-            name: 'Conveyor Belt Main',
-            status: 'online',
-            temp: '55°C',
-            vibration: 'Normal',
-            power: '15.0 kW',
-            uptime: '2d 1h',
-            lastPing: '3s ago'
-        },
-        {
-            id: 'DEV-006',
-            name: 'Injection Molder X',
-            status: 'online',
-            temp: '180°C',
-            vibration: 'Normal',
-            power: '22.4 kW',
-            uptime: '5d 8h',
-            lastPing: '2s ago'
-        }
-];
 
 export default function IoTPage() {
     const [devices, setDevices] = useState<IoTDevice[]>([]);
@@ -101,13 +39,13 @@ export default function IoTPage() {
                     uptime: d?.uptime ?? '-',
                     lastPing: d?.lastPing ?? '-',
                 }));
-                setDevices(mapped.length ? mapped : FALLBACK_DEVICES);
+                setDevices(mapped);
                 setError(null);
             })
             .catch(() => {
                 if (!active) return;
-                setDevices(FALLBACK_DEVICES);
-                setError('Live device telemetry unavailable — showing sample devices.');
+                setDevices([]);
+                setError('Live device telemetry unavailable. Unable to load IoT devices.');
             })
             .finally(() => {
                 if (active) setLoading(false);
@@ -145,7 +83,8 @@ export default function IoTPage() {
                 </div>
             )}
             {error && (
-                <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+                <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                     {error}
                 </div>
             )}
@@ -191,6 +130,15 @@ export default function IoTPage() {
             </div>
 
             {/* Device Grid */}
+            {!loading && devices.length === 0 && !error && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                    <EmptyState
+                        icon={Wifi}
+                        title="No IoT devices found"
+                        description="No devices are currently reporting telemetry. Connected devices will appear here once they come online."
+                    />
+                </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {devices.map((device) => (
                     <div key={device.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">

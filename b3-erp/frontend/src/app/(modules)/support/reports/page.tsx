@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, Download, Calendar, Clock, BarChart3, Filter, Plus, Play, Settings, Eye, TrendingUp } from 'lucide-react'
 import { supportPagesService } from '@/services/support-pages.service'
+import EmptyState from '@/components/ui/EmptyState'
 
 interface Report {
   id: string
@@ -53,13 +54,13 @@ export default function SupportReports() {
           scheduled: Boolean(r?.scheduled),
           popularity: Number(r?.popularity ?? 0),
         }))
-        setReports(mapped.length ? mapped : FALLBACK_REPORTS)
+        setReports(mapped)
         setError(null)
       })
       .catch(() => {
         if (!active) return
-        setReports(FALLBACK_REPORTS)
-        setError('Live report templates unavailable — showing sample catalog.')
+        setReports([])
+        setError('Unable to load report templates. Please try again.')
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -68,153 +69,6 @@ export default function SupportReports() {
       active = false
     }
   }, [])
-
-  const FALLBACK_REPORTS: Report[] = [
-    {
-      id: '1',
-      name: 'Ticket Volume Analysis',
-      category: 'Operations',
-      description: 'Comprehensive analysis of ticket volume trends, peak hours, and distribution by priority, category, and status',
-      lastGenerated: '2024-10-21 09:30',
-      frequency: 'Daily',
-      format: ['PDF', 'Excel', 'CSV'],
-      recipients: 12,
-      scheduled: true,
-      popularity: 95
-    },
-    {
-      id: '2',
-      name: 'SLA Compliance Dashboard',
-      category: 'Compliance',
-      description: 'Detailed SLA performance metrics including compliance rates, breaches, response times, and resolution times by priority',
-      lastGenerated: '2024-10-21 08:00',
-      frequency: 'Daily',
-      format: ['PDF', 'Excel'],
-      recipients: 8,
-      scheduled: true,
-      popularity: 92
-    },
-    {
-      id: '3',
-      name: 'Team Performance Report',
-      category: 'Performance',
-      description: 'Individual and team productivity metrics including tickets handled, resolution rates, customer satisfaction, and efficiency scores',
-      lastGenerated: '2024-10-20 18:00',
-      frequency: 'Weekly',
-      format: ['PDF', 'Excel'],
-      recipients: 15,
-      scheduled: true,
-      popularity: 88
-    },
-    {
-      id: '4',
-      name: 'Customer Satisfaction Analysis',
-      category: 'Customer',
-      description: 'CSAT scores, NPS trends, customer feedback analysis, sentiment analysis, and satisfaction drivers',
-      lastGenerated: '2024-10-21 07:00',
-      frequency: 'Weekly',
-      format: ['PDF', 'PowerPoint'],
-      recipients: 6,
-      scheduled: true,
-      popularity: 85
-    },
-    {
-      id: '5',
-      name: 'First Response Time Report',
-      category: 'Performance',
-      description: 'FRT metrics by priority, team comparison, SLA compliance, and response time distribution analysis',
-      lastGenerated: '2024-10-21 09:00',
-      frequency: 'Daily',
-      format: ['PDF', 'Excel'],
-      recipients: 10,
-      scheduled: true,
-      popularity: 82
-    },
-    {
-      id: '6',
-      name: 'Resolution Time Analysis',
-      category: 'Performance',
-      description: 'Average resolution times by category and priority, bottleneck identification, and efficiency trends',
-      lastGenerated: '2024-10-21 09:15',
-      frequency: 'Daily',
-      format: ['PDF', 'Excel'],
-      recipients: 10,
-      scheduled: true,
-      popularity: 80
-    },
-    {
-      id: '7',
-      name: 'Incident Management Summary',
-      category: 'Operations',
-      description: 'Critical and major incident analysis, response effectiveness, root cause trends, and prevention metrics',
-      lastGenerated: '2024-10-20 17:30',
-      frequency: 'Weekly',
-      format: ['PDF'],
-      recipients: 18,
-      scheduled: true,
-      popularity: 78
-    },
-    {
-      id: '8',
-      name: 'Change Management Report',
-      category: 'Operations',
-      description: 'Change request analysis, success rates, failed changes, emergency changes, and CAB approval metrics',
-      lastGenerated: '2024-10-20 16:00',
-      frequency: 'Weekly',
-      format: ['PDF', 'Excel'],
-      recipients: 12,
-      scheduled: true,
-      popularity: 75
-    },
-    {
-      id: '9',
-      name: 'Knowledge Base Effectiveness',
-      category: 'Operations',
-      description: 'KB article usage, search effectiveness, self-service resolution rates, and article update tracking',
-      lastGenerated: '2024-10-19 15:00',
-      frequency: 'Monthly',
-      format: ['PDF', 'Excel'],
-      recipients: 8,
-      scheduled: true,
-      popularity: 68
-    },
-    {
-      id: '10',
-      name: 'Automation ROI Report',
-      category: 'Performance',
-      description: 'Automation rule effectiveness, time saved, cost reduction, and efficiency improvements',
-      lastGenerated: '2024-10-18 14:00',
-      frequency: 'Monthly',
-      format: ['PDF', 'PowerPoint'],
-      recipients: 5,
-      scheduled: true,
-      popularity: 65
-    },
-    {
-      id: '11',
-      name: 'Executive Summary Dashboard',
-      category: 'Executive',
-      description: 'High-level KPIs, trends, financial impact, strategic metrics, and board-ready visualizations',
-      lastGenerated: '2024-10-21 06:00',
-      frequency: 'Weekly',
-      format: ['PDF', 'PowerPoint'],
-      recipients: 4,
-      scheduled: true,
-      popularity: 90
-    },
-    {
-      id: '12',
-      name: 'Asset Management Report',
-      category: 'Operations',
-      description: 'IT asset tracking, software licenses, hardware inventory, depreciation, and compliance status',
-      lastGenerated: '2024-10-15 10:00',
-      frequency: 'Monthly',
-      format: ['PDF', 'Excel'],
-      recipients: 7,
-      scheduled: true,
-      popularity: 62
-    }
-  ]
 
   const scheduledReports: ScheduledReport[] = [
     {
@@ -356,7 +210,7 @@ export default function SupportReports() {
         </div>
       )}
       {error && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -454,6 +308,19 @@ export default function SupportReports() {
             </div>
 
             {/* Reports Grid */}
+            {!loading && filteredReports.length === 0 && (
+              <EmptyState
+                icon={FileText}
+                title={error ? 'Report templates unavailable' : 'No report templates found'}
+                description={
+                  error
+                    ? 'We could not load report templates. Please try again later.'
+                    : selectedCategory === 'All'
+                      ? 'No report templates have been created yet.'
+                      : `No report templates in the "${selectedCategory}" category.`
+                }
+              />
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
               {filteredReports.map((report) => (
                 <div key={report.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow">
