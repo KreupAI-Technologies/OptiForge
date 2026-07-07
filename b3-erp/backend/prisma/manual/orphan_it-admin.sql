@@ -382,3 +382,65 @@ CREATE TABLE IF NOT EXISTS "it_system_monitor" (
 );
 CREATE INDEX IF NOT EXISTS "IDX_it_system_monitor_companyId" ON "it_system_monitor" ("companyId");
 CREATE INDEX IF NOT EXISTS "IDX_it_system_monitor_kind" ON "it_system_monitor" ("kind");
+
+-- User sessions (security/sessions — IT-Admin session management console).
+-- Columns quoted to match the TypeORM entity (UserSession -> it_user_sessions).
+-- "status" is varchar (not a pg enum) so console-only labels like 'Idle' /
+-- 'Suspicious' can be stored/displayed without a destructive enum migration.
+CREATE TABLE IF NOT EXISTS "it_user_sessions" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "userId" uuid NOT NULL,
+  "sessionToken" varchar(255) NOT NULL,
+  "refreshToken" varchar(500),
+  "status" varchar(50) NOT NULL DEFAULT 'Active',
+  "ipAddress" varchar(50) NOT NULL,
+  "userAgent" text,
+  "device" varchar(100),
+  "browser" varchar(100),
+  "os" varchar(50),
+  "location" varchar(100),
+  "latitude" varchar,
+  "longitude" varchar,
+  "expiresAt" timestamp NOT NULL,
+  "lastActivityAt" timestamp,
+  "loggedOutAt" timestamp,
+  "terminatedAt" timestamp,
+  "terminatedBy" varchar(100),
+  "terminationReason" text,
+  "requestCount" integer NOT NULL DEFAULT 0,
+  "metadata" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_user_sessions" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IDX_it_user_sessions_sessionToken" ON "it_user_sessions" ("sessionToken");
+CREATE INDEX IF NOT EXISTS "IDX_it_user_sessions_userId" ON "it_user_sessions" ("userId");
+CREATE INDEX IF NOT EXISTS "IDX_it_user_sessions_status" ON "it_user_sessions" ("status");
+CREATE INDEX IF NOT EXISTS "IDX_it_user_sessions_expiresAt" ON "it_user_sessions" ("expiresAt");
+
+-- Idempotent seed: attach up to 3 sample active sessions to whatever users
+-- already exist in it_users (INSERT ... SELECT so it is FK-safe and no-ops
+-- when no users exist). ON CONFLICT keeps re-runs additive-clean.
+INSERT INTO "it_user_sessions"
+  ("id", "userId", "sessionToken", "status", "ipAddress", "userAgent", "device", "browser", "os", "location", "expiresAt", "lastActivityAt", "requestCount")
+SELECT
+  ('00000000-0000-4000-8000-0000000000' || LPAD((rn)::text, 2, '0'))::uuid,
+  u.id,
+  'seed-session-token-' || u.id,
+  CASE WHEN rn = 3 THEN 'Idle' ELSE 'Active' END,
+  CASE rn WHEN 1 THEN '103.21.244.45' WHEN 2 THEN '49.207.198.156' ELSE '103.50.161.89' END,
+  'Mozilla/5.0 seed-agent',
+  CASE rn WHEN 2 THEN 'Mobile' ELSE 'Desktop' END,
+  CASE rn WHEN 2 THEN 'Safari' ELSE 'Chrome 118' END,
+  CASE rn WHEN 2 THEN 'iOS 17' ELSE 'Windows 11' END,
+  CASE rn WHEN 3 THEN 'Bangalore, India' ELSE 'Mumbai, India' END,
+  now() + interval '1 day',
+  now() - (rn * interval '5 minute'),
+  rn * 10
+FROM (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY "createdAt") AS rn
+  FROM "it_users"
+  ORDER BY "createdAt"
+  LIMIT 3
+) u
+ON CONFLICT ("sessionToken") DO NOTHING;

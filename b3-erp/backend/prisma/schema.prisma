@@ -17488,6 +17488,39 @@ model ItNotificationSettings {
   @@map("it_notification_settings")
 }
 
+// Read-side model for the IT-Admin session management console.
+// Runtime writes go through the TypeORM UserSession entity (same table).
+model ItUserSession {
+  id                String    @id @default(uuid())
+  userId            String
+  sessionToken      String    @unique
+  refreshToken      String?
+  status            String    @default("Active")
+  ipAddress         String
+  userAgent         String?
+  device            String?
+  browser           String?
+  os                String?
+  location          String?
+  latitude          String?
+  longitude         String?
+  expiresAt         DateTime
+  lastActivityAt    DateTime?
+  loggedOutAt       DateTime?
+  terminatedAt      DateTime?
+  terminatedBy      String?
+  terminationReason String?
+  requestCount      Int       @default(0)
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("it_user_sessions")
+}
+
 model ItUserGroups {
   id String @id @default(uuid())
   companyId String?

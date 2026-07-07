@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
   Patch,
@@ -14,6 +15,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { UserSessionService } from '../services/user-session.service';
 
@@ -21,6 +23,33 @@ import { UserSessionService } from '../services/user-session.service';
 @Controller('it-admin/sessions')
 export class UserSessionController {
   constructor(private readonly sessionService: UserSessionService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'List all active sessions across all users (admin console)',
+  })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'device', required: false })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of active sessions with owning-user details',
+  })
+  async listAll(
+    @Query('status') status?: string,
+    @Query('device') device?: string,
+  ): Promise<any[]> {
+    return this.sessionService.listAllActiveSessions({ status, device });
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Global session statistics for the admin console' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Aggregate session statistics',
+  })
+  async stats(): Promise<any> {
+    return this.sessionService.getGlobalStatistics();
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new session' })

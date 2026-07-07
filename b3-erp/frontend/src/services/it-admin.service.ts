@@ -223,6 +223,40 @@ export interface ExportDatasetDto {
   updatedAt: string;
 }
 
+export interface UserSessionUserDto {
+  id?: string;
+  fullName?: string;
+  email?: string;
+  department?: string;
+  userType?: string;
+}
+
+export interface UserSessionDto {
+  id: string;
+  userId: string;
+  sessionToken?: string;
+  status: string;
+  ipAddress: string;
+  userAgent?: string;
+  device?: string;
+  browser?: string;
+  os?: string;
+  location?: string;
+  expiresAt?: string;
+  lastActivityAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: UserSessionUserDto;
+}
+
+export interface UserSessionStatsDto {
+  totalSessions: number;
+  activeSessions: number;
+  uniqueUsers: number;
+  mobileDevices: number;
+  byStatus: Record<string, number>;
+}
+
 export interface AuditLogDto {
   id: string;
   userId?: string;
@@ -674,6 +708,47 @@ class ItAdminServiceClass {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // --- User Sessions (security/sessions console) ---
+  async getSessions(params?: {
+    status?: string;
+    device?: string;
+  }): Promise<UserSessionDto[]> {
+    return request<UserSessionDto[]>(`/it-admin/sessions${qs(params)}`);
+  }
+
+  async getSessionStats(): Promise<UserSessionStatsDto> {
+    return request<UserSessionStatsDto>('/it-admin/sessions/stats');
+  }
+
+  async terminateSession(
+    id: string,
+    body?: { terminatedBy?: string; reason?: string },
+  ): Promise<{ message: string }> {
+    return request<{ message: string }>(`/it-admin/sessions/${id}/terminate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        terminatedBy: body?.terminatedBy ?? 'admin',
+        reason: body?.reason ?? 'Manual termination from console',
+      }),
+    });
+  }
+
+  async terminateAllUserSessions(
+    userId: string,
+    body?: { terminatedBy?: string; reason?: string },
+  ): Promise<{ message: string }> {
+    return request<{ message: string }>(
+      `/it-admin/sessions/user/${userId}/terminate-all`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          terminatedBy: body?.terminatedBy ?? 'admin',
+          reason: body?.reason ?? 'Manual termination from console',
+        }),
+      },
+    );
   }
 }
 
