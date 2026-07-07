@@ -2937,6 +2937,33 @@ class ProjectManagementService {
     getInstallationTasks(projectId: string) { return this.pmModuleGet<any>(`/api/logistics-installation/tasks/${projectId}`); }
     getDesignVerificationSurveys(projectId: string) { return this.pmModuleGet<any>(`/api/design-verification/surveys/${projectId}`); }
     getProjectClosureStatus(projectId: string) { return this.pmModuleGetObject<any>(`/api/project-closure/status/${projectId}`); }
+
+    // --- Schedule / critical-path / phase rollups (NestJS, empty-safe) ---
+    // Backs critical-path, phase-progress, workflow and phase-2 pages.
+    async getPmScheduleTasks(): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>('/project-management/schedule');
+        } catch {
+            return [];
+        }
+    }
+
+    async getPmPhases(): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>('/project-management/schedule/phases');
+        } catch {
+            return [];
+        }
+    }
+
+    // Resource allocations — read-safe wrapper for the resource-conflicts page.
+    async getPmResourceAllocationsSafe(): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>('/project-management/resource-allocations');
+        } catch {
+            return [];
+        }
+    }
 }
 
 export const projectManagementService = new ProjectManagementService();

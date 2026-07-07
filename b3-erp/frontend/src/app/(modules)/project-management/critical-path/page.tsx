@@ -1,11 +1,36 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { CriticalPathHighlight } from '@/components/project-management/CriticalPathHighlight';
+import { projectManagementService } from '@/services/ProjectManagementService';
+import { toCriticalPathTasks, type CriticalPathTask } from '@/components/project-management/pm-wiring-transforms';
 
 export default function CriticalPathPage() {
  const router = useRouter();
+ const [tasks, setTasks] = useState<CriticalPathTask[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [error, setError] = useState<string | null>(null);
+
+ useEffect(() => {
+  let active = true;
+  (async () => {
+   try {
+    setLoading(true);
+    setError(null);
+    const rows = await projectManagementService.getPmScheduleTasks();
+    if (active) setTasks(toCriticalPathTasks(rows));
+   } catch (e) {
+    if (active) setError('Failed to load schedule tasks.');
+   } finally {
+    if (active) setLoading(false);
+   }
+  })();
+  return () => {
+   active = false;
+  };
+ }, []);
 
  return (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -29,11 +54,24 @@ export default function CriticalPathPage() {
 
    {/* Critical Path Component */}
    <div className="p-6">
-    <CriticalPathHighlight
-     showGantt={true}
-     highlightMode="critical"
-     onTaskClick={(taskId) => console.log('Task clicked:', taskId)}
-    />
+    {loading ? (
+     <div className="flex items-center justify-center py-24 text-gray-500 dark:text-gray-400">
+      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+      Loading critical path…
+     </div>
+    ) : error ? (
+     <div className="flex items-center justify-center py-24 text-red-600">
+      <AlertCircle className="h-6 w-6 mr-2" />
+      {error}
+     </div>
+    ) : (
+     <CriticalPathHighlight
+      tasks={tasks.length > 0 ? (tasks as any) : undefined}
+      showGantt={true}
+      highlightMode="critical"
+      onTaskClick={(taskId) => console.log('Task clicked:', taskId)}
+     />
+    )}
    </div>
   </div>
  );

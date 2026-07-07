@@ -11,6 +11,13 @@ export class PmScheduleController {
     return this.service.findAll(companyId || 'default', status);
   }
 
+  // Phase-level rollup derived from schedule tasks.
+  // Declared before ':id' so 'phases' is not captured as an id param.
+  @Get('phases')
+  getPhases(@Query('companyId') companyId?: string) {
+    return this.service.getPhases(companyId || 'default');
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);

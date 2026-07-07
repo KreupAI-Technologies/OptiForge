@@ -1033,3 +1033,43 @@ CREATE TABLE IF NOT EXISTS "pm_earned_value" (
 );
 CREATE INDEX IF NOT EXISTS "IDX_pm_earned_value_company_status"
   ON "pm_earned_value" ("company_id", "status");
+
+-- ============================================================================
+-- Wiring pass: critical-path / phase-progress / workflow / phase-2 /
+-- resource-conflicts pages. ADDITIVE + IDEMPOTENT only (safe to re-run).
+-- Seeds pm_schedule_tasks (backs critical-path + phase rollups) and
+-- pm_resource_allocations (backs resource-conflicts). Fixed UUIDs => re-runnable.
+-- ============================================================================
+
+-- Schedule / Gantt tasks with dependencies + phase (drives critical-path
+-- highlighting and the phase-progress rollup endpoint /schedule/phases).
+INSERT INTO "pm_schedule_tasks"
+  ("id","company_id","name","start_date","end_date","progress","assignee","dependencies","phase","status")
+VALUES
+  ('a1000000-0000-4000-8000-000000000001','default','Project Kickoff','2026-01-15','2026-01-16',100,'PM Team','[]','Project Initiation','Completed'),
+  ('a1000000-0000-4000-8000-000000000002','default','Upload BOQ & Drawings','2026-01-16','2026-01-18',100,'PM Team','["a1000000-0000-4000-8000-000000000001"]','Project Initiation','Completed'),
+  ('a1000000-0000-4000-8000-000000000003','default','Site Verification','2026-01-18','2026-01-22',100,'Design Team','["a1000000-0000-4000-8000-000000000002"]','Design & Site Assessment','Completed'),
+  ('a1000000-0000-4000-8000-000000000004','default','Site Measurements','2026-01-22','2026-01-25',100,'Field Team','["a1000000-0000-4000-8000-000000000003"]','Design & Site Assessment','Completed'),
+  ('a1000000-0000-4000-8000-000000000005','default','Technical Drawings','2026-01-25','2026-02-01',80,'Design Team','["a1000000-0000-4000-8000-000000000004"]','Technical Design & BOM','In Progress'),
+  ('a1000000-0000-4000-8000-000000000006','default','BOM Creation','2026-01-28','2026-02-03',60,'Engineering','["a1000000-0000-4000-8000-000000000005"]','Technical Design & BOM','In Progress'),
+  ('a1000000-0000-4000-8000-000000000007','default','Material Procurement','2026-02-03','2026-02-14',30,'Procurement','["a1000000-0000-4000-8000-000000000006"]','Procurement','In Progress'),
+  ('a1000000-0000-4000-8000-000000000008','default','Tooling Preparation','2026-02-03','2026-02-08',0,'Tooling','["a1000000-0000-4000-8000-000000000006"]','Procurement','Not Started'),
+  ('a1000000-0000-4000-8000-000000000009','default','Laser Cutting','2026-02-14','2026-02-20',0,'Production','["a1000000-0000-4000-8000-000000000007"]','Production','Not Started'),
+  ('a1000000-0000-4000-8000-00000000000a','default','Assembly','2026-02-20','2026-02-28',0,'Production','["a1000000-0000-4000-8000-000000000009"]','Production','Not Started'),
+  ('a1000000-0000-4000-8000-00000000000b','default','QC & Packaging','2026-02-28','2026-03-04',0,'Quality','["a1000000-0000-4000-8000-00000000000a"]','QC & Dispatch','Not Started'),
+  ('a1000000-0000-4000-8000-00000000000c','default','Dispatch & Logistics','2026-03-04','2026-03-07',0,'Logistics','["a1000000-0000-4000-8000-00000000000b"]','QC & Dispatch','Not Started'),
+  ('a1000000-0000-4000-8000-00000000000d','default','Site Installation','2026-03-07','2026-03-15',0,'Install Team','["a1000000-0000-4000-8000-00000000000c"]','Installation','Not Started'),
+  ('a1000000-0000-4000-8000-00000000000e','default','Commissioning & Handover','2026-03-15','2026-03-20',0,'Commissioning','["a1000000-0000-4000-8000-00000000000d"]','Commissioning & Handover','Not Started')
+ON CONFLICT ("id") DO NOTHING;
+
+-- Resource allocations. Rows with allocation > 100 surface as conflicts on the
+-- resource-conflicts page; the rest exercise the healthy path.
+INSERT INTO "pm_resource_allocations"
+  ("id","company_id","resource_id","resource_name","role","project_phase","allocated_hours","start_date","end_date","allocation")
+VALUES
+  ('b2000000-0000-4000-8000-000000000001','default','r-jsmith','John Smith','Machine Operator','Production',60,'2026-02-14','2026-02-20',150),
+  ('b2000000-0000-4000-8000-000000000002','default','r-cnc3','CNC Machine #3','Equipment','Production',80,'2026-02-14','2026-02-18',200),
+  ('b2000000-0000-4000-8000-000000000003','default','r-mjohnson','Mike Johnson','Assembler','Production',40,'2026-02-20','2026-02-28',120),
+  ('b2000000-0000-4000-8000-000000000004','default','r-design1','Design Team A','Designer','Technical Design & BOM',35,'2026-01-25','2026-02-03',90),
+  ('b2000000-0000-4000-8000-000000000005','default','r-proc1','Procurement Desk','Buyer','Procurement',30,'2026-02-03','2026-02-14',70)
+ON CONFLICT ("id") DO NOTHING;

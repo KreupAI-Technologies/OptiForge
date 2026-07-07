@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
+import { toPhases } from '@/components/project-management/pm-wiring-transforms';
 import {
   ArrowRight,
   CheckCircle,
@@ -31,7 +33,7 @@ interface WorkflowStep {
   href: string;
 }
 
-const workflowSteps: WorkflowStep[] = [
+const baseWorkflowSteps: WorkflowStep[] = [
   {
     id: 'verify-drawings',
     stepNumber: '2.1',
@@ -133,8 +135,54 @@ const workflowSteps: WorkflowStep[] = [
   }
 ];
 
+// Map a live task progress/status to the page's step status vocabulary.
+function toStepStatus(progress: number, status: string): WorkflowStep['status'] {
+  const s = (status || '').toLowerCase();
+  if (progress >= 100 || s.includes('complete')) return 'Completed';
+  if (s.includes('skip')) return 'Skipped';
+  if (progress > 0 || s.includes('progress')) return 'In Progress';
+  return 'Pending';
+}
+
 export default function Phase2Dashboard() {
   const router = useRouter();
+  const [liveTasks, setLiveTasks] = useState<Array<{ name: string; progress: number; status: string }>>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getPmPhases();
+        const phases = toPhases(rows);
+        // Find the Design & Site Assessment phase (phase 2 of the workflow).
+        const phase2 =
+          phases.find((p) => /design|site|assessment/i.test(p.name)) || phases[1] || phases[0];
+        if (active && phase2) {
+          setLiveTasks(
+            phase2.tasks.map((t) => ({ name: t.name, progress: t.progress, status: t.status })),
+          );
+        }
+      } catch {
+        if (active) setLiveTasks([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Overlay live task status onto the fixed step scaffold by fuzzy name match.
+  const workflowSteps = useMemo<WorkflowStep[]>(() => {
+    if (!liveTasks.length) return baseWorkflowSteps;
+    return baseWorkflowSteps.map((step) => {
+      const match = liveTasks.find((t) => {
+        const a = t.name.toLowerCase();
+        const b = step.title.toLowerCase();
+        return a.includes(b) || b.includes(a) || a.split(' ')[0] === b.split(' ')[0];
+      });
+      return match ? { ...step, status: toStepStatus(match.progress, match.status) } : step;
+    });
+  }, [liveTasks]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

@@ -1,13 +1,39 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { WorkflowQuickActions } from '@/components/project-management/WorkflowQuickActions';
 import { PhaseProgressVisualization } from '@/components/project-management/PhaseProgressVisualization';
+import { projectManagementService } from '@/services/ProjectManagementService';
+import { toPhases, deriveCurrentPhase, type PhaseShape } from '@/components/project-management/pm-wiring-transforms';
 
 export default function WorkflowPage() {
+ const [phases, setPhases] = useState<PhaseShape[]>([]);
+ const [loading, setLoading] = useState(true);
+
+ useEffect(() => {
+  let active = true;
+  (async () => {
+   try {
+    setLoading(true);
+    const rows = await projectManagementService.getPmPhases();
+    if (active) setPhases(toPhases(rows));
+   } catch {
+    if (active) setPhases([]);
+   } finally {
+    if (active) setLoading(false);
+   }
+  })();
+  return () => {
+   active = false;
+  };
+ }, []);
+
+ const hasData = phases.length > 0;
+ const currentPhase = deriveCurrentPhase(phases);
+
  return (
   <div className="w-full py-2 space-y-3">
    {/* Header */}
@@ -34,7 +60,19 @@ export default function WorkflowPage() {
    </div>
 
    {/* Phase Progress Overview */}
-   <PhaseProgressVisualization variant="horizontal" showDetails={true} />
+   {loading ? (
+    <div className="flex items-center justify-center py-16 text-gray-500">
+     <Loader2 className="h-6 w-6 animate-spin mr-2" />
+     Loading workflow phases…
+    </div>
+   ) : (
+    <PhaseProgressVisualization
+     variant="horizontal"
+     showDetails={true}
+     phases={hasData ? (phases as any) : undefined}
+     currentPhase={hasData ? currentPhase : undefined}
+    />
+   )}
 
    {/* Quick Actions - Grid View */}
    <WorkflowQuickActions variant="grid" />
