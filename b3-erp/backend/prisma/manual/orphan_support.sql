@@ -711,3 +711,13 @@ VALUES
   ('a1b2c3d4-0001-4000-8000-000000000005', 'company-1', 'Team Training Session', 'Schedule and complete the initial product training webinar.', 'pending', 'training', '2 hours', 5),
   ('a1b2c3d4-0001-4000-8000-000000000006', 'company-1', 'Setup Backup Policy', 'Configure automated data backup frequency and retention.', 'pending', 'security', '15 mins', 6)
 ON CONFLICT ("id") DO NOTHING;
+
+-- Seed FAQs for the help center (/help reuses /support/knowledge/faqs).
+INSERT INTO "support_faqs" ("id", "companyId", "faqId", "question", "answer", "category", "featured", "views") VALUES
+  ('b2c3d4e5-0002-4000-8000-000000000001', 'company-1', 'FAQ-001', 'How do I reset my password?', 'Go to Profile > Security and click "Change Password". You will receive a confirmation email once the change is saved.', 'Account', true, 152),
+  ('b2c3d4e5-0002-4000-8000-000000000002', 'company-1', 'FAQ-002', 'Can I export reports to Excel?', 'Yes. Use the Export button on any report page and choose the Excel (.xlsx) format. Large reports are generated in the background and emailed to you.', 'Reports', true, 98),
+  ('b2c3d4e5-0002-4000-8000-000000000003', 'company-1', 'FAQ-003', 'How do I track order status?', 'Navigate to Sales > Orders and use the status filters. Each order shows its current stage from enquiry through production to delivery.', 'Sales', true, 87),
+  ('b2c3d4e5-0002-4000-8000-000000000004', 'company-1', 'FAQ-004', 'Who do I contact for technical support?', 'Use the in-app Support widget to raise a ticket, or email support@kreupai.com. Priority tickets are answered within 4 business hours.', 'Support', true, 64),
+  ('b2c3d4e5-0002-4000-8000-000000000005', 'company-1', 'FAQ-005', 'How do I add a new user?', 'Under IT Admin > Users, click New User, enter their details, assign a role, and send the invitation. The user sets their own password on first login.', 'Administration', false, 41),
+  ('b2c3d4e5-0002-4000-8000-000000000006', 'company-1', 'FAQ-006', 'How do I create a work order?', 'Open a confirmed sales order, then go to Production > Work Orders and click New. Inventory is reserved and operations are scheduled automatically.', 'Production', false, 55)
+ON CONFLICT ("id") DO NOTHING;

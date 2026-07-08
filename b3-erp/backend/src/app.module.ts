@@ -22,6 +22,7 @@ import { HealthModule } from './modules/health/health.module';
 import { CommonMastersModule } from './modules/common-masters/common-masters.module';
 import { CollaborationModule } from './modules/collaboration/collaboration.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { DocumentationModule } from './modules/documentation/documentation.module';
 import { PortalModule } from './modules/portal/portal.module';
 import { CoreModule } from './modules/core/core.module';
 import { CPQModule } from './modules/cpq/cpq.module';
@@ -139,6 +140,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     PrismaModule,
     CommonMastersModule,
     ComplianceModule,
+    DocumentationModule,
     CollaborationModule,
     PortalModule,
     IotModule,
