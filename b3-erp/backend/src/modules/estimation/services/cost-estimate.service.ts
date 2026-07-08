@@ -6,6 +6,7 @@ import {
   CostEstimateItem,
   CostEstimateStatus,
 } from '../entities/cost-estimate.entity';
+import { EstimateVersion } from '../entities/estimate-template.entity';
 
 @Injectable()
 export class CostEstimateService {
@@ -14,6 +15,8 @@ export class CostEstimateService {
     private costEstimateRepository: Repository<CostEstimate>,
     @InjectRepository(CostEstimateItem)
     private costEstimateItemRepository: Repository<CostEstimateItem>,
+    @InjectRepository(EstimateVersion)
+    private estimateVersionRepository: Repository<EstimateVersion>,
   ) {}
 
   async create(
@@ -234,6 +237,165 @@ export class CostEstimateService {
         ...b,
         percentage: (b.amount / totalCost) * 100,
       })),
+    };
+  }
+
+  async findVersions(
+    companyId: string,
+    estimateId: string,
+  ): Promise<EstimateVersion[]> {
+    return this.estimateVersionRepository.find({
+      where: { companyId, estimateId },
+      order: { versionNumber: 'DESC', createdAt: 'DESC' },
+    });
+  }
+
+  private async resolveComparable(
+    companyId: string,
+    id: string,
+  ): Promise<{
+    id: string;
+    label: string;
+    total: number;
+    items: { key: string; description: string; total: number }[];
+  }> {
+    // Prefer a version snapshot; fall back to a CostEstimate row.
+    const version = await this.estimateVersionRepository.findOne({
+      where: { id, companyId },
+    });
+    if (version) {
+      const snapshot = (version.snapshot || {}) as Record<string, unknown>;
+      const total =
+        version.newTotal != null
+          ? Number(version.newTotal)
+          : Number((snapshot as { totalCost?: number }).totalCost) || 0;
+      const rawItems = Array.isArray(
+        (snapshot as { items?: unknown[] }).items,
+      )
+        ? ((snapshot as { items: Record<string, unknown>[] }).items)
+        : [];
+      const items = rawItems.map((it, idx) => ({
+        key: String(
+          (it as { itemNumber?: string }).itemNumber ??
+            (it as { id?: string }).id ??
+            idx,
+        ),
+        description: String((it as { description?: string }).description ?? ''),
+        total: Number((it as { totalCost?: number }).totalCost) || 0,
+      }));
+      return {
+        id: version.id,
+        label: `v${version.versionNumber}`,
+        total,
+        items,
+      };
+    }
+
+    const estimate = await this.costEstimateRepository.findOne({
+      where: { id, companyId },
+    });
+    if (!estimate) {
+      throw new NotFoundException(
+        `Estimate or version with ID ${id} not found`,
+      );
+    }
+    const estimateItems = await this.findItems(id);
+    return {
+      id: estimate.id,
+      label: `${estimate.estimateNumber} v${estimate.version}`,
+      total: Number(estimate.totalCost) || 0,
+      items: estimateItems.map((it) => ({
+        key: it.itemNumber,
+        description: it.description,
+        total: Number(it.totalCost) || 0,
+      })),
+    };
+  }
+
+  async compareDiff(
+    companyId: string,
+    baseId: string,
+    targetId: string,
+  ): Promise<{
+    base: { id: string; label: string; total: number };
+    target: { id: string; label: string; total: number };
+    totals: {
+      baseTotal: number;
+      targetTotal: number;
+      deltaValue: number;
+      deltaPct: number;
+    };
+    changed: {
+      key: string;
+      description: string;
+      changeType: 'added' | 'removed' | 'changed';
+      baseTotal: number;
+      targetTotal: number;
+      deltaValue: number;
+    }[];
+  }> {
+    const base = await this.resolveComparable(companyId, baseId);
+    const target = await this.resolveComparable(companyId, targetId);
+
+    const deltaValue = target.total - base.total;
+    const deltaPct = base.total !== 0 ? (deltaValue / base.total) * 100 : 0;
+
+    const baseMap = new Map(base.items.map((i) => [i.key, i]));
+    const targetMap = new Map(target.items.map((i) => [i.key, i]));
+    const keys = new Set([...baseMap.keys(), ...targetMap.keys()]);
+
+    const changed: {
+      key: string;
+      description: string;
+      changeType: 'added' | 'removed' | 'changed';
+      baseTotal: number;
+      targetTotal: number;
+      deltaValue: number;
+    }[] = [];
+
+    for (const key of keys) {
+      const b = baseMap.get(key);
+      const t = targetMap.get(key);
+      if (b && !t) {
+        changed.push({
+          key,
+          description: b.description,
+          changeType: 'removed',
+          baseTotal: b.total,
+          targetTotal: 0,
+          deltaValue: -b.total,
+        });
+      } else if (!b && t) {
+        changed.push({
+          key,
+          description: t.description,
+          changeType: 'added',
+          baseTotal: 0,
+          targetTotal: t.total,
+          deltaValue: t.total,
+        });
+      } else if (b && t && b.total !== t.total) {
+        changed.push({
+          key,
+          description: t.description || b.description,
+          changeType: 'changed',
+          baseTotal: b.total,
+          targetTotal: t.total,
+          deltaValue: t.total - b.total,
+        });
+      }
+    }
+
+    return {
+      base: { id: base.id, label: base.label, total: base.total },
+      target: { id: target.id, label: target.label, total: target.total },
+      totals: {
+        baseTotal: base.total,
+        targetTotal: target.total,
+        deltaValue,
+        deltaPct,
+      },
+      changed,
     };
   }
 

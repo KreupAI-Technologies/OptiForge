@@ -16,6 +16,8 @@ import {
   WorkflowStageSettingController,
   ReportScheduleController,
   EstimateCommentController,
+  WhatIfScenarioController,
+  BomImportSessionController,
 } from './controllers';
 import {
   BOQ,
@@ -48,6 +50,8 @@ import {
   WorkflowStageSetting,
   ReportSchedule,
   EstimateComment,
+  EstimationWhatIfScenario,
+  EstimationBomImportSession,
 } from './entities';
 import {
   BOQService,
@@ -65,6 +69,8 @@ import {
   WorkflowStageSettingService,
   ReportScheduleService,
   EstimateCommentService,
+  WhatIfScenarioService,
+  BomImportSessionService,
 } from './services';
 
 @Module({
@@ -109,6 +115,9 @@ import {
       // Report schedules & comments (orphan pages)
       ReportSchedule,
       EstimateComment,
+      // What-if simulation & BOM import (net-new capabilities)
+      EstimationWhatIfScenario,
+      EstimationBomImportSession,
     ]),
   ],
   controllers: [
@@ -127,6 +136,8 @@ import {
     WorkflowStageSettingController,
     ReportScheduleController,
     EstimateCommentController,
+    WhatIfScenarioController,
+    BomImportSessionController,
   ],
   providers: [
     BOQService,
@@ -144,6 +155,8 @@ import {
     WorkflowStageSettingService,
     ReportScheduleService,
     EstimateCommentService,
+    WhatIfScenarioService,
+    BomImportSessionService,
   ],
   exports: [
     BOQService,
@@ -161,6 +174,8 @@ import {
     WorkflowStageSettingService,
     ReportScheduleService,
     EstimateCommentService,
+    WhatIfScenarioService,
+    BomImportSessionService,
   ],
 })
 export class EstimationModule {}

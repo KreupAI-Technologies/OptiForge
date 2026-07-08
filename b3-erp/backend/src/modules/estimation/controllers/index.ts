@@ -13,3 +13,5 @@ export * from './resource-rate.controller';
 export * from './workflow-stage-setting.controller';
 export * from './report-schedule.controller';
 export * from './estimate-comment.controller';
+export * from './whatif-scenario.controller';
+export * from './bom-import-session.controller';

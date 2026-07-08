@@ -13,3 +13,5 @@ export * from './resource-rate.entity';
 export * from './workflow-stage-setting.entity';
 export * from './report-schedule.entity';
 export * from './estimate-comment.entity';
+export * from './whatif-scenario.entity';
+export * from './bom-import-session.entity';

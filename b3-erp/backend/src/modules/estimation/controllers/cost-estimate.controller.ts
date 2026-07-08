@@ -52,12 +52,29 @@ export class CostEstimateController {
     });
   }
 
+  @Get('compare/diff')
+  compareDiff(
+    @Headers('x-company-id') companyId: string,
+    @Query('baseId') baseId: string,
+    @Query('targetId') targetId: string,
+  ) {
+    return this.costEstimateService.compareDiff(companyId, baseId, targetId);
+  }
+
   @Get(':id')
   findOne(
     @Headers('x-company-id') companyId: string,
     @Param('id') id: string,
   ): Promise<CostEstimate> {
     return this.costEstimateService.findOne(companyId, id);
+  }
+
+  @Get(':id/versions')
+  findVersions(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+  ) {
+    return this.costEstimateService.findVersions(companyId, id);
   }
 
   @Get(':id/items')

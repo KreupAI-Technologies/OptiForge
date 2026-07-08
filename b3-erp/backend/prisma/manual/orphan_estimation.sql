@@ -204,3 +204,44 @@ CREATE TABLE IF NOT EXISTS "estimation_comments" (
 
 CREATE INDEX IF NOT EXISTS "IDX_estimation_comments_estimate"
   ON "estimation_comments" ("companyId", "estimateId");
+
+-- ============================================================
+-- What-If simulation scenarios (estimation/what-if pages)
+-- Net-new capability. ADDITIVE ONLY - CREATE TABLE IF NOT EXISTS.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "estimation_whatif_scenarios" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "estimateId" character varying NULL,
+  "name" character varying NOT NULL,
+  "baseValue" numeric(15,2) NULL,
+  "variables" jsonb NOT NULL DEFAULT '[]',
+  "results" jsonb NULL,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_estimation_whatif_scenarios" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_estimation_whatif_scenarios_company"
+  ON "estimation_whatif_scenarios" ("companyId", "estimateId");
+
+-- ============================================================
+-- BOM import sessions (estimation/bom-import pages)
+-- Net-new capability. ADDITIVE ONLY - CREATE TABLE IF NOT EXISTS.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "estimation_bom_import_sessions" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "estimateId" character varying NULL,
+  "fileName" character varying NOT NULL,
+  "status" character varying NOT NULL DEFAULT 'completed',
+  "rowCount" integer NOT NULL DEFAULT 0,
+  "rows" jsonb NOT NULL DEFAULT '[]',
+  "errors" jsonb NOT NULL DEFAULT '[]',
+  "totalValue" numeric(15,2) NOT NULL DEFAULT 0,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_estimation_bom_import_sessions" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_estimation_bom_import_sessions_company"
+  ON "estimation_bom_import_sessions" ("companyId", "estimateId");

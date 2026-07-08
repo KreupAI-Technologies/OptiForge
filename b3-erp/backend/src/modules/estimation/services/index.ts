@@ -13,3 +13,5 @@ export * from './resource-rate.service';
 export * from './workflow-stage-setting.service';
 export * from './report-schedule.service';
 export * from './estimate-comment.service';
+export * from './whatif-scenario.service';
+export * from './bom-import-session.service';

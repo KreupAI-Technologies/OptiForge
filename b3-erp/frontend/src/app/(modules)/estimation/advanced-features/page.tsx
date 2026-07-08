@@ -1,8 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { estimationAnalyticsService } from '@/services/estimation-analytics.service';
 import { costEstimateService, CostEstimate } from '@/services/estimation-cost-estimate.service';
+import {
+  estimationAdvancedService,
+  EstimateVersionRecord,
+  WhatIfScenario,
+  BOMImportSessionRecord,
+} from '@/services/estimation-advanced.service';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
   Sparkles,
@@ -18,9 +24,9 @@ import { CostBreakdown, CostBreakdownData, CostLineItem } from '@/components/est
 import { VersionComparison, EstimateVersion } from '@/components/estimation/VersionComparison';
 import { RiskAnalysis, RiskItem } from '@/components/estimation/RiskAnalysis';
 import { WorkflowApprovals, ApprovalRequest, ApprovalThreshold } from '@/components/estimation/WorkflowApprovals';
-import { BOMImport, BOMImportSession } from '@/components/estimation/BOMImport';
+import { BOMImport, BOMImportSession, ImportSource, BOMLineItem } from '@/components/estimation/BOMImport';
 import { HistoricalBenchmarking } from '@/components/estimation/HistoricalBenchmarking';
-import { WhatIfSimulation } from '@/components/estimation/WhatIfSimulation';
+import { WhatIfSimulation, SimulationVariable, SimulationScenario } from '@/components/estimation/WhatIfSimulation';
 
 const COMPANY_ID = 'default-company-id';
 
@@ -66,32 +72,115 @@ function toCostBreakdownData(e: CostEstimate): CostBreakdownData {
   };
 }
 
-// Mock Data - Versions
-const mockVersions: EstimateVersion[] = [
-  { id: '1', version: 'v1.0', name: 'Initial Estimate', status: 'approved', totalCost: 420000, suggestedPrice: 600000, margin: 180000, marginPercent: 30, createdBy: 'Sarah Johnson', createdAt: '2025-01-10T10:00:00Z', approvedBy: 'Mike Chen', approvedAt: '2025-01-12T14:00:00Z', notes: 'Initial rough estimate' },
-  { id: '2', version: 'v1.1', name: 'Revised After Site Visit', status: 'approved', totalCost: 450000, suggestedPrice: 630000, margin: 180000, marginPercent: 28.6, createdBy: 'Sarah Johnson', createdAt: '2025-01-15T09:00:00Z', changes: ['Added specialized equipment costs', 'Increased labor hours'], approvedBy: 'Mike Chen', approvedAt: '2025-01-16T16:00:00Z' },
-  { id: '3', version: 'v2.0', name: 'Final Proposal', status: 'submitted', totalCost: 450000, suggestedPrice: 656250, margin: 206250, marginPercent: 35, createdBy: 'Sarah Johnson', createdAt: '2025-01-20T15:00:00Z', changes: ['Increased margin to 35%', 'Added 10% contingency'], notes: 'Final version submitted to customer' },
-];
-
-// Mock Data - Risks
-const mockRisks: RiskItem[] = [
-  { id: '1', title: 'Material Price Volatility', description: 'Steel prices may increase by 10-15%', category: 'cost', level: 'high', status: 'open', probability: 70, impact: 80, riskScore: 56, costImpact: 18750, mitigationPlan: 'Lock in prices with supplier contract', owner: 'Procurement Team', identifiedDate: '2025-01-15', lastUpdated: '2025-01-20' },
-  { id: '2', title: 'Equipment Delivery Delay', description: 'Specialized tooling has 8-week lead time', category: 'schedule', level: 'medium', status: 'mitigated', probability: 50, impact: 60, riskScore: 30, scheduleImpact: 14, mitigationPlan: 'Order equipment immediately', owner: 'Project Manager', identifiedDate: '2025-01-12', lastUpdated: '2025-01-18' },
-];
-
-// Mock Data - Approvals
-const mockApprovalThresholds: ApprovalThreshold[] = [
+// Static approval policy (no dedicated backend endpoint; kept as config).
+const APPROVAL_THRESHOLDS: ApprovalThreshold[] = [
   { id: '1', name: 'Large Estimate Approval', description: 'Requires director approval for estimates over $500K', condition: { type: 'estimate_value', operator: 'greater_than', value: 500000 }, requiredApprovers: [{ role: 'director', count: 1 }], priority: 'high' },
 ];
 
-const mockApprovalRequests: ApprovalRequest[] = [
-  { id: '1', estimateId: 'EST-2025-001', estimateName: 'Manufacturing Line Upgrade', estimateValue: 656250, marginPercent: 35, requestedBy: 'Sarah Johnson', requestedAt: '2025-01-20T15:00:00Z', status: 'pending', approvers: [{ id: 'a1', name: 'Mike Chen', email: 'mike@company.com', role: 'director', order: 1, status: 'pending' }], threshold: mockApprovalThresholds[0], currentLevel: 1, totalLevels: 1, notes: 'Final estimate ready for approval' },
-];
+// ---- Backend -> component prop mappers ----
 
-// Mock Data - BOM Import
-const mockBOMSessions: BOMImportSession[] = [
-  { id: '1', source: 'excel', fileName: 'manufacturing_bom_v2.xlsx', fileSize: 245000, status: 'completed', uploadedAt: '2025-01-19T14:00:00Z', processedAt: '2025-01-19T14:05:00Z', totalItems: 150, validItems: 145, itemsWithWarnings: 3, itemsWithErrors: 2, items: [] },
-];
+function toEstimateVersion(v: EstimateVersionRecord): EstimateVersion {
+  const total = Number(v.totalCost) || 0;
+  const price = Number(v.suggestedPrice) || total;
+  const margin = Number(v.margin) || price - total;
+  const statusMap: Record<string, EstimateVersion['status']> = {
+    Draft: 'draft',
+    'Pending Approval': 'submitted',
+    Submitted: 'submitted',
+    Approved: 'approved',
+    Rejected: 'rejected',
+    Superseded: 'superseded',
+  };
+  return {
+    id: v.id,
+    version: v.version != null ? `v${v.version}` : 'v1',
+    name: v.name || v.title || 'Version',
+    status: statusMap[String(v.status)] ?? 'draft',
+    totalCost: total,
+    suggestedPrice: price,
+    margin,
+    marginPercent: Number(v.marginPercent) || (price ? Number(((margin / price) * 100).toFixed(1)) : 0),
+    createdBy: v.createdBy || '',
+    createdAt: v.createdAt || '',
+    notes: v.notes,
+    changes: v.changes,
+    approvedBy: v.approvedBy,
+    approvedAt: v.approvedAt,
+    rejectedReason: v.rejectedReason,
+  };
+}
+
+function toApprovalRequest(e: CostEstimate): ApprovalRequest {
+  const value = Number(e.totalCost) || 0;
+  const price = value;
+  const marginPercent = 0;
+  return {
+    id: e.id,
+    estimateId: e.estimateNumber || e.id,
+    estimateName: e.title || 'Cost Estimate',
+    estimateValue: value,
+    marginPercent,
+    requestedBy: e.submittedBy || '',
+    requestedAt: e.submittedAt || e.updatedAt || e.createdAt,
+    status: 'pending',
+    approvers: [{ id: `${e.id}-a1`, name: 'Director', email: '', role: 'director', order: 1, status: 'pending' }],
+    threshold: APPROVAL_THRESHOLDS[0],
+    currentLevel: 1,
+    totalLevels: 1,
+  };
+}
+
+function toBOMImportSession(s: BOMImportSessionRecord): BOMImportSession {
+  const items: BOMLineItem[] = (s.rows || []).map((r, i) => ({
+    itemNumber: String(i + 1),
+    partNumber: r.code,
+    description: r.description,
+    quantity: Number(r.quantity) || 0,
+    unit: 'ea',
+    unitCost: Number(r.unitCost) || 0,
+    totalCost: (Number(r.quantity) || 0) * (Number(r.unitCost) || 0),
+    status: 'valid' as const,
+  }));
+  const errorCount = (s.errors || []).length;
+  const statusMap: Record<string, BOMImportSession['status']> = {
+    ready: 'ready',
+    processing: 'processing',
+    completed: 'completed',
+    failed: 'failed',
+  };
+  return {
+    id: s.id,
+    source: 'csv',
+    fileName: s.fileName || 'bom.csv',
+    fileSize: 0,
+    status: statusMap[String(s.status)] ?? 'completed',
+    uploadedAt: s.createdAt || new Date().toISOString(),
+    processedAt: s.createdAt,
+    totalItems: Number(s.rowCount) || items.length,
+    validItems: items.length - errorCount,
+    itemsWithWarnings: 0,
+    itemsWithErrors: errorCount,
+    items,
+  };
+}
+
+function toSimulationScenario(s: WhatIfScenario): SimulationScenario {
+  const base = Number(s.results?.baseValue ?? s.baseValue) || 0;
+  const total = Number(s.results?.adjustedValue) || base;
+  const variance = Number(s.results?.deltaValue) || total - base;
+  const variancePercent = Number(s.results?.deltaPct) || (base ? (variance / base) * 100 : 0);
+  return {
+    id: s.id,
+    name: s.name,
+    description: (s.variables || []).map((v) => `${v.label} ${v.adjustPct > 0 ? '+' : ''}${v.adjustPct}%`).join(', ') || 'Scenario',
+    variables: (s.variables || []).map((v) => ({ variableId: v.key, value: v.adjustPct })),
+    totalCost: total,
+    margin: 0,
+    suggestedPrice: total,
+    variance,
+    variancePercent: Number(variancePercent.toFixed(1)),
+  };
+}
 
 // Mock Data - Historical Benchmarking
 interface HistoricalProject {
@@ -118,27 +207,19 @@ const emptyBenchmarkMetrics = {
   worstAccuracy: 0,
 };
 
-// Mock Data - What-If Simulation
-const mockSimulationVariables = [
-  { id: 'v1', name: 'Material Cost', category: 'Direct Costs', baseValue: 125000, currentValue: 125000, min: 100000, max: 150000, unit: '$', impact: 'high' as const },
-  { id: 'v2', name: 'Labor Hours', category: 'Direct Costs', baseValue: 400, currentValue: 400, min: 300, max: 500, unit: 'hours', impact: 'high' as const },
-  { id: 'v3', name: 'Equipment Cost', category: 'Direct Costs', baseValue: 150000, currentValue: 150000, min: 120000, max: 180000, unit: '$', impact: 'high' as const },
-];
-
-const mockSimulationScenarios = [
-  { id: 's1', name: 'Best Case', description: 'All variables at optimal levels', variables: [], totalCost: 400000, margin: 35, suggestedPrice: 590000, variance: -50000, variancePercent: -11.1 },
-  { id: 's2', name: 'Worst Case', description: 'Maximum cost overruns', variables: [], totalCost: 520000, margin: 35, suggestedPrice: 767000, variance: 70000, variancePercent: 15.5 },
-];
-
 export default function EstimationAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<string>('cost-breakdown');
   const [selectedVersion1, setSelectedVersion1] = useState<string>('1');
   const [selectedVersion2, setSelectedVersion2] = useState<string>('3');
 
   // Primary view: live cost breakdown for the most recent estimate.
+  const [primaryEstimate, setPrimaryEstimate] = useState<CostEstimate | null>(null);
   const [costData, setCostData] = useState<CostBreakdownData | null>(null);
   const [costLoading, setCostLoading] = useState<boolean>(true);
   const [costError, setCostError] = useState<string | null>(null);
+
+  // Real backend id of the primary estimate (UUID), used for by-estimate fetches.
+  const estimateId = primaryEstimate?.id ?? '';
 
   // Live analytics: pull historical benchmarks/projects.
   const [historicalProjects, setHistoricalProjects] = useState<HistoricalProject[]>([]);
@@ -153,6 +234,7 @@ export default function EstimationAdvancedFeaturesPage() {
         const estimates = (await costEstimateService.findAll(COMPANY_ID)) as CostEstimate[];
         if (cancelled) return;
         const first = Array.isArray(estimates) && estimates.length ? estimates[0] : null;
+        setPrimaryEstimate(first);
         setCostData(first ? toCostBreakdownData(first) : null);
       } catch (err) {
         if (!cancelled) setCostError(err instanceof Error ? err.message : 'Failed to load cost estimate');
@@ -230,6 +312,290 @@ export default function EstimationAdvancedFeaturesPage() {
       cancelled = true;
     };
   }, []);
+
+  // ==================== Version Comparison tab ====================
+  const [versions, setVersions] = useState<EstimateVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState<boolean>(false);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!estimateId) return;
+    let cancelled = false;
+    setVersionsLoading(true);
+    setVersionsError(null);
+    estimationAdvancedService
+      .getVersions(estimateId)
+      .then((rows) => {
+        if (cancelled) return;
+        const mapped = (Array.isArray(rows) ? rows : []).map(toEstimateVersion);
+        setVersions(mapped);
+        if (mapped.length >= 1) setSelectedVersion1(mapped[0].id);
+        if (mapped.length >= 2) setSelectedVersion2(mapped[mapped.length - 1].id);
+      })
+      .catch((err) => {
+        if (!cancelled) setVersionsError(err instanceof Error ? err.message : 'Failed to load versions');
+      })
+      .finally(() => {
+        if (!cancelled) setVersionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [estimateId]);
+
+  // ==================== Risk Analysis tab ====================
+  const [risks, setRisks] = useState<RiskItem[]>([]);
+  const [risksLoading, setRisksLoading] = useState<boolean>(false);
+  const [risksError, setRisksError] = useState<string | null>(null);
+
+  const loadRisks = useCallback(async () => {
+    if (!estimateId) return;
+    setRisksLoading(true);
+    setRisksError(null);
+    try {
+      const analysis = await estimationAnalyticsService.findRiskAnalysisByEstimate(COMPANY_ID, estimateId);
+      const probMap: Record<string, number> = { Low: 25, Medium: 55, High: 85 };
+      const items: RiskItem[] = (analysis?.risks ?? []).map((r) => {
+        const probability = probMap[r.probability] ?? 50;
+        const impact = probMap[r.impact] ?? 50;
+        const level: RiskItem['level'] =
+          r.riskScore >= 8 ? 'critical' : r.riskScore >= 6 ? 'high' : r.riskScore >= 3 ? 'medium' : 'low';
+        const statusMap: Record<string, RiskItem['status']> = {
+          Identified: 'open',
+          Mitigated: 'mitigated',
+          Accepted: 'accepted',
+          Closed: 'closed',
+        };
+        const catMap: Record<string, RiskItem['category']> = {
+          Technical: 'technical',
+          Financial: 'cost',
+          Schedule: 'schedule',
+          Resource: 'resource',
+          External: 'market',
+          Other: 'technical',
+        };
+        return {
+          id: r.riskId,
+          title: r.description,
+          description: r.mitigationStrategy || r.description,
+          category: catMap[r.category] ?? 'technical',
+          level,
+          status: statusMap[r.status] ?? 'open',
+          probability,
+          impact,
+          riskScore: r.riskScore,
+          costImpact: r.mitigationCost,
+          mitigationPlan: r.mitigationStrategy,
+          owner: r.owner,
+          identifiedDate: (analysis?.createdAt ?? '').slice(0, 10),
+          lastUpdated: (analysis?.createdAt ?? '').slice(0, 10),
+        };
+      });
+      setRisks(items);
+    } catch (err) {
+      setRisksError(err instanceof Error ? err.message : 'Failed to load risks');
+    } finally {
+      setRisksLoading(false);
+    }
+  }, [estimateId]);
+
+  useEffect(() => {
+    loadRisks();
+  }, [loadRisks]);
+
+  const handleAddRisk = useCallback(async () => {
+    if (!estimateId || !primaryEstimate) return;
+    const description = typeof window !== 'undefined' ? window.prompt('Risk description?') : null;
+    if (!description) return;
+    try {
+      await estimationAnalyticsService.createRiskAnalysis(COMPANY_ID, {
+        estimateId,
+        estimateNumber: primaryEstimate.estimateNumber,
+        projectName: primaryEstimate.title,
+        risks: [
+          {
+            riskId: `r-${Date.now()}`,
+            category: 'Financial',
+            description,
+            probability: 'Medium',
+            impact: 'Medium',
+            riskScore: 4,
+            mitigationStrategy: '',
+            mitigationCost: 0,
+            residualRisk: 'Low',
+            owner: '',
+            status: 'Identified',
+          },
+        ],
+      });
+      await loadRisks();
+    } catch {
+      /* fallback handled in service */
+    }
+  }, [estimateId, primaryEstimate, loadRisks]);
+
+  // ==================== Workflow & Approvals tab ====================
+  const [approvalRequests, setApprovalRequests] = useState<ApprovalRequest[]>([]);
+  const [approvalsLoading, setApprovalsLoading] = useState<boolean>(false);
+  const [approvalsError, setApprovalsError] = useState<string | null>(null);
+
+  const loadApprovals = useCallback(async () => {
+    setApprovalsLoading(true);
+    setApprovalsError(null);
+    try {
+      const pending = (await costEstimateService.findAll(COMPANY_ID, { status: 'Pending Approval' })) as CostEstimate[];
+      setApprovalRequests((Array.isArray(pending) ? pending : []).map(toApprovalRequest));
+    } catch (err) {
+      setApprovalsError(err instanceof Error ? err.message : 'Failed to load approvals');
+    } finally {
+      setApprovalsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadApprovals();
+  }, [loadApprovals]);
+
+  const handleApprove = useCallback(
+    async (requestId: string, comments?: string) => {
+      try {
+        await costEstimateService.approve(COMPANY_ID, requestId, 'director', comments);
+        await loadApprovals();
+      } catch {
+        /* fallback handled in service */
+      }
+    },
+    [loadApprovals],
+  );
+
+  const handleReject = useCallback(
+    async (requestId: string, reason: string) => {
+      try {
+        await costEstimateService.reject(COMPANY_ID, requestId, 'director', reason);
+        await loadApprovals();
+      } catch {
+        /* fallback handled in service */
+      }
+    },
+    [loadApprovals],
+  );
+
+  // ==================== BOM Import tab ====================
+  const [bomSessions, setBomSessions] = useState<BOMImportSession[]>([]);
+  const [bomLoading, setBomLoading] = useState<boolean>(false);
+  const [bomError, setBomError] = useState<string | null>(null);
+
+  const loadBom = useCallback(async () => {
+    setBomLoading(true);
+    setBomError(null);
+    try {
+      const rows = await estimationAdvancedService.listBomSessions(estimateId || undefined);
+      setBomSessions((Array.isArray(rows) ? rows : []).map(toBOMImportSession));
+    } catch (err) {
+      setBomError(err instanceof Error ? err.message : 'Failed to load BOM sessions');
+    } finally {
+      setBomLoading(false);
+    }
+  }, [estimateId]);
+
+  useEffect(() => {
+    loadBom();
+  }, [loadBom]);
+
+  const handleUploadBom = useCallback(
+    async (file: File, _source: ImportSource) => {
+      try {
+        const csv = await file.text();
+        await estimationAdvancedService.createBomSession({
+          fileName: file.name,
+          estimateId: estimateId || undefined,
+          csv,
+        });
+        await loadBom();
+      } catch (err) {
+        setBomError(err instanceof Error ? err.message : 'Failed to import BOM');
+      }
+    },
+    [estimateId, loadBom],
+  );
+
+  // ==================== What-If Simulation tab ====================
+  const [whatIfVariables, setWhatIfVariables] = useState<SimulationVariable[]>([]);
+  const [whatIfScenarios, setWhatIfScenarios] = useState<SimulationScenario[]>([]);
+  const [whatIfLoading, setWhatIfLoading] = useState<boolean>(false);
+  const [whatIfError, setWhatIfError] = useState<string | null>(null);
+
+  // Derive simulation variables from the primary estimate's cost lines.
+  useEffect(() => {
+    if (!primaryEstimate) {
+      setWhatIfVariables([]);
+      return;
+    }
+    const e = primaryEstimate;
+    const mk = (id: string, name: string, base: number): SimulationVariable => ({
+      id,
+      name,
+      category: 'Direct Costs',
+      baseValue: base,
+      currentValue: base,
+      min: Math.round(base * 0.7),
+      max: Math.round(base * 1.3),
+      unit: '$',
+      impact: 'high',
+    });
+    setWhatIfVariables(
+      [
+        mk('materialCost', 'Material Cost', Number(e.materialCost) || 0),
+        mk('laborCost', 'Labor Cost', Number(e.laborCost) || 0),
+        mk('equipmentCost', 'Equipment Cost', Number(e.equipmentCost) || 0),
+        mk('overheadCost', 'Overhead Cost', Number(e.overheadCost) || 0),
+        mk('subcontractorCost', 'Subcontractor Cost', Number(e.subcontractorCost) || 0),
+      ].filter((v) => v.baseValue > 0),
+    );
+  }, [primaryEstimate]);
+
+  const loadWhatIf = useCallback(async () => {
+    if (!estimateId) return;
+    setWhatIfLoading(true);
+    setWhatIfError(null);
+    try {
+      const rows = await estimationAdvancedService.listWhatIf(estimateId);
+      setWhatIfScenarios((Array.isArray(rows) ? rows : []).map(toSimulationScenario));
+    } catch (err) {
+      setWhatIfError(err instanceof Error ? err.message : 'Failed to load scenarios');
+    } finally {
+      setWhatIfLoading(false);
+    }
+  }, [estimateId]);
+
+  useEffect(() => {
+    loadWhatIf();
+  }, [loadWhatIf]);
+
+  const handleRunSimulation = useCallback(
+    async (vars: SimulationVariable[]) => {
+      if (!estimateId) return;
+      const changed = vars.filter((v) => v.currentValue !== v.baseValue);
+      if (!changed.length) return;
+      try {
+        await estimationAdvancedService.createWhatIf({
+          name: `Scenario ${new Date().toLocaleString()}`,
+          estimateId,
+          baseValue: primaryEstimate ? Number(primaryEstimate.totalCost) || 0 : undefined,
+          variables: vars.map((v) => ({
+            key: v.id,
+            label: v.name,
+            baseValue: v.baseValue,
+            adjustPct: v.baseValue ? Number((((v.currentValue - v.baseValue) / v.baseValue) * 100).toFixed(2)) : 0,
+          })),
+        });
+        await loadWhatIf();
+      } catch (err) {
+        setWhatIfError(err instanceof Error ? err.message : 'Failed to run simulation');
+      }
+    },
+    [estimateId, primaryEstimate, loadWhatIf],
+  );
 
   const features = [
     { id: 'cost-breakdown', name: 'Cost Breakdown', icon: Calculator, color: 'text-blue-600', bg: 'bg-blue-50', description: 'Detailed cost analysis by category' },
@@ -321,36 +687,68 @@ export default function EstimationAdvancedFeaturesPage() {
         )}
 
         {activeTab === 'version-comparison' && (
-          <VersionComparison
-            estimateId={estimateIdentity.estimateId}
-            estimateName={estimateIdentity.estimateName}
-            versions={mockVersions}
-            selectedVersion1={selectedVersion1}
-            selectedVersion2={selectedVersion2}
-            onSelectVersion1={setSelectedVersion1}
-            onSelectVersion2={setSelectedVersion2}
-          />
+          !estimateId ? (
+            <EmptyState icon={GitBranch} title="No estimate selected" description="Create a cost estimate to compare its versions." />
+          ) : versionsLoading ? (
+            <div className="py-12 text-center text-sm text-gray-500">Loading versions…</div>
+          ) : versions.length ? (
+            <VersionComparison
+              estimateId={estimateIdentity.estimateId}
+              estimateName={estimateIdentity.estimateName}
+              versions={versions}
+              selectedVersion1={selectedVersion1}
+              selectedVersion2={selectedVersion2}
+              onSelectVersion1={setSelectedVersion1}
+              onSelectVersion2={setSelectedVersion2}
+            />
+          ) : (
+            <EmptyState icon={GitBranch} title="No versions yet" description={versionsError ?? 'This estimate has no version history yet.'} />
+          )
         )}
 
         {activeTab === 'risk-analysis' && (
-          <RiskAnalysis
-            estimateId={estimateIdentity.estimateId}
-            risks={mockRisks}
-            totalContingency={estimateIdentity.contingencyAmount}
-            editable={true}
-          />
+          !estimateId ? (
+            <EmptyState icon={AlertTriangle} title="No estimate selected" description="Create a cost estimate to run a risk analysis." />
+          ) : risksLoading ? (
+            <div className="py-12 text-center text-sm text-gray-500">Loading risks…</div>
+          ) : (
+            <RiskAnalysis
+              estimateId={estimateIdentity.estimateId}
+              risks={risks}
+              totalContingency={estimateIdentity.contingencyAmount}
+              editable={true}
+              onAddRisk={handleAddRisk}
+            />
+          )
         )}
 
         {activeTab === 'workflow-approvals' && (
-          <WorkflowApprovals
-            requests={mockApprovalRequests}
-            thresholds={mockApprovalThresholds}
-            currentUserRole="director"
-          />
+          approvalsLoading ? (
+            <div className="py-12 text-center text-sm text-gray-500">Loading pending approvals…</div>
+          ) : approvalRequests.length ? (
+            <WorkflowApprovals
+              requests={approvalRequests}
+              thresholds={APPROVAL_THRESHOLDS}
+              currentUserRole="director"
+              onApprove={handleApprove}
+              onReject={handleReject}
+            />
+          ) : (
+            <EmptyState icon={Shield} title="No pending approvals" description={approvalsError ?? 'There are no estimates currently awaiting approval.'} />
+          )
         )}
 
         {activeTab === 'bom-import' && (
-          <BOMImport sessions={mockBOMSessions} />
+          bomLoading ? (
+            <div className="py-12 text-center text-sm text-gray-500">Loading BOM sessions…</div>
+          ) : (
+            <>
+              {bomError && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">{bomError}</div>
+              )}
+              <BOMImport sessions={bomSessions} onUploadFile={handleUploadBom} />
+            </>
+          )
         )}
 
         {activeTab === 'benchmarking' && (
@@ -362,11 +760,24 @@ export default function EstimationAdvancedFeaturesPage() {
         )}
 
         {activeTab === 'what-if' && (
-          <WhatIfSimulation
-            baseEstimate={{ id: estimateIdentity.estimateId, name: estimateIdentity.estimateName, totalCost: estimateIdentity.totalCost, margin: estimateIdentity.targetMargin, suggestedPrice: estimateIdentity.suggestedPrice }}
-            variables={mockSimulationVariables}
-            scenarios={mockSimulationScenarios}
-          />
+          !estimateId ? (
+            <EmptyState icon={Lightbulb} title="No estimate selected" description="Create a cost estimate to model what-if scenarios." />
+          ) : whatIfLoading ? (
+            <div className="py-12 text-center text-sm text-gray-500">Loading scenarios…</div>
+          ) : (
+            <>
+              {whatIfError && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">{whatIfError}</div>
+              )}
+              <WhatIfSimulation
+                key={whatIfVariables.length}
+                baseEstimate={{ id: estimateIdentity.estimateId, name: estimateIdentity.estimateName, totalCost: estimateIdentity.totalCost, margin: estimateIdentity.targetMargin, suggestedPrice: estimateIdentity.suggestedPrice }}
+                variables={whatIfVariables}
+                scenarios={whatIfScenarios}
+                onRunSimulation={handleRunSimulation}
+              />
+            </>
+          )
         )}
       </div>
     </div>
