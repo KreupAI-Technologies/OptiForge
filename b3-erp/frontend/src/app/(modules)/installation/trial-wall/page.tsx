@@ -49,6 +49,7 @@ function TrialWallPageContent() {
         { id: '3', item: 'Corner Joints', status: 'Pending' },
         { id: '4', item: 'Vertical Plumb', status: 'Pending' },
     ]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -95,12 +96,31 @@ function TrialWallPageContent() {
         ));
     };
 
-    const handleComplete = () => {
-        toast({
-            title: 'Trial Wall Verified',
-            description: 'Trial assembly checks completed',
-        });
-        setTimeout(() => router.push(`/installation/accessory-fix?projectId=${selectedProject?.id}`), 1000);
+    const handleComplete = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            const verified = checks.filter(c => c.status === 'Verified').length;
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Trial wall assembly verified: ${verified}/${checks.length} checks passed (${checks.map(c => c.item).join(', ')}).`,
+                overallProgress: 50,
+            });
+            toast({
+                title: 'Trial Wall Verified',
+                description: 'Trial assembly checks completed. Progress saved.',
+            });
+            router.push(`/installation/accessory-fix?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving trial wall progress:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not record trial wall progress. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: TrialCheck['status']) => {
@@ -196,8 +216,9 @@ function TrialWallPageContent() {
                     </Button>
                     <Button
                         onClick={handleComplete}
-                        disabled={checks.some(c => c.status === 'Pending')}
+                        disabled={checks.some(c => c.status === 'Pending') || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Accessory Fix <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

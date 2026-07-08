@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { procurementPagesService } from '@/services/procurement-pages.service';
 import { purchaseOrderService } from '@/services/purchase-order.service';
+import { purchaseRequisitionService } from '@/services/purchase-requisition.service';
+import { procurementRFQService } from '@/services/procurement-rfq.service';
 import {
   ArrowLeft,
   Save,
@@ -171,6 +173,9 @@ export default function AddPurchaseOrderPage() {
   const [selectedVendorId, setSelectedVendorId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -329,25 +334,71 @@ export default function AddPurchaseOrderPage() {
     }
   };
 
-  const handleLoadFromRequisition = () => {
-    // Mock loading data from requisition
-    setCreateFromRequisition(true);
-    updateFormData('requisitionRef', 'PR-2025-00089');
-    // In real implementation, fetch and populate items from PR
-    alert('Load items from Purchase Requisition (Feature coming soon)');
+  const handleLoadFromRequisition = async () => {
+    const prId = window.prompt('Enter the Purchase Requisition ID to load items from:');
+    if (!prId) return;
+    setSubmitError(null);
+    setSuccessMessage(null);
+    try {
+      setSubmitting(true);
+      const pr = await purchaseRequisitionService.getRequisitionById(prId.trim());
+      setCreateFromRequisition(true);
+      updateFormData('requisitionRef', pr.prNumber || prId.trim());
+      const items: LineItem[] = (pr.items ?? []).map((it) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        itemCode: it.itemCode || it.itemId || '',
+        description: it.itemName || it.description || '',
+        hsn: '',
+        quantity: String(it.quantity ?? 1),
+        unit: it.unit || 'MT',
+        unitPrice: String(it.estimatedUnitPrice ?? 0),
+        taxRate: '18',
+        taxType: companyState === formData.vendorAddress.state ? 'CGST+SGST' : 'IGST',
+        discountPercent: '0',
+      }));
+      if (items.length) updateFormData('lineItems', items);
+      setSuccessMessage(`Loaded ${items.length} item(s) from ${pr.prNumber || prId.trim()}.`);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to load purchase requisition');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleLoadFromRFQ = () => {
-    // Mock loading data from RFQ
-    setCreateFromRFQ(true);
-    updateFormData('rfqRef', 'RFQ-2025-00056');
-    // In real implementation, fetch vendor and quoted prices from RFQ
-    alert('Load vendor and prices from RFQ (Feature coming soon)');
+  const handleLoadFromRFQ = async () => {
+    const rfqId = window.prompt('Enter the RFQ ID to load vendor and quoted prices from:');
+    if (!rfqId) return;
+    setSubmitError(null);
+    setSuccessMessage(null);
+    try {
+      setSubmitting(true);
+      const rfq = await procurementRFQService.getRFQById(rfqId.trim());
+      setCreateFromRFQ(true);
+      updateFormData('rfqRef', rfq.rfqNumber || rfqId.trim());
+      const items: LineItem[] = (rfq.items ?? []).map((it) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        itemCode: it.itemCode || it.itemId || '',
+        description: it.itemName || it.description || '',
+        hsn: '',
+        quantity: String(it.quantity ?? 1),
+        unit: it.unit || 'MT',
+        unitPrice: String(it.targetPrice ?? 0),
+        taxRate: '18',
+        taxType: companyState === formData.vendorAddress.state ? 'CGST+SGST' : 'IGST',
+        discountPercent: '0',
+      }));
+      if (items.length) updateFormData('lineItems', items);
+      setSuccessMessage(`Loaded ${items.length} item(s) from ${rfq.rfqNumber || rfqId.trim()}.`);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to load RFQ');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBulkImport = () => {
-    // Mock bulk import from Excel/CSV
-    alert('Bulk import from Excel/CSV (Feature coming soon)');
+    // No backend bulk-import endpoint exists; guide the user to add items manually.
+    setSubmitError('Bulk import from Excel/CSV is not available yet. Please add line items manually.');
   };
 
   // Line Items Management
@@ -532,46 +583,61 @@ export default function AddPurchaseOrderPage() {
   };
 
   const handleSaveDraft = async () => {
+    setSubmitError(null);
+    setSuccessMessage(null);
     if (!formData.vendorName) {
-      alert('Please select a vendor');
+      setSubmitError('Please select a vendor');
       return;
     }
     try {
+      setSubmitting(true);
       await persistPO();
-      alert('Purchase order saved as draft.');
+      setSuccessMessage('Purchase order saved as draft. Redirecting…');
       router.push('/procurement/purchase-orders');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save purchase order');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save purchase order');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSubmitForApproval = async () => {
+    setSubmitError(null);
+    setSuccessMessage(null);
     if (!formData.approver) {
-      alert('Please select an approver');
+      setSubmitError('Please select an approver');
       return;
     }
     try {
+      setSubmitting(true);
       const id = await persistPO();
       if (id) await purchaseOrderService.submitPurchaseOrder(id);
-      alert('Purchase order submitted for approval.');
+      setSuccessMessage('Purchase order submitted for approval. Redirecting…');
       router.push('/procurement/purchase-orders');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to submit purchase order');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit purchase order');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSendToVendor = async () => {
+    setSubmitError(null);
+    setSuccessMessage(null);
     if (!formData.vendorName) {
-      alert('Please select a vendor');
+      setSubmitError('Please select a vendor');
       return;
     }
     try {
+      setSubmitting(true);
       const id = await persistPO();
       if (id) await purchaseOrderService.submitPurchaseOrder(id);
-      alert('Purchase order sent to vendor.');
+      setSuccessMessage('Purchase order sent to vendor. Redirecting…');
       router.push('/procurement/purchase-orders');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to send purchase order');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to send purchase order');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -626,6 +692,18 @@ export default function AddPurchaseOrderPage() {
             <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               <AlertCircle className="h-4 w-4" />
               {loadError}
+            </div>
+          )}
+          {submitError && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {submitError}
+            </div>
+          )}
+          {successMessage && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              <CheckSquare className="h-4 w-4" />
+              {successMessage}
             </div>
           )}
 
@@ -1337,26 +1415,29 @@ export default function AddPurchaseOrderPage() {
                 </button>
                 <button
                   onClick={handleSaveDraft}
-                  className="flex items-center space-x-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  disabled={submitting}
+                  className="flex items-center space-x-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="h-5 w-5" />
-                  <span>Save as Draft</span>
+                  <span>{submitting ? 'Saving…' : 'Save as Draft'}</span>
                 </button>
                 {formData.approvalRequired ? (
                   <button
                     onClick={handleSubmitForApproval}
-                    className="flex items-center space-x-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                    disabled={submitting}
+                    className="flex items-center space-x-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CheckSquare className="h-5 w-5" />
-                    <span>Submit for Approval</span>
+                    <span>{submitting ? 'Submitting…' : 'Submit for Approval'}</span>
                   </button>
                 ) : (
                   <button
                     onClick={handleSendToVendor}
-                    className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    disabled={submitting}
+                    className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="h-5 w-5" />
-                    <span>Send to Vendor</span>
+                    <span>{submitting ? 'Sending…' : 'Send to Vendor'}</span>
                   </button>
                 )}
               </div>

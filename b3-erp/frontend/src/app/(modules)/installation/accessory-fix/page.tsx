@@ -49,6 +49,7 @@ function AccessoryFixPageContent() {
         { id: '3', name: 'Corner Carousel', location: 'Corner Unit', status: 'Pending' },
         { id: '4', name: 'Cutlery Tray', location: 'Top Drawer', status: 'Pending' },
     ]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -95,12 +96,31 @@ function AccessoryFixPageContent() {
         ));
     };
 
-    const handleComplete = () => {
-        toast({
-            title: 'Accessories Installed',
-            description: 'All accessories fixed and tested',
-        });
-        setTimeout(() => router.push(`/installation/final-align?projectId=${selectedProject?.id}`), 1000);
+    const handleComplete = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            const installed = accessories.filter(a => a.status === 'Installed').length;
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Accessory fix completed: ${installed}/${accessories.length} accessories installed and tested (${accessories.map(a => a.name).join(', ')}).`,
+                overallProgress: 85,
+            });
+            toast({
+                title: 'Accessories Installed',
+                description: 'All accessories fixed and tested. Progress saved.',
+            });
+            router.push(`/installation/final-align?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving accessory fix progress:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not record accessory fix progress. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: Accessory['status']) => {
@@ -196,8 +216,9 @@ function AccessoryFixPageContent() {
                     </Button>
                     <Button
                         onClick={handleComplete}
-                        disabled={accessories.some(a => a.status !== 'Installed')}
+                        disabled={accessories.some(a => a.status !== 'Installed') || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Final Align <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

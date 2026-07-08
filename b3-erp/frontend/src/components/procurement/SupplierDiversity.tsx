@@ -33,86 +33,7 @@ const SupplierDiversity: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
 
   // Diverse suppliers - seeded with sample data, populated from API
-  const [diverseSuppliers, setDiverseSuppliers] = useState<DiverseSupplier[]>([
-    {
-      id: 'DS001',
-      name: 'Women Tech Solutions Inc',
-      category: 'IT Services',
-      certifications: ['WBENC', 'ISO 9001'],
-      annualSpend: 450000,
-      diversityType: 'women',
-      status: 'active',
-      certifiedBy: 'WBENC',
-      certificationDate: '2023-01-15',
-      expirationDate: '2026-01-15',
-      rating: 4.8
-    },
-    {
-      id: 'DS002',
-      name: 'Veteran Manufacturing Co',
-      category: 'Raw Materials',
-      certifications: ['NVBDC', 'ISO 14001'],
-      annualSpend: 380000,
-      diversityType: 'veteran',
-      status: 'active',
-      certifiedBy: 'NVBDC',
-      certificationDate: '2023-03-20',
-      expirationDate: '2026-03-20',
-      rating: 4.6
-    },
-    {
-      id: 'DS003',
-      name: 'Minority Business Supplies',
-      category: 'Office Supplies',
-      certifications: ['NMSDC'],
-      annualSpend: 280000,
-      diversityType: 'minority',
-      status: 'active',
-      certifiedBy: 'NMSDC',
-      certificationDate: '2023-02-10',
-      expirationDate: '2026-02-10',
-      rating: 4.7
-    },
-    {
-      id: 'DS004',
-      name: 'Small Business Logistics',
-      category: 'Transportation',
-      certifications: ['SBA 8(a)'],
-      annualSpend: 320000,
-      diversityType: 'small-business',
-      status: 'active',
-      certifiedBy: 'SBA',
-      certificationDate: '2023-05-05',
-      expirationDate: '2026-05-05',
-      rating: 4.5
-    },
-    {
-      id: 'DS005',
-      name: 'Disability Services Group',
-      category: 'Professional Services',
-      certifications: ['USBLN'],
-      annualSpend: 180000,
-      diversityType: 'disability',
-      status: 'active',
-      certifiedBy: 'USBLN',
-      certificationDate: '2023-04-12',
-      expirationDate: '2026-04-12',
-      rating: 4.9
-    },
-    {
-      id: 'DS006',
-      name: 'Pride Tech Consultants',
-      category: 'IT Consulting',
-      certifications: ['NGLCC'],
-      annualSpend: 220000,
-      diversityType: 'lgbt',
-      status: 'active',
-      certifiedBy: 'NGLCC',
-      certificationDate: '2023-06-18',
-      expirationDate: '2026-06-18',
-      rating: 4.7
-    }
-  ]);
+  const [diverseSuppliers, setDiverseSuppliers] = useState<DiverseSupplier[]>([]);
 
   // Populate diverse suppliers from the diversity insights API
   useEffect(() => {
@@ -120,7 +41,10 @@ const SupplierDiversity: React.FC = () => {
       try {
         const data = await procurementPagesService.getDiversityInsights();
         const vendors = Array.isArray(data?.vendors) ? data.vendors : [];
-        if (vendors.length === 0) return;
+        if (vendors.length === 0) {
+          setDiverseSuppliers([]);
+          return;
+        }
 
         const mapDiversityType = (
           classification: string
@@ -148,10 +72,10 @@ const SupplierDiversity: React.FC = () => {
           rating: 0,
         }));
 
-        if (mapped.length > 0) setDiverseSuppliers(mapped);
+        setDiverseSuppliers(mapped);
       } catch (err) {
-        // Keep seeded sample data on failure
         console.error('Failed to load diversity insights', err);
+        setDiverseSuppliers([]);
       }
     };
     loadDiversity();

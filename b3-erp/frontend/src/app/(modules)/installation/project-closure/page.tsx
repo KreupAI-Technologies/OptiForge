@@ -40,6 +40,7 @@ function ProjectClosurePageContent() {
     const [rating, setRating] = useState(0);
     const [feedback, setFeedback] = useState('');
     const [closed, setClosed] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -80,12 +81,26 @@ function ProjectClosurePageContent() {
         p.clientName.toLowerCase().includes(projectSearch.toLowerCase())
     );
 
-    const handleCloseProject = () => {
-        setClosed(true);
-        toast({
-            title: 'Project Closed',
-            description: 'Project has been formally closed and archived.',
-        });
+    const handleCloseProject = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            await projectManagementService.initiateProjectClosure(selectedProject.id);
+            setClosed(true);
+            toast({
+                title: 'Project Closed',
+                description: 'Project has been formally closed and a handover certificate generated.',
+            });
+        } catch (error) {
+            console.error('Error closing project:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Closure Failed',
+                description: 'Could not close the project. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (!selectedProject) {
@@ -269,9 +284,9 @@ function ProjectClosurePageContent() {
                                 className="w-full"
                                 size="lg"
                                 onClick={handleCloseProject}
-                                disabled={rating === 0}
+                                disabled={rating === 0 || isSubmitting}
                             >
-                                <Archive className="mr-2 h-4 w-4" />
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
                                 Close Project
                             </Button>
                         </CardContent>

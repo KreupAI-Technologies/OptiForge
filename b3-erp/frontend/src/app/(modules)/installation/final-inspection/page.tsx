@@ -52,6 +52,7 @@ function FinalInspectionPageContent() {
         { id: '5', category: 'Safety', item: 'Wall units securely mounted', status: 'Pending' },
         { id: '6', category: 'Cleanliness', item: 'Inside cabinets free of dust', status: 'Pending' },
     ]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -98,12 +99,31 @@ function FinalInspectionPageContent() {
         ));
     };
 
-    const handleComplete = () => {
-        toast({
-            title: 'Inspection Completed',
-            description: 'Site is ready for cleaning and handover',
-        });
-        setTimeout(() => router.push(`/installation/kitchen-cleaning?projectId=${selectedProject?.id}`), 1000);
+    const handleComplete = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            const passed = points.filter(p => p.status === 'Pass').length;
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Final inspection completed: ${passed}/${points.length} checkpoints passed across ${Array.from(new Set(points.map(p => p.category))).join(', ')}.`,
+                overallProgress: 95,
+            });
+            toast({
+                title: 'Inspection Completed',
+                description: 'Site is ready for cleaning and handover. Progress saved.',
+            });
+            router.push(`/installation/kitchen-cleaning?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving inspection progress:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not record inspection result. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: InspectionPoint['status']) => {
@@ -199,8 +219,9 @@ function FinalInspectionPageContent() {
                     </Button>
                     <Button
                         onClick={handleComplete}
-                        disabled={points.some(p => p.status !== 'Pass')}
+                        disabled={points.some(p => p.status !== 'Pass') || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Kitchen Cleaning <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

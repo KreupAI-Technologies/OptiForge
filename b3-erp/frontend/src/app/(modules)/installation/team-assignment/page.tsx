@@ -52,6 +52,7 @@ function TeamAssignmentPageContent() {
     ]);
 
     const [assignedTeam, setAssignedTeam] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -98,12 +99,32 @@ function TeamAssignmentPageContent() {
         );
     };
 
-    const handleConfirmAssignment = () => {
-        toast({
-            title: 'Team Assigned',
-            description: `${assignedTeam.length} members assigned to the project`,
-        });
-        setTimeout(() => router.push(`/installation/cabinet-align?projectId=${selectedProject?.id}`), 1000);
+    const handleConfirmAssignment = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            const names = installers.filter(i => assignedTeam.includes(i.id)).map(i => i.name);
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Installation team assigned (${assignedTeam.length} members): ${names.join(', ')}.`,
+                manpowerCount: assignedTeam.length,
+                overallProgress: 20,
+            });
+            toast({
+                title: 'Team Assigned',
+                description: `${assignedTeam.length} members assigned to the project.`,
+            });
+            router.push(`/installation/cabinet-align?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving team assignment:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not record team assignment. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // Project Selection View
@@ -191,8 +212,9 @@ function TeamAssignmentPageContent() {
                     </Button>
                     <Button
                         onClick={handleConfirmAssignment}
-                        disabled={assignedTeam.length === 0}
+                        disabled={assignedTeam.length === 0 || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Cabinet Align <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

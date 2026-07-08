@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { goodsReceiptService } from '@/services/goods-receipt.service'
@@ -77,90 +77,76 @@ export default function GRNInspectionPage() {
   const router = useRouter()
   const grnId = params.id as string
 
-  // Mock GRN details
-  const [grnDetails] = useState<GRNDetails>({
-    grnNumber: 'GRN-2024-001',
-    poNumber: 'PO-2024-001',
-    vendorName: 'Tech Supplies Co.',
-    vendorCode: 'VEND-001',
-    deliveryDate: '2024-01-23',
-    invoiceNumber: 'INV-2024-0156',
-    invoiceDate: '2024-01-22',
-    deliveryNote: 'DN-2024-089',
-    vehicleNumber: 'KA-01-AB-1234',
-    driverName: 'Ramesh Kumar',
-    warehouseLocation: 'Main Warehouse - A',
-    receivedBy: 'John Smith'
-  })
+  const [grnDetails, setGrnDetails] = useState<GRNDetails | null>(null)
+  const [items, setItems] = useState<InspectionItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  // Mock inspection items
-  const [items, setItems] = useState<InspectionItem[]>([
-    {
-      id: '1',
-      itemCode: 'ITEM-001',
-      itemName: 'Laptop Dell XPS 15',
-      description: 'Intel i7, 16GB RAM, 512GB SSD',
-      orderedQty: 10,
-      receivedQty: 10,
-      acceptedQty: 0,
-      rejectedQty: 0,
-      unit: 'Unit',
-      batchNumber: 'BATCH-2024-001',
-      inspectionStatus: 'pending',
-      qualityChecks: {
-        visual: null,
-        dimensional: null,
-        functional: null,
-        packaging: null,
-        documentation: null
-      }
-    },
-    {
-      id: '2',
-      itemCode: 'ITEM-002',
-      itemName: 'Wireless Mouse',
-      description: 'Bluetooth 5.0, Rechargeable',
-      orderedQty: 25,
-      receivedQty: 25,
-      acceptedQty: 0,
-      rejectedQty: 0,
-      unit: 'Unit',
-      batchNumber: 'BATCH-2024-002',
-      inspectionStatus: 'pending',
-      qualityChecks: {
-        visual: null,
-        dimensional: null,
-        functional: null,
-        packaging: null,
-        documentation: null
-      }
-    },
-    {
-      id: '3',
-      itemCode: 'ITEM-003',
-      itemName: 'USB-C Hub',
-      description: '7-in-1, HDMI, USB 3.0, SD Card',
-      orderedQty: 15,
-      receivedQty: 14,
-      acceptedQty: 0,
-      rejectedQty: 0,
-      unit: 'Unit',
-      inspectionStatus: 'pending',
-      qualityChecks: {
-        visual: null,
-        dimensional: null,
-        functional: null,
-        packaging: null,
-        documentation: null
-      },
-      remarks: '1 unit short delivered'
-    }
-  ])
-
-  const [expandedItems, setExpandedItems] = useState<string[]>(['1'])
+  const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [inspectionNotes, setInspectionNotes] = useState('')
   const [overallStatus, setOverallStatus] = useState<'pending' | 'approved' | 'rejected' | 'partial'>('pending')
   const [attachments, setAttachments] = useState<File[]>([])
+
+  // Load real GRN + items to inspect
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await goodsReceiptService.getGoodsReceiptById(grnId)) as any
+        if (cancelled) return
+        if (!raw || !(raw.id || raw.grnNumber)) {
+          setLoadError('Goods Receipt not found.')
+          return
+        }
+        setGrnDetails({
+          grnNumber: raw.grnNumber ?? '',
+          poNumber: raw.poNumber ?? '',
+          vendorName: raw.vendorName ?? '',
+          vendorCode: raw.vendorCode ?? '',
+          deliveryDate: (raw.deliveryDate ?? raw.receiptDate ?? '')?.toString().slice(0, 10),
+          invoiceNumber: raw.deliveryNoteNumber ?? undefined,
+          deliveryNote: raw.deliveryNoteNumber ?? undefined,
+          warehouseLocation: raw.warehouseName ?? '',
+          receivedBy: raw.receivedByName ?? '',
+        })
+        const mappedItems: InspectionItem[] = Array.isArray(raw.items)
+          ? raw.items.map((it: any) => ({
+              id: it.id ?? '',
+              itemCode: it.itemCode ?? '',
+              itemName: it.itemName ?? '',
+              description: it.description ?? '',
+              orderedQty: Number(it.orderedQuantity ?? 0),
+              receivedQty: Number(it.receivedQuantity ?? 0),
+              acceptedQty: Number(it.acceptedQuantity ?? 0),
+              rejectedQty: Number(it.rejectedQuantity ?? 0),
+              unit: it.unit ?? '',
+              batchNumber: it.batchNumber ?? undefined,
+              serialNumbers: it.serialNumbers ?? undefined,
+              inspectionStatus: 'pending',
+              qualityChecks: {
+                visual: null,
+                dimensional: null,
+                functional: null,
+                packaging: null,
+                documentation: null,
+              },
+              remarks: it.qualityCheckNotes ?? undefined,
+            }))
+          : []
+        setItems(mappedItems)
+        if (mappedItems[0]) setExpandedItems([mappedItems[0].id])
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load GRN.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [grnId])
 
   const toggleItemExpansion = (itemId: string) => {
     setExpandedItems(prev =>
@@ -310,10 +296,13 @@ export default function GRNInspectionPage() {
 
   const handleSaveDraft = async () => {
     try {
+      setSubmitting(true)
       await goodsReceiptService.qualityCheck(grnId, buildQualityCheckPayload())
       alert('Inspection draft saved.')
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save inspection')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -329,6 +318,7 @@ export default function GRNInspectionPage() {
 
     setOverallStatus(status)
     try {
+      setSubmitting(true)
       await goodsReceiptService.qualityCheck(grnId, buildQualityCheckPayload())
       if (status === 'approved') {
         await goodsReceiptService.postToInventory(grnId)
@@ -337,11 +327,39 @@ export default function GRNInspectionPage() {
       router.push('/procurement/grn')
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to submit inspection')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const totals = calculateTotals()
   const acceptanceRate = totals.received > 0 ? Math.round((totals.accepted / totals.received) * 100) : 0
+
+  if (loading) {
+    return (
+      <div className="p-6 w-full flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading inspection...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError || !grnDetails) {
+    return (
+      <div className="p-6 w-full flex items-center justify-center h-screen">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-2 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Unable to load inspection</h2>
+          <p className="text-gray-600 mb-3">{loadError ?? 'Goods Receipt not found.'}</p>
+          <Link href="/procurement/grn" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block">
+            Back to GRN List
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 w-full">
@@ -362,14 +380,16 @@ export default function GRNInspectionPage() {
         <div className="flex gap-3">
           <button
             onClick={handleSaveDraft}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            disabled={submitting}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             Save Draft
           </button>
           <button
             onClick={handleSubmitInspection}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={submitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             Complete Inspection

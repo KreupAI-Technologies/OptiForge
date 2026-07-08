@@ -165,101 +165,49 @@ const ACCOUNT_TYPES = ['Current Account', 'Savings Account', 'Cash Credit Accoun
 
 const PAYMENT_METHODS = ['NEFT/RTGS', 'Cheque', 'LC (Letter of Credit)', 'Bank Transfer', 'UPI'];
 
-// Mock data
-const mockVendor: VendorFormData = {
-  legalName: 'JSW Steel Limited',
-  tradeName: 'JSW Steel',
-  vendorCode: 'VEN-2025-0123',
-  gstNumber: '27AAACJ0308G1Z4',
-  panNumber: 'AAACJ0308G',
-  cinNumber: 'L27101MH1994PLC152925',
-  msmeRegistration: 'MSME-2024-12345',
-  website: 'https://www.jswsteel.in',
+// Empty initial state — real values are loaded from the API in the effect
+// below. No fabricated rows: fields render blank until the fetch populates them.
+const emptyVendor: VendorFormData = {
+  legalName: '',
+  tradeName: '',
+  vendorCode: '',
+  gstNumber: '',
+  panNumber: '',
+  cinNumber: '',
+  msmeRegistration: '',
+  website: '',
   contactPersons: [
-    {
-      id: '1',
-      name: 'Rajesh Kumar',
-      designation: 'Sales Manager',
-      mobile: '+91 98765 43210',
-      email: 'rajesh.kumar@jswsteel.in',
-      department: 'Sales',
-      isPrimary: true,
-    },
-    {
-      id: '2',
-      name: 'Priya Sharma',
-      designation: 'Account Manager',
-      mobile: '+91 98765 43211',
-      email: 'priya.sharma@jswsteel.in',
-      department: 'Accounts',
-      isPrimary: false,
-    },
+    { id: '1', name: '', designation: '', mobile: '', email: '', department: '', isPrimary: true },
   ],
   addresses: [
-    {
-      id: '1',
-      type: 'registered',
-      addressLine1: 'JSW Centre, Bandra Kurla Complex',
-      addressLine2: 'Bandra East',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pinCode: '400051',
-      country: 'India',
-    },
-    {
-      id: '2',
-      type: 'factory',
-      addressLine1: 'JSW Steel Plant, Toranagallu',
-      addressLine2: 'Vidyanagar',
-      city: 'Ballari',
-      state: 'Karnataka',
-      pinCode: '583123',
-      country: 'India',
-    },
+    { id: '1', type: 'registered', addressLine1: '', addressLine2: '', city: '', state: '', pinCode: '', country: 'India' },
   ],
-  bankName: 'HDFC Bank',
-  bankBranch: 'Bandra Kurla Complex, Mumbai',
-  accountNumber: '50200012345678',
-  ifscCode: 'HDFC0001234',
-  accountType: 'Current Account',
-  paymentNetDays: 45,
+  bankName: '',
+  bankBranch: '',
+  accountNumber: '',
+  ifscCode: '',
+  accountType: '',
+  paymentNetDays: 30,
   paymentMethod: 'NEFT/RTGS',
-  discountTerms: '2/10 Net 45',
-  categories: ['Raw Materials', 'Components'],
-  specificMaterials: ['Steel', 'Aluminum', 'Mechanical Parts'],
-  iso9001: true,
-  iso14001: true,
-  ohsas18001: true,
-  otherCertifications: ['BIS Certification', 'CRS Certification'],
-  qualityAcceptanceCriteria: 'As per BIS standards and material specifications',
-  inspectionRequirements: '100% inspection for critical dimensions, sampling for routine checks',
-  documents: [
-    {
-      id: '1',
-      name: 'GST Certificate',
-      type: 'GST',
-      uploadDate: '2024-01-15',
-      size: '245 KB',
-      url: '#',
-    },
-    {
-      id: '2',
-      name: 'PAN Card',
-      type: 'PAN',
-      uploadDate: '2024-01-15',
-      size: '128 KB',
-      url: '#',
-    },
-  ],
-  rating: 4.8,
+  discountTerms: '',
+  categories: [],
+  specificMaterials: [],
+  iso9001: false,
+  iso14001: false,
+  ohsas18001: false,
+  otherCertifications: [],
+  qualityAcceptanceCriteria: '',
+  inspectionRequirements: '',
+  documents: [],
+  rating: 0,
   status: 'active',
-  notes: 'Premium vendor with excellent track record. Preferred supplier for all steel requirements.',
+  notes: '',
 };
 
 export default function VendorEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const [formData, setFormData] = useState<VendorFormData>(mockVendor);
+  const [formData, setFormData] = useState<VendorFormData>(emptyVendor);
   const [newCertification, setNewCertification] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);

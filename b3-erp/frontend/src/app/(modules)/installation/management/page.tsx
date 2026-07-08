@@ -75,32 +75,83 @@ function InstallationManagementPageContent() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    const [installations] = useState<InstallationManagement[]>([
-        {
-            id: '1',
-            woNumber: 'WO-2025-001',
-            projectName: 'Hotel Paradise Kitchen',
-            siteLocation: 'Mumbai',
-            status: 'On Site',
-            toolList: {
-                prepared: true,
-                packed: true,
-                dispatched: true,
-            },
-            team: {
-                assigned: true,
-                teamLead: 'Ramesh Kumar',
-                members: 4,
-                notified: true,
-            },
-            scheduledDate: '2025-01-26',
-            toolsDispatchedDate: '2025-01-25',
-        },
-    ]);
+    const [installations, setInstallations] = useState<InstallationManagement[]>([]);
+    const [isLoadingMgmt, setIsLoadingMgmt] = useState(false);
+    const [mgmtError, setMgmtError] = useState<string | null>(null);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) {
+            loadManagement(selectedProject);
+        } else {
+            setInstallations([]);
+            setMgmtError(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProject]);
+
+    const loadManagement = async (project: ProjectInfo) => {
+        setIsLoadingMgmt(true);
+        setMgmtError(null);
+        try {
+            const [tasks, tools, reports] = await Promise.all([
+                projectManagementService.getInstallationTasks(project.id),
+                projectManagementService.getDeployedTools(project.id),
+                projectManagementService.getInstallDailyReports(project.id),
+            ]);
+            const taskArr: any[] = Array.isArray(tasks) ? tasks : [];
+            const toolArr: any[] = Array.isArray(tools) ? tools : [];
+            const reportArr: any[] = Array.isArray(reports) ? reports : [];
+
+            if (taskArr.length === 0 && toolArr.length === 0 && reportArr.length === 0) {
+                setInstallations([]);
+                return;
+            }
+
+            const dispatched = toolArr.length > 0;
+            const onSite = reportArr.length > 0;
+            const manpower = reportArr[0]?.manpowerCount ?? 0;
+            const status: InstallationManagement['status'] = onSite
+                ? 'On Site'
+                : dispatched
+                    ? 'Dispatched'
+                    : toolArr.length > 0
+                        ? 'Tools Ready'
+                        : 'Planning';
+
+            setInstallations([
+                {
+                    id: project.id,
+                    woNumber: project.id,
+                    projectName: project.name,
+                    siteLocation: project.clientName,
+                    status,
+                    toolList: {
+                        prepared: toolArr.length > 0,
+                        packed: toolArr.length > 0,
+                        dispatched,
+                    },
+                    team: {
+                        assigned: manpower > 0,
+                        teamLead: reportArr[0]?.reportedBy || '—',
+                        members: manpower,
+                        notified: reportArr.some((r) => r?.isClientNotified),
+                    },
+                    scheduledDate: (reportArr[reportArr.length - 1]?.reportDate || '').toString().slice(0, 10),
+                    toolsDispatchedDate: dispatched ? (toolArr[0]?.issuedAt || toolArr[0]?.createdAt || '').toString().slice(0, 10) : undefined,
+                },
+            ]);
+        } catch (error) {
+            console.error('Error loading installation management:', error);
+            setMgmtError('Could not load installation management data for this project.');
+            setInstallations([]);
+        } finally {
+            setIsLoadingMgmt(false);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -298,6 +349,18 @@ function InstallationManagementPageContent() {
                 </div>
 
                 {/* Installations List */}
+                {isLoadingMgmt ? (
+                    <div className="flex items-center justify-center py-12 bg-white rounded-lg border">
+                        <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                        <span className="ml-2 text-gray-600">Loading installation management...</span>
+                    </div>
+                ) : mgmtError ? (
+                    <div className="bg-white rounded-lg border p-6 text-center text-red-600">{mgmtError}</div>
+                ) : filteredInstallations.length === 0 ? (
+                    <div className="bg-white rounded-lg border p-6 text-center text-gray-500">
+                        No installation management records for this project yet.
+                    </div>
+                ) : (
                 <div className="grid gap-2">
                     {filteredInstallations.map((inst) => (
                         <div key={inst.id} className="bg-white rounded-lg border p-3 hover:shadow-lg transition">
@@ -383,6 +446,7 @@ function InstallationManagementPageContent() {
                         </div>
                     ))}
                 </div>
+                )}
 
                 {/* Tool List Reference */}
                 <div className="bg-white rounded-lg border p-3">

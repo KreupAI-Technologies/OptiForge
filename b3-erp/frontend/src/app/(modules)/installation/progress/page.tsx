@@ -59,30 +59,65 @@ function InstallationProgressPageContent() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    const [progressData] = useState<InstallationProgress[]>([
-        {
-            id: '1',
-            woNumber: 'WO-2025-001',
-            projectName: 'Hotel Paradise Kitchen',
-            installationTeam: 'Team A (Ramesh Kumar)',
-            startDate: '2025-01-26',
-            status: 'Complete',
-            progress: {
-                cabinetAlignment: true,
-                trialCompleted: true,
-                buffingDone: true,
-                accessoriesFixed: true,
-                doorsAligned: true,
-            },
-            dailyReviews: 5,
-            photosUploaded: 24,
-            issues: 0,
-        },
-    ]);
+    const [progressData, setProgressData] = useState<InstallationProgress[]>([]);
+    const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+    const [progressError, setProgressError] = useState<string | null>(null);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) {
+            loadProgress(selectedProject);
+        } else {
+            setProgressData([]);
+            setProgressError(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProject]);
+
+    const loadProgress = async (project: ProjectInfo) => {
+        setIsLoadingProgress(true);
+        setProgressError(null);
+        try {
+            const reports: any[] = await projectManagementService.getInstallDailyReports(project.id);
+            if (!reports || reports.length === 0) {
+                setProgressData([]);
+                return;
+            }
+            const latest = reports[0];
+            const overall = Number(latest?.overallProgress ?? 0);
+            const photos = reports.reduce((sum, r) => sum + (Array.isArray(r?.progressPhotos) ? r.progressPhotos.length : 0), 0);
+            const cleaned = reports.some((r) => r?.isSiteCleaned);
+            setProgressData([
+                {
+                    id: project.id,
+                    woNumber: project.id,
+                    projectName: project.name,
+                    installationTeam: latest?.reportedBy || `${latest?.manpowerCount ?? 0} crew`,
+                    startDate: (reports[reports.length - 1]?.reportDate || latest?.reportDate || '').toString().slice(0, 10),
+                    status: overall >= 100 ? 'Complete' : overall > 0 ? 'In Progress' : 'Review Pending',
+                    progress: {
+                        cabinetAlignment: overall >= 60,
+                        trialCompleted: overall >= 50,
+                        buffingDone: cleaned,
+                        accessoriesFixed: overall >= 85,
+                        doorsAligned: overall >= 90,
+                    },
+                    dailyReviews: reports.length,
+                    photosUploaded: photos,
+                    issues: reports.filter((r) => r?.issuesEncountered).length,
+                },
+            ]);
+        } catch (error) {
+            console.error('Error loading installation progress:', error);
+            setProgressError('Could not load installation progress for this project.');
+            setProgressData([]);
+        } finally {
+            setIsLoadingProgress(false);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -277,6 +312,18 @@ function InstallationProgressPageContent() {
                 </div>
 
                 {/* Progress List */}
+                {isLoadingProgress ? (
+                    <div className="flex items-center justify-center py-12 bg-white rounded-lg border">
+                        <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                        <span className="ml-2 text-gray-600">Loading installation progress...</span>
+                    </div>
+                ) : progressError ? (
+                    <div className="bg-white rounded-lg border p-6 text-center text-red-600">{progressError}</div>
+                ) : filteredProgress.length === 0 ? (
+                    <div className="bg-white rounded-lg border p-6 text-center text-gray-500">
+                        No installation progress reports for this project yet.
+                    </div>
+                ) : (
                 <div className="grid gap-2">
                     {filteredProgress.map((prog) => {
                         const progressArray = Object.values(prog.progress);
@@ -387,6 +434,7 @@ function InstallationProgressPageContent() {
                         );
                     })}
                 </div>
+                )}
             </div>
         </div>
     );

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LogisticsService } from '@/services/logistics.service';
+import { toast } from '@/hooks/use-toast';
 import {
   Search,
   Filter,
@@ -9,7 +10,6 @@ import {
   Plus,
   Edit2,
   Trash2,
-  Eye,
   Truck,
   Mail,
   Phone,
@@ -73,46 +73,61 @@ export default function LogisticsCarriersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const res = await LogisticsService.getTransportCompanies();
-        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
-        if (cancelled) return;
-        const mapped: Carrier[] = (list as any[]).map((r, i) => ({
-          id: String(r.id ?? r.transportCompanyId ?? i),
-          carrier_id: r.carrierId ?? r.code ?? r.transportCompanyId ?? `CAR-${i + 1}`,
-          name: r.name ?? r.companyName ?? 'Unknown Carrier',
-          carrier_type: (r.carrierType ?? r.transportMode ?? r.type ?? 'freight') as Carrier['carrier_type'],
-          contact_person: r.contactPerson ?? r.contactName ?? '',
-          contact_number: r.contactNumber ?? r.phone ?? r.contactPhone ?? '',
-          email: r.email ?? r.contactEmail ?? '',
-          address: r.address ?? r.city ?? '',
-          on_time_percentage: Number(r.onTimePercentage ?? r.onTimeRate ?? 0),
-          average_cost_per_shipment: Number(r.averageCostPerShipment ?? r.avgCost ?? 0),
-          total_shipments: Number(r.totalShipments ?? 0),
-          active_shipments: Number(r.activeShipments ?? 0),
-          rating: Number(r.rating ?? r.performanceRating ?? 0),
-          established_date: r.establishedDate ?? r.createdAt ?? '',
-          service_areas: Array.isArray(r.serviceAreas) ? r.serviceAreas : (r.serviceAreas ? [r.serviceAreas] : []),
-          status: (r.status ?? (r.isActive === false ? 'inactive' : 'active')) as Carrier['status'],
-          contract_type: (r.contractType ?? 'Per-shipment') as Carrier['contract_type'],
-          insurance_coverage: Number(r.insuranceCoverage ?? 0),
-          notes: r.notes ?? '',
-          last_shipment_date: r.lastShipmentDate ?? '',
-        }));
-        setCarriers(mapped);
-      } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load carriers');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+  // Add / Edit modal state
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingCarrier, setEditingCarrier] = useState<Carrier | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const emptyForm = {
+    name: '',
+    carrier_type: 'freight' as Carrier['carrier_type'],
+    contact_person: '',
+    contact_number: '',
+    email: '',
+    address: '',
+    contract_type: 'Per-shipment' as Carrier['contract_type'],
+    status: 'active' as Carrier['status'],
+    notes: '',
+  };
+  const [formData, setFormData] = useState(emptyForm);
+
+  const loadCarriers = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = await LogisticsService.getTransportCompanies();
+      const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+      const mapped: Carrier[] = (list as any[]).map((r, i) => ({
+        id: String(r.id ?? r.transportCompanyId ?? i),
+        carrier_id: r.carrierId ?? r.code ?? r.transportCompanyId ?? `CAR-${i + 1}`,
+        name: r.name ?? r.companyName ?? 'Unknown Carrier',
+        carrier_type: (r.carrierType ?? r.transportMode ?? r.type ?? 'freight') as Carrier['carrier_type'],
+        contact_person: r.contactPerson ?? r.contactName ?? '',
+        contact_number: r.contactNumber ?? r.phone ?? r.contactPhone ?? '',
+        email: r.email ?? r.contactEmail ?? '',
+        address: r.address ?? r.city ?? '',
+        on_time_percentage: Number(r.onTimePercentage ?? r.onTimeRate ?? 0),
+        average_cost_per_shipment: Number(r.averageCostPerShipment ?? r.avgCost ?? 0),
+        total_shipments: Number(r.totalShipments ?? 0),
+        active_shipments: Number(r.activeShipments ?? 0),
+        rating: Number(r.rating ?? r.performanceRating ?? 0),
+        established_date: r.establishedDate ?? r.createdAt ?? '',
+        service_areas: Array.isArray(r.serviceAreas) ? r.serviceAreas : (r.serviceAreas ? [r.serviceAreas] : []),
+        status: (r.status ?? (r.isActive === false ? 'inactive' : 'active')) as Carrier['status'],
+        contract_type: (r.contractType ?? 'Per-shipment') as Carrier['contract_type'],
+        insurance_coverage: Number(r.insuranceCoverage ?? 0),
+        notes: r.notes ?? '',
+        last_shipment_date: r.lastShipmentDate ?? '',
+      }));
+      setCarriers(mapped);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load carriers');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadCarriers(); }, [loadCarriers]);
 
   // Calculate stats
   const stats = {
@@ -151,22 +166,73 @@ export default function LogisticsCarriersPage() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      alert('Carrier data refreshed successfully!\n\nIn production, this would:\n- Fetch latest carrier data from the server\n- Update performance metrics and shipment counts\n- Refresh contract and rate information\n- Sync carrier status updates\n- Update on-time delivery statistics');
+      await loadCarriers();
+      toast({ title: 'Refreshed', description: 'Carrier data reloaded from the server.', variant: 'success' });
     } catch (error) {
-      alert('Error refreshing carrier data. Please try again.');
+      toast({ title: 'Refresh failed', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  const handleAddCarrier = () => {
+  const openAddForm = () => {
+    setEditingCarrier(null);
+    setFormData(emptyForm);
+    setFormOpen(true);
+  };
+
+  const openEditForm = (carrier: Carrier) => {
+    setEditingCarrier(carrier);
+    setFormData({
+      name: carrier.name,
+      carrier_type: carrier.carrier_type,
+      contact_person: carrier.contact_person,
+      contact_number: carrier.contact_number,
+      email: carrier.email,
+      address: carrier.address,
+      contract_type: carrier.contract_type,
+      status: carrier.status,
+      notes: carrier.notes,
+    });
+    setFormOpen(true);
+  };
+
+  const handleSubmitCarrier = async () => {
+    if (!formData.name.trim()) {
+      toast({ title: 'Validation error', description: 'Carrier name is required.', variant: 'destructive' });
+      return;
+    }
+    setIsSaving(true);
     setIsAdding(true);
-    setTimeout(() => {
-      alert('Add New Carrier Form\n\nIn production, this would:\n- Open a modal or navigate to a form page\n- Collect carrier information:\n  * Carrier name and type (courier/freight/air/sea/rail)\n  * Contact details (person, phone, email)\n  * Address and service areas\n  * Contract type and terms\n  * Insurance coverage details\n  * Rate structure and pricing\n  * Performance SLAs and expectations\n- Validate carrier information\n- Register the new carrier in the system\n- Send onboarding emails and documentation');
+    const payload = {
+      name: formData.name.trim(),
+      carrierType: formData.carrier_type,
+      transportMode: formData.carrier_type,
+      contactPerson: formData.contact_person,
+      contactNumber: formData.contact_number,
+      email: formData.email,
+      address: formData.address,
+      contractType: formData.contract_type,
+      status: formData.status,
+      notes: formData.notes,
+    };
+    try {
+      if (editingCarrier) {
+        await LogisticsService.updateTransportCompany(editingCarrier.id, payload);
+        toast({ title: 'Carrier updated', description: `${formData.name} was updated.`, variant: 'success' });
+      } else {
+        await LogisticsService.createTransportCompany(payload);
+        toast({ title: 'Carrier added', description: `${formData.name} was registered.`, variant: 'success' });
+      }
+      setFormOpen(false);
+      setEditingCarrier(null);
+      await loadCarriers();
+    } catch (error) {
+      toast({ title: editingCarrier ? 'Update failed' : 'Create failed', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
       setIsAdding(false);
-    }, 500);
+    }
   };
 
   const handleExportCarriers = () => {
@@ -231,48 +297,43 @@ export default function LogisticsCarriersPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-      alert(`Successfully exported ${filteredCarriers.length} carriers to CSV!\n\nThe export includes:\n- Complete carrier details and contact information\n- Performance metrics and shipment statistics\n- Contract terms and insurance coverage\n- Service areas and ratings\n- Status and operational notes\n\nFile: carriers_export_${new Date().toISOString().split('T')[0]}.csv`);
+      toast({ title: 'Export complete', description: `Exported ${filteredCarriers.length} carriers to CSV.`, variant: 'success' });
     } catch (error) {
-      alert('Error exporting carriers. Please try again.');
+      toast({ title: 'Export failed', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleViewCarrier = (carrier: Carrier) => {
-    alert(`View Carrier Details\n\nCarrier: ${carrier.name} (${carrier.carrier_id})\nType: ${carrier.carrier_type.toUpperCase()}\nStatus: ${carrier.status.toUpperCase()}\n\nIn production, this would:\n- Navigate to carrier detail page at /logistics/carriers/${carrier.id}\n- Display comprehensive carrier information:\n  * Contact details and communication history\n  * Performance metrics and trends\n  * Complete shipment history\n  * Contract terms and rate schedules\n  * Service areas and coverage maps\n  * Quality ratings and reviews\n  * Insurance and compliance documents\n  * Recent activity and communications\n- Show performance charts and analytics\n- Display contract renewal dates and terms`);
-  };
-
   const handleEditCarrier = (carrier: Carrier) => {
-    alert(`Edit Carrier: ${carrier.name}\n\nIn production, this would:\n- Navigate to edit form at /logistics/carriers/${carrier.id}/edit\n- Pre-populate form with current carrier data:\n  * Basic info (name, type, contact details)\n  * Address and service areas\n  * Contract terms and rates\n  * Insurance coverage\n  * Performance targets and SLAs\n  * Notes and special instructions\n- Allow updating carrier information\n- Validate changes before saving\n- Update carrier records in the database\n- Send notifications about changes\n- Log audit trail of modifications`);
+    openEditForm(carrier);
   };
 
-  const handleDeleteCarrier = (carrier: Carrier) => {
+  const handleDeleteCarrier = async (carrier: Carrier) => {
+    if (carrier.active_shipments > 0) {
+      toast({
+        title: 'Cannot delete carrier',
+        description: `${carrier.name} has ${carrier.active_shipments} active shipment(s). Complete or reassign them first.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     const confirmDelete = window.confirm(
-      `Delete Carrier: ${carrier.name}?\n\n` +
-      `Carrier ID: ${carrier.carrier_id}\n` +
-      `Type: ${carrier.carrier_type}\n` +
-      `Total Shipments: ${carrier.total_shipments}\n` +
-      `Active Shipments: ${carrier.active_shipments}\n\n` +
-      `WARNING: This action cannot be undone!\n\n` +
-      `In production, this would:\n` +
-      `- Check for active shipments and dependencies\n` +
-      `- Require confirmation from authorized personnel\n` +
-      `- Archive carrier data for historical records\n` +
-      `- Reassign active shipments if necessary\n` +
-      `- Update related contracts and agreements\n` +
-      `- Notify relevant stakeholders\n` +
-      `- Maintain audit trail\n\n` +
-      `Do you want to proceed with deletion?`
+      `Delete carrier "${carrier.name}" (${carrier.carrier_id})?\n\nThis action cannot be undone.`
     );
+    if (!confirmDelete) return;
 
-    if (confirmDelete) {
-      if (carrier.active_shipments > 0) {
-        alert(`Cannot Delete Carrier!\n\nCarrier ${carrier.name} has ${carrier.active_shipments} active shipments.\n\nPlease:\n1. Complete or reassign all active shipments\n2. Resolve pending deliveries\n3. Close out active contracts\n4. Then retry deletion\n\nAlternatively, you can suspend the carrier instead of deleting.`);
-      } else {
-        alert(`Carrier Deleted Successfully!\n\nCarrier ${carrier.name} (${carrier.carrier_id}) has been removed from the system.\n\nIn production:\n- Carrier data would be archived\n- Historical shipment records preserved\n- Contracts marked as terminated\n- Stakeholders notified\n- Audit log updated`);
-      }
+    setDeletingId(carrier.id);
+    try {
+      await LogisticsService.deleteTransportCompany(carrier.id);
+      toast({ title: 'Carrier deleted', description: `${carrier.name} was removed.`, variant: 'success' });
+      await loadCarriers();
+    } catch (error) {
+      toast({ title: 'Delete failed', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -355,12 +416,12 @@ export default function LogisticsCarriersPage() {
             {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
           <button
-            onClick={handleAddCarrier}
+            onClick={openAddForm}
             disabled={isAdding}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
-            {isAdding ? 'Adding...' : 'Add Carrier'}
+            {isAdding ? 'Saving...' : 'Add Carrier'}
           </button>
         </div>
       </div>
@@ -633,13 +694,6 @@ export default function LogisticsCarriersPage() {
                   <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleViewCarrier(carrier)}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
-                        title="View Carrier Details"
-                      >
-                        <Eye className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button
                         onClick={() => handleEditCarrier(carrier)}
                         className="p-1 hover:bg-gray-100 rounded transition-colors"
                         title="Edit Carrier"
@@ -648,7 +702,8 @@ export default function LogisticsCarriersPage() {
                       </button>
                       <button
                         onClick={() => handleDeleteCarrier(carrier)}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        disabled={deletingId === carrier.id}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Delete Carrier"
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
@@ -699,6 +754,134 @@ export default function LogisticsCarriersPage() {
           </div>
         </div>
       </div>
+
+      {/* Add / Edit Carrier Modal */}
+      {formOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingCarrier ? `Edit Carrier — ${editingCarrier.name}` : 'Add New Carrier'}
+              </h2>
+              <button onClick={() => setFormOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Carrier Name *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={formData.carrier_type}
+                    onChange={(e) => setFormData({ ...formData, carrier_type: e.target.value as Carrier['carrier_type'] })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="courier">Courier</option>
+                    <option value="freight">Freight</option>
+                    <option value="air">Air</option>
+                    <option value="sea">Sea</option>
+                    <option value="rail">Rail</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as Carrier['status'] })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                  <input
+                    type="text"
+                    value={formData.contact_person}
+                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                  <input
+                    type="text"
+                    value={formData.contact_number}
+                    onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contract Type</label>
+                <select
+                  value={formData.contract_type}
+                  onChange={(e) => setFormData({ ...formData, contract_type: e.target.value as Carrier['contract_type'] })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                >
+                  <option value="Long-term">Long-term</option>
+                  <option value="Short-term">Short-term</option>
+                  <option value="Per-shipment">Per-shipment</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setFormOpen(false)}
+                disabled={isSaving}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitCarrier}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : editingCarrier ? 'Update Carrier' : 'Create Carrier'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

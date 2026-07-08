@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogisticsService } from '@/services/logistics.service';
-import { ArrowLeft, Search, MapPin, Truck, Package, Clock, CheckCircle, Navigation, Phone, User, Fuel, Route, RefreshCw } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { ArrowLeft, Search, MapPin, Truck, Package, Clock, CheckCircle, Navigation, Phone, User, Fuel, Route, RefreshCw, Loader2, AlertCircle } from 'lucide-react';
 
 interface TrackingEvent {
   timestamp: string;
@@ -35,100 +36,66 @@ export default function TraceTrackingPage() {
   const [trackingQuery, setTrackingQuery] = useState('');
   const [shipmentTrace, setShipmentTrace] = useState<ShipmentTrace | null>(null);
 
-  const sampleTraces: { [key: string]: ShipmentTrace } = {
-    'TRK-CHN-2025-4521': {
-      shipmentNo: 'OB-2025-0531',
-      trackingNumber: 'TRK-CHN-2025-4521',
-      origin: 'Chennai Warehouse A',
-      destination: 'Bangalore, Karnataka',
-      currentLocation: 'Vellore Transit Hub',
-      status: 'in-transit',
-      estimatedDelivery: '2025-10-23 16:00',
-      vehicleNo: 'TN-01-AB-1234',
-      driverName: 'Rajesh Kumar',
-      driverPhone: '+91 98765 43210',
-      distanceCovered: '145 km',
-      distanceRemaining: '205 km',
-      progress: 42,
-      events: [
-        { timestamp: '2025-10-21 08:30', location: 'Chennai Warehouse A', status: 'Picked Up', description: 'Shipment picked up and loaded', icon: 'loading' },
-        { timestamp: '2025-10-21 09:15', location: 'Chennai Checkpoint', status: 'In Transit', description: 'Left Chennai facility', icon: 'checkpoint' },
-        { timestamp: '2025-10-21 12:45', location: 'Vellore Transit Hub', status: 'In Transit', description: 'Arrived at transit hub', icon: 'transit' },
-        { timestamp: '2025-10-21 14:30', location: 'Vellore Transit Hub', status: 'In Transit', description: 'Vehicle refueling and driver break', icon: 'checkpoint' },
-        { timestamp: '2025-10-21 15:00', location: 'Vellore Transit Hub', status: 'In Transit', description: 'Departed from transit hub', icon: 'transit' }
-      ]
-    },
-    'TRK-CHN-2025-4524': {
-      shipmentNo: 'OB-2025-0534',
-      trackingNumber: 'TRK-CHN-2025-4524',
-      origin: 'Chennai Warehouse A',
-      destination: 'Pune, Maharashtra',
-      currentLocation: 'Pune Distribution Center',
-      status: 'delivered',
-      estimatedDelivery: '2025-10-23 14:00',
-      vehicleNo: 'TN-04-GH-3456',
-      driverName: 'Vijay Singh',
-      driverPhone: '+91 98765 12345',
-      distanceCovered: '1,180 km',
-      distanceRemaining: '0 km',
-      progress: 100,
-      events: [
-        { timestamp: '2025-10-21 07:00', location: 'Chennai Warehouse A', status: 'Picked Up', description: 'Shipment picked up and loaded', icon: 'loading' },
-        { timestamp: '2025-10-21 07:45', location: 'Chennai Checkpoint', status: 'In Transit', description: 'Left Chennai facility', icon: 'checkpoint' },
-        { timestamp: '2025-10-21 19:30', location: 'Bangalore Transit Hub', status: 'In Transit', description: 'Night halt at transit hub', icon: 'transit' },
-        { timestamp: '2025-10-22 08:00', location: 'Bangalore Transit Hub', status: 'In Transit', description: 'Resumed journey', icon: 'transit' },
-        { timestamp: '2025-10-22 18:45', location: 'Mumbai Transit Hub', status: 'In Transit', description: 'Night halt at transit hub', icon: 'transit' },
-        { timestamp: '2025-10-23 09:00', location: 'Mumbai Transit Hub', status: 'In Transit', description: 'Departed for final destination', icon: 'transit' },
-        { timestamp: '2025-10-23 13:30', location: 'Pune Distribution Center', status: 'Out for Delivery', description: 'Arrived at distribution center', icon: 'checkpoint' },
-        { timestamp: '2025-10-23 15:45', location: 'Customer Location - Pune', status: 'Delivered', description: 'Shipment successfully delivered', icon: 'delivery' }
-      ]
+  const [availableTraces, setAvailableTraces] = useState<ShipmentTrace[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+
+  const loadShipments = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const shipments = await LogisticsService.getShipments();
+      const list = Array.isArray(shipments) ? shipments : [];
+      const mapped: ShipmentTrace[] = list.map((s: any) => ({
+        shipmentNo: s.shipmentCode || s.shipmentNumber || s.shipmentNo || s.id || '',
+        trackingNumber: s.trackingNumber || s.tracking_number || '',
+        origin: s.origin || '',
+        destination: s.destination || '',
+        currentLocation: s.currentLocation || s.origin || '',
+        status: (s.status as ShipmentTrace['status']) || 'pending',
+        estimatedDelivery: s.estimatedDelivery || s.eta || '',
+        vehicleNo: s.vehicleNo || s.vehicleNumber || '',
+        driverName: s.driverName || '',
+        driverPhone: s.driverPhone || '',
+        distanceCovered: s.distanceCovered || '',
+        distanceRemaining: s.distanceRemaining || '',
+        progress: typeof s.progress === 'number' ? s.progress : 0,
+        events: Array.isArray(s.events) ? s.events : [],
+      }));
+      setAvailableTraces(mapped);
+    } catch (error) {
+      console.error('Error loading shipments for trace:', error);
+      setLoadError('Failed to load shipment data. Please try again.');
+      setAvailableTraces([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const [availableTraces, setAvailableTraces] = useState<ShipmentTrace[]>(Object.values(sampleTraces));
-
   useEffect(() => {
-    const loadShipments = async () => {
-      try {
-        const shipments = await LogisticsService.getShipments();
-        if (Array.isArray(shipments) && shipments.length > 0) {
-          const mapped: ShipmentTrace[] = shipments.map((s: any) => ({
-            shipmentNo: s.shipmentCode || s.shipmentNumber || s.shipmentNo || s.id || '',
-            trackingNumber: s.trackingNumber || s.tracking_number || '',
-            origin: s.origin || '',
-            destination: s.destination || '',
-            currentLocation: s.currentLocation || s.origin || '',
-            status: (s.status as ShipmentTrace['status']) || 'pending',
-            estimatedDelivery: s.estimatedDelivery || s.eta || '',
-            vehicleNo: s.vehicleNo || s.vehicleNumber || '',
-            driverName: s.driverName || '',
-            driverPhone: s.driverPhone || '',
-            distanceCovered: s.distanceCovered || '',
-            distanceRemaining: s.distanceRemaining || '',
-            progress: typeof s.progress === 'number' ? s.progress : 0,
-            events: Array.isArray(s.events) ? s.events : [],
-          }));
-          setAvailableTraces(mapped);
-        }
-      } catch {
-        // Keep seeded mock traces on error
-      }
-    };
     loadShipments();
   }, []);
 
   const handleTrack = () => {
     const query = trackingQuery.trim().toLowerCase();
+    if (!query) {
+      setShipmentTrace(null);
+      setNotFound(false);
+      return;
+    }
     const trace = availableTraces.find(
       (t) =>
         (t.trackingNumber && t.trackingNumber.toLowerCase().includes(query)) ||
         (t.shipmentNo && t.shipmentNo.toLowerCase().includes(query))
     );
-    if (query && trace) {
+    if (trace) {
       setShipmentTrace(trace);
+      setNotFound(false);
     } else {
-      alert('Tracking number not found. Try: TRK-CHN-2025-4521 or TRK-CHN-2025-4524');
       setShipmentTrace(null);
+      setNotFound(true);
+      toast({ title: 'Not found', description: `No shipment matched "${trackingQuery.trim()}".`, variant: 'destructive' });
     }
   };
 
@@ -168,9 +135,13 @@ export default function TraceTrackingPage() {
             <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Real-time shipment tracking and GPS location</p>
           </div>
         </div>
-        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2 text-gray-600">
-          <RefreshCw className="w-4 h-4" />
-          <span className="text-xs font-bold">Refresh</span>
+        <button
+          onClick={loadShipments}
+          disabled={isLoading}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <span className="text-xs font-bold">{isLoading ? 'Loading...' : 'Refresh'}</span>
         </button>
       </div>
 
@@ -201,7 +172,7 @@ export default function TraceTrackingPage() {
               </button>
             </div>
             <p className="text-[10px] text-gray-400 mt-2">
-              Try: TRK-CHN-2025-4521 or TRK-CHN-2025-4524
+              Enter a tracking number or shipment number to trace
             </p>
           </div>
 
@@ -330,10 +301,39 @@ export default function TraceTrackingPage() {
                   </div>
                 </div>
               </div>
+            ) : isLoading ? (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center">
+                  <Loader2 className="w-10 h-10 text-orange-500 animate-spin mx-auto mb-2" />
+                  <p className="text-gray-500 font-bold">Loading shipments...</p>
+                </div>
+              </div>
+            ) : loadError ? (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-2 mx-auto">
+                    <AlertCircle className="w-10 h-10 text-red-500" />
+                  </div>
+                  <p className="text-red-500 font-bold mb-1">{loadError}</p>
+                  <button onClick={loadShipments} className="text-xs text-orange-600 hover:text-orange-700 font-bold mt-1">
+                    Try again
+                  </button>
+                </div>
+              </div>
+            ) : notFound ? (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-2 mx-auto">
+                    <Search className="w-10 h-10 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500 font-bold mb-1">No shipment found</p>
+                  <p className="text-xs text-gray-400">Check the tracking number and try again</p>
+                </div>
+              </div>
             ) : (
               <div className="flex-1 flex items-center justify-center p-8">
                 <div className="text-center">
-                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-2 mx-auto">
                     <Navigation className="w-10 h-10 text-gray-400" />
                   </div>
                   <p className="text-gray-500 font-bold mb-1">Enter tracking number</p>

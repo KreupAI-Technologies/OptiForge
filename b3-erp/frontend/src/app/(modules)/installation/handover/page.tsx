@@ -62,32 +62,82 @@ function ClientHandoverPageContent() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    const [handovers] = useState<ClientHandover[]>([
-        {
-            id: '1',
-            woNumber: 'WO-2025-001',
-            projectName: 'Hotel Paradise Kitchen',
-            client: 'Hotel Paradise Ltd',
-            status: 'Closed',
-            handover: {
-                workPhotosUploaded: true,
-                clientDailyReviews: 5,
-                finalApproval: true,
-                cleaningComplete: true,
-                toolsReturned: true,
-                handoverCeremonyDone: true,
-                clientSigned: true,
-                projectClosed: true,
-            },
-            completionDate: '2025-01-30',
-            signatureDate: '2025-01-30',
-            closureDate: '2025-01-31',
-        },
-    ]);
+    const [handovers, setHandovers] = useState<ClientHandover[]>([]);
+    const [isLoadingClosure, setIsLoadingClosure] = useState(false);
+    const [closureError, setClosureError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) {
+            loadClosureStatus(selectedProject);
+        } else {
+            setHandovers([]);
+            setClosureError(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProject]);
+
+    const loadClosureStatus = async (project: ProjectInfo) => {
+        setIsLoadingClosure(true);
+        setClosureError(null);
+        try {
+            const status: any = await projectManagementService.getProjectClosureStatus(project.id);
+            const snag = !!status?.snagClearance;
+            const billing = !!status?.billingCleared;
+            const ready = !!status?.handoverReady;
+            setHandovers([
+                {
+                    id: project.id,
+                    woNumber: project.id,
+                    projectName: project.name,
+                    client: project.clientName,
+                    status: ready ? 'Final Approval' : 'Preparing',
+                    handover: {
+                        workPhotosUploaded: snag,
+                        clientDailyReviews: 0,
+                        finalApproval: ready,
+                        cleaningComplete: snag,
+                        toolsReturned: snag,
+                        handoverCeremonyDone: false,
+                        clientSigned: false,
+                        projectClosed: false,
+                    },
+                },
+            ]);
+        } catch (error) {
+            console.error('Error loading closure status:', error);
+            setClosureError('Could not load handover status for this project.');
+            setHandovers([]);
+        } finally {
+            setIsLoadingClosure(false);
+        }
+    };
+
+    const handleInitiateHandover = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            await projectManagementService.initiateProjectClosure(selectedProject.id);
+            toast({
+                title: 'Handover Initiated',
+                description: 'Handover certificate generated. Proceed to project closure.',
+            });
+            router.push(`/installation/project-closure?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error initiating handover:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Handover Failed',
+                description: 'Project is not ready for handover, or the request failed. Ensure all snags are cleared and billing is settled.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -231,9 +281,15 @@ function ClientHandoverPageContent() {
                                 </p>
                             </div>
                         </div>
-                        <Button variant="outline" onClick={handleChangeProject}>
-                            Change Project
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={handleChangeProject}>
+                                Change Project
+                            </Button>
+                            <Button onClick={handleInitiateHandover} disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <Award className="mr-2 h-4 w-4" /> Initiate Handover
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -285,6 +341,18 @@ function ClientHandoverPageContent() {
                 </div>
 
                 {/* Handovers List */}
+                {isLoadingClosure ? (
+                    <div className="flex items-center justify-center py-12 bg-white rounded-lg border">
+                        <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                        <span className="ml-2 text-gray-600">Loading handover status...</span>
+                    </div>
+                ) : closureError ? (
+                    <div className="bg-white rounded-lg border p-6 text-center text-red-600">{closureError}</div>
+                ) : filteredHandovers.length === 0 ? (
+                    <div className="bg-white rounded-lg border p-6 text-center text-gray-500">
+                        No handover records for this project yet.
+                    </div>
+                ) : (
                 <div className="grid gap-2">
                     {filteredHandovers.map((handover) => {
                         const handoverArray = Object.values(handover.handover).filter(v => typeof v === 'boolean');
@@ -403,6 +471,7 @@ function ClientHandoverPageContent() {
                         );
                     })}
                 </div>
+                )}
             </div>
         </div>
     );

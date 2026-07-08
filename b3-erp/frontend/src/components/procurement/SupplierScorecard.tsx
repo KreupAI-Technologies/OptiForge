@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { procurementVendorScorecardService } from '@/services/procurement-vendor-scorecard.service'
+import { exportToCsv } from '@/lib/export'
 import {
   Award,
   TrendingUp,
@@ -118,8 +119,29 @@ export default function SupplierScorecard() {
   }
 
   const handleExport = () => {
-    console.log('Exporting supplier scorecard report...')
-    alert('Exporting Supplier Scorecard Report - This would generate a comprehensive Excel report with scores, rankings, and trends.')
+    if (!supplierScores.length) {
+      alert('No supplier scorecards to export.')
+      return
+    }
+    exportToCsv(
+      `supplier-scorecards-${new Date().toISOString().slice(0, 10)}.csv`,
+      supplierScores.map((s) => ({
+        rank: s.rank,
+        supplierId: s.supplierId,
+        supplierName: s.supplierName,
+        category: s.category,
+        overallScore: s.overallScore,
+        qualityScore: s.qualityScore,
+        deliveryScore: s.deliveryScore,
+        priceScore: s.priceScore,
+        serviceScore: s.serviceScore,
+        innovationScore: s.innovationScore,
+        sustainabilityScore: s.sustainabilityScore,
+        tier: s.tier,
+        trend: s.trend,
+        lastEvaluation: s.lastEvaluation,
+      })),
+    )
   }
 
   const handleViewSupplierDetails = (supplier: SupplierScore) => {
@@ -167,8 +189,25 @@ export default function SupplierScorecard() {
   }
 
   const handleExportSupplierReport = (supplier: SupplierScore) => {
-    console.log('Exporting individual supplier report:', supplier.supplierId)
-    alert(`Export Report: ${supplier.supplierName} - This would generate a detailed PDF/Excel report for this supplier.`)
+    exportToCsv(
+      `supplier-scorecard-${supplier.supplierId}-${new Date().toISOString().slice(0, 10)}.csv`,
+      [{
+        supplierId: supplier.supplierId,
+        supplierName: supplier.supplierName,
+        category: supplier.category,
+        rank: supplier.rank,
+        overallScore: supplier.overallScore,
+        qualityScore: supplier.qualityScore,
+        deliveryScore: supplier.deliveryScore,
+        priceScore: supplier.priceScore,
+        serviceScore: supplier.serviceScore,
+        innovationScore: supplier.innovationScore,
+        sustainabilityScore: supplier.sustainabilityScore,
+        tier: supplier.tier,
+        trend: supplier.trend,
+        lastEvaluation: supplier.lastEvaluation,
+      }],
+    )
   }
 
   // Mock data

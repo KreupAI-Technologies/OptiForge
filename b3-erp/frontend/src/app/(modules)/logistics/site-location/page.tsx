@@ -26,12 +26,30 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { LogisticsService, DeliveryCoordinationDto } from '@/services/logistics.service';
 
 interface ProjectInfo {
     id: string;
     name: string;
     clientName: string;
     status: string;
+    projectCode?: string;
+}
+
+/** Resolve (or create) the DeliveryCoordination record for a project. */
+async function resolveCoordination(
+    project: ProjectInfo,
+    seed?: Partial<DeliveryCoordinationDto>,
+): Promise<DeliveryCoordinationDto> {
+    const woNumber = project.projectCode || project.id;
+    const existing = await LogisticsService.getDeliveryCoordinations();
+    const match = existing.find((c) => c.woNumber === woNumber);
+    if (match) return match;
+    return LogisticsService.createDeliveryCoordination({
+        woNumber,
+        customerName: project.clientName,
+        ...seed,
+    });
 }
 
 export default function SiteLocationPage() {
@@ -44,6 +62,9 @@ export default function SiteLocationPage() {
     const [selectedProject, setSelectedProject] = useState<ProjectInfo | null>(null);
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [savingDraft, setSavingDraft] = useState(false);
+    const [sharing, setSharing] = useState(false);
 
     // Page data state
     const [formData, setFormData] = useState({
@@ -66,12 +87,14 @@ export default function SiteLocationPage() {
 
     const loadProjects = async () => {
         try {
+            setError(null);
             const allProjects = await projectManagementService.getProjects();
             const projectInfos: ProjectInfo[] = allProjects.map((p: Project) => ({
                 id: p.id,
                 name: p.name || `Project ${p.id}`,
                 clientName: p.clientName || 'Unknown Client',
                 status: p.status || 'active',
+                projectCode: p.projectCode,
             }));
             setProjects(projectInfos);
 
@@ -82,12 +105,24 @@ export default function SiteLocationPage() {
                     setSelectedProject(found);
                 }
             }
-        } catch (error) {
-            console.error('Error loading projects:', error);
+        } catch (err) {
+            console.error('Error loading projects:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load projects');
         } finally {
             setIsLoadingProjects(false);
         }
     };
+
+    const buildCoordinationPayload = (): Partial<DeliveryCoordinationDto> => ({
+        siteAddress: [formData.siteAddress, formData.city, formData.state, formData.pincode]
+            .filter(Boolean)
+            .join(', '),
+        siteLandmark: formData.landmarks,
+        contactName: formData.contactPerson,
+        contactPhone: formData.contactPhone,
+        preferredDate: formData.deliveryDate,
+        preferredTime: formData.preferredTime,
+    });
 
     const handleProjectSelect = (project: ProjectInfo) => {
         setSelectedProject(project);
@@ -107,19 +142,54 @@ export default function SiteLocationPage() {
         setFormData({ ...formData, [field]: value });
     };
 
-    const handleSave = () => {
-        toast({
-            title: 'Location Details Saved',
-            description: 'Site location information has been saved successfully',
-        });
+    const handleSave = async () => {
+        if (!selectedProject || savingDraft) return;
+        setSavingDraft(true);
+        try {
+            const coordination = await resolveCoordination(selectedProject, buildCoordinationPayload());
+            await LogisticsService.updateDeliveryCoordination(coordination.id, buildCoordinationPayload());
+            toast({
+                title: 'Location Details Saved',
+                description: 'Site location information has been saved successfully',
+                variant: 'success',
+            });
+        } catch (err) {
+            console.error('Error saving location:', err);
+            toast({
+                title: 'Failed to Save',
+                description: err instanceof Error ? err.message : 'Could not save site location',
+                variant: 'destructive',
+            });
+        } finally {
+            setSavingDraft(false);
+        }
     };
 
-    const handleShare = () => {
-        toast({
-            title: 'Location Shared',
-            description: 'Site location details have been shared with logistics team and transporter',
-        });
-        setTimeout(() => router.push('/logistics/transporter-notification'), 1000);
+    const handleShare = async () => {
+        if (!selectedProject || sharing) return;
+        setSharing(true);
+        try {
+            const coordination = await resolveCoordination(selectedProject, buildCoordinationPayload());
+            await LogisticsService.updateDeliveryCoordination(coordination.id, {
+                ...buildCoordinationPayload(),
+                status: 'Coordinated',
+            });
+            toast({
+                title: 'Location Shared',
+                description: 'Site location details have been shared with the logistics team',
+                variant: 'success',
+            });
+            router.push('/logistics/transporter-notification');
+        } catch (err) {
+            console.error('Error sharing location:', err);
+            toast({
+                title: 'Failed to Share',
+                description: err instanceof Error ? err.message : 'Could not share site location',
+                variant: 'destructive',
+            });
+        } finally {
+            setSharing(false);
+        }
     };
 
     // Project Selection View
@@ -150,10 +220,20 @@ export default function SiteLocationPage() {
                         />
                     </div>
 
-                    {isLoadingProjects ? (
+                    {error ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+                            <p className="text-red-700 font-medium">Failed to load projects</p>
+                            <p className="text-sm text-red-600 mt-1">{error}</p>
+                            <Button className="mt-4" variant="outline" onClick={loadProjects}>Retry</Button>
+                        </div>
+                    ) : isLoadingProjects ? (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
                             <span className="ml-2 text-gray-600">Loading projects...</span>
+                        </div>
+                    ) : filteredProjects.length === 0 ? (
+                        <div className="rounded-lg border bg-white p-12 text-center text-gray-500">
+                            No projects found.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -203,8 +283,8 @@ export default function SiteLocationPage() {
                     <Button variant="outline" onClick={handleChangeProject}>
                         Change Project
                     </Button>
-                    <Button onClick={handleShare}>
-                        <Send className="mr-2 h-4 w-4" />
+                    <Button onClick={handleShare} disabled={sharing}>
+                        {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                         Share & Continue
                     </Button>
                 </div>
@@ -383,12 +463,12 @@ export default function SiteLocationPage() {
             </Card>
 
             <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleSave}>
-                    <Save className="mr-2 h-4 w-4" />
+                <Button variant="outline" onClick={handleSave} disabled={savingDraft}>
+                    {savingDraft ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Save Draft
                 </Button>
-                <Button onClick={handleShare}>
-                    <Send className="mr-2 h-4 w-4" />
+                <Button onClick={handleShare} disabled={sharing}>
+                    {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Share with Logistics
                     <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>

@@ -145,6 +145,9 @@ export default function EditPurchaseOrderPage() {
   const [indianVendors, setIndianVendors] = useState<VendorOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,78 +183,95 @@ export default function EditPurchaseOrderPage() {
     };
   }, []);
 
-  // Mock existing PO data
-  const [poNumber] = useState('PO-2025-00142');
+  const [poNumber, setPoNumber] = useState('');
 
   const [formData, setFormData] = useState<POFormData>({
-    vendorName: 'JSW Steel Limited',
-    vendorGST: '27AABCJ8578D1ZS',
-    vendorPAN: 'AABCJ8578D',
-    vendorContact: 'Rajesh Kumar',
-    vendorEmail: 'sales@jswsteel.in',
-    vendorPhone: '+91 836 2513333',
-    poDate: '2025-10-01',
-    expectedDelivery: '2025-10-30',
+    vendorName: '',
+    vendorGST: '',
+    vendorPAN: '',
+    vendorContact: '',
+    vendorEmail: '',
+    vendorPhone: '',
+    poDate: '',
+    expectedDelivery: '',
     paymentTerms: 'Net 45',
     incoterms: 'Ex-Works',
     freightTerms: 'Vendor Paid',
-    buyerName: 'Amit Sharma',
-    requisitionRef: 'PR-2025-00089',
-    rfqRef: 'RFQ-2025-00056',
-    vendorAddress: {
-      street: 'JSW Centre, Bandra Kurla Complex',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400051',
-    },
-    billingAddress: {
-      street: 'Plot No. 45, MIDC Industrial Area',
-      city: 'Pune',
-      state: 'Maharashtra',
-      pincode: '411019',
-    },
-    deliveryAddress: {
-      street: 'Manufacturing Unit 2, Talegaon Industrial Park',
-      city: 'Pune',
-      state: 'Maharashtra',
-      pincode: '410507',
-    },
+    buyerName: '',
+    requisitionRef: '',
+    rfqRef: '',
+    vendorAddress: { street: '', city: '', state: 'Maharashtra', pincode: '' },
+    billingAddress: { street: '', city: '', state: 'Maharashtra', pincode: '' },
+    deliveryAddress: { street: '', city: '', state: 'Maharashtra', pincode: '' },
     lineItems: [
       {
         id: '1',
-        itemCode: 'STL-HR-12MM-001',
-        description: 'Hot Rolled Steel Coils - Grade IS 2062 E250, Thickness 12mm',
-        hsn: '7208',
-        quantity: '500',
+        itemCode: '',
+        description: '',
+        hsn: '',
+        quantity: '1',
         unit: 'MT',
-        unitPrice: '52000',
+        unitPrice: '0',
         taxRate: '18',
         taxType: 'CGST+SGST',
-        discountPercent: '2',
+        discountPercent: '0',
       },
     ],
     deliverySchedule: [
-      {
-        id: '1',
-        deliveryDate: '2025-10-15',
-        quantity: '350',
-        location: 'Pune Manufacturing Unit 2',
-      },
+      { id: '1', deliveryDate: '', quantity: '0', location: '' },
     ],
     qualitySpecs: [
-      {
-        id: '1',
-        parameter: 'Yield Strength',
-        specification: 'Min 250 MPa',
-        testMethod: 'IS 1608',
-        acceptanceCriteria: 'As per IS 2062 standards',
-      },
+      { id: '1', parameter: '', specification: '', testMethod: '', acceptanceCriteria: '' },
     ],
     discountType: 'amount',
-    discountValue: '170000',
-    notes: 'Urgent requirement for production line. Please ensure timely delivery with proper packaging.',
-    termsConditions: '1. Material to be delivered as per delivery schedule\n2. Quality inspection at vendor premises before dispatch\n3. Payment within 45 days from GRN date\n4. Prices are firm and fixed for the PO duration\n5. Penalty for delayed delivery as per contract terms',
+    discountValue: '0',
+    notes: '',
+    termsConditions: '',
   });
+
+  // Load the existing purchase order.
+  useEffect(() => {
+    if (!poId) return;
+    let cancelled = false;
+    purchaseOrderService
+      .getPurchaseOrderById(poId)
+      .then((po) => {
+        if (cancelled) return;
+        setPoNumber(po.poNumber || poId);
+        setFormData((prev) => ({
+          ...prev,
+          vendorName: po.vendorName || prev.vendorName,
+          poDate: (po.orderDate || '').split('T')[0] || prev.poDate,
+          expectedDelivery: (po.deliveryDate || '').split('T')[0] || prev.expectedDelivery,
+          paymentTerms: po.paymentTerms || prev.paymentTerms,
+          requisitionRef: po.prReference || prev.requisitionRef,
+          rfqRef: po.rfqReference || prev.rfqRef,
+          vendorContact: po.vendorContact || prev.vendorContact,
+          notes: po.notes ?? prev.notes,
+          termsConditions: po.terms ?? prev.termsConditions,
+          lineItems: (po.items ?? []).length
+            ? po.items.map((it) => ({
+                id: it.id || Math.random().toString(36).substr(2, 9),
+                itemCode: it.itemCode || it.itemId || '',
+                description: it.itemName || it.description || '',
+                hsn: '',
+                quantity: String(it.quantity ?? 1),
+                unit: it.unit || 'MT',
+                unitPrice: String(it.unitPrice ?? 0),
+                taxRate: String(it.taxRate ?? 18),
+                taxType: 'CGST+SGST',
+                discountPercent: String(it.discount ?? 0),
+              }))
+            : prev.lineItems,
+        }));
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load purchase order');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [poId]);
 
   const updateFormData = (field: keyof POFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -443,8 +463,11 @@ export default function EditPurchaseOrderPage() {
   };
 
   const handleSave = async () => {
+    setSaveError(null);
+    setSuccessMessage(null);
     const matchedVendor = indianVendors.find((v) => v.name === formData.vendorName);
     try {
+      setSaving(true);
       await purchaseOrderService.updatePurchaseOrder(poId, {
         vendorId: matchedVendor?.id || undefined,
         deliveryDate: formData.expectedDelivery || undefined,
@@ -459,10 +482,12 @@ export default function EditPurchaseOrderPage() {
           deliveryDate: formData.expectedDelivery || new Date().toISOString().split('T')[0],
         })),
       });
-      alert('Purchase order updated successfully.');
+      setSuccessMessage('Purchase order updated successfully. Redirecting…');
       router.push('/procurement/purchase-orders');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update purchase order');
+      setSaveError(err instanceof Error ? err.message : 'Failed to update purchase order');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -507,10 +532,11 @@ export default function EditPurchaseOrderPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={saving}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="h-4 w-4" />
-                  <span>Save Changes</span>
+                  <span>{saving ? 'Saving…' : 'Save Changes'}</span>
                 </button>
               </div>
             </div>
@@ -526,6 +552,18 @@ export default function EditPurchaseOrderPage() {
             <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               <AlertCircle className="h-4 w-4" />
               {loadError}
+            </div>
+          )}
+          {saveError && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {saveError}
+            </div>
+          )}
+          {successMessage && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              <Info className="h-4 w-4" />
+              {successMessage}
             </div>
           )}
 
@@ -1078,10 +1116,11 @@ export default function EditPurchaseOrderPage() {
               </button>
               <button
                 onClick={handleSave}
-                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={saving}
+                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="h-5 w-5" />
-                <span>Save Changes</span>
+                <span>{saving ? 'Saving…' : 'Save Changes'}</span>
               </button>
             </div>
           </div>

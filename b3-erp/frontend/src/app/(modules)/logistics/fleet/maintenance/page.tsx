@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LogisticsService } from '@/services/logistics.service';
+import { toast } from '@/hooks/use-toast';
 import {
   Settings,
   Plus,
@@ -66,12 +67,33 @@ export default function FleetMaintenancePage() {
   const [isViewingDocuments, setIsViewingDocuments] = useState(false);
 
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const rows = await LogisticsService.getVehicleMaintenance();
-        const mapped: MaintenanceRecord[] = (rows || []).map((row: any, idx: number) => {
+  // Schedule / Edit modal state
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const emptyForm = {
+    vehicleNumber: '',
+    vehicleType: '',
+    maintenanceType: 'preventive' as MaintenanceRecord['maintenanceType'],
+    serviceType: 'scheduled' as MaintenanceRecord['serviceType'],
+    description: '',
+    scheduledDate: '',
+    estimatedDuration: '',
+    serviceProvider: '',
+    location: '',
+    priority: 'medium' as MaintenanceRecord['priority'],
+    status: 'scheduled' as MaintenanceRecord['status'],
+    notes: '',
+  };
+  const [formData, setFormData] = useState(emptyForm);
+
+  const loadRecords = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const rows = await LogisticsService.getVehicleMaintenance();
+      const mapped: MaintenanceRecord[] = (rows || []).map((row: any, idx: number) => {
           const partsUsed = Array.isArray(row.partsUsed)
             ? row.partsUsed.map((p: any) => ({
                 partName: p.partName ?? p.name ?? '',
@@ -115,90 +137,84 @@ export default function FleetMaintenancePage() {
           };
         });
         setMaintenanceRecords(mapped);
-      } catch {
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : 'Failed to load maintenance records');
         setMaintenanceRecords([]);
       }
-    })();
   }, []);
 
-  // Handler Functions
-  const handleScheduleMaintenance = () => {
-    setIsScheduling(true);
+  useEffect(() => { loadRecords(); }, [loadRecords]);
 
-    const maintenanceDetails = {
-      vehicleSelection: 'MH-01-AB-1234 (32-Ft Truck)',
-      maintenanceType: 'Preventive Maintenance',
-      scheduledDate: '2024-11-20',
-      serviceProvider: 'Tata Authorized Service Center',
-      costEstimate: '₹12,500',
-      partsNeeded: [
-        'Engine Oil Filter (EF-2024-001) - ₹850',
-        'Air Filter (AF-2024-002) - ₹650',
-        'Brake Pads Set (BP-2024-003) - ₹4,500',
-        'Coolant (5L) (CL-5L-001) - ₹1,200'
-      ],
-      estimatedDuration: '4-6 hours',
-      odometer: '125,680 km',
-      nextServiceDue: '130,000 km',
-      location: 'Mumbai Workshop',
-      priority: 'Medium',
-      mechanicAssigned: 'Ramesh Kumar (Senior Mechanic)',
-      notes: 'Regular scheduled maintenance as per manufacturer guidelines. Vehicle due for 5000 km service.'
+  // Schedule / Edit handlers (wired to vehicle-maintenance endpoint)
+  const openScheduleForm = () => {
+    setEditingRecord(null);
+    setFormData(emptyForm);
+    setFormOpen(true);
+  };
+
+  const openEditForm = (record: MaintenanceRecord) => {
+    setEditingRecord(record);
+    setFormData({
+      vehicleNumber: record.vehicleNumber,
+      vehicleType: record.vehicleType,
+      maintenanceType: record.maintenanceType,
+      serviceType: record.serviceType,
+      description: record.description,
+      scheduledDate: record.scheduledDate ? record.scheduledDate.split('T')[0] : '',
+      estimatedDuration: record.estimatedDuration ? String(record.estimatedDuration) : '',
+      serviceProvider: record.serviceProvider,
+      location: record.location,
+      priority: record.priority,
+      status: record.status,
+      notes: record.notes,
+    });
+    setFormOpen(true);
+  };
+
+  const handleSubmitMaintenance = async () => {
+    if (!formData.vehicleNumber.trim()) {
+      toast({ title: 'Validation error', description: 'Vehicle number is required.', variant: 'destructive' });
+      return;
+    }
+    if (!formData.scheduledDate) {
+      toast({ title: 'Validation error', description: 'Scheduled date is required.', variant: 'destructive' });
+      return;
+    }
+    setIsSaving(true);
+    setIsScheduling(!editingRecord);
+    setIsEditing(!!editingRecord);
+    const payload: Record<string, any> = {
+      vehicleNumber: formData.vehicleNumber.trim(),
+      vehicleType: formData.vehicleType,
+      maintenanceType: formData.maintenanceType,
+      serviceType: formData.serviceType,
+      description: formData.description,
+      scheduledDate: formData.scheduledDate,
+      estimatedDuration: formData.estimatedDuration ? Number(formData.estimatedDuration) : 0,
+      serviceProvider: formData.serviceProvider,
+      location: formData.location,
+      priority: formData.priority,
+      status: formData.status,
+      notes: formData.notes,
     };
-
-    setTimeout(() => {
+    try {
+      if (editingRecord) {
+        await LogisticsService.updateVehicleMaintenance(String(editingRecord.id), payload);
+        toast({ title: 'Maintenance updated', description: `Record ${editingRecord.maintenanceId} was updated.`, variant: 'success' });
+      } else {
+        await LogisticsService.createVehicleMaintenance(payload);
+        toast({ title: 'Maintenance scheduled', description: `Maintenance for ${formData.vehicleNumber} was scheduled.`, variant: 'success' });
+      }
+      setFormOpen(false);
+      setEditingRecord(null);
+      await loadRecords();
+    } catch (error) {
+      toast({ title: editingRecord ? 'Update failed' : 'Schedule failed', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
       setIsScheduling(false);
-      alert(`SCHEDULE NEW MAINTENANCE
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VEHICLE DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Vehicle: ${maintenanceDetails.vehicleSelection}
-Current Odometer: ${maintenanceDetails.odometer}
-Next Service Due: ${maintenanceDetails.nextServiceDue}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MAINTENANCE SCHEDULE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Type: ${maintenanceDetails.maintenanceType}
-Scheduled Date: ${maintenanceDetails.scheduledDate}
-Estimated Duration: ${maintenanceDetails.estimatedDuration}
-Priority: ${maintenanceDetails.priority}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SERVICE PROVIDER
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Provider: ${maintenanceDetails.serviceProvider}
-Location: ${maintenanceDetails.location}
-Mechanic: ${maintenanceDetails.mechanicAssigned}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PARTS REQUIRED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${maintenanceDetails.partsNeeded.map((part, idx) => `${idx + 1}. ${part}`).join('\n')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-COST ESTIMATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Parts Cost: ₹7,200
-Labor Cost: ₹5,300
-Total Estimate: ${maintenanceDetails.costEstimate}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NOTES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${maintenanceDetails.notes}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✓ Maintenance scheduled successfully!
-✓ Service center notified
-✓ Parts availability confirmed
-✓ Calendar reminder set
-✓ Mechanic assigned
-
-New Maintenance ID: MNT-2024-009`);
-    }, 1000);
+      setIsEditing(false);
+    }
   };
 
   const handleViewMaintenance = (record: MaintenanceRecord) => {
@@ -311,110 +327,7 @@ Total: 30 photos available in document section`);
   };
 
   const handleEditMaintenance = (record: MaintenanceRecord) => {
-    setIsEditing(true);
-
-    setTimeout(() => {
-      setIsEditing(false);
-      alert(`EDIT MAINTENANCE RECORD
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RECORD INFORMATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Maintenance ID: ${record.maintenanceId}
-Vehicle: ${record.vehicleNumber} (${record.vehicleType})
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EDITABLE FIELDS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. STATUS
-   Current: ${record.status.toUpperCase()}
-   Options: Scheduled | In Progress | Completed | Pending Parts | Cancelled | Overdue
-
-2. PRIORITY
-   Current: ${record.priority.toUpperCase()}
-   Options: Urgent | High | Medium | Low
-
-3. SCHEDULED DATE
-   Current: ${record.scheduledDate}
-   Change to: [Select new date]
-
-4. SERVICE PROVIDER
-   Current: ${record.serviceProvider}
-   Available Providers:
-   • Tata Authorized Service Center
-   • BharatBenz Service Center
-   • Ashok Leyland Service Center
-   • Mahindra Service Center
-   • Volvo Service Center
-
-5. MECHANIC ASSIGNMENT
-   Current: ${record.mechanicName || 'Not assigned'}
-   Available Mechanics:
-   • Ramesh Kumar (Senior Mechanic)
-   • Suresh Mechanic (Brake Specialist)
-   • Ravi Mechanic (Engine Expert)
-   • Prakash Electrician (Electrical Systems)
-
-6. LOCATION
-   Current: ${record.location}
-   Available: Mumbai | Delhi | Bangalore | Hyderabad | Chennai
-
-7. ESTIMATED DURATION
-   Current: ${record.estimatedDuration} hours
-   Update: [Enter new duration]
-
-8. ACTUAL START DATE
-   Current: ${record.actualStartDate || 'Not started'}
-   Update: [Select start date/time]
-
-9. COMPLETION DATE
-   Current: ${record.completionDate || 'Not completed'}
-   Update: [Select completion date/time]
-
-10. ACTUAL DURATION
-    Current: ${record.actualDuration ? `${record.actualDuration} hours` : 'Not recorded'}
-    Update: [Enter actual hours]
-
-11. COST BREAKDOWN
-    Labor Cost: ₹${record.laborCost.toLocaleString()}
-    Total Cost: ₹${record.totalCost.toLocaleString()}
-    [Update costs]
-
-12. PARTS MANAGEMENT
-    Current Parts: ${record.partsUsed.length}
-    [Add/Remove/Update Parts]
-
-13. NOTES & OBSERVATIONS
-    Current Notes: ${record.notes}
-    [Update technician notes]
-
-14. APPROVAL STATUS
-    Created By: ${record.createdBy}
-    Approved By: ${record.approvedBy || 'Pending'}
-    [Update approval]
-
-15. WARRANTY STATUS
-    Current: ${record.warrantyStatus.toUpperCase()}
-    Options: In Warranty | Out of Warranty | Extended Warranty | N/A
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VALIDATION RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✓ Status must be valid
-✓ Priority required
-✓ Service provider required
-✓ Location required
-✓ Costs must be positive numbers
-✓ Actual duration cannot exceed 48 hours
-✓ Completion date must be after start date
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Would you like to save changes to ${record.maintenanceId}?
-
-Note: All changes will be logged with timestamp and user details for audit trail.`);
-    }, 800);
+    openEditForm(record);
   };
 
   const handleViewDocuments = (record: MaintenanceRecord) => {
@@ -632,7 +545,7 @@ Last Updated: ${new Date().toLocaleString()}`);
         </div>
         <div className="flex items-center space-x-3">
           <button
-            onClick={handleScheduleMaintenance}
+            onClick={openScheduleForm}
             disabled={isScheduling}
             className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -641,6 +554,12 @@ Last Updated: ${new Date().toLocaleString()}`);
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -923,6 +842,175 @@ Last Updated: ${new Date().toLocaleString()}`);
           </div>
         </div>
       </div>
+
+      {/* Schedule / Edit Maintenance Modal */}
+      {formOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingRecord ? `Edit Maintenance — ${editingRecord.maintenanceId}` : 'Schedule New Maintenance'}
+              </h2>
+              <button onClick={() => setFormOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number *</label>
+                  <input
+                    type="text"
+                    value={formData.vehicleNumber}
+                    onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
+                  <input
+                    type="text"
+                    value={formData.vehicleType}
+                    onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Maintenance Type</label>
+                  <select
+                    value={formData.maintenanceType}
+                    onChange={(e) => setFormData({ ...formData, maintenanceType: e.target.value as MaintenanceRecord['maintenanceType'] })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="preventive">Preventive</option>
+                    <option value="corrective">Corrective</option>
+                    <option value="breakdown">Breakdown</option>
+                    <option value="inspection">Inspection</option>
+                    <option value="oil-change">Oil Change</option>
+                    <option value="tire-replacement">Tire Replacement</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+                  <select
+                    value={formData.serviceType}
+                    onChange={(e) => setFormData({ ...formData, serviceType: e.target.value as MaintenanceRecord['serviceType'] })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="unscheduled">Unscheduled</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date *</label>
+                  <input
+                    type="date"
+                    value={formData.scheduledDate}
+                    onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Est. Duration (hours)</label>
+                  <input
+                    type="number"
+                    value={formData.estimatedDuration}
+                    onChange={(e) => setFormData({ ...formData, estimatedDuration: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Service Provider</label>
+                  <input
+                    type="text"
+                    value={formData.serviceProvider}
+                    onChange={(e) => setFormData({ ...formData, serviceProvider: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as MaintenanceRecord['priority'] })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="urgent">Urgent</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as MaintenanceRecord['status'] })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending-parts">Pending Parts</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setFormOpen(false)}
+                disabled={isSaving}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitMaintenance}
+                disabled={isSaving}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : editingRecord ? 'Update' : 'Schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

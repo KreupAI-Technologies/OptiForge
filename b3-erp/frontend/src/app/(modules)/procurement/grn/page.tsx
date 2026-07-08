@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   Filter,
@@ -36,7 +37,7 @@ import {
   GRNHistoryModal,
   type GRNData
 } from '@/components/procurement/GRNModals'
-import { goodsReceiptService, GoodsReceipt as GRServiceType, GRStatus } from '@/services/goods-receipt.service'
+import { goodsReceiptService, GRStatus } from '@/services/goods-receipt.service'
 import { exportToCsv } from '@/lib/export'
 
 interface GRN {
@@ -60,9 +61,12 @@ interface GRN {
 }
 
 export default function ProcurementGRNPage() {
+  const router = useRouter()
   const [grns, setGrns] = useState<GRN[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [vendorFilter, setVendorFilter] = useState('all')
@@ -263,6 +267,75 @@ export default function ProcurementGRNPage() {
     setIsCreateModalOpen(true)
   }
 
+  // Build a QualityCheckDto from a selected GRN's mapped quantities.
+  const buildQualityCheckPayload = (
+    grn: GRN,
+    result: 'Passed' | 'Failed' | 'Conditional Pass',
+  ) => ({
+    items: [
+      {
+        itemId: grn.id,
+        result,
+        acceptedQuantity: result === 'Failed' ? 0 : grn.acceptedQty || grn.receivedQty,
+        rejectedQuantity: result === 'Failed' ? grn.receivedQty : grn.rejectedQty,
+      },
+    ],
+    overallNotes: grn.discrepancyNotes || undefined,
+  })
+
+  // Quality Inspection modal → qualityCheck endpoint
+  const handleInspectionSubmit = async (overallResult: 'passed' | 'failed' | 'conditional') => {
+    if (!selectedGRN) return
+    const result = overallResult === 'passed' ? 'Passed' : overallResult === 'failed' ? 'Failed' : 'Conditional Pass'
+    try {
+      setSubmitting(true)
+      setActionError(null)
+      await goodsReceiptService.qualityCheck(selectedGRN.id, buildQualityCheckPayload(selectedGRN, result))
+      setIsInspectionModalOpen(false)
+      await loadGRNs()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to submit quality inspection')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Accept/Reject modal → qualityCheck (accept/reject) or returnToVendor
+  const handleAcceptRejectSubmit = async (action: 'accept' | 'reject', reason: string) => {
+    if (!selectedGRN) return
+    try {
+      setSubmitting(true)
+      setActionError(null)
+      if (action === 'accept') {
+        await goodsReceiptService.qualityCheck(selectedGRN.id, buildQualityCheckPayload(selectedGRN, 'Passed'))
+      } else {
+        await goodsReceiptService.returnToVendor(selectedGRN.id, reason || 'Rejected on inspection')
+      }
+      setIsAcceptRejectModalOpen(false)
+      await loadGRNs()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update GRN')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Post to Inventory modal → postToInventory endpoint
+  const handlePostToInventorySubmit = async () => {
+    if (!selectedGRN) return
+    try {
+      setSubmitting(true)
+      setActionError(null)
+      await goodsReceiptService.postToInventory(selectedGRN.id)
+      setIsPostToInventoryModalOpen(false)
+      await loadGRNs()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to post to inventory')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="w-full min-h-screen px-3 py-2 flex items-center justify-center">
@@ -287,6 +360,20 @@ export default function ProcurementGRNPage() {
               className="ml-auto px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
             >
               Retry
+            </button>
+          </div>
+        )}
+
+        {/* Action Error Display */}
+        {actionError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <span className="text-red-700">{actionError}</span>
+            <button
+              onClick={() => setActionError(null)}
+              className="ml-auto px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+            >
+              Dismiss
             </button>
           </div>
         )}
@@ -519,7 +606,8 @@ export default function ProcurementGRNPage() {
                         {grn.status === 'under_inspection' && (
                           <button
                             onClick={() => handleInspection(grn.id)}
-                            className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                            disabled={submitting}
+                            className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors disabled:opacity-50"
                             title="Quality Inspection"
                           >
                             <ClipboardCheck className="w-4 h-4" />
@@ -528,7 +616,8 @@ export default function ProcurementGRNPage() {
                         {(grn.status === 'under_inspection' || grn.status === 'partially_accepted') && (
                           <button
                             onClick={() => handleAcceptReject(grn.id)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            disabled={submitting}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
                             title="Accept/Reject"
                           >
                             <CheckCircle className="w-4 h-4" />
@@ -537,7 +626,8 @@ export default function ProcurementGRNPage() {
                         {(grn.status === 'accepted' || grn.status === 'partially_accepted') && (
                           <button
                             onClick={() => handlePostToInventory(grn.id)}
-                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            disabled={submitting}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
                             title="Post to Inventory"
                           >
                             <Package className="w-4 h-4" />
@@ -614,9 +704,10 @@ export default function ProcurementGRNPage() {
       <CreateGRNModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Creating GRN:', data)
+        onSubmit={() => {
+          // Full create flow (PO selection + line items) lives on the dedicated page.
           setIsCreateModalOpen(false)
+          router.push('/procurement/grn/add')
         }}
       />
 
@@ -664,9 +755,11 @@ export default function ProcurementGRNPage() {
           qualityStatus: selectedGRN.qualityStatus,
           discrepancyNotes: selectedGRN.discrepancyNotes
         } as GRNData : null}
-        onSubmit={(data) => {
-          console.log('Updating GRN:', data)
+        onSubmit={() => {
+          // Full edit flow (line items + QC) lives on the dedicated page.
+          const id = selectedGRN?.id
           setIsEditModalOpen(false)
+          if (id) router.push(`/procurement/grn/edit/${id}`)
         }}
       />
 
@@ -679,10 +772,7 @@ export default function ProcurementGRNPage() {
           poNumber: selectedGRN.poNumber,
           vendorName: selectedGRN.vendorName
         } as GRNData : null}
-        onSubmit={(data) => {
-          console.log('Quality Inspection:', data)
-          setIsInspectionModalOpen(false)
-        }}
+        onSubmit={(data) => handleInspectionSubmit(data.overallResult)}
       />
 
       <AcceptRejectGRNModal
@@ -698,10 +788,7 @@ export default function ProcurementGRNPage() {
           rejectedQty: selectedGRN.rejectedQty
         } as GRNData : null}
         action="accept"
-        onSubmit={(action, data) => {
-          console.log('Accept/Reject GRN:', action, data)
-          setIsAcceptRejectModalOpen(false)
-        }}
+        onSubmit={(action, data) => handleAcceptRejectSubmit(action, data?.reason ?? '')}
       />
 
       <PostToInventoryModal
@@ -714,18 +801,12 @@ export default function ProcurementGRNPage() {
           vendorName: selectedGRN.vendorName,
           acceptedQty: selectedGRN.acceptedQty
         } as GRNData : null}
-        onSubmit={(data) => {
-          console.log('Posting to Inventory:', data)
-          setIsPostToInventoryModalOpen(false)
-        }}
+        onSubmit={() => handlePostToInventorySubmit()}
       />
 
       <PrintGRNModal
         isOpen={isPrintModalOpen}
-        onClose={() => {
-          console.log('Print modal closed')
-          setIsPrintModalOpen(false)
-        }}
+        onClose={() => setIsPrintModalOpen(false)}
         grn={selectedGRN ? {
           id: selectedGRN.id,
           grnNumber: selectedGRN.grnNumber,

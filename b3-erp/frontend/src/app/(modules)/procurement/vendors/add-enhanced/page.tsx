@@ -222,6 +222,9 @@ export default function VendorAddEnhancedPage() {
   const [newCertification, setNewCertification] = useState('');
   const [kycChecklist, setKycChecklist] = useState<Record<string, boolean>>({});
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   // Calculate form completion percentage
   const completionPercentage = useMemo(() => {
@@ -509,25 +512,35 @@ export default function VendorAddEnhancedPage() {
   };
 
   const handleSaveDraft = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
     try {
       await vendorService.createVendor(buildVendorDto());
       clearDraft();
-      alert('Vendor details saved as draft!');
+      setSubmitSuccess('Vendor details saved as draft!');
       router.push('/procurement/vendors');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save vendor');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save vendor');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
     try {
       await vendorService.createVendor(buildVendorDto());
       clearDraft();
-      alert('Vendor submitted for approval successfully!');
+      setSubmitSuccess('Vendor submitted for approval successfully!');
       router.push('/procurement/vendors');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to submit vendor');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit vendor');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -569,6 +582,15 @@ export default function VendorAddEnhancedPage() {
           onDiscard={handleDiscardDraft}
           lastSaved={lastSaved}
         />
+      )}
+      {submitError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{submitError}</div>
+      )}
+      {submitSuccess && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{submitSuccess}</div>
+      )}
+      {submitting && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">Saving vendor...</div>
       )}
 
       {/* Header */}
@@ -1400,7 +1422,8 @@ export default function VendorAddEnhancedPage() {
         <div className="flex items-center space-x-3">
           <button
             onClick={handleSaveDraft}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            disabled={submitting}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >
             Save as Draft
           </button>
@@ -1416,10 +1439,11 @@ export default function VendorAddEnhancedPage() {
           ) : (
             <button
               onClick={handleSubmit}
-              className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              disabled={submitting}
+              className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
               <Send className="h-5 w-5" />
-              <span>Submit for Approval</span>
+              <span>{submitting ? 'Submitting...' : 'Submit for Approval'}</span>
             </button>
           )}
         </div>

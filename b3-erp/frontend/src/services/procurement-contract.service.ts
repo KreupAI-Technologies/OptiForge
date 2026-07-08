@@ -24,4 +24,46 @@ export const procurementContractService = {
     const data = await request<any>('/procurement/contracts');
     return Array.isArray(data) ? data : (data?.data ?? []);
   },
+
+  // POST /procurement/contracts
+  async createContract(payload: Record<string, unknown>): Promise<any> {
+    return request<any>('/procurement/contracts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // PUT /procurement/contracts/:id
+  async updateContract(id: string, payload: Record<string, unknown>): Promise<any> {
+    return request<any>(`/procurement/contracts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // POST /procurement/contracts/:id/submit
+  async submitContract(id: string): Promise<any> {
+    return request<any>(`/procurement/contracts/${id}/submit`, { method: 'POST' });
+  },
+
+  // POST /procurement/contracts/:id/approve
+  async approveContract(id: string): Promise<any> {
+    return request<any>(`/procurement/contracts/${id}/approve`, { method: 'POST' });
+  },
+
+  // POST /procurement/contracts/:id/terminate
+  async terminateContract(id: string, payload: Record<string, unknown> = {}): Promise<any> {
+    return request<any>(`/procurement/contracts/${id}/terminate`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // POST /procurement/contracts/:id/renew
+  async renewContract(id: string, payload: Record<string, unknown> = {}): Promise<any> {
+    return request<any>(`/procurement/contracts/${id}/renew`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };

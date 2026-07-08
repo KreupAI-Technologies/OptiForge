@@ -18,7 +18,8 @@ import {
   Loader2,
   RefreshCw
 } from 'lucide-react';
-import { routeService, Route as ServiceRoute, Trip } from '@/services/route.service';
+import { routeService, Route as ServiceRoute, Trip, CreateRouteDto } from '@/services/route.service';
+import { toast } from '@/hooks/use-toast';
 
 interface RouteDetails {
   id: number;
@@ -102,8 +103,32 @@ export default function RoutePlanningPage() {
 
   // State for routes loaded from service
   const [routes, setRoutes] = useState<RouteDetails[]>([]);
+  // Keep the raw service routes so edit can map a UI row back to its service id
+  const [serviceRoutes, setServiceRoutes] = useState<ServiceRoute[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Create / Edit form modal state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const emptyForm = {
+    routeCode: '',
+    routeName: '',
+    description: '',
+    origin: '',
+    originCity: '',
+    originState: '',
+    destination: '',
+    destinationCity: '',
+    destinationState: '',
+    totalDistance: 0,
+    estimatedDuration: 0,
+    routeType: 'Regular' as ServiceRoute['routeType'],
+    tollCost: 0,
+    fuelCostEstimate: 0,
+  };
+  const [formData, setFormData] = useState({ ...emptyForm });
 
   // Load routes from service
   useEffect(() => {
@@ -115,13 +140,14 @@ export default function RoutePlanningPage() {
     setLoadError(null);
     try {
       // Fetch routes and trips in parallel
-      const [serviceRoutes, tripsResult] = await Promise.all([
+      const [routesResult, tripsResult] = await Promise.all([
         routeService.getAllRoutes(),
         routeService.getAllTrips()
       ]);
 
       // Map service data to UI format
-      const mappedRoutes = serviceRoutes.map(r => mapServiceRouteToUI(r, tripsResult.data));
+      setServiceRoutes(routesResult);
+      const mappedRoutes = routesResult.map(r => mapServiceRouteToUI(r, tripsResult.data));
       setRoutes(mappedRoutes);
     } catch (error) {
       console.error('Error loading route data:', error);
@@ -136,75 +162,48 @@ export default function RoutePlanningPage() {
   };
 
   const handleCreateRoute = () => {
-    alert(`Create New Route
+    setEditingRouteId(null);
+    setFormData({ ...emptyForm });
+    setShowFormModal(true);
+  };
 
-Route Information:
-━━━━━━━━━━━━━━━━━━━━
-• Route Code: Auto-generated (RT-XXX-YYY-NNN)
-• Route Name: Descriptive name with highway info
-• Route Type: Primary / Alternate / Emergency
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload: CreateRouteDto = {
+        routeCode: formData.routeCode,
+        routeName: formData.routeName,
+        description: formData.description || undefined,
+        origin: formData.origin,
+        originCity: formData.originCity,
+        originState: formData.originState,
+        destination: formData.destination,
+        destinationCity: formData.destinationCity,
+        destinationState: formData.destinationState,
+        totalDistance: Number(formData.totalDistance) || 0,
+        estimatedDuration: Number(formData.estimatedDuration) || 0,
+        routeType: formData.routeType,
+        tollCost: Number(formData.tollCost) || 0,
+        fuelCostEstimate: Number(formData.fuelCostEstimate) || 0,
+      };
 
-Origin & Destination:
-━━━━━━━━━━━━━━━━━━━━
-• Origin Location: Warehouse/Factory/Port dropdown
-• Origin Address: Complete address with GPS
-• Destination Location: Distribution center dropdown
-• Destination Address: Complete address with GPS
+      if (editingRouteId) {
+        await routeService.updateRoute(editingRouteId, payload);
+        toast({ title: 'Route updated', description: `${formData.routeCode} was updated successfully.`, variant: 'success' });
+      } else {
+        await routeService.createRoute(payload);
+        toast({ title: 'Route created', description: `${formData.routeCode} was created successfully.`, variant: 'success' });
+      }
 
-Route Planning:
-━━━━━━━━━━━━━━━━━━━━
-• Waypoints: Add multiple transit/hub locations
-• Highway/Route: NH48, NH44, etc.
-• Distance: Auto-calculated (km)
-• Estimated Time: Auto-calculated (hours)
-
-Transport Details:
-━━━━━━━━━━━━━━━━━━━━
-• Transport Mode: Road / Rail / Air / Sea
-• Vehicle Type: Truck / Train / Cargo Plane / Ship
-• Frequency: Daily / Weekly / Bi-weekly / Monthly / On-demand
-
-Cost Estimation:
-━━━━━━━━━━━━━━━━━━━━
-• Base Route Cost: ₹
-• Fuel Cost: ₹ (calculated per km)
-• Toll Cost: ₹ (based on route)
-• Driver Wages: ₹
-• Vehicle Maintenance: ₹
-• Total Cost: ₹ (auto-calculated)
-
-Operational Parameters:
-━━━━━━━━━━━━━━━━━━━━
-• Max Load Capacity: (tons/kg)
-• Avg Speed: (km/h)
-• Rest Stops: Number and duration
-• Preferred Departure Time: HH:MM
-• Service Level Agreement: (hours)
-
-Route Optimization:
-━━━━━━━━━━━━━━━━━━━━
-• ☑ Optimize for shortest distance
-• ☑ Avoid tolls (if possible)
-• ☑ Prefer highways
-• ☑ Avoid congestion zones
-• ☑ Consider weather conditions
-• ☑ Enable real-time rerouting
-
-Safety & Compliance:
-━━━━━━━━━━━━━━━━━━━━
-• Hazardous Material: Yes / No
-• Special Permits Required: List
-• Insurance Coverage: ₹
-• Emergency Contacts: Add contacts
-
-Integration:
-━━━━━━━━━━━━━━━━━━━━
-• Google Maps API: Route visualization
-• Traffic Data: Real-time integration
-• Weather API: Condition monitoring
-• ETA Calculation: Dynamic updates
-
-Actions: Save Route | Save as Template | Calculate | Cancel`);
+      setShowFormModal(false);
+      await loadRouteData();
+    } catch (error) {
+      console.error('Error saving route:', error);
+      toast({ title: 'Error', description: 'Failed to save the route. Please try again.', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleViewRoute = (route: RouteDetails) => {
@@ -286,75 +285,30 @@ Actions Available:
   };
 
   const handleEditRoute = (route: RouteDetails) => {
-    alert(`Edit Route - ${route.routeCode}
-
-Current Route Configuration:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-BASIC INFORMATION
-Route Code: ${route.routeCode} [Read-only]
-Route Name: [${route.routeName}]
-Route Type: [${route.routeType}] ▼
-  Options: Primary / Alternate / Emergency
-
-LOCATIONS
-Origin: [${route.origin}] ▼
-Destination: [${route.destination}] ▼
-
-Waypoints (${route.waypoints.length} stops):
-${route.waypoints.map((w, i) => `  ${i + 1}. [${w}] [Remove]`).join('\n')}
-[+ Add Waypoint]
-
-TRANSPORT DETAILS
-Transport Mode: [${route.transportMode}] ▼
-  Options: Road / Rail / Air / Sea
-Frequency: [${route.frequency}] ▼
-  Options: Daily / Weekly / Bi-weekly / Monthly / On-demand
-
-ROUTE METRICS
-Distance: [${route.distance}] km (auto-calculated)
-Estimated Time: [${route.estimatedTime}] hours (auto-calculated)
-Average Speed: ${Math.round(route.distance / route.estimatedTime)} km/h
-
-COST CONFIGURATION
-Total Route Cost: ₹ [${route.routeCost}]
-├─ Fuel Cost: ₹ [${route.fuelCost}]
-├─ Toll Cost: ₹ [${route.tollCost}]
-└─ Other Costs: ₹ ${route.routeCost - route.fuelCost - route.tollCost} (auto-calculated)
-
-OPERATIONAL STATUS
-Status: [${route.status}] ▼
-  Options: Active / Inactive / Under Review
-Current Active Trips: ${route.activeTrips} [Read-only]
-Reliability: ${route.reliability}% [Read-only]
-
-OPTIMIZATION OPTIONS
-☑ Recalculate shortest path
-☑ Update fuel costs based on current rates
-☑ Adjust for traffic patterns
-☑ Optimize waypoint sequence
-☑ Update toll costs
-
-VALIDATION CHECKS
-${route.status === 'active' && route.activeTrips > 0 ? '⚠ Warning: Route has active trips. Changes may affect ongoing shipments.' : '✓ Safe to modify'}
-${route.reliability < 90 ? '⚠ Low reliability detected. Consider route optimization.' : '✓ Route performance is good'}
-${route.avgDelay > 40 ? '⚠ High average delay. Review waypoints and timing.' : '✓ Delay metrics acceptable'}
-
-CHANGE LOG
-Last Modified: ${route.lastUsed}
-Modified By: Current User
-Modification Type: [Will be logged]
-
-Actions:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Save Changes] [Recalculate Route] [Test Route] [Cancel] [Delete Route]
-
-Note: Saved changes will:
-• Update route in database
-• Notify active drivers if route has active trips
-• Recalculate all metrics automatically
-• Create audit log entry
-• Update connected shipment schedules`);
+    // Find the raw service route matching this UI row (match on routeCode which is stable)
+    const svc = serviceRoutes.find(r => r.routeCode === route.routeCode);
+    if (!svc) {
+      toast({ title: 'Cannot edit', description: 'Original route record not found. Please refresh.', variant: 'destructive' });
+      return;
+    }
+    setEditingRouteId(svc.id);
+    setFormData({
+      routeCode: svc.routeCode,
+      routeName: svc.routeName,
+      description: svc.description || '',
+      origin: svc.origin,
+      originCity: svc.originCity,
+      originState: svc.originState,
+      destination: svc.destination,
+      destinationCity: svc.destinationCity,
+      destinationState: svc.destinationState,
+      totalDistance: svc.totalDistance,
+      estimatedDuration: svc.estimatedDuration,
+      routeType: svc.routeType,
+      tollCost: svc.tollCost || 0,
+      fuelCostEstimate: svc.fuelCostEstimate || 0,
+    });
+    setShowFormModal(true);
   };
 
 
@@ -744,6 +698,207 @@ Note: Saved changes will:
           </div>
         </div>
       </div>
+
+      {/* Create / Edit Route Modal */}
+      {showFormModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between rounded-t-xl z-10">
+              <div className="flex items-center gap-2">
+                <Route className="h-6 w-6" />
+                <h2 className="text-xl font-bold">{editingRouteId ? 'Edit Route' : 'Create New Route'}</h2>
+              </div>
+              <button onClick={() => setShowFormModal(false)} className="text-white hover:bg-white/20 rounded-lg p-1">
+                <span className="text-2xl leading-none">&times;</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitForm} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Route Code <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.routeCode}
+                    onChange={(e) => setFormData({ ...formData, routeCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., MUM-BLR-01"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Route Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.routeName}
+                    onChange={(e) => setFormData({ ...formData, routeName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Mumbai to Bangalore Express"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={2}
+                  placeholder="Optional route description"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Origin <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.origin}
+                    onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Origin location"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Origin City <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.originCity}
+                    onChange={(e) => setFormData({ ...formData, originCity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Origin State <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.originState}
+                    onChange={(e) => setFormData({ ...formData, originState: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Destination <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.destination}
+                    onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Destination location"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Destination City <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.destinationCity}
+                    onChange={(e) => setFormData({ ...formData, destinationCity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Destination State <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.destinationState}
+                    onChange={(e) => setFormData({ ...formData, destinationState: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Distance (km) <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.totalDistance}
+                    onChange={(e) => setFormData({ ...formData, totalDistance: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Est. Duration (min) <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.estimatedDuration}
+                    onChange={(e) => setFormData({ ...formData, estimatedDuration: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Route Type</label>
+                  <select
+                    value={formData.routeType}
+                    onChange={(e) => setFormData({ ...formData, routeType: e.target.value as ServiceRoute['routeType'] })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Regular">Regular</option>
+                    <option value="Express">Express</option>
+                    <option value="Economy">Economy</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Toll Cost (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.tollCost}
+                    onChange={(e) => setFormData({ ...formData, tollCost: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Cost Estimate (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.fuelCostEstimate}
+                    onChange={(e) => setFormData({ ...formData, fuelCostEstimate: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSubmitting ? 'Saving...' : editingRouteId ? 'Save Changes' : 'Create Route'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFormModal(false)}
+                  className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -41,7 +41,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { shipmentService, Shipment } from '@/services/shipment.service';
+import { shipmentService, Shipment, CreateShipmentDto } from '@/services/shipment.service';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
 
 interface ProjectInfo {
@@ -258,9 +258,10 @@ export default function LogisticsTrackingPage() {
     setIsRefreshing(true);
     try {
       await loadTrackingData();
-      alert('Tracking data refreshed successfully!');
+      toast({ title: 'Refreshed', description: 'Tracking data has been updated.', variant: 'success' });
     } catch (error) {
-      alert('Failed to refresh tracking data. Please try again.');
+      console.error('Error refreshing tracking data:', error);
+      toast({ title: 'Error', description: 'Failed to refresh tracking data. Please try again.', variant: 'destructive' });
     } finally {
       setIsRefreshing(false);
     }
@@ -269,37 +270,45 @@ export default function LogisticsTrackingPage() {
   const handleTrackNewShipment = async () => {
     setIsTracking(true);
     try {
-      // Simulate adding a new shipment
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const trackingId = `TRK-2025-${String(trackingEvents.length + 1).padStart(3, '0')}`;
-      const shipmentNumber = `SHP-2025-${String(trackingEvents.length + 1).padStart(3, '0')}`;
-
-      alert('✓ New Shipment Added to Tracking System!\n\n' +
-        `Tracking ID: ${trackingId}\n` +
-        `Shipment Number: ${shipmentNumber}\n` +
-        `Status: Picked Up - Processing\n` +
-        `Carrier: To be assigned\n\n` +
-        'Features enabled:\n' +
-        '• Real-time GPS tracking\n' +
-        '• Temperature & humidity monitoring\n' +
-        '• Checkpoint notifications\n' +
-        '• ETA calculations\n' +
-        '• Route optimization\n\n' +
-        'You can now monitor this shipment in the tracking dashboard.');
+      const today = new Date();
+      const eta = new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const payload: CreateShipmentDto = {
+        customerId: '',
+        customerName: 'New Tracked Shipment',
+        deliveryAddress: 'To be assigned',
+        city: '',
+        state: '',
+        postalCode: '',
+        country: 'India',
+        expectedDeliveryDate: eta,
+        priority: 'Normal',
+        items: [
+          { productId: '', productCode: 'TRK-ITEM', productName: 'Tracked Shipment', quantity: 1, uom: 'PCS', weight: 0 },
+        ],
+        notes: 'Added via tracking dashboard',
+      };
+      const created = await shipmentService.createShipment(payload);
+      toast({
+        title: 'Shipment Added',
+        description: `Shipment ${created.shipmentNumber} is now being tracked.`,
+        variant: 'success'
+      });
+      await loadTrackingData();
     } catch (error) {
-      alert('✗ Failed to add new shipment. Please try again.');
+      console.error('Error adding shipment to tracking:', error);
+      toast({ title: 'Error', description: 'Failed to add new shipment. Please try again.', variant: 'destructive' });
     } finally {
       setIsTracking(false);
     }
   };
 
   const handleExportTracking = async () => {
+    if (filteredEvents.length === 0) {
+      toast({ title: 'Nothing to export', description: 'No tracking events match the current filters.' });
+      return;
+    }
     setIsExporting(true);
     try {
-      // Simulate export process
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       // Create CSV content
       const csvHeaders = [
         'Tracking ID',
@@ -364,24 +373,16 @@ export default function LogisticsTrackingPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-      alert('✓ Tracking Data Exported Successfully!\n\n' +
-        `File: shipment_tracking_export_${new Date().toISOString().split('T')[0]}.csv\n` +
-        `Records exported: ${filteredEvents.length}\n\n` +
-        'Export includes:\n' +
-        '• Tracking & shipment numbers\n' +
-        '• Customer information\n' +
-        '• Current locations & status\n' +
-        '• Temperature & humidity data\n' +
-        '• Delivery times (estimated & actual)\n' +
-        '• Carrier & route details\n' +
-        '• Checkpoint progress\n' +
-        '• Delay information\n' +
-        '• Priority levels\n' +
-        '• Event notes\n\n' +
-        'The file has been downloaded to your default downloads folder.');
+      toast({
+        title: 'Export complete',
+        description: `${filteredEvents.length} tracking events exported to CSV.`,
+        variant: 'success'
+      });
     } catch (error) {
-      alert('✗ Failed to export tracking data. Please try again.');
+      console.error('Error exporting tracking data:', error);
+      toast({ title: 'Error', description: 'Failed to export tracking data. Please try again.', variant: 'destructive' });
     } finally {
       setIsExporting(false);
     }

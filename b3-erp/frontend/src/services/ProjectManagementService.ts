@@ -2964,6 +2964,93 @@ class ProjectManagementService {
             return [];
         }
     }
+
+    // ---------------------------------------------------------------------
+    // INSTALLATION WORKFLOW writes (NestJS logistics-installation + closure).
+    // Backs the (modules)/installation/* step-completion pages. Each step
+    // records a project-scoped DailyInstallReport so progress is persisted.
+    // Endpoints (b3-erp/backend):
+    //   POST  /api/logistics-installation/daily-report
+    //   POST  /api/logistics-installation/dispatch
+    //   GET   /api/logistics-installation/daily-reports/:projectId
+    //   POST  /api/project-closure/initiate/:projectId
+    //   PATCH /api/project-closure/sign/:id
+    // ---------------------------------------------------------------------
+    private async pmModulePatch<T>(path: string, body: any): Promise<T | null> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetch(`${API_BASE_URL}${path}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return (data && (data as any).data !== undefined && !Array.isArray((data as any).data))
+                ? ((data as any).data as T)
+                : (data as T);
+        } catch (error) {
+            console.error(`Error patching ${path}:`, error);
+            throw error;
+        }
+    }
+
+    /** Fetch the daily install progress reports for a project (empty-safe). */
+    async getInstallDailyReports(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/api/logistics-installation/daily-reports/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /** Fetch tools deployed to a project site (empty-safe). */
+    async getDeployedTools(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/project-management/tools/project/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * Record an installation step as complete against a project by creating a
+     * DailyInstallReport. Used by the installation/* checklist pages.
+     */
+    createInstallDailyReport(data: {
+        projectId: string;
+        workDone?: string;
+        overallProgress?: number;
+        plannedForTomorrow?: string;
+        issuesEncountered?: string;
+        isSiteCleaned?: boolean;
+        manpowerCount?: number;
+        progressPhotos?: string[];
+        cleaningPhotos?: string[];
+        isClientNotified?: boolean;
+    }): Promise<any> {
+        return this.pmModulePost<any>('/api/logistics-installation/daily-report', data);
+    }
+
+    /** Create a site dispatch record (tools/materials to site). */
+    createInstallDispatch(data: { projectId: string; [key: string]: any }): Promise<any> {
+        return this.pmModulePost<any>('/api/logistics-installation/dispatch', data);
+    }
+
+    /** Issue a single tool to a project site (tool-management). */
+    issueInstallTool(data: { toolId: string; projectId: string; condition: string; issuedBy?: string }): Promise<any> {
+        return this.pmModulePost<any>('/project-management/tools/issue', data);
+    }
+
+    /** Initiate project handover / closure and get a handover certificate. */
+    initiateProjectClosure(projectId: string): Promise<any> {
+        return this.pmModulePost<any>(`/api/project-closure/initiate/${projectId}`, {});
+    }
+
+    /** Sign an existing handover certificate. */
+    signProjectClosure(id: string, data: { signatory: string; title: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/project-closure/sign/${id}`, data);
+    }
 }
 
 export const projectManagementService = new ProjectManagementService();
