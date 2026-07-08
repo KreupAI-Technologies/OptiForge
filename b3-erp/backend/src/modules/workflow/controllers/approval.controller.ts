@@ -47,6 +47,26 @@ export class ApprovalController {
         return this.approvalService.delegate(id, fromUserId, toUserId, reason);
     }
 
+    @Get(':id/attachments')
+    async getAttachments(@Param('id') id: string) {
+        return this.approvalService.getAttachments(id);
+    }
+
+    @Get(':id/comments')
+    async getComments(@Param('id') id: string) {
+        return this.approvalService.getComments(id);
+    }
+
+    @Post(':id/comments')
+    async addComment(
+        @Param('id') id: string,
+        @Body('body') body: string,
+        @Body('authorId') authorId?: string,
+        @Body('authorName') authorName?: string,
+    ) {
+        return this.approvalService.addComment(id, body, authorId, authorName);
+    }
+
     @Get(':id')
     async getApproval(@Param('id') id: string) {
         return this.approvalService.getApproval(id);

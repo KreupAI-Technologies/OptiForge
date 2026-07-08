@@ -23,6 +23,7 @@ import { IpWhitelistEntry } from './entities/ip-whitelist-entry.entity';
 import { ScheduledJob } from './entities/scheduled-job.entity';
 import { AutomationRule } from './entities/automation-rule.entity';
 import { SecurityAlert } from './entities/security-alert.entity';
+import { AlertRule } from './entities/alert-rule.entity';
 import { PasswordPolicy } from './entities/password-policy.entity';
 import { NotificationSetting } from './entities/notification-setting.entity';
 import { UserGroup } from './entities/user-group.entity';
@@ -56,6 +57,7 @@ import { IpWhitelistService } from './services/ip-whitelist.service';
 import { ScheduledJobService } from './services/scheduled-job.service';
 import { AutomationRuleService } from './services/automation-rule.service';
 import { SecurityAlertService } from './services/security-alert.service';
+import { AlertRuleService } from './services/alert-rule.service';
 import { PasswordPolicyService } from './services/password-policy.service';
 import { NotificationSettingService } from './services/notification-setting.service';
 import { UserGroupService } from './services/user-group.service';
@@ -95,6 +97,7 @@ import { IpWhitelistController } from './controllers/ip-whitelist.controller';
 import { ScheduledJobController } from './controllers/scheduled-job.controller';
 import { AutomationRuleController } from './controllers/automation-rule.controller';
 import { SecurityAlertController } from './controllers/security-alert.controller';
+import { AlertRuleController } from './controllers/alert-rule.controller';
 import { PasswordPolicyController } from './controllers/password-policy.controller';
 import { NotificationSettingController } from './controllers/notification-setting.controller';
 import { UserGroupController } from './controllers/user-group.controller';
@@ -131,6 +134,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
       ScheduledJob,
       AutomationRule,
       SecurityAlert,
+      AlertRule,
       PasswordPolicy,
       NotificationSetting,
       UserGroup,
@@ -162,6 +166,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
     ScheduledJobController,
     AutomationRuleController,
     SecurityAlertController,
+    AlertRuleController,
     PasswordPolicyController,
     NotificationSettingController,
     UserGroupController,
@@ -196,6 +201,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
     ScheduledJobService,
     AutomationRuleService,
     SecurityAlertService,
+    AlertRuleService,
     PasswordPolicyService,
     NotificationSettingService,
     UserGroupService,

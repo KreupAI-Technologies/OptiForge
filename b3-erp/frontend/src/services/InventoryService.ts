@@ -453,6 +453,57 @@ class InventoryService {
         return (response as any)?.data ?? response;
     }
 
+    // ---- Auto-replenishment configs ----
+    async getReplenishmentConfigs(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/replenishment/configs');
+        return this.unwrapArray(response);
+    }
+
+    async createReplenishmentConfig(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/replenishment/configs', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateReplenishmentConfig(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/replenishment/configs/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async toggleReplenishmentConfig(id: string, enabled: boolean): Promise<any> {
+        const response = await apiClient.patch<any>(`/inventory/replenishment/configs/${id}/toggle`, { enabled });
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteReplenishmentConfig(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/replenishment/configs/${id}`);
+    }
+
+    // ---- Reorder rules ----
+    async getReorderRules(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/replenishment/rules');
+        return this.unwrapArray(response);
+    }
+
+    async createReorderRule(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/replenishment/rules', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteReorderRule(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/replenishment/rules/${id}`);
+    }
+
+    // ---- Replenishment requests ----
+    async getReplenishmentRequests(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/replenishment/requests');
+        return this.unwrapArray(response);
+    }
+
+    async createReplenishmentRequest(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/replenishment/requests', data);
+        return (response as any)?.data ?? response;
+    }
+
     // ---- Stock adjustments ----
     async createStockAdjustment(data: any): Promise<any> {
         const response = await apiClient.post<any>('/inventory/stock-adjustments', data);

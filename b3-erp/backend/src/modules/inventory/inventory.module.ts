@@ -21,6 +21,9 @@ import {
   AdjustmentReason,
   CycleCountPlan,
   CycleCountItem,
+  AutoReplenishmentConfig,
+  ReorderRule,
+  ReplenishmentRequest,
 } from './entities';
 
 // Controllers
@@ -65,6 +68,8 @@ import { InventoryPolicyController } from './controllers/inventory-policy.contro
 import { InventoryPolicyService } from './services/inventory-policy.service';
 import { KittingController } from './controllers/kitting.controller';
 import { KittingService } from './services/kitting.service';
+import { ReplenishmentController } from './controllers/replenishment.controller';
+import { ReplenishmentService } from './services/replenishment.service';
 
 @Module({
   imports: [
@@ -83,6 +88,9 @@ import { KittingService } from './services/kitting.service';
       AdjustmentReason,
       CycleCountPlan,
       CycleCountItem,
+      AutoReplenishmentConfig,
+      ReorderRule,
+      ReplenishmentRequest,
     ]),
     forwardRef(() => WorkflowModule),
     PrismaModule,
@@ -103,6 +111,7 @@ import { KittingService } from './services/kitting.service';
     InventoryAnalyticsController,
     InventoryPolicyController,
     KittingController,
+    ReplenishmentController,
   ],
   providers: [
     InventoryPolicyService,
@@ -126,6 +135,7 @@ import { KittingService } from './services/kitting.service';
     StockValuationService,
     InventoryAnalyticsService,
     CycleCountService,
+    ReplenishmentService,
     AuditLogger,
   ],
   exports: [

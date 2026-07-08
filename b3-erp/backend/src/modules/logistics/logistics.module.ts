@@ -16,6 +16,7 @@ import {
   TransportCompany,
   DeliveryCoordination,
   FuelRecord,
+  NotificationLog,
 } from './entities';
 
 // Controllers
@@ -41,6 +42,7 @@ import { YardVehicleController } from './controllers/yard-vehicle.controller';
 import { PortMasterController } from './controllers/port-master.controller';
 import { PackagingTypeController } from './controllers/packaging-type.controller';
 import { ConsolidationController } from './controllers/consolidation.controller';
+import { NotificationLogController } from './controllers/notification-log.controller';
 
 // Services
 import {
@@ -65,6 +67,7 @@ import { CustomerNotificationService } from './services/customer-notification.se
 import { GatePassService } from './services/gate-pass.service';
 import { LogisticsManagementService } from './services/logistics-management.service';
 import { LogisticsManagementController } from './controllers/logistics-management.controller';
+import { NotificationLogService } from './services/notification-log.service';
 
 @Module({
   imports: [
@@ -82,6 +85,7 @@ import { LogisticsManagementController } from './controllers/logistics-managemen
       TransportCompany,
       DeliveryCoordination,
       FuelRecord,
+      NotificationLog,
     ]),
   ],
   controllers: [
@@ -106,6 +110,7 @@ import { LogisticsManagementController } from './controllers/logistics-managemen
     PackagingTypeController,
     ConsolidationController,
     LogisticsManagementController,
+    NotificationLogController,
   ],
   providers: [
     ShipmentService,
@@ -127,6 +132,7 @@ import { LogisticsManagementController } from './controllers/logistics-managemen
     LogisticsManagementService,
     DeliveryCoordinationService,
     FuelRecordService,
+    NotificationLogService,
   ],
   exports: [
     ShipmentService,

@@ -73,6 +73,37 @@ export interface SecurityAlertDto {
   updatedAt: string;
 }
 
+export interface AlertRuleDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  category: string;
+  severity: string;
+  enabled: boolean;
+  conditions?: string[];
+  actions?: string[];
+  notifyVia?: string[];
+  recipients?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserPasswordStatusDto {
+  id: string;
+  userId: string;
+  userName: string;
+  email: string;
+  department: string;
+  lastChanged: string | null;
+  daysOld: number | null;
+  status: string;
+  strength: string;
+  expiresIn: number | null;
+  failedAttempts: number;
+  locked: boolean;
+}
+
 export interface IpWhitelistEntryDto {
   id: string;
   companyId?: string;
@@ -495,6 +526,36 @@ class ItAdminServiceClass {
     });
   }
 
+  // --- Alert Rules ---
+  async getAlertRules(params?: {
+    companyId?: string;
+    category?: string;
+    severity?: string;
+  }): Promise<AlertRuleDto[]> {
+    return request<AlertRuleDto[]>(`/it-admin/alert-rules${qs(params)}`);
+  }
+
+  async createAlertRule(data: Partial<AlertRuleDto>): Promise<AlertRuleDto> {
+    return request<AlertRuleDto>('/it-admin/alert-rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAlertRule(
+    id: string,
+    data: Partial<AlertRuleDto>,
+  ): Promise<AlertRuleDto> {
+    return request<AlertRuleDto>(`/it-admin/alert-rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAlertRule(id: string): Promise<void> {
+    return request<void>(`/it-admin/alert-rules/${id}`, { method: 'DELETE' });
+  }
+
   // --- IP Whitelist ---
   async getIpWhitelist(params?: {
     companyId?: string;
@@ -581,6 +642,14 @@ class ItAdminServiceClass {
         method: 'PUT',
         body: JSON.stringify(data),
       },
+    );
+  }
+
+  async getPasswordStatuses(
+    companyId?: string,
+  ): Promise<UserPasswordStatusDto[]> {
+    return request<UserPasswordStatusDto[]>(
+      `/it-admin/password-policy/user-status${qs({ companyId })}`,
     );
   }
 

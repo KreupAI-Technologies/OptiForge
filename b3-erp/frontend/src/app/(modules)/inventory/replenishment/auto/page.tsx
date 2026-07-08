@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, ToggleLeft, ToggleRight, Clock, CheckCircle, Settings, AlertTriangle, Calendar, Package, TrendingUp, Zap } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ToggleLeft, ToggleRight, Clock, CheckCircle, Settings, AlertTriangle, Calendar, Package, TrendingUp, Zap, Trash2 } from 'lucide-react';
 import { inventoryService } from '@/services/InventoryService';
 
 interface AutoReplenishmentConfig {
@@ -38,21 +38,68 @@ export default function AutoReplenishmentPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'configs' | 'logs'>('configs');
 
-  // NEEDS BACKEND: there is no auto-replenishment CONFIG endpoint. Configs are not
-  // fetched or persisted anywhere, so we render an empty state rather than fabricated
-  // rows. Once a config CRUD API exists, load it here.
-  const configs: AutoReplenishmentConfig[] = [];
+  // Configs loaded from GET /inventory/replenishment/configs.
+  const [configs, setConfigs] = useState<AutoReplenishmentConfig[]>([]);
 
   // Activity logs derived from GET /inventory/reorder/suggestions.
   const [logs, setLogs] = useState<AutoReplenishmentLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [busyConfigId, setBusyConfigId] = useState<string | null>(null);
+  const [showNewConfig, setShowNewConfig] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newConfig, setNewConfig] = useState({
+    configName: '',
+    description: '',
+    category: '',
+    itemPattern: '',
+    schedule: 'daily' as AutoReplenishmentConfig['schedule'],
+    autoApprove: false,
+    maxOrderValue: 0,
+  });
+
+  const mapConfig = (c: any, i: number): AutoReplenishmentConfig => ({
+    id: String(c.id ?? i),
+    configName: c.configName ?? '',
+    description: c.description ?? '',
+    category: c.category ?? '',
+    itemPattern: c.itemPattern ?? '',
+    enabled: c.enabled !== false,
+    schedule: (c.schedule ?? 'daily') as AutoReplenishmentConfig['schedule'],
+    autoApprove: Boolean(c.autoApprove),
+    maxOrderValue: Number(c.maxOrderValue ?? 0),
+    notifyUsers: Array.isArray(c.notifyUsers) ? c.notifyUsers : [],
+    lastRun: c.lastRun ?? '—',
+    nextRun: c.nextRun ?? '—',
+    totalRequests: Number(c.totalRequests ?? 0),
+    successRate: Number(c.successRate ?? 0),
+  });
+
+  const loadConfigs = async (): Promise<AutoReplenishmentConfig[]> => {
+    const raw = (await inventoryService.getReplenishmentConfigs()) as any[];
+    return (raw || []).map(mapConfig);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCfgs = async () => {
+      try {
+        const mapped = await loadConfigs();
+        if (!cancelled) setConfigs(mapped);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load configurations');
+      }
+    };
+    loadCfgs();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setIsLoading(true);
-      setLoadError(null);
       try {
         const raw = (await inventoryService.getReorderSuggestions()) as any[];
         const actionMap: Record<string, AutoReplenishmentLog['action']> = {
@@ -128,16 +175,82 @@ export default function AutoReplenishmentPage() {
     }
   };
 
-  // NEEDS BACKEND: no auto-replenishment config CRUD endpoint. Toggle/Edit are
-  // intentionally disabled no-ops until that API exists.
-  const handleToggleConfig = (_id: string) => {};
-  const handleEditConfig = (_id: string) => {};
+  // Real toggle via PATCH /inventory/replenishment/configs/:id/toggle.
+  const handleToggleConfig = async (id: string) => {
+    const config = configs.find((c) => c.id === id);
+    if (!config) return;
+    const nextEnabled = !config.enabled;
+    setBusyConfigId(id);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await inventoryService.toggleReplenishmentConfig(id, nextEnabled);
+      setConfigs((prev) => prev.map((c) => (c.id === id ? { ...c, enabled: nextEnabled } : c)));
+      setActionSuccess(`Configuration ${nextEnabled ? 'enabled' : 'disabled'}.`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to toggle configuration.');
+    } finally {
+      setBusyConfigId(null);
+    }
+  };
+
+  // Real delete via DELETE /inventory/replenishment/configs/:id.
+  const handleEditConfig = async (id: string) => {
+    setBusyConfigId(id);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await inventoryService.deleteReplenishmentConfig(id);
+      setConfigs((prev) => prev.filter((c) => c.id !== id));
+      setActionSuccess('Configuration deleted.');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete configuration.');
+    } finally {
+      setBusyConfigId(null);
+    }
+  };
+
+  const handleCreateConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newConfig.configName.trim()) {
+      setActionError('Configuration name is required.');
+      return;
+    }
+    setCreating(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await inventoryService.createReplenishmentConfig({
+        ...newConfig,
+        maxOrderValue: Number(newConfig.maxOrderValue) || 0,
+      });
+      const mapped = await loadConfigs();
+      setConfigs(mapped);
+      setActionSuccess('Configuration created.');
+      setShowNewConfig(false);
+      setNewConfig({ configName: '', description: '', category: '', itemPattern: '', schedule: 'daily', autoApprove: false, maxOrderValue: 0 });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create configuration.');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
       {loadError && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+          {actionSuccess}
         </div>
       )}
       {isLoading && (
@@ -155,11 +268,63 @@ export default function AutoReplenishmentPage() {
             <p className="text-sm text-gray-500 mt-1">Automated inventory replenishment system</p>
           </div>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button
+          onClick={() => { setShowNewConfig((s) => !s); setActionError(null); setActionSuccess(null); }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
           <RefreshCw className="w-4 h-4" />
           <span>New Configuration</span>
         </button>
       </div>
+
+      {showNewConfig && (
+        <form onSubmit={handleCreateConfig} className="bg-white rounded-xl border border-gray-200 p-4 mb-3 space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900">New Auto-Replenishment Configuration</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Config Name <span className="text-red-500">*</span></label>
+              <input type="text" value={newConfig.configName} onChange={(e) => setNewConfig({ ...newConfig, configName: e.target.value })} required className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item Pattern</label>
+              <input type="text" value={newConfig.itemPattern} onChange={(e) => setNewConfig({ ...newConfig, itemPattern: e.target.value })} placeholder="e.g. RM-*" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <input type="text" value={newConfig.description} onChange={(e) => setNewConfig({ ...newConfig, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <input type="text" value={newConfig.category} onChange={(e) => setNewConfig({ ...newConfig, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Schedule</label>
+              <select value={newConfig.schedule} onChange={(e) => setNewConfig({ ...newConfig, schedule: e.target.value as AutoReplenishmentConfig['schedule'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="realtime">Real-time</option>
+                <option value="hourly">Hourly</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Max Order Value</label>
+              <input type="number" min="0" value={newConfig.maxOrderValue} onChange={(e) => setNewConfig({ ...newConfig, maxOrderValue: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input id="cfgAutoApprove" type="checkbox" checked={newConfig.autoApprove} onChange={(e) => setNewConfig({ ...newConfig, autoApprove: e.target.checked })} />
+              <label htmlFor="cfgAutoApprove" className="text-sm font-medium text-gray-700">Auto-Approve</label>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={creating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {creating ? 'Creating…' : 'Create Configuration'}
+            </button>
+            <button type="button" onClick={() => setShowNewConfig(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-3 border border-green-200">
@@ -249,8 +414,7 @@ export default function AutoReplenishmentPage() {
               <Settings className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-600 font-medium">No auto-replenishment configurations</p>
               <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto">
-                Creating and managing auto-replenishment configurations requires a backend
-                config API, which is not yet available. Activity logs below reflect real
+                Use “New Configuration” to create one. Activity logs below reflect real
                 reorder suggestions.
               </p>
             </div>
@@ -325,9 +489,9 @@ export default function AutoReplenishmentPage() {
                     <div className="flex gap-2 ml-4">
                       <button
                         onClick={() => handleToggleConfig(config.id)}
-                        disabled
-                        className="p-2 rounded-lg opacity-50 cursor-not-allowed"
-                        title="Config toggle not supported (no backend endpoint)"
+                        disabled={busyConfigId === config.id}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                        title={config.enabled ? 'Disable' : 'Enable'}
                       >
                         {config.enabled ? (
                           <ToggleRight className="w-5 h-5 text-green-600" />
@@ -337,11 +501,11 @@ export default function AutoReplenishmentPage() {
                       </button>
                       <button
                         onClick={() => handleEditConfig(config.id)}
-                        disabled
-                        className="p-2 rounded-lg opacity-50 cursor-not-allowed"
-                        title="Config edit not supported (no backend endpoint)"
+                        disabled={busyConfigId === config.id}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete configuration"
                       >
-                        <Settings className="w-5 h-5 text-blue-600" />
+                        <Trash2 className="w-5 h-5 text-red-600" />
                       </button>
                     </div>
                   </div>

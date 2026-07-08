@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Eye, Edit, Trash2, Copy, Play, Pause,
@@ -50,6 +50,8 @@ export default function WorkflowTemplatesPage() {
     { kind: 'success' | 'error'; message: string } | null
   >(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadTemplates = useCallback(async () => {
     setIsLoading(true);
@@ -201,6 +203,40 @@ export default function WorkflowTemplatesPage() {
     }
   };
 
+  // Import a template from a user-selected JSON file. Parses the file, posts it
+  // to the backend import endpoint, then re-fetches so the list reflects the
+  // newly-created record. No success is shown unless the server confirms.
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Reset the input so the same file can be re-selected later.
+    event.target.value = '';
+    if (!file) return;
+    setIsImporting(true);
+    setActionFeedback(null);
+    try {
+      const text = await file.text();
+      let definition: Record<string, any>;
+      try {
+        definition = JSON.parse(text);
+      } catch {
+        throw new Error('Selected file is not valid JSON.');
+      }
+      const created = (await WorkflowService.importTemplate(definition)) as any;
+      await loadTemplates();
+      setActionFeedback({
+        kind: 'success',
+        message: `Template "${created?.name ?? definition?.name ?? file.name}" imported.`,
+      });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message: err instanceof Error ? `Failed to import template: ${err.message}` : 'Failed to import template.',
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleBulkAction = async (action: string) => {
     if (selectedTemplates.length === 0) {
       setActionFeedback({ kind: 'error', message: 'Please select at least one template.' });
@@ -283,13 +319,21 @@ export default function WorkflowTemplatesPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={handleImportFile}
+            />
             <button
-              onClick={() => router.push('/workflow/templates/create')}
-              title="Build a new template from scratch"
-              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 flex items-center gap-2"
+              onClick={() => importInputRef.current?.click()}
+              disabled={isImporting}
+              title="Import a template from a JSON file"
+              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Upload className="h-4 w-4" />
-              Import
+              {isImporting ? 'Importing…' : 'Import'}
             </button>
             <button
               onClick={() => router.push('/workflow/templates/create')}

@@ -155,13 +155,36 @@ export default function DeliveryConfirmationPage() {
         setSubmitting(true);
         try {
             const coordination = await resolveCoordination(selectedProject);
+            const receivedCount = deliveryItems.filter(i => i.received).length;
+            const damaged = deliveryItems.filter(i => i.condition === 'Damaged').length;
+            const missing = deliveryItems.filter(i => i.condition === 'Missing').length;
+
+            // Resolve the shipment linked to this project's work order and mark
+            // it delivered (reuses the shipments deliver logic on the backend).
+            // Non-fatal if no shipment is linked — the coordination is still updated.
+            let shipmentDelivered = false;
+            try {
+                await LogisticsService.deliverByProject({
+                    woNumber: selectedProject.projectCode || selectedProject.id,
+                    deliveryDetails: {
+                        deliveredToName: selectedProject.clientName,
+                        remarks: `POD confirmed. Received ${receivedCount}/${deliveryItems.length} package(s); ${damaged} damaged, ${missing} missing.`,
+                    },
+                });
+                shipmentDelivered = true;
+            } catch {
+                // No shipment linked to this work order — proceed with coordination update only.
+            }
+
             await LogisticsService.updateDeliveryCoordination(coordination.id, {
                 status: 'Ready',
             });
             setDeliveryConfirmed(true);
             toast({
                 title: 'Delivery Confirmed',
-                description: 'Delivery receipt and unloading sign-off completed',
+                description: shipmentDelivered
+                    ? 'Shipment marked delivered and unloading sign-off completed'
+                    : 'Delivery receipt and unloading sign-off completed',
                 variant: 'success',
             });
         } catch (err) {

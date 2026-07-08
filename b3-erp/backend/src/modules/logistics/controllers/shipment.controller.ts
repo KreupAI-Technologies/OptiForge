@@ -67,6 +67,27 @@ export class ShipmentController {
     return this.shipmentService.getLoadingJobs();
   }
 
+  @Post('deliver-by-project')
+  @ApiOperation({
+    summary:
+      'Mark the shipment linked to a project/work order as delivered. Resolves the shipment by shipmentId or woNumber, then reuses markDelivered.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Shipment marked delivered',
+    type: ShipmentResponseDto,
+  })
+  async deliverByProject(
+    @Body()
+    body: {
+      shipmentId?: string;
+      woNumber?: string;
+      deliveryDetails?: any;
+    },
+  ): Promise<ShipmentResponseDto> {
+    return this.shipmentService.deliverByProject(body);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get shipment by ID' })
   @ApiParam({ name: 'id', description: 'Shipment ID' })

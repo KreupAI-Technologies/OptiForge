@@ -47,7 +47,9 @@ const MIGRATION_ORDER: string[] = [
     // Shared / masters first
     'orphan_common-masters.sql',
     'orphan_it-admin.sql',
+    'orphan_itadmin_alert_rules.sql',
     'orphan_workflow.sql',
+    'orphan_workflow_comments.sql',
     'orphan_notifications.sql',
     // Domain modules (independent orphan tables)
     'orphan_crm.sql',
@@ -56,7 +58,9 @@ const MIGRATION_ORDER: string[] = [
     'orphan_estimation.sql',
     'orphan_procurement.sql',
     'orphan_inventory.sql',
+    'orphan_inventory_replenishment.sql',
     'orphan_logistics.sql',
+    'orphan_logistics_notifications.sql',
     'orphan_production.sql',
     'orphan_project-management.sql',
     'orphan_finance.sql',

@@ -44,6 +44,27 @@ export interface CreateApprovalDto {
     description?: string;
 }
 
+export interface ApprovalAttachment {
+    id: string;
+    fileName: string;
+    fileUrl: string;
+    fileSize?: number;
+    mimeType?: string;
+    documentType?: string;
+    version?: string;
+    uploadedBy?: string;
+    uploadedAt?: string;
+}
+
+export interface ApprovalComment {
+    id: string;
+    approvalId: string;
+    authorId?: string;
+    authorName?: string;
+    body: string;
+    createdAt: string;
+}
+
 export const approvalService = {
     async getApprovals(filters?: any): Promise<ApprovalRequest[]> {
         const params = new URLSearchParams(filters);
@@ -82,6 +103,25 @@ export const approvalService = {
 
     async createApproval(data: CreateApprovalDto): Promise<any> {
         const response = await apiClient.post<any>('/workflow/approvals', data);
+        return response.data;
+    },
+
+    async getAttachments(id: string): Promise<ApprovalAttachment[]> {
+        const response = await apiClient.get<ApprovalAttachment[]>(`/workflow/approvals/${id}/attachments`);
+        return response.data ?? [];
+    },
+
+    async getComments(id: string): Promise<ApprovalComment[]> {
+        const response = await apiClient.get<ApprovalComment[]>(`/workflow/approvals/${id}/comments`);
+        return response.data ?? [];
+    },
+
+    async addComment(id: string, body: string, authorId?: string, authorName?: string): Promise<ApprovalComment> {
+        const response = await apiClient.post<ApprovalComment>(`/workflow/approvals/${id}/comments`, {
+            body,
+            authorId,
+            authorName,
+        });
         return response.data;
     }
 };

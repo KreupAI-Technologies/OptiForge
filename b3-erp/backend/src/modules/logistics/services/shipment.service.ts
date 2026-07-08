@@ -241,6 +241,45 @@ export class ShipmentService {
     return this.mapToResponseDto(updated);
   }
 
+  /**
+   * Resolve a shipment for a project/work-order and mark it delivered.
+   *
+   * Delivery-confirmation flow: the frontend knows a project (woNumber /
+   * projectCode) but not necessarily a shipment id. This resolves the linked
+   * shipment (explicit shipmentId wins; otherwise match on referenceNumber or
+   * shipmentNumber) and reuses the existing markDelivered logic.
+   */
+  async deliverByProject(params: {
+    shipmentId?: string;
+    woNumber?: string;
+    deliveryDetails?: any;
+  }): Promise<ShipmentResponseDto> {
+    const { shipmentId, woNumber, deliveryDetails } = params;
+
+    let shipment: Shipment | null = null;
+
+    if (shipmentId) {
+      shipment = await this.shipmentRepository.findOne({
+        where: { id: shipmentId },
+      });
+    } else if (woNumber) {
+      shipment = await this.shipmentRepository.findOne({
+        where: [{ referenceNumber: woNumber }, { shipmentNumber: woNumber }],
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    if (!shipment) {
+      throw new NotFoundException(
+        shipmentId
+          ? `Shipment with ID ${shipmentId} not found`
+          : `No shipment linked to work order ${woNumber ?? '(unspecified)'}`,
+      );
+    }
+
+    return this.markDelivered(shipment.id, deliveryDetails ?? {});
+  }
+
   async cancel(id: string, reason: string): Promise<ShipmentResponseDto> {
     const shipment = await this.shipmentRepository.findOne({ where: { id } });
 

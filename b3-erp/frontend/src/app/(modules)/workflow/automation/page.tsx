@@ -196,22 +196,19 @@ export default function WorkflowAutomationPage() {
     }
   };
 
-  // "Run now" records an execution by bumping the run counters on the rule via
-  // the update endpoint (there is no dedicated execute endpoint), then re-fetches
-  // so the displayed run stats reflect the server's authoritative state.
+  // "Run now" triggers the backend run endpoint, which records the execution
+  // (bumps executionCount + lastRun) and returns a run summary. We then
+  // re-fetch so the displayed stats reflect the server's authoritative state.
   const handleRunNow = async (automation: AutomationRule) => {
     if (busyId) return;
     setBusyId(automation.id);
     setActionFeedback(null);
     try {
-      await workflowAutomationService.update(COMPANY_ID, automation.id, {
-        lastRun: new Date().toISOString(),
-        executionCount: automation.executionCount + 1,
-      });
+      const result = await workflowAutomationService.run(COMPANY_ID, automation.id);
       await loadAutomations();
       setActionFeedback({
         kind: 'success',
-        message: `"${automation.name}" run triggered.`,
+        message: `"${automation.name}" run ${result?.run?.status ?? 'completed'}.`,
       });
     } catch (err) {
       setActionFeedback({

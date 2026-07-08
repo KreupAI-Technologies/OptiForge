@@ -93,20 +93,39 @@ export default function CreateReplenishmentPage() {
   };
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // NEEDS BACKEND: there is no replenishment-request create endpoint. The item
-  // picker sources from stock-balances (no reorder-suggestion id to approve or
-  // convert to a PR), so a free-form request cannot be honestly persisted yet.
-  // Validation is kept; the submit button is disabled until a create API exists.
-  const handleSubmit = (e: React.FormEvent) => {
+  // Real create via POST /inventory/replenishment/requests.
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!selectedItem || !formData.quantity) {
       setFormError('Please select an item and enter a quantity.');
       return;
     }
-    setFormError(
-      'Cannot submit: no replenishment-request create endpoint is available yet. This requires backend support.'
-    );
+    const qty = Number(formData.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setFormError('Quantity must be greater than zero.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await inventoryService.createReplenishmentRequest({
+        itemCode: selectedItem.itemCode,
+        itemName: selectedItem.itemName,
+        quantity: qty,
+        uom: selectedItem.uom,
+        priority: formData.priority,
+        requestDate: formData.requestDate || undefined,
+        requiredBy: formData.requiredBy || undefined,
+        notes: formData.notes || undefined,
+      });
+      router.push('/inventory/replenishment');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create replenishment request.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -340,21 +359,14 @@ export default function CreateReplenishmentPage() {
             </div>
           )}
 
-          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-            <strong>Not yet available:</strong> submitting a replenishment request needs a
-            backend create endpoint (NEEDS BACKEND). The form and validation are ready; the
-            Create button is disabled until that API exists.
-          </div>
-
           <div className="flex gap-3">
             <button
               type="submit"
-              disabled
-              title="Create not supported yet (NEEDS BACKEND)"
-              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+              disabled={submitting}
+              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-5 h-5" />
-              Create Request (TODO: needs backend)
+              {submitting ? 'Creating…' : 'Create Request'}
             </button>
             <button
               type="button"

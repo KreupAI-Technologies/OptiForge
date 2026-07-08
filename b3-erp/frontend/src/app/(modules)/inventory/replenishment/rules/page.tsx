@@ -35,6 +35,42 @@ export default function ReplenishmentRulesPage() {
   const [busyRuleId, setBusyRuleId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [showNewRule, setShowNewRule] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newRule, setNewRule] = useState({
+    ruleName: '',
+    description: '',
+    category: 'Raw Materials',
+    itemFilter: '',
+    method: 'reorder-point' as ReplenishmentRule['method'],
+    priority: 'medium' as ReplenishmentRule['priority'],
+    supplier: '',
+    leadTimeDays: 0,
+    safetyStockDays: 0,
+    autoApprove: false,
+  });
+
+  const mapRule = (r: any, i: number): ReplenishmentRule => ({
+    id: String(r.id ?? i),
+    ruleName: r.ruleName ?? '',
+    description: r.description ?? '',
+    category: r.category ?? '',
+    itemFilter: r.itemFilter ?? '',
+    method: (r.method ?? 'reorder-point') as ReplenishmentRule['method'],
+    autoApprove: Boolean(r.autoApprove),
+    priority: (r.priority ?? 'medium') as ReplenishmentRule['priority'],
+    supplier: r.supplier ?? 'Any Available',
+    leadTimeDays: Number(r.leadTimeDays ?? 0),
+    safetyStockDays: Number(r.safetyStockDays ?? 0),
+    isActive: r.isActive !== false,
+    createdDate: r.createdAt ?? '',
+    lastModified: r.updatedAt ?? r.createdAt ?? '',
+  });
+
+  const loadRules = async (): Promise<ReplenishmentRule[]> => {
+    const raw = (await inventoryService.getReorderRules()) as any[];
+    return (raw || []).map(mapRule);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -42,40 +78,7 @@ export default function ReplenishmentRulesPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const raw = (await inventoryService.getReorderItemAnalysis()) as any[];
-        const methodFor = (turnover: number): ReplenishmentRule['method'] => {
-          if (turnover >= 0.3) return 'reorder-point';
-          if (turnover >= 0.15) return 'min-max';
-          return 'consumption-based';
-        };
-        const priorityFor = (risk: string): ReplenishmentRule['priority'] => {
-          switch (risk) {
-            case 'high': return 'critical';
-            case 'medium': return 'high';
-            case 'low': return 'medium';
-            default: return 'low';
-          }
-        };
-        const mapped: ReplenishmentRule[] = (raw || []).map((it: any, i: number) => {
-          const turnover = Number(it.turnoverRatio ?? 0);
-          const risk = String(it.stockoutRisk ?? 'low');
-          return {
-            id: String(it.itemId ?? i),
-            ruleName: `${it.itemName ?? it.itemCode ?? 'Item'} — Reorder Rule`,
-            description: `Auto reorder rule for ${it.itemCode ?? ''} based on demand analysis.`,
-            category: it.category ?? it.itemCategory ?? '',
-            itemFilter: it.itemCode ?? '',
-            method: methodFor(turnover),
-            autoApprove: risk === 'high',
-            priority: priorityFor(risk),
-            supplier: it.vendorName ?? 'Any Available',
-            leadTimeDays: Number(it.daysOfStock ?? 0),
-            safetyStockDays: Number(it.suggestedSafetyStock ?? 0),
-            isActive: risk !== 'low',
-            createdDate: it.createdAt ?? '',
-            lastModified: it.updatedAt ?? it.createdAt ?? '',
-          };
-        });
+        const mapped = await loadRules();
         if (!cancelled) setRules(mapped);
       } catch (err) {
         if (!cancelled) {
@@ -91,6 +94,37 @@ export default function ReplenishmentRulesPage() {
       cancelled = true;
     };
   }, []);
+
+  const handleCreateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRule.ruleName.trim()) {
+      setActionError('Rule name is required.');
+      return;
+    }
+    setCreating(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await inventoryService.createReorderRule({
+        ...newRule,
+        leadTimeDays: Number(newRule.leadTimeDays) || 0,
+        safetyStockDays: Number(newRule.safetyStockDays) || 0,
+      });
+      const mapped = await loadRules();
+      setRules(mapped);
+      setActionSuccess('Rule created.');
+      setShowNewRule(false);
+      setNewRule({
+        ruleName: '', description: '', category: 'Raw Materials', itemFilter: '',
+        method: 'reorder-point', priority: 'medium', supplier: '',
+        leadTimeDays: 0, safetyStockDays: 0, autoApprove: false,
+      });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create rule.');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const filteredRules = rules.filter(rule => {
     const matchesSearch = rule.ruleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -133,53 +167,31 @@ export default function ReplenishmentRulesPage() {
     }
   };
 
-  // A "rule" here maps 1:1 to a reorder item. Toggle/Edit persist via the reorder
-  // parameters endpoint (PUT /inventory/reorder/items/:id/parameters).
-  const handleToggleActive = async (ruleId: string) => {
-    const rule = rules.find((r) => r.id === ruleId);
-    if (!rule) return;
-    const nextActive = !rule.isActive;
+  // NEEDS BACKEND: the reorder_rules table has no update/toggle endpoint yet
+  // (only create + delete are exposed). Toggle/Edit stay disabled no-ops.
+  const handleToggleActive = (_ruleId: string) => {
+    setActionSuccess(null);
+    setActionError('Editing a rule is not yet supported — only create and delete endpoints exist.');
+  };
+  const handleEditRule = (_ruleId: string) => {
+    setActionSuccess(null);
+    setActionError('Editing a rule is not yet supported — only create and delete endpoints exist.');
+  };
+
+  // Real DELETE via DELETE /inventory/replenishment/rules/:id.
+  const handleDeleteRule = async (ruleId: string) => {
     setBusyRuleId(ruleId);
     setActionError(null);
     setActionSuccess(null);
     try {
-      await inventoryService.updateReorderParameters(ruleId, { isActive: nextActive });
-      setRules((prev) => prev.map((r) => (r.id === ruleId ? { ...r, isActive: nextActive } : r)));
-      setActionSuccess(`Rule ${nextActive ? 'activated' : 'deactivated'}.`);
+      await inventoryService.deleteReorderRule(ruleId);
+      setRules((prev) => prev.filter((r) => r.id !== ruleId));
+      setActionSuccess('Rule deleted.');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update rule status.');
+      setActionError(err instanceof Error ? err.message : 'Failed to delete rule.');
     } finally {
       setBusyRuleId(null);
     }
-  };
-
-  // No dedicated edit form/modal exists; persist the rule's current parameters
-  // (lead time / safety stock) via the reorder parameters endpoint.
-  const handleEditRule = async (ruleId: string) => {
-    const rule = rules.find((r) => r.id === ruleId);
-    if (!rule) return;
-    setBusyRuleId(ruleId);
-    setActionError(null);
-    setActionSuccess(null);
-    try {
-      await inventoryService.updateReorderParameters(ruleId, {
-        leadTimeDays: rule.leadTimeDays,
-        safetyStockDays: rule.safetyStockDays,
-        autoApprove: rule.autoApprove,
-        priority: rule.priority,
-      });
-      setActionSuccess('Rule parameters saved.');
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to save rule parameters.');
-    } finally {
-      setBusyRuleId(null);
-    }
-  };
-
-  // NEEDS BACKEND: no rule/reorder-item DELETE endpoint exists.
-  const handleDeleteRule = (_ruleId: string) => {
-    setActionSuccess(null);
-    setActionError('Deleting a replenishment rule is not yet supported — no backend endpoint exists.');
   };
 
   return (
@@ -214,11 +226,87 @@ export default function ReplenishmentRulesPage() {
             <p className="text-sm text-gray-500 mt-1">Configure automated replenishment rules and policies</p>
           </div>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button
+          onClick={() => { setShowNewRule((s) => !s); setActionError(null); setActionSuccess(null); }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
           <Plus className="w-4 h-4" />
           <span>New Rule</span>
         </button>
       </div>
+
+      {showNewRule && (
+        <form onSubmit={handleCreateRule} className="bg-white rounded-xl border border-gray-200 p-4 mb-3 space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900">New Replenishment Rule</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rule Name <span className="text-red-500">*</span></label>
+              <input type="text" value={newRule.ruleName} onChange={(e) => setNewRule({ ...newRule, ruleName: e.target.value })} required className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item Filter</label>
+              <input type="text" value={newRule.itemFilter} onChange={(e) => setNewRule({ ...newRule, itemFilter: e.target.value })} placeholder="e.g. RM-*" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <input type="text" value={newRule.description} onChange={(e) => setNewRule({ ...newRule, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <select value={newRule.category} onChange={(e) => setNewRule({ ...newRule, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option>Raw Materials</option>
+                <option>Components</option>
+                <option>Consumables</option>
+                <option>High-Value Parts</option>
+                <option>Fast-Moving</option>
+                <option>Seasonal</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
+              <select value={newRule.method} onChange={(e) => setNewRule({ ...newRule, method: e.target.value as ReplenishmentRule['method'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="reorder-point">Reorder Point</option>
+                <option value="min-max">Min-Max</option>
+                <option value="consumption-based">Consumption Based</option>
+                <option value="economic-order-qty">EOQ</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <select value={newRule.priority} onChange={(e) => setNewRule({ ...newRule, priority: e.target.value as ReplenishmentRule['priority'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+              <input type="text" value={newRule.supplier} onChange={(e) => setNewRule({ ...newRule, supplier: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lead Time (days)</label>
+              <input type="number" min="0" value={newRule.leadTimeDays} onChange={(e) => setNewRule({ ...newRule, leadTimeDays: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Safety Stock (days)</label>
+              <input type="number" min="0" value={newRule.safetyStockDays} onChange={(e) => setNewRule({ ...newRule, safetyStockDays: Number(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input id="autoApprove" type="checkbox" checked={newRule.autoApprove} onChange={(e) => setNewRule({ ...newRule, autoApprove: e.target.checked })} />
+              <label htmlFor="autoApprove" className="text-sm font-medium text-gray-700">Auto-Approve</label>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={creating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {creating ? 'Creating…' : 'Create Rule'}
+            </button>
+            <button type="button" onClick={() => setShowNewRule(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 border border-blue-200">
@@ -374,9 +462,8 @@ export default function ReplenishmentRulesPage() {
               <div className="flex gap-2 ml-4">
                 <button
                   onClick={() => handleToggleActive(rule.id)}
-                  disabled={busyRuleId === rule.id}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                  title={rule.isActive ? 'Deactivate' : 'Activate'}
+                  className="p-2 rounded-lg opacity-50 cursor-not-allowed"
+                  title="Edit not supported yet (no update endpoint)"
                 >
                   {rule.isActive ? (
                     <ToggleRight className="w-5 h-5 text-green-600" />
@@ -386,16 +473,16 @@ export default function ReplenishmentRulesPage() {
                 </button>
                 <button
                   onClick={() => handleEditRule(rule.id)}
-                  disabled={busyRuleId === rule.id}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                  title="Save rule parameters"
+                  className="p-2 rounded-lg opacity-50 cursor-not-allowed"
+                  title="Edit not supported yet (no update endpoint)"
                 >
                   <Edit className="w-5 h-5 text-blue-600" />
                 </button>
                 <button
                   onClick={() => handleDeleteRule(rule.id)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors opacity-50 cursor-not-allowed"
-                  title="Delete not supported (no backend endpoint)"
+                  disabled={busyRuleId === rule.id}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                  title="Delete rule"
                 >
                   <Trash2 className="w-5 h-5 text-red-600" />
                 </button>
