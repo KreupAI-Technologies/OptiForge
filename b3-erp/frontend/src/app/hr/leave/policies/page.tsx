@@ -1,14 +1,92 @@
 'use client';
 
-import React, { useState } from 'react';
-import { FileText, Book, Scale, Calendar, AlertCircle, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FileText, Book, Scale, Calendar, AlertCircle, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+interface LeavePolicyRow {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  isPaid: boolean;
+  maxDaysPerYear: number;
+  allowCarryForward: boolean;
+  maxCarryForward: number;
+  allowEncashment: boolean;
+  requiresApproval: boolean;
+  requiresDocument: boolean;
+  accrualType: string;
+  status: string;
+}
+
+const num = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+function YesNo({ value }: { value: boolean }) {
+  return value ? (
+    <span className="inline-flex items-center gap-1 text-green-600 text-xs"><CheckCircle2 className="w-3.5 h-3.5" /> Yes</span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-gray-400 text-xs"><XCircle className="w-3.5 h-3.5" /> No</span>
+  );
+}
 
 export default function LeavePoliciesPage() {
   const [expandedSection, setExpandedSection] = useState<string>('general');
+  const [policies, setPolicies] = useState<LeavePolicyRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? '' : section);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.leaveTypes<any[]>()) as any[];
+        const mapped: LeavePolicyRow[] = (raw ?? []).map((r, i) => ({
+          id: String(r?.id ?? `${i}`),
+          code: r?.code ?? '',
+          name: r?.name ?? 'Unnamed Policy',
+          description: r?.description ?? '',
+          isPaid: Boolean(r?.isPaid ?? true),
+          maxDaysPerYear: num(r?.maxDaysPerYear ?? r?.maxDays ?? r?.defaultDays),
+          allowCarryForward: Boolean(r?.allowCarryForward ?? r?.carryForward),
+          maxCarryForward: num(r?.maxCarryForward ?? r?.maxCarryForwardDays),
+          allowEncashment: Boolean(r?.allowEncashment),
+          requiresApproval: Boolean(r?.requiresApproval ?? true),
+          requiresDocument: Boolean(r?.requiresDocument ?? r?.requiresDocumentation),
+          accrualType: String(r?.accrualType ?? '—'),
+          status: String(r?.status ?? 'Active'),
+        }));
+        if (!cancelled) setPolicies(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load leave policies');
+          setPolicies([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totals = useMemo(() => {
+    const active = policies.filter((p) => p.status.toLowerCase() === 'active').length;
+    const paid = policies.filter((p) => p.isPaid).length;
+    const carryFwd = policies.filter((p) => p.allowCarryForward).length;
+    return { total: policies.length, active, paid, carryFwd };
+  }, [policies]);
 
   return (
     <div className="p-6 space-y-3">
@@ -28,6 +106,83 @@ export default function LeavePoliciesPage() {
           <Download className="w-4 h-4" />
           <span>Download PDF</span>
         </button>
+      </div>
+
+      {/* Configured Leave Policies (live data) */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            Configured Leave Policies
+          </h2>
+          {!isLoading && !loadError && (
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span>{totals.total} types</span>
+              <span>{totals.active} active</span>
+              <span>{totals.paid} paid</span>
+            </div>
+          )}
+        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 text-gray-500">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Loading leave policies…
+          </div>
+        ) : loadError ? (
+          <div className="flex items-center gap-2 py-10 justify-center text-red-600">
+            <AlertCircle className="w-5 h-5" />
+            <span>{loadError}</span>
+          </div>
+        ) : policies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+            <FileText className="w-9 h-9 mb-2 text-gray-300" />
+            <p>No leave policies configured yet.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-gray-500 border-b border-gray-100 bg-gray-50">
+                  <th className="px-4 py-2.5">Leave Type</th>
+                  <th className="px-4 py-2.5">Days / Year</th>
+                  <th className="px-4 py-2.5">Accrual</th>
+                  <th className="px-4 py-2.5">Paid</th>
+                  <th className="px-4 py-2.5">Carry Fwd</th>
+                  <th className="px-4 py-2.5">Encashable</th>
+                  <th className="px-4 py-2.5">Doc Required</th>
+                  <th className="px-4 py-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {policies.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{p.name}</p>
+                      {p.code && <p className="text-xs text-gray-500">{p.code}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">{p.maxDaysPerYear || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{p.accrualType}</td>
+                    <td className="px-4 py-3"><YesNo value={p.isPaid} /></td>
+                    <td className="px-4 py-3">
+                      {p.allowCarryForward ? (
+                        <span className="text-xs text-gray-700">Up to {p.maxCarryForward || '—'}</span>
+                      ) : (
+                        <YesNo value={false} />
+                      )}
+                    </td>
+                    <td className="px-4 py-3"><YesNo value={p.allowEncashment} /></td>
+                    <td className="px-4 py-3"><YesNo value={p.requiresDocument} /></td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full ${p.status.toLowerCase() === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {p.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Compliance Banner */}
