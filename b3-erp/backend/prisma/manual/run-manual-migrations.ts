@@ -71,6 +71,8 @@ const MIGRATION_ORDER: string[] = [
     'orphan_iot.sql',
     'orphan_compliance.sql',
     'orphan_packaging.sql',
+    'orphan_advanced-features.sql',
+    'orphan_documentation.sql',
     // Column additions to existing production tables — must run after creates
     'orphan_pass4_fix.sql',
     'orphan_pass4_prodcols.sql',
