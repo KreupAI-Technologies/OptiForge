@@ -97,30 +97,26 @@ function InstallationManagementPageContent() {
         setIsLoadingMgmt(true);
         setMgmtError(null);
         try {
-            const [tasks, tools, reports] = await Promise.all([
-                projectManagementService.getInstallationTasks(project.id),
-                projectManagementService.getDeployedTools(project.id),
-                projectManagementService.getInstallDailyReports(project.id),
-            ]);
-            const taskArr: any[] = Array.isArray(tasks) ? tasks : [];
-            const toolArr: any[] = Array.isArray(tools) ? tools : [];
-            const reportArr: any[] = Array.isArray(reports) ? reports : [];
-
-            if (taskArr.length === 0 && toolArr.length === 0 && reportArr.length === 0) {
+            const summary: any = await projectManagementService.getInstallationManagementSummary(project.id);
+            const hasData = !!summary && (
+                (summary.tools?.total ?? 0) > 0 ||
+                (summary.team?.members ?? 0) > 0 ||
+                (summary.readiness?.total ?? 0) > 0 ||
+                (summary.crates?.total ?? 0) > 0 ||
+                summary.status !== 'planning'
+            );
+            if (!hasData) {
                 setInstallations([]);
                 return;
             }
 
-            const dispatched = toolArr.length > 0;
-            const onSite = reportArr.length > 0;
-            const manpower = reportArr[0]?.manpowerCount ?? 0;
-            const status: InstallationManagement['status'] = onSite
-                ? 'On Site'
-                : dispatched
-                    ? 'Dispatched'
-                    : toolArr.length > 0
-                        ? 'Tools Ready'
-                        : 'Planning';
+            const statusMap: Record<string, InstallationManagement['status']> = {
+                on_site: 'On Site',
+                dispatched: 'Dispatched',
+                team_assigned: 'Team Assigned',
+                tools_ready: 'Tools Ready',
+                planning: 'Planning',
+            };
 
             setInstallations([
                 {
@@ -128,20 +124,19 @@ function InstallationManagementPageContent() {
                     woNumber: project.id,
                     projectName: project.name,
                     siteLocation: project.clientName,
-                    status,
+                    status: statusMap[summary.status] ?? 'Planning',
                     toolList: {
-                        prepared: toolArr.length > 0,
-                        packed: toolArr.length > 0,
-                        dispatched,
+                        prepared: !!summary.tools?.prepared,
+                        packed: !!summary.tools?.packed,
+                        dispatched: !!summary.tools?.dispatched,
                     },
                     team: {
-                        assigned: manpower > 0,
-                        teamLead: reportArr[0]?.reportedBy || '—',
-                        members: manpower,
-                        notified: reportArr.some((r) => r?.isClientNotified),
+                        assigned: !!summary.team?.assigned,
+                        teamLead: summary.team?.teamLead || '—',
+                        members: Number(summary.team?.members ?? 0),
+                        notified: !!summary.team?.notified,
                     },
-                    scheduledDate: (reportArr[reportArr.length - 1]?.reportDate || '').toString().slice(0, 10),
-                    toolsDispatchedDate: dispatched ? (toolArr[0]?.issuedAt || toolArr[0]?.createdAt || '').toString().slice(0, 10) : undefined,
+                    scheduledDate: (summary.scheduledDate || '').toString().slice(0, 10),
                 },
             ]);
         } catch (error) {

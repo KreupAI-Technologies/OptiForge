@@ -1,6 +1,20 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkflowModule } from '../workflow/workflow.module';
+import { ProcurementModule } from '../procurement/procurement.module';
+import { Item } from '../core/entities/item.entity';
+
+// Production-execution build ([BE] work-orders/bom/quality/spares/shopfloor)
+import { BomTemplate } from './entities/bom-template.entity';
+import { ShopFloorMaterialRequest } from './entities/shop-floor-material-request.entity';
+import { ShopFloorAttendance } from './entities/shop-floor-attendance.entity';
+import { BomTemplateController } from './controllers/bom-template.controller';
+import { QualitySpecsController } from './controllers/quality-specs.controller';
+import { ShopFloorMaterialRequestController } from './controllers/shop-floor-material-request.controller';
+import { ShopFloorAttendanceController } from './controllers/shop-floor-attendance.controller';
+import { BomTemplateService } from './services/bom-template.service';
+import { ShopFloorMaterialRequestService } from './services/shop-floor-material-request.service';
+import { ShopFloorAttendanceService } from './services/shop-floor-attendance.service';
 
 // Orphan-endpoint build (settings/list features) — direct imports
 import { DieToolAsset } from './entities/die-tool-asset.entity';
@@ -219,6 +233,9 @@ import { EscalationManagementService } from './services/escalation-management.se
 import { MRPRequisitionService } from './services/mrp-requisition.service';
 import { DemandForecastingService } from './services/demand-forecasting.service';
 import { DiesToolsService } from './services/dies-tools.service';
+import { ProductionPlanningActionsService } from './services/production-planning-actions.service';
+import { ProductionPlanningActionsController } from './controllers/production-planning-actions.controller';
+import { PurchaseRequisition } from '../procurement/entities/purchase-requisition.entity';
 
 // Controllers
 import {
@@ -387,8 +404,16 @@ import {
       ScheduleLine,
       // Analytics entities
       ProductionVariance,
+      // Cross-module entity reused for MRP bulk purchase-requisition creation
+      PurchaseRequisition,
+      // Production-execution build
+      Item,
+      BomTemplate,
+      ShopFloorMaterialRequest,
+      ShopFloorAttendance,
     ]),
     forwardRef(() => WorkflowModule),
+    ProcurementModule,
   ],
   controllers: [
     DieToolAssetController, OperationTaskController, ProductionLineConfigController,
@@ -400,8 +425,13 @@ import {
     // Newly-built controllers
     FloorActivityController, BomVerificationController, GanttTaskController,
     MachineTimelineController, AndonLineController, ScheduleLineController,
+    // Production-execution build controllers
+    BomTemplateController, QualitySpecsController,
+    ShopFloorMaterialRequestController, ShopFloorAttendanceController,
     // Analytics Controllers
     ProductionVarianceController,
+    // Planning action controllers (bulk PR / WO generation)
+    ProductionPlanningActionsController,
     // Core Controllers
     BOMController,
     WorkOrderController,
@@ -483,6 +513,10 @@ import {
     // Newly-built services
     FloorActivityService, BomVerificationService, GanttTaskService,
     MachineTimelineService, AndonLineService, ScheduleLineService,
+    // Production-execution build services
+    BomTemplateService,
+    ShopFloorMaterialRequestService,
+    ShopFloorAttendanceService,
     // Core Services
     BOMService,
     WorkOrderService,
@@ -494,6 +528,7 @@ import {
     ProductionEntryService,
     EscalationManagementService,
     MRPRequisitionService,
+    ProductionPlanningActionsService,
     DemandForecastingService,
     DiesToolsService,
     WorkCenterSeederService,

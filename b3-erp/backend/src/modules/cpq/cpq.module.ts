@@ -53,6 +53,10 @@ import {
 } from './entities';
 import { CPQApprovalItem } from './entities/cpq-approval-item.entity';
 import {
+  CPQPricingVersion,
+  CPQApprovalMatrixRule,
+} from './entities/cpq-advanced.entity';
+import {
   CPQConfigRuleItem,
   CPQCompatibilityEntry,
   CPQCrossSellRule,
@@ -80,6 +84,10 @@ import {
   CPQSettingsService,
 } from './services';
 import { CPQApprovalItemService } from './services/cpq-approval-item.service';
+import {
+  CPQPricingVersionService,
+  CPQApprovalMatrixService,
+} from './services/cpq-advanced.service';
 import { CPQAnalyticsDashboardsService } from './services/cpq-analytics-dashboards.service';
 import {
   CPQConfigRuleItemService,
@@ -109,6 +117,10 @@ import {
   CPQSettingsController,
 } from './controllers';
 import { CPQApprovalItemController } from './controllers/cpq-approval-item.controller';
+import {
+  CPQPricingVersionController,
+  CPQApprovalMatrixController,
+} from './controllers/cpq-advanced.controller';
 import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-dashboards.controller';
 import {
   CPQConfigRuleItemController,
@@ -192,6 +204,9 @@ import {
       CPQPermissionRole,
       CPQIntegrationEndpoint,
       CPQConfigStep,
+      // Advanced-features tabs (pricing version control + approval matrix)
+      CPQPricingVersion,
+      CPQApprovalMatrixRule,
     ]),
   ],
   controllers: [
@@ -216,6 +231,8 @@ import {
     CPQPermissionRoleController,
     CPQIntegrationEndpointController,
     CPQConfigStepController,
+    CPQPricingVersionController,
+    CPQApprovalMatrixController,
   ],
   providers: [
     ProductConfigurationService,
@@ -239,6 +256,8 @@ import {
     CPQPermissionRoleService,
     CPQIntegrationEndpointService,
     CPQConfigStepService,
+    CPQPricingVersionService,
+    CPQApprovalMatrixService,
   ],
   exports: [
     ProductConfigurationService,

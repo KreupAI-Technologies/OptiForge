@@ -15,3 +15,4 @@ export * from './report-schedule.controller';
 export * from './estimate-comment.controller';
 export * from './whatif-scenario.controller';
 export * from './bom-import-session.controller';
+export * from './estimate-send-record.controller';

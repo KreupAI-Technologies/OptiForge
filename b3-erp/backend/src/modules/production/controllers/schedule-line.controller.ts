@@ -49,4 +49,20 @@ export class ScheduleLineController {
   async remove(@Param('id') id: string): Promise<void> {
     return this.service.remove(id);
   }
+
+  @Post('publish')
+  @ApiOperation({ summary: 'Publish schedule lines (all scheduled, or a given set of ids)' })
+  async publish(
+    @Body() body: { ids?: string[] },
+  ): Promise<{ published: number; lines: ScheduleLine[] }> {
+    return this.service.publish(body?.ids);
+  }
+
+  @Post('optimize')
+  @ApiOperation({ summary: 'Deterministic level-load / optimize pass over schedule lines' })
+  async optimize(
+    @Body() body: { workCenter?: string },
+  ): Promise<{ optimized: number; lines: ScheduleLine[] }> {
+    return this.service.optimize(body?.workCenter);
+  }
 }

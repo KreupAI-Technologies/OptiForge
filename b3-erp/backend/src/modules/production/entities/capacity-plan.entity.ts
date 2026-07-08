@@ -85,6 +85,33 @@ export class CapacityPlan {
   @Column({ name: 'is_bottleneck', type: 'boolean', default: false })
   isBottleneck: boolean;
 
+  // Deterministic level-load / optimization pass result
+  @Column({ name: 'is_optimized', type: 'boolean', default: false })
+  isOptimized: boolean;
+
+  @Column({ name: 'optimization_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  optimizationScore: number | null;
+
+  @Column({ name: 'optimized_at', type: 'timestamp', nullable: true })
+  optimizedAt: Date | null;
+
+  // Persisted overtime allocations produced by overtime planning
+  @Column({ name: 'overtime_plans', type: 'jsonb', nullable: true })
+  overtimePlans:
+    | {
+        workCenterId: string | null;
+        workCenterName: string | null;
+        shortfallHours: number;
+        overtimeHours: number;
+        shifts: number;
+        estimatedCost: number;
+        plannedFor: string;
+      }[]
+    | null;
+
+  @Column({ name: 'total_overtime_hours', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  totalOvertimeHours: number;
+
   @Column({ name: 'created_by' })
   createdBy: string;
 

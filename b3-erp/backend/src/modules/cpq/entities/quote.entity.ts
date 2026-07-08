@@ -313,6 +313,9 @@ export class QuoteTemplate {
   @Column({ default: false })
   isDefault: boolean;
 
+  @Column({ default: false })
+  isFavorite: boolean;
+
   @Column({ type: 'json', nullable: true })
   defaultItems: {
     productId: string;

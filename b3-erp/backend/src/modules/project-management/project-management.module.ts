@@ -76,6 +76,8 @@ import { InstallationTask } from './entities/installation-task.entity';
 import { HandoverCertificate } from './entities/handover-certificate.entity';
 import { ToolDeployment } from './entities/tool-deployment.entity';
 import { DailyInstallReport } from './entities/daily-install-report.entity';
+import { InstallationTeamAssignment } from './entities/installation-team-assignment.entity';
+import { HandoverChecklistStep } from './entities/handover-checklist-step.entity';
 import { Invoice } from '../finance/entities/invoice.entity';
 import { PurchaseOrder } from '../procurement/entities/purchase-order.entity';
 import { GeneralLedger } from '../finance/entities/general-ledger.entity';
@@ -264,6 +266,8 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         HandoverCertificate,
         ToolDeployment,
         DailyInstallReport,
+        InstallationTeamAssignment,
+        HandoverChecklistStep,
         Invoice,
         PurchaseOrder,
         GeneralLedger,

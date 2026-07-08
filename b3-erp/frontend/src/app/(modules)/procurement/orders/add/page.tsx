@@ -396,9 +396,60 @@ export default function AddPurchaseOrderPage() {
     }
   };
 
-  const handleBulkImport = () => {
-    // No backend bulk-import endpoint exists; guide the user to add items manually.
-    setSubmitError('Bulk import from Excel/CSV is not available yet. Please add line items manually.');
+  const handleBulkImport = async () => {
+    setSubmitError(null);
+    setSuccessMessage(null);
+    const raw = window.prompt(
+      'Paste a JSON array of line items to import. Each row supports: itemCode, description, quantity, unit, unitPrice, discount, taxRate.',
+    );
+    if (!raw) return;
+
+    let parsed: any[];
+    try {
+      const json = JSON.parse(raw);
+      parsed = Array.isArray(json) ? json : json?.rows;
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('Expected a non-empty JSON array of line items.');
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Invalid JSON.');
+      return;
+    }
+
+    // Merge imported rows into the form's line items so the user can review before saving.
+    const importedItems: LineItem[] = parsed.map((r) => ({
+      id: Math.random().toString(36).substr(2, 9),
+      itemCode: String(r.itemCode ?? r.itemId ?? ''),
+      description: String(r.description ?? r.itemName ?? ''),
+      hsn: String(r.hsn ?? ''),
+      quantity: String(r.quantity ?? r.orderedQuantity ?? 1),
+      unit: String(r.unit ?? r.uom ?? 'MT'),
+      unitPrice: String(r.unitPrice ?? r.price ?? 0),
+      taxRate: String(r.taxRate ?? r.tax ?? '18'),
+      taxType: companyState === formData.vendorAddress.state ? 'CGST+SGST' : 'IGST',
+      discountPercent: String(r.discount ?? r.discountPercentage ?? 0),
+    }));
+
+    try {
+      setSubmitting(true);
+      // Persist via the bulk-import endpoint (creates a draft PO from parsed rows).
+      const created = await procurementPagesService.bulkImportPurchaseOrder(parsed, {
+        vendorId: selectedVendorId || formData.vendorName || undefined,
+        vendorName: formData.vendorName || undefined,
+        deliveryDate: formData.expectedDelivery || undefined,
+        deliveryAddress:
+          `${formData.deliveryAddress.street}, ${formData.deliveryAddress.city}`.trim() || undefined,
+      });
+      updateFormData('lineItems', importedItems);
+      const poNo = created?.poNumber ? ` (${created.poNumber})` : '';
+      setSuccessMessage(`Imported ${importedItems.length} line item(s)${poNo}. Review and save below.`);
+    } catch (err) {
+      // Still populate the form so the user can proceed manually if the backend rejected it.
+      updateFormData('lineItems', importedItems);
+      setSubmitError(err instanceof Error ? err.message : 'Bulk import failed on the server.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Line Items Management

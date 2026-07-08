@@ -16,6 +16,11 @@ import {
 } from 'lucide-react';
 import { cpqAnalyticsService, CPQDashboardSummary } from '@/services/cpq/cpq-analytics.service';
 import { cpqPricingService, PricingRule as ApiPricingRule } from '@/services/cpq/cpq-pricing.service';
+import {
+  cpqAdvancedService,
+  CPQPricingVersion as ApiPricingVersion,
+  CPQApprovalMatrixRule as ApiApprovalRule,
+} from '@/services/cpq/cpq-advanced.service';
 import { PricingRulesEngine, PricingRule } from '@/components/cpq/PricingRulesEngine';
 import { CreateRuleModal, EditRuleModal, TestRuleModal } from '@/components/cpq/PricingRuleModals';
 import { PricingVersionControl, PricingVersion } from '@/components/cpq/PricingVersionControl';
@@ -32,53 +37,11 @@ import { MarginAnalysis, QuoteMarginAnalysis, MarginGuardrail } from '@/componen
 import { GuardrailModal, ViewQuoteDetailModal, OptimizeMarginModal } from '@/components/cpq/MarginAnalysisModals';
 import { exportToCsv } from '@/lib/export';
 
-// Mock Data — the tabs below (version control, guided-selling wizard, approval
-// matrix, document generation, e-signature, margin analysis) have no backend
-// entities yet; their sample data is retained until those endpoints exist. The
-// pricing-rules tab is wired to the live /cpq/pricing/rules API.
-const mockVersions: PricingVersion[] = [
-  {
-    id: '1',
-    version: 'v2.1',
-    name: 'Q1 2025 Price Increase',
-    description: 'Annual price adjustment reflecting increased manufacturing costs',
-    status: 'active',
-    changeType: 'price_increase',
-    createdBy: 'Pricing Team',
-    createdAt: '2025-01-10T10:00:00Z',
-    activatedAt: '2025-01-15T08:00:00Z',
-    lastModified: '2025-01-15T08:00:00Z',
-    changes: [
-      { productId: '1', productName: 'Product A', oldPrice: 100, newPrice: 105, changePercent: 5 },
-      { productId: '2', productName: 'Product B', oldPrice: 200, newPrice: 215, changePercent: 7.5 },
-      { productId: '3', productName: 'Product C', oldPrice: 300, newPrice: 309, changePercent: 3 },
-    ],
-    totalItems: 45,
-    avgPriceChange: 5.2,
-    approvedBy: 'VP Sales',
-    approvedAt: '2025-01-14T16:00:00Z',
-  },
-  {
-    id: '2',
-    version: 'v2.0',
-    name: 'Holiday Promotion 2024',
-    description: 'Temporary price reductions for year-end promotion',
-    status: 'archived',
-    changeType: 'price_decrease',
-    createdBy: 'Marketing',
-    createdAt: '2024-11-15T10:00:00Z',
-    activatedAt: '2024-12-01T00:00:00Z',
-    lastModified: '2024-12-31T23:59:59Z',
-    changes: [
-      { productId: '1', productName: 'Product A', oldPrice: 100, newPrice: 85, changePercent: -15 },
-      { productId: '2', productName: 'Product B', oldPrice: 200, newPrice: 170, changePercent: -15 },
-    ],
-    totalItems: 30,
-    avgPriceChange: -12.5,
-    approvedBy: 'CEO',
-    approvedAt: '2024-11-20T14:00:00Z',
-  },
-];
+// Mock Data — the tabs below (guided-selling wizard, document generation,
+// e-signature, margin analysis) have no backend entities yet; their sample data
+// is retained until those endpoints exist. Wired to live APIs: pricing-rules
+// (/cpq/pricing/rules), version-control (/cpq/advanced/pricing-versions), and
+// the approval matrix (/cpq/advanced/approval-matrix).
 
 const mockWizardSteps: WizardStep[] = [
   {
@@ -403,6 +366,69 @@ const componentRuleToApiPayload = (r: Partial<PricingRule>): Partial<ApiPricingR
   };
 };
 
+// ---- Pricing Version Control mappers (live /cpq/advanced/pricing-versions) ----
+const apiVersionToComponent = (v: ApiPricingVersion): PricingVersion => ({
+  id: v.id,
+  version: v.version,
+  name: v.name,
+  description: v.description,
+  status: v.status,
+  changeType: v.changeType,
+  createdBy: v.createdBy || '',
+  createdAt: v.createdAt,
+  activatedAt: v.activatedAt,
+  lastModified: v.updatedAt,
+  scheduledFor: v.scheduledFor,
+  changes: v.changes ?? [],
+  totalItems: Number(v.totalItems) || 0,
+  avgPriceChange: Number(v.avgPriceChange) || 0,
+  approvedBy: v.approvedBy,
+  approvedAt: v.approvedAt,
+  notes: v.notes,
+});
+
+const componentVersionToApiPayload = (
+  v: Partial<PricingVersion>,
+): Partial<ApiPricingVersion> => ({
+  version: v.version ?? '',
+  name: v.name ?? '',
+  description: v.description,
+  status: v.status ?? 'draft',
+  changeType: v.changeType ?? 'price_increase',
+  changes: v.changes ?? [],
+  totalItems: v.totalItems ?? 0,
+  avgPriceChange: v.avgPriceChange ?? 0,
+  notes: v.notes,
+  createdBy: v.createdBy,
+  scheduledFor: v.scheduledFor,
+});
+
+// ---- Approval Matrix mappers (live /cpq/advanced/approval-matrix) ----
+const apiRuleToThreshold = (r: ApiApprovalRule): ApprovalThreshold => ({
+  id: r.id,
+  name: r.name,
+  description: r.description || '',
+  condition: (r.condition as ApprovalThreshold['condition']) ?? {
+    type: 'deal_value',
+    operator: 'greater_than',
+    value: 0,
+  },
+  requiredApprovers: (r.requiredApprovers ?? []) as ApprovalThreshold['requiredApprovers'],
+  priority: r.priority,
+  autoEscalateAfterHours: r.autoEscalateAfterHours,
+});
+
+const thresholdToApiPayload = (
+  t: Partial<ApprovalThreshold>,
+): Partial<ApiApprovalRule> => ({
+  name: t.name ?? '',
+  description: t.description,
+  condition: t.condition,
+  requiredApprovers: t.requiredApprovers,
+  priority: t.priority ?? 'medium',
+  autoEscalateAfterHours: t.autoEscalateAfterHours,
+});
+
 export default function CPQAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<string>('pricing-rules');
 
@@ -459,9 +485,33 @@ export default function CPQAdvancedFeaturesPage() {
     loadRules();
   }, []);
 
-  // Version Control State
-  const [versions, setVersions] = useState<PricingVersion[]>(mockVersions);
-  const [currentVersion, setCurrentVersion] = useState<string>('1');
+  // Version Control State (loaded from /cpq/advanced/pricing-versions)
+  const [versions, setVersions] = useState<PricingVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(true);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [currentVersion, setCurrentVersion] = useState<string>('');
+
+  const loadVersions = async () => {
+    setVersionsLoading(true);
+    setVersionsError(null);
+    try {
+      const apiVersions = await cpqAdvancedService.findAllPricingVersions();
+      const mapped = (apiVersions ?? []).map(apiVersionToComponent);
+      setVersions(mapped);
+      const active = mapped.find((v) => v.status === 'active');
+      setCurrentVersion(active?.id ?? '');
+    } catch (err) {
+      setVersionsError(err instanceof Error ? err.message : 'Failed to load pricing versions');
+      setVersions([]);
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadVersions();
+  }, []);
+
   const [isCreateVersionModalOpen, setIsCreateVersionModalOpen] = useState(false);
   const [isViewVersionModalOpen, setIsViewVersionModalOpen] = useState(false);
   const [isCompareVersionsModalOpen, setIsCompareVersionsModalOpen] = useState(false);
@@ -474,8 +524,30 @@ export default function CPQAdvancedFeaturesPage() {
   const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
 
   // Approval Workflows State
-  const [thresholds, setThresholds] = useState<ApprovalThreshold[]>(mockThresholds);
+  // Thresholds (the approval matrix) are loaded from /cpq/advanced/approval-matrix.
+  // Approval requests remain sample data (no request backend in this cluster).
+  const [thresholds, setThresholds] = useState<ApprovalThreshold[]>([]);
+  const [thresholdsLoading, setThresholdsLoading] = useState(true);
+  const [thresholdsError, setThresholdsError] = useState<string | null>(null);
   const [approvalRequests, setApprovalRequests] = useState<ApprovalRequest[]>(mockApprovalRequests);
+
+  const loadThresholds = async () => {
+    setThresholdsLoading(true);
+    setThresholdsError(null);
+    try {
+      const apiRules = await cpqAdvancedService.findAllApprovalRules();
+      setThresholds((apiRules ?? []).map(apiRuleToThreshold));
+    } catch (err) {
+      setThresholdsError(err instanceof Error ? err.message : 'Failed to load approval matrix');
+      setThresholds([]);
+    } finally {
+      setThresholdsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadThresholds();
+  }, []);
   const [isCreateThresholdModalOpen, setIsCreateThresholdModalOpen] = useState(false);
   const [isEditThresholdModalOpen, setIsEditThresholdModalOpen] = useState(false);
   const [isViewRequestModalOpen, setIsViewRequestModalOpen] = useState(false);
@@ -599,24 +671,19 @@ export default function CPQAdvancedFeaturesPage() {
     setIsCreateVersionModalOpen(true);
   };
 
-  const handleSaveNewVersion = (newVersion: Partial<PricingVersion>) => {
-    const versionWithId: PricingVersion = {
-      id: `version-${Date.now()}`,
-      version: newVersion.version || '',
-      name: newVersion.name || '',
-      description: newVersion.description,
-      status: newVersion.status || 'draft',
-      changeType: newVersion.changeType || 'price_increase',
-      createdBy: newVersion.createdBy || 'Current User',
-      createdAt: newVersion.createdAt || new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-      changes: newVersion.changes || [],
-      totalItems: newVersion.totalItems || 0,
-      avgPriceChange: newVersion.avgPriceChange || 0,
-      notes: newVersion.notes,
-      scheduledFor: newVersion.scheduledFor
-    };
-    setVersions([versionWithId, ...versions]);
+  const handleSaveNewVersion = async (newVersion: Partial<PricingVersion>) => {
+    setVersionsError(null);
+    try {
+      await cpqAdvancedService.createPricingVersion(
+        componentVersionToApiPayload({
+          ...newVersion,
+          createdBy: newVersion.createdBy || 'Current User',
+        }),
+      );
+      await loadVersions();
+    } catch (err) {
+      setVersionsError(err instanceof Error ? err.message : 'Failed to create pricing version');
+    }
   };
 
   const handleActivateVersion = (versionId: string) => {
@@ -733,21 +800,14 @@ export default function CPQAdvancedFeaturesPage() {
     setIsCreateThresholdModalOpen(true);
   };
 
-  const handleSaveNewThreshold = (newThreshold: Partial<ApprovalThreshold>) => {
-    const thresholdWithId: ApprovalThreshold = {
-      id: `threshold-${Date.now()}`,
-      name: newThreshold.name || '',
-      description: newThreshold.description || '',
-      condition: newThreshold.condition || {
-        type: 'deal_value',
-        operator: 'greater_than',
-        value: 0
-      },
-      requiredApprovers: newThreshold.requiredApprovers || [],
-      priority: newThreshold.priority || 'medium',
-      autoEscalateAfterHours: newThreshold.autoEscalateAfterHours
-    };
-    setThresholds([...thresholds, thresholdWithId]);
+  const handleSaveNewThreshold = async (newThreshold: Partial<ApprovalThreshold>) => {
+    setThresholdsError(null);
+    try {
+      await cpqAdvancedService.createApprovalRule(thresholdToApiPayload(newThreshold));
+      await loadThresholds();
+    } catch (err) {
+      setThresholdsError(err instanceof Error ? err.message : 'Failed to create approval rule');
+    }
   };
 
   const handleEditThreshold = (thresholdId: string) => {
@@ -1450,6 +1510,17 @@ export default function CPQAdvancedFeaturesPage() {
 
         {activeTab === 'version-control' && (
           <>
+            {versionsLoading && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading pricing versions…
+              </div>
+            )}
+            {versionsError && !versionsLoading && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {versionsError}
+              </div>
+            )}
             <PricingVersionControl
               versions={versions}
               currentVersion={currentVersion}
@@ -1511,6 +1582,17 @@ export default function CPQAdvancedFeaturesPage() {
 
         {activeTab === 'approvals' && (
           <>
+            {thresholdsLoading && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading approval matrix…
+              </div>
+            )}
+            {thresholdsError && !thresholdsLoading && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {thresholdsError}
+              </div>
+            )}
             <ApprovalMatrix
               thresholds={thresholds}
               approvalRequests={approvalRequests}

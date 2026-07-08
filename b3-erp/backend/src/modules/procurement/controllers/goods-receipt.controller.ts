@@ -74,4 +74,10 @@ export class GoodsReceiptController {
   async postToInventory(@Param('id') id: string): Promise<GoodsReceiptResponseDto> {
     return this.grnService.postToInventory(id);
   }
+
+  @Post(':id/match-invoice')
+  @ApiOperation({ summary: 'Match a goods receipt to a purchase invoice' })
+  async matchInvoice(@Param('id') id: string, @Body() matchData: any): Promise<GoodsReceiptResponseDto> {
+    return this.grnService.matchInvoice(id, matchData);
+  }
 }

@@ -85,6 +85,9 @@ export interface QuoteTemplate {
   footerContent?: string;
   termsAndConditions?: string;
   isActive: boolean;
+  isFavorite?: boolean;
+  usageCount?: number;
+  updatedAt?: string;
   createdAt: string;
 }
 
@@ -551,6 +554,14 @@ class CPQQuoteService {
 
   async deleteTemplate(id: string): Promise<void> {
     await apiClient.delete(`${this.templatesUrl}/${id}`);
+  }
+
+  async toggleTemplateFavorite(id: string): Promise<QuoteTemplate> {
+    const response = await apiClient.patch<QuoteTemplate>(
+      `${this.templatesUrl}/${id}/toggle-favorite`,
+      {},
+    );
+    return response.data;
   }
 
   async createFromTemplate(templateId: string, data: Partial<Quote>): Promise<Quote> {

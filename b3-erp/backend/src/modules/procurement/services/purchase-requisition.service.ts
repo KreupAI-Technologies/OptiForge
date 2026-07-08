@@ -164,6 +164,28 @@ export class PurchaseRequisitionService {
     return this.mapToResponse(updatedPR);
   }
 
+  async requestInfo(
+    id: string,
+    infoData: { message: string; requestedBy?: string },
+  ): Promise<PurchaseRequisitionResponseDto> {
+    const pr = await this.prRepository.findOne({ where: { id } });
+    if (!pr) {
+      throw new NotFoundException(`Purchase Requisition with ID ${id} not found`);
+    }
+
+    if (!infoData?.message) {
+      throw new BadRequestException('message is required');
+    }
+
+    pr.infoRequested = true;
+    pr.infoRequestedBy = infoData.requestedBy || '';
+    pr.infoRequestMessage = infoData.message;
+    pr.infoRequestedAt = new Date();
+
+    const updatedPR = await this.prRepository.save(pr);
+    return this.mapToResponse(updatedPR);
+  }
+
   async convertToPO(id: string, poData: { poId: string; poNumber: string }): Promise<PurchaseRequisitionResponseDto> {
     const pr = await this.prRepository.findOne({ where: { id } });
     if (!pr) {

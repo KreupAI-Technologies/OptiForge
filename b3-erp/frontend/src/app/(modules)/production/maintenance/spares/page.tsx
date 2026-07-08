@@ -51,6 +51,8 @@ export default function SparePartsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [orderingId, setOrderingId] = useState<string | null>(null);
   const [editingPart, setEditingPart] = useState<SparePart | null>(null);
   const emptyForm = {
     partNumber: '',
@@ -151,12 +153,30 @@ export default function SparePartsPage() {
     setShowAddModal(true);
   };
 
-  // NEEDS BACKEND: purchase-order creation belongs to the Procurement module and has
-  // no endpoint reachable from ProductionOrphanService. TODO wire to procurement PO API.
-  const handleOrderPart = (part: SparePart) => {
-    const reorderQty = part.minimumStock - part.quantityInStock + 5;
-    if (confirm(`Create purchase order for ${reorderQty} ${part.unit} of ${part.partName}?\n\nEstimated Cost: ₹${(reorderQty * part.unitCost).toLocaleString()}\nSupplier: ${part.supplier}\nLead Time: ${part.leadTime} days`)) {
-      setActionError('Purchase-order creation is not yet available (requires Procurement backend).');
+  // Create a procurement Purchase Requisition (PO source) for a spare part.
+  // Delegates to the Procurement module via production/spare-parts/:id/create-po.
+  const handleOrderPart = async (part: SparePart) => {
+    const reorderQty = Math.max(part.reorderPoint - part.quantityInStock, part.minimumStock, 1);
+    if (!confirm(`Create purchase requisition for ${reorderQty} ${part.unit} of ${part.partName}?\n\nEstimated Cost: ₹${(reorderQty * part.unitCost).toLocaleString()}\nSupplier: ${part.supplier}\nLead Time: ${part.leadTime} days`)) {
+      return;
+    }
+    setActionError(null);
+    setActionSuccess(null);
+    setOrderingId(part.id);
+    try {
+      const res = await ProductionOrphanService.createSparePartPurchaseOrder(part.id, {
+        quantity: reorderQty,
+      });
+      const prNumber = res?.purchaseRequisition?.prNumber ?? res?.purchaseRequisition?.id ?? '';
+      setActionSuccess(
+        `Purchase requisition ${prNumber} created for ${part.partName}.`,
+      );
+      // Refresh so lastPurchaseDate / status reflect the raised order.
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to create purchase requisition');
+    } finally {
+      setOrderingId(null);
     }
   };
 
@@ -238,6 +258,11 @@ export default function SparePartsPage() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertTriangle className="h-4 w-4" />
           {actionError}
+        </div>
+      )}
+      {actionSuccess && !showAddModal && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {actionSuccess}
         </div>
       )}
       {/* Header */}
@@ -447,8 +472,9 @@ export default function SparePartsPage() {
                       {(part.status === 'low' || part.status === 'critical' || part.status === 'out-of-stock') && (
                         <button
                           onClick={() => handleOrderPart(part)}
-                          className="text-green-600 hover:text-green-900"
-                          title="Create Purchase Order"
+                          disabled={orderingId === part.id}
+                          className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                          title="Create Purchase Requisition"
                         >
                           <ShoppingCart className="w-5 h-5" />
                         </button>
@@ -557,12 +583,14 @@ export default function SparePartsPage() {
               {(selectedPart.status === 'low' || selectedPart.status === 'critical' || selectedPart.status === 'out-of-stock') && (
                 <button
                   onClick={() => {
-                    handleOrderPart(selectedPart);
+                    const p = selectedPart;
                     setSelectedPart(null);
+                    handleOrderPart(p);
                   }}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  disabled={orderingId === selectedPart.id}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
-                  Create Purchase Order
+                  Create Purchase Requisition
                 </button>
               )}
             </div>

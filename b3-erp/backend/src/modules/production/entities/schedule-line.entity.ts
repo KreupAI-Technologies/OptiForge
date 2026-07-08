@@ -55,6 +55,14 @@ export class ScheduleLine {
   @Column({ name: 'assigned_to', type: 'varchar', nullable: true })
   assignedTo: string | null;
 
+  // Sequence within a work center after a level-load / optimize pass.
+  @Column({ name: 'sequence_no', type: 'int', nullable: true })
+  sequenceNo: number | null;
+
+  // Set when a batch of schedule lines is published.
+  @Column({ name: 'published_at', type: 'timestamp', nullable: true })
+  publishedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

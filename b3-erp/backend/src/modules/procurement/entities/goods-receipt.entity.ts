@@ -210,6 +210,25 @@ export class GoodsReceipt {
   @Column({ length: 50, nullable: true })
   journalEntryNumber: string;
 
+  // Invoice Matching
+  @Column({ default: false })
+  isInvoiceMatched: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  matchedInvoiceId: string;
+
+  @Column({ length: 50, nullable: true })
+  matchedInvoiceNumber: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  invoiceMatchedAt: Date;
+
+  @Column({ nullable: true, length: 100 })
+  invoiceMatchedBy: string;
+
+  @Column({ type: 'text', nullable: true })
+  invoiceMatchNotes: string;
+
   // Additional Information
   @Column({ type: 'text', nullable: true })
   notes: string;

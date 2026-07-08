@@ -3168,6 +3168,57 @@ class ProjectManagementService {
     }
 
     // ---------------------------------------------------------------------
+    // INSTALLATION — team assignment, handover checklist, and read-only
+    // progress/management aggregates (NestJS logistics-installation).
+    // Backs the (modules)/installation/{team-assignment,handover,progress,
+    // management} pages.
+    // ---------------------------------------------------------------------
+
+    /** Fetch the active installation crew for a project (empty-safe). */
+    async getInstallationTeam(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/api/logistics-installation/team/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /** Assign (replace) the installation crew for a project. */
+    assignInstallationTeam(
+        projectId: string,
+        data: {
+            members: Array<{ installerId?: string; installerName: string; role?: string; skills?: string[] }>;
+            assignedBy?: string;
+        },
+    ): Promise<any> {
+        return this.pmModulePost<any>(`/api/logistics-installation/assign-team/${projectId}`, data);
+    }
+
+    /** Fetch the 8-step handover checklist for a project (seeds on first read). */
+    async getHandoverChecklist(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/api/logistics-installation/handover-checklist/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /** Update a single handover-checklist step's status and/or notes. */
+    updateHandoverStep(id: string, data: { status?: string; notes?: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/logistics-installation/handover-checklist/step/${id}`, data);
+    }
+
+    /** Read-only installation progress summary for a project. */
+    getInstallationProgressSummary(projectId: string): Promise<any | null> {
+        return this.pmModuleGetObject<any>(`/api/logistics-installation/progress-summary/${projectId}`);
+    }
+
+    /** Read-only installation management summary for a project. */
+    getInstallationManagementSummary(projectId: string): Promise<any | null> {
+        return this.pmModuleGetObject<any>(`/api/logistics-installation/management-summary/${projectId}`);
+    }
+
+    // ---------------------------------------------------------------------
     // Single-record fetch/update for detail (view/edit) pages.
     // Mirrors the pmList/pmUpdate style: GET/PUT
     // /project-management/<feature>/:id on the NestJS domain backend.

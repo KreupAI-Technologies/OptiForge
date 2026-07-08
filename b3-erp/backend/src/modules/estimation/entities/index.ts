@@ -15,3 +15,4 @@ export * from './report-schedule.entity';
 export * from './estimate-comment.entity';
 export * from './whatif-scenario.entity';
 export * from './bom-import-session.entity';
+export * from './estimate-send-record.entity';

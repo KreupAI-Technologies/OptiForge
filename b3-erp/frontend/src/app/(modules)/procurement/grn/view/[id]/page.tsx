@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { exportToCsv, printCurrentView } from '@/lib/export';
 import { goodsReceiptService } from '@/services/goods-receipt.service';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   Package,
   FileText,
@@ -492,9 +493,20 @@ const GRNViewPage = () => {
     }
   };
 
-  const handleMatchWithInvoice = () => {
-    // NEEDS BACKEND: no invoice-matching endpoint exists for goods-receipts.
-    alert('Invoice matching is not yet available — no backend endpoint exists for this action.');
+  const handleMatchWithInvoice = async () => {
+    setShowActionMenu(false);
+    const invoiceNumber = window.prompt(
+      'Enter the invoice number (internal or vendor) to match this GRN against:',
+      grnData?.invoice_number || '',
+    );
+    if (!invoiceNumber) return;
+    try {
+      await procurementPagesService.matchGrnInvoice(grnId, { invoiceNumber: invoiceNumber.trim() });
+      alert(`GRN matched to invoice ${invoiceNumber.trim()}.`);
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Invoice matching failed');
+    }
   };
 
   const handlePrint = () => {

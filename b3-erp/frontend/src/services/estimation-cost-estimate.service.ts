@@ -184,6 +184,46 @@ class CostEstimateService {
   async delete(companyId: string, id: string): Promise<void> {
     await apiClient.delete(`${this.baseUrl}/${id}`);
   }
+
+  // Record that an estimate was sent to a customer (email/whatsapp). Persists a
+  // delivery record on the backend; no real email provider is integrated.
+  async sendToCustomer(
+    companyId: string,
+    estimateId: string,
+    data: {
+      channel: 'email' | 'whatsapp';
+      recipient?: string;
+      subject?: string;
+      message?: string;
+      includeTerms?: boolean;
+      includePaymentSchedule?: boolean;
+      validityDays?: number;
+      sentBy?: string;
+    }
+  ): Promise<EstimateSendRecord> {
+    const response = await apiClient.post<EstimateSendRecord>(
+      `/estimation/workflow/send/${estimateId}`,
+      data
+    );
+    return response.data;
+  }
+}
+
+export interface EstimateSendRecord {
+  id: string;
+  companyId: string;
+  estimateId: string;
+  channel: string;
+  recipient?: string;
+  subject?: string;
+  message?: string;
+  includeTerms: boolean;
+  includePaymentSchedule: boolean;
+  validityDays?: number;
+  status: string;
+  sentAt?: string;
+  sentBy?: string;
+  createdAt: string;
 }
 
 export const costEstimateService = new CostEstimateService();

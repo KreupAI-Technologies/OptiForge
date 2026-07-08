@@ -88,4 +88,75 @@ export class CapacityPlanService {
       utilization: utilization,
     };
   }
+
+  /**
+   * Deterministic level-load / optimize pass for a capacity plan. Recomputes
+   * utilization, flags a bottleneck when over 100%, and derives an
+   * optimization score (100 when perfectly balanced, decreasing as the plan
+   * is over- or under-utilised). No external solver.
+   */
+  async optimize(id: string): Promise<CapacityPlan> {
+    const plan = await this.findOne(id);
+
+    const utilization =
+      plan.availableCapacity > 0
+        ? (Number(plan.requiredCapacity) / Number(plan.availableCapacity)) * 100
+        : 0;
+    plan.utilizationPercentage = Number(utilization.toFixed(2));
+    plan.isBottleneck = utilization > 100;
+
+    // Score peaks at 100 when utilisation is 100%, falls off either side.
+    const score = Math.max(0, 100 - Math.abs(100 - utilization));
+    plan.optimizationScore = Number(score.toFixed(2));
+    plan.isOptimized = true;
+    plan.optimizedAt = new Date();
+
+    return this.capacityPlanRepository.save(plan);
+  }
+
+  /**
+   * Overtime planning. Computes the capacity shortfall (required - available)
+   * and persists an overtime allocation covering it. Shifts are 8h blocks and
+   * cost is derived from an optional overtimeRate (default 1.5x a 50/hr base).
+   */
+  async planOvertime(
+    id: string,
+    options?: { overtimeRate?: number; maxOvertimeHours?: number; plannedFor?: string },
+  ): Promise<CapacityPlan> {
+    const plan = await this.findOne(id);
+
+    const required = Number(plan.requiredCapacity) || 0;
+    const available = Number(plan.availableCapacity) || 0;
+    const rawShortfall = Math.max(0, required - available);
+    const maxOvertime = options?.maxOvertimeHours ?? rawShortfall;
+    const overtimeHours = Math.min(rawShortfall, maxOvertime);
+    const rate = options?.overtimeRate ?? 75; // 1.5x a 50/hr base
+    const shifts = Math.ceil(overtimeHours / 8);
+    const estimatedCost = Number((overtimeHours * rate).toFixed(2));
+
+    const allocation = {
+      workCenterId: plan.workCenterId,
+      workCenterName: plan.name,
+      shortfallHours: Number(rawShortfall.toFixed(2)),
+      overtimeHours: Number(overtimeHours.toFixed(2)),
+      shifts,
+      estimatedCost,
+      plannedFor: options?.plannedFor ?? new Date().toISOString(),
+    };
+
+    plan.overtimePlans = [...(plan.overtimePlans ?? []), allocation];
+    plan.totalOvertimeHours =
+      Number(plan.totalOvertimeHours || 0) + allocation.overtimeHours;
+
+    // Overtime adds to available capacity for planning purposes.
+    plan.availableCapacity = Number(
+      (available + allocation.overtimeHours).toFixed(2),
+    );
+    plan.utilizationPercentage =
+      plan.availableCapacity > 0
+        ? Number(((required / plan.availableCapacity) * 100).toFixed(2))
+        : 0;
+
+    return this.capacityPlanRepository.save(plan);
+  }
 }

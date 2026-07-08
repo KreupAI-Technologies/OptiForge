@@ -58,6 +58,25 @@ function TeamAssignmentPageContent() {
         loadProjects();
     }, []);
 
+    useEffect(() => {
+        if (!selectedProject) {
+            setAssignedTeam([]);
+            return;
+        }
+        (async () => {
+            try {
+                const existing = await projectManagementService.getInstallationTeam(selectedProject.id);
+                const ids = (existing || [])
+                    .map((m: any) => String(m.installerId ?? ''))
+                    .filter((id: string) => installers.some(i => i.id === id));
+                setAssignedTeam(ids);
+            } catch (error) {
+                console.error('Error loading existing team:', error);
+            }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProject]);
+
     const loadProjects = async () => {
         try {
             const allProjects = await projectManagementService.getProjects();
@@ -103,13 +122,15 @@ function TeamAssignmentPageContent() {
         if (!selectedProject) return;
         setIsSubmitting(true);
         try {
-            const names = installers.filter(i => assignedTeam.includes(i.id)).map(i => i.name);
-            await projectManagementService.createInstallDailyReport({
-                projectId: selectedProject.id,
-                workDone: `Installation team assigned (${assignedTeam.length} members): ${names.join(', ')}.`,
-                manpowerCount: assignedTeam.length,
-                overallProgress: 20,
-            });
+            const members = installers
+                .filter(i => assignedTeam.includes(i.id))
+                .map(i => ({
+                    installerId: i.id,
+                    installerName: i.name,
+                    role: i.role.toLowerCase(),
+                    skills: i.skills,
+                }));
+            await projectManagementService.assignInstallationTeam(selectedProject.id, { members });
             toast({
                 title: 'Team Assigned',
                 description: `${assignedTeam.length} members assigned to the project.`,

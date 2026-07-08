@@ -143,6 +143,21 @@ export class PurchaseRequisitionController {
     return this.prService.reject(id, rejectionData);
   }
 
+  @Post(':id/request-info')
+  @ApiOperation({ summary: 'Request more information on a purchase requisition' })
+  @ApiParam({ name: 'id', description: 'Purchase Requisition ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Information requested successfully',
+    type: PurchaseRequisitionResponseDto,
+  })
+  async requestInfo(
+    @Param('id') id: string,
+    @Body() infoData: any,
+  ): Promise<PurchaseRequisitionResponseDto> {
+    return this.prService.requestInfo(id, infoData);
+  }
+
   @Post(':id/convert-to-po')
   @ApiOperation({ summary: 'Convert PR to Purchase Order' })
   @ApiParam({ name: 'id', description: 'Purchase Requisition ID' })

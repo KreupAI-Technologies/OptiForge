@@ -88,6 +88,8 @@ const QualityInspectionAddPage = () => {
   const [overallDisposition, setOverallDisposition] = useState("Accept");
   const [inspectorSignature, setInspectorSignature] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loadingSpecs, setLoadingSpecs] = useState(false);
+  const [specsError, setSpecsError] = useState<string | null>(null);
 
   // NCR fields
   const [showNCR, setShowNCR] = useState(false);
@@ -182,6 +184,47 @@ const QualityInspectionAddPage = () => {
       deviation: 0,
     };
     setTestParameters([...testParameters, newParam]);
+  };
+
+  // Load quality specifications (test parameters) from the product master /
+  // active quality plan for the selected work order or product.
+  const handleLoadSpecs = async () => {
+    setSpecsError(null);
+    setLoadingSpecs(true);
+    try {
+      const specs: any = await ProductionOrphanService.getQualitySpecs({
+        workOrderId: workOrderId || undefined,
+        productCode: productCode || undefined,
+      });
+      const params = Array.isArray(specs?.parameters) ? specs.parameters : [];
+      if (params.length === 0) {
+        setSpecsError(
+          "No quality specifications found for this product. Add custom parameters instead.",
+        );
+        return;
+      }
+      const mapped: TestParameter[] = params.map((p: any, i: number) => ({
+        id: `tp-spec-${Date.now()}-${i}`,
+        parameterName: p?.parameterName ?? "",
+        type: p?.type ?? "Dimensional",
+        specification: p?.specification ?? "",
+        nominalValue: Number(p?.nominalValue) || 0,
+        upperTolerance: Number(p?.upperTolerance) || 0,
+        lowerTolerance: Number(p?.lowerTolerance) || 0,
+        unit: p?.unit ?? "",
+        actualMeasurement: "",
+        testMethod: p?.testMethod ?? "",
+        acceptanceCriteria: p?.acceptanceCriteria ?? "",
+        result: "",
+        deviation: 0,
+      }));
+      setTestParameters(mapped);
+      if (specs?.product && !product) setProduct(specs.productName ?? specs.product);
+    } catch (err: any) {
+      setSpecsError(err?.message ?? "Failed to load specifications from product master.");
+    } finally {
+      setLoadingSpecs(false);
+    }
   };
 
   const handleRemoveParameter = (id: string) => {
@@ -713,17 +756,16 @@ const QualityInspectionAddPage = () => {
                 Quality Parameters Entry
               </h3>
               <div className="flex gap-2">
-                {workOrderId && (
+                {(workOrderId || productCode) && (
                   <button
                     type="button"
-                    disabled
-                    // TODO(NEEDS BACKEND): no product-master quality-specs endpoint yet.
-                    // When available, fetch specs for the selected WO/product and setTestParameters(...).
-                    title="Loading specs from product master is not yet available (backend endpoint pending)"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed text-sm"
+                    onClick={handleLoadSpecs}
+                    disabled={loadingSpecs}
+                    title="Load quality specs from the product master / active quality plan"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm disabled:opacity-60"
                   >
                     <Download className="w-4 h-4" />
-                    Load from Product Master
+                    {loadingSpecs ? "Loading…" : "Load from Product Master"}
                   </button>
                 )}
                 <button
@@ -735,6 +777,12 @@ const QualityInspectionAddPage = () => {
                 </button>
               </div>
             </div>
+
+            {specsError && (
+              <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                {specsError}
+              </div>
+            )}
 
             <div className="space-y-2">
               {testParameters.length === 0 ? (
