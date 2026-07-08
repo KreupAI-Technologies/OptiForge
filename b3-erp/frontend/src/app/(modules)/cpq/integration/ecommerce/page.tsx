@@ -442,12 +442,12 @@ export default function CPQIntegrationEcommercePage() {
             {webQuotes.map((quote) => (
               <tr key={quote.id} className="hover:bg-gray-50">
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <button
-                    onClick={() => alert(`View quote details for ${quote.quoteId} - Feature coming soon`)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800 underline"
+                  <span
+                    className="text-sm font-medium text-gray-700"
+                    title="Quote detail view is not yet available"
                   >
                     {quote.quoteId}
-                  </button>
+                  </span>
                 </td>
                 <td className="px-3 py-2">
                   <div className="text-sm font-medium text-gray-900">{quote.customerName}</div>

@@ -563,11 +563,15 @@ export default function LowStockPage() {
             </div>
           </button>
 
-          <button className="px-3 py-2 border-2 border-orange-300 rounded-lg hover:bg-orange-50 flex items-center space-x-3 transition-colors">
-            <Send className="w-6 h-6 text-orange-600" />
+          <button
+            disabled
+            title="Email notifications are not available yet"
+            className="px-3 py-2 border-2 border-gray-200 rounded-lg flex items-center space-x-3 opacity-60 cursor-not-allowed"
+          >
+            <Send className="w-6 h-6 text-gray-400" />
             <div className="text-left">
-              <div className="font-semibold text-gray-900">Send Email Alerts</div>
-              <div className="text-sm text-gray-600">Notify procurement team</div>
+              <div className="font-semibold text-gray-500">Send Email Alerts</div>
+              <div className="text-sm text-gray-400">Not available yet</div>
             </div>
           </button>
 

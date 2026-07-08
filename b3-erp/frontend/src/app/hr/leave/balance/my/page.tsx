@@ -6,6 +6,7 @@ import { Calendar, TrendingUp, Clock, CheckCircle, AlertCircle, Plus, Download, 
 import { LeaveBalance, LeaveTransaction } from '@/data/hr/leave-balances';
 import { LeaveService } from '@/services/leave.service';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { exportToCsv } from '@/lib/export';
 
 const MY_STATUS_MAP: Record<string, LeaveTransaction['status']> = {
   PENDING: 'pending',
@@ -125,8 +126,9 @@ export default function MyLeaveBalancePage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => console.log('Download Report')}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            onClick={() => exportToCsv('my-leave-balance', leaveBalances as unknown as Record<string, unknown>[])}
+            disabled={leaveBalances.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             <span>Download Report</span>
@@ -293,7 +295,7 @@ export default function MyLeaveBalancePage() {
             <h2 className="text-lg font-semibold text-gray-900">Recent Leave Transactions</h2>
           </div>
           <button
-            onClick={() => console.log('View All')}
+            onClick={() => router.push('/hr/leave/history')}
             className="text-sm text-blue-600 hover:text-blue-800 font-medium"
           >
             View All →

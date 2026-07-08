@@ -822,20 +822,20 @@ export default function RFQRFPManagement() {
                                 <span className="text-gray-700">View</span>
                               </button>
                               <button
-                                onClick={() => handleApproveReject(bid, 'approve')}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm"
-                                title="Shortlist Bid"
+                                disabled
+                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-not-allowed opacity-60"
+                                title="Bid shortlisting is not yet available"
                               >
-                                <ThumbsUp className="w-4 h-4 text-green-600" />
-                                <span className="text-green-600">Approve</span>
+                                <ThumbsUp className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-400">Approve</span>
                               </button>
                               <button
-                                onClick={() => handleApproveReject(bid, 'reject')}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
-                                title="Reject Bid"
+                                disabled
+                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-not-allowed opacity-60"
+                                title="Bid rejection is not yet available"
                               >
-                                <XCircle className="w-4 h-4 text-red-600" />
-                                <span className="text-red-600">Reject</span>
+                                <XCircle className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-400">Reject</span>
                               </button>
                             </div>
                           </td>
@@ -1142,9 +1142,18 @@ export default function RFQRFPManagement() {
         isOpen={isSendToSuppliersModalOpen}
         onClose={() => setIsSendToSuppliersModalOpen(false)}
         rfq={selectedRFQ as RFQData | null}
-        onSubmit={(data) => {
-          console.log('Sending RFQ to suppliers:', data)
-          setIsSendToSuppliersModalOpen(false)
+        onSubmit={async () => {
+          if (!selectedRFQ) {
+            setIsSendToSuppliersModalOpen(false)
+            return
+          }
+          try {
+            await procurementRFQService.sendRFQ(selectedRFQ.id)
+            setIsSendToSuppliersModalOpen(false)
+            await loadRfqs()
+          } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to send RFQ to suppliers')
+          }
         }}
       />
 

@@ -170,16 +170,8 @@ export default function ShopfloorTerminalPage() {
         setWorkCenterOptions(data.map((wc: ServiceWorkCenter) => wc.workCenterName));
       } catch (err) {
         console.error('Error fetching work centers:', err);
-        // Fallback to static list if service fails
-        setWorkCenterOptions([
-          'Assembly Line 1',
-          'Assembly Line 2',
-          'Machining Center 1',
-          'Welding Station 1',
-          'Paint Shop 1',
-          'CNC Machine 1',
-          'QC Station 1',
-        ]);
+        // Do not seed fake data; leave the list empty so the dropdown is honest.
+        setWorkCenterOptions([]);
       } finally {
         setLoadingWorkCenters(false);
       }
@@ -187,16 +179,9 @@ export default function ShopfloorTerminalPage() {
     fetchWorkCenters();
   }, []);
 
-  // Fallback work centers (used if loading)
-  const workCenters = workCenterOptions.length > 0 ? workCenterOptions : [
-    'Assembly Line 1',
-    'Assembly Line 2',
-    'Machining Center 1',
-    'Welding Station 1',
-    'Paint Shop 1',
-    'CNC Machine 1',
-    'QC Station 1',
-  ];
+  // Work centers loaded from the service; empty until loaded (login button is
+  // disabled while loadingWorkCenters is true).
+  const workCenters = workCenterOptions;
 
   const shifts = ['Shift 1 (06:00-14:00)', 'Shift 2 (14:00-22:00)', 'Shift 3 (22:00-06:00)'];
 

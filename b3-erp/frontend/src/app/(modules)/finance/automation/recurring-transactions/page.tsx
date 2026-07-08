@@ -302,8 +302,10 @@ export default function RecurringTransactionsPage() {
                   Edit Template
                 </button>
                 <button
-                  onClick={() => console.log('Post now', txn.id)}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+                  type="button"
+                  disabled
+                  title="Manual posting is not yet available — templates post automatically on their next scheduled run."
+                  className="px-4 py-2 bg-gray-200 text-gray-400 rounded-lg text-sm cursor-not-allowed"
                 >
                   Post Now
                 </button>

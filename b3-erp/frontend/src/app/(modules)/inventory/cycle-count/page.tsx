@@ -761,8 +761,8 @@ export default function CycleCountPage() {
         onUpdateCount={handleUpdateCount}
       />
 
-      {/* onComplete intentionally omitted — no complete-session write endpoint
-          exists (NEEDS BACKEND). Variance analysis is read-only. */}
+      {/* Completion is handled from the table row action (handleCompleteReconcile
+          -> inventoryService.completeCycleCount). This details modal is read-only. */}
       <ViewSessionDetailsModal
         isOpen={isViewDetailsModalOpen}
         onClose={() => setIsViewDetailsModalOpen(false)}

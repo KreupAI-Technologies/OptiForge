@@ -629,7 +629,7 @@ export default function ViewRFQPage() {
                     <p className="text-xs font-medium text-gray-500 uppercase mb-1">Linked Purchase Requisition</p>
                     {rfq.linkedPR ? (
                       <button
-                        onClick={() => alert(`View linked PR ${rfq.linkedPR} - Feature coming soon`)}
+                        onClick={() => router.push(`/procurement/requisitions/view/${rfq.linkedPR}`)}
                         className="text-sm text-blue-600 hover:underline font-semibold"
                       >
                         {rfq.linkedPR}

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +8,7 @@ import { Download, ClipboardCheck, CheckCircle, XCircle } from 'lucide-react';
 import ClickableKPICard from '@/components/reports/ClickableKPICard';
 import ClickableTableRow from '@/components/reports/ClickableTableRow';
 import { fetchReportDataset } from '@/services/reports-management.service';
+import { exportToCsv } from '@/lib/export';
 
 interface InspectionResultsData {
     totalInspections: number;
@@ -32,8 +32,6 @@ const DEFAULT_DATA: InspectionResultsData = {
 };
 
 export default function InspectionResultsReport() {
-    const router = useRouter();
-
     const [data, setData] = useState<InspectionResultsData>(DEFAULT_DATA);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -71,7 +69,13 @@ export default function InspectionResultsReport() {
                     <h1 className="text-3xl font-bold mb-2">Inspection Results Report</h1>
                     <p className="text-gray-600">Quality inspection outcomes</p>
                 </div>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                <Button
+                    variant="outline"
+                    onClick={() => exportToCsv('quality-inspection-results-by-type', data.byType)}
+                    disabled={data.byType.length === 0}
+                >
+                    <Download className="mr-2 h-4 w-4" />Export
+                </Button>
             </div>
 
             {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
@@ -83,21 +87,18 @@ export default function InspectionResultsReport() {
                     value={data.totalInspections.toString()}
                     icon={ClipboardCheck}
                     color="blue"
-                    onClick={() => console.log('All inspections')}
                 />
                 <ClickableKPICard
                     title="Passed"
                     value={data.passed.toString()}
                     icon={CheckCircle}
                     color="green"
-                    onClick={() => console.log('Passed inspections')}
                 />
                 <ClickableKPICard
                     title="Failed"
                     value={data.failed.toString()}
                     icon={XCircle}
                     color="red"
-                    onClick={() => console.log('Failed inspections')}
                 />
                 <ClickableKPICard
                     title="Pass Rate"
@@ -106,7 +107,6 @@ export default function InspectionResultsReport() {
                     color="green"
                     trend="+0.5%"
                     trendUp={true}
-                    onClick={() => console.log('Pass rate trend')}
                 />
             </div>
 

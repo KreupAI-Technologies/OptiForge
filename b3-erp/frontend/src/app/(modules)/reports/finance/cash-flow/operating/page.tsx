@@ -19,7 +19,7 @@ function OperatingActivitiesContent() {
             setIsLoading(true); setLoadError(null);
             try {
                 const raw = await fetchDomainList<any>('finance/payments');
-                const mapped = raw.map((r: any) => ({ id: r.paymentNumber ?? r.id, date: r.paymentDate ?? '', description: r.notes ?? r.partyName ?? '', category: r.paymentType ?? 'Operating', amount: Number(r.amount ?? 0) }));
+                const mapped = raw.map((r: any) => ({ id: r.paymentNumber ?? r.id, paymentId: r.id, date: r.paymentDate ?? '', description: r.notes ?? r.partyName ?? '', category: r.paymentType ?? 'Operating', amount: Number(r.amount ?? 0) }));
                 if (!cancelled) setTransactions(mapped);
             } catch (e) {
                 if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTransactions([]); }
@@ -60,7 +60,7 @@ function OperatingActivitiesContent() {
                             {transactions.map((trx) => (
                                 <ClickableTableRow
                                     key={trx.id}
-                                    onClick={() => console.log(`Navigate to transaction ${trx.id}`)}
+                                    onClick={trx.paymentId ? () => router.push(`/finance/payments/view/${trx.paymentId}`) : undefined}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{trx.date}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{trx.id}</td>
