@@ -61,4 +61,34 @@ export class ServiceBillingService {
     const data = await this.request<any>('/after-sales/billing/payments');
     return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
   }
+
+  /** Send an invoice to the customer (POST invoices/:id/send). */
+  static async sendInvoice(id: string, sentBy = 'system'): Promise<any> {
+    return this.request<any>(`/after-sales/billing/invoices/${id}/send`, {
+      method: 'POST',
+      body: JSON.stringify({ sentBy }),
+    });
+  }
+
+  /** Record a payment against an invoice (POST invoices/:id/record-payment). */
+  static async recordPayment(
+    id: string,
+    payment: {
+      amount: number;
+      paymentMethod: string;
+      paymentReference?: string;
+      paymentDate?: string;
+      notes?: string;
+      recordedBy?: string;
+    },
+  ): Promise<any> {
+    return this.request<any>(`/after-sales/billing/invoices/${id}/record-payment`, {
+      method: 'POST',
+      body: JSON.stringify({
+        recordedBy: 'system',
+        paymentDate: new Date().toISOString(),
+        ...payment,
+      }),
+    });
+  }
 }

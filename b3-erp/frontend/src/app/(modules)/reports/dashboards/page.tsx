@@ -69,6 +69,8 @@ import { exportToCsv } from '@/lib/export';
 import {
   fetchReportDashboards,
   createReportDashboard,
+  updateReportDashboard,
+  deleteReportDashboard,
   type ReportDashboardItem,
 } from '@/services/reports-management.service';
 
@@ -245,30 +247,54 @@ export default function DashboardsPage() {
     }
   };
 
-  const handleDeleteDashboard = (id: string) => {
-    if (confirm('Are you sure you want to delete this dashboard?')) {
-      setDashboards(dashboards.filter((d) => d.id !== id));
-      if (selectedDashboard?.id === id) {
-        setSelectedDashboard(dashboards[0] || null);
-      }
+  const handleDeleteDashboard = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this dashboard?')) return;
+    setLoadError(null);
+    try {
+      await deleteReportDashboard(id);
+      setDashboards((prev) => {
+        const next = prev.filter((d) => d.id !== id);
+        if (selectedDashboard?.id === id) {
+          setSelectedDashboard(next[0] ?? null);
+        }
+        return next;
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete dashboard');
     }
   };
 
-  const handleDuplicateDashboard = (dashboard: Dashboard) => {
-    const duplicated: Dashboard = {
-      ...dashboard,
-      id: Date.now().toString(),
-      name: `${dashboard.name} (Copy)`,
-      createdAt: new Date().toISOString().split('T')[0],
-      lastModified: new Date().toISOString().split('T')[0],
-    };
-    setDashboards([...dashboards, duplicated]);
+  const handleDuplicateDashboard = async (dashboard: Dashboard) => {
+    setLoadError(null);
+    try {
+      const created = await createReportDashboard({
+        name: `${dashboard.name} (Copy)`,
+        description: dashboard.description,
+        category: dashboard.category,
+        createdByName: 'Current User',
+        layout: dashboard.layout as unknown as Record<string, unknown>,
+      });
+      setDashboards((prev) => [...prev, mapToDashboard(created)]);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to duplicate dashboard');
+    }
   };
 
-  const handleToggleFavorite = (id: string) => {
-    setDashboards(
-      dashboards.map((d) => (d.id === id ? { ...d, isFavorite: !d.isFavorite } : d))
+  const handleToggleFavorite = async (id: string) => {
+    const dashboard = dashboards.find((d) => d.id === id);
+    if (!dashboard) return;
+    const next = !dashboard.isFavorite;
+    setDashboards((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, isFavorite: next } : d)),
     );
+    try {
+      await updateReportDashboard(id, { isFavorite: next });
+    } catch (err) {
+      setDashboards((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, isFavorite: !next } : d)),
+      );
+      setLoadError(err instanceof Error ? err.message : 'Failed to update favorite');
+    }
   };
 
   const handleRefreshDashboard = () => {

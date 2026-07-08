@@ -129,6 +129,8 @@ export default function EditRFQPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoadingVendors, setIsLoadingVendors] = useState(false);
   const [vendorFilter, setVendorFilter] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Vendors come solely from the master-data API.
   useEffect(() => {
@@ -246,12 +248,16 @@ export default function EditRFQPage() {
       })),
       vendorIds: formData.selectedVendors,
     };
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
     try {
       await procurementRFQService.updateRFQ(rfqId, payload);
       router.push(`/rfq/view/${rfqId}`);
     } catch (err) {
-      console.error('Error updating RFQ:', err);
-      alert('Failed to update RFQ');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update RFQ.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -294,14 +300,21 @@ export default function EditRFQPage() {
               </button>
               <button
                 onClick={handleSubmit}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSubmitting}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />
-                <span>Save Changes</span>
+                <span>{isSubmitting ? 'Saving…' : 'Save Changes'}</span>
               </button>
             </div>
           </div>
         </div>
+        {submitError && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{submitError}</span>
+            <button onClick={() => setSubmitError(null)} className="text-red-500 hover:text-red-700">×</button>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -799,10 +812,11 @@ export default function EditRFQPage() {
               </button>
               <button
                 type="submit"
-                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                disabled={isSubmitting}
+                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50"
               >
                 <Save className="h-5 w-5" />
-                <span>Save Changes</span>
+                <span>{isSubmitting ? 'Saving…' : 'Save Changes'}</span>
               </button>
             </div>
           </div>

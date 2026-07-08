@@ -134,6 +134,15 @@ export class PackagingService {
       body: JSON.stringify(data),
     });
   }
+  static updateShippingBill(
+    id: string,
+    data: Partial<PackagingShippingBillDto>,
+  ): Promise<PackagingShippingBillDto> {
+    return request<PackagingShippingBillDto>(`/packaging/shipping-bills/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const packagingService = PackagingService;

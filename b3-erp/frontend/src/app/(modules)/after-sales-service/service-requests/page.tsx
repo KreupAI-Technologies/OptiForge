@@ -76,23 +76,24 @@ export default function ServiceRequestsPage() {
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchServiceRequests = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await ServiceRequestService.getAllServiceRequests();
+      setServiceRequests(data);
+    } catch (err) {
+      setError('Failed to load service requests. Please try again.');
+      console.error('Error fetching service requests:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch service requests on mount
   useEffect(() => {
-    const fetchServiceRequests = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await ServiceRequestService.getAllServiceRequests();
-        setServiceRequests(data);
-      } catch (err) {
-        setError('Failed to load service requests. Please try again.');
-        console.error('Error fetching service requests:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchServiceRequests();
   }, []);
 
@@ -203,20 +204,74 @@ export default function ServiceRequestsPage() {
     });
   };
 
-  const submitAssignment = () => {
-    toast({
-      title: "Ticket Assigned",
-      description: `${selectedRequest?.ticketNumber} has been assigned to ${assignFormData.engineerName}.`
-    });
-    setShowAssignModal(false);
+  const submitAssignment = async () => {
+    if (!selectedRequest || !assignFormData.engineerId) return;
+    try {
+      setSubmitting(true);
+      await ServiceRequestService.assignServiceRequest(
+        selectedRequest.id,
+        assignFormData.engineerId,
+        assignFormData.engineerName,
+      );
+      toast({
+        title: "Ticket Assigned",
+        description: `${selectedRequest.ticketNumber} has been assigned to ${assignFormData.engineerName}.`
+      });
+      setShowAssignModal(false);
+      await fetchServiceRequests();
+    } catch (err) {
+      console.error('Error assigning service request:', err);
+      toast({
+        title: "Assignment Failed",
+        description: "Could not assign the ticket. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const submitStatusUpdate = () => {
-    toast({
-      title: "Status Updated",
-      description: `${selectedRequest?.ticketNumber} status has been updated to ${statusFormData.status}.`
-    });
-    setShowStatusModal(false);
+  const submitStatusUpdate = async () => {
+    if (!selectedRequest || !statusFormData.status) return;
+    try {
+      setSubmitting(true);
+      const id = selectedRequest.id;
+      const status = statusFormData.status;
+      switch (status) {
+        case 'acknowledged':
+          await ServiceRequestService.acknowledgeServiceRequest(id);
+          break;
+        case 'in_progress':
+          await ServiceRequestService.startServiceRequest(id);
+          break;
+        case 'resolved':
+          await ServiceRequestService.resolveServiceRequest(id, statusFormData.resolution, 'system');
+          break;
+        case 'closed':
+          await ServiceRequestService.closeServiceRequest(id, 'system', statusFormData.notes || statusFormData.resolution);
+          break;
+        case 'cancelled':
+          await ServiceRequestService.cancelServiceRequest(id, statusFormData.notes || 'Cancelled by agent');
+          break;
+        default:
+          await ServiceRequestService.updateServiceRequest(id, { status });
+      }
+      toast({
+        title: "Status Updated",
+        description: `${selectedRequest.ticketNumber} status has been updated to ${status}.`
+      });
+      setShowStatusModal(false);
+      await fetchServiceRequests();
+    } catch (err) {
+      console.error('Error updating service request status:', err);
+      toast({
+        title: "Update Failed",
+        description: "Could not update the status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -823,11 +878,11 @@ export default function ServiceRequestsPage() {
                   </button>
                   <button
                     onClick={submitAssignment}
-                    disabled={!assignFormData.engineerId}
+                    disabled={!assignFormData.engineerId || submitting}
                     className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <UserCheck className="h-4 w-4" />
-                    Assign Engineer
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+                    {submitting ? 'Assigning...' : 'Assign Engineer'}
                   </button>
                 </div>
               </div>
@@ -942,11 +997,11 @@ export default function ServiceRequestsPage() {
                   </button>
                   <button
                     onClick={submitStatusUpdate}
-                    disabled={!statusFormData.status}
+                    disabled={!statusFormData.status || submitting}
                     className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <CheckCircle className="h-4 w-4" />
-                    Update Status
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                    {submitting ? 'Updating...' : 'Update Status'}
                   </button>
                 </div>
               </div>

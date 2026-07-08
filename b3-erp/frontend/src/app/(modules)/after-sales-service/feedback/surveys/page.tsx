@@ -98,13 +98,16 @@ export default function SurveysPage() {
     }
 
     return filtered;
-  }, [searchTerm, selectedCategory, selectedType, selectedStatus, sortBy]);
+  }, [searchTerm, selectedCategory, selectedType, selectedStatus, sortBy, mockSurveys]);
 
+  const respondedSurveys = mockSurveys.filter(s => s.responses > 0);
   const stats = {
     total: mockSurveys.length,
     active: mockSurveys.filter(s => s.status === 'active').length,
     totalResponses: mockSurveys.reduce((sum, s) => sum + s.responses, 0),
-    avgResponseRate: (mockSurveys.filter(s => s.responses > 0).reduce((sum, s) => sum + s.responseRate, 0) / mockSurveys.filter(s => s.responses > 0).length).toFixed(0)
+    avgResponseRate: respondedSurveys.length > 0
+      ? (respondedSurveys.reduce((sum, s) => sum + s.responseRate, 0) / respondedSurveys.length).toFixed(0)
+      : '0'
   };
 
   const getStatusColor = (status: string) => {

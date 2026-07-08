@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { fetchSavedReportItems } from '@/services/reports-management.service';
+import {
+  fetchSavedReportItems,
+  createSavedReportItem,
+  updateSavedReportItem,
+  deleteSavedReportItem,
+} from '@/services/reports-management.service';
 import {
   Plus,
   Save,
@@ -109,6 +114,11 @@ export default function CustomReportsPage() {
   const [selectedDataSource, setSelectedDataSource] = useState('');
   const [filters, setFilters] = useState<ReportFilter[]>([]);
   const [columns, setColumns] = useState<ReportColumn[]>([]);
+
+  // Action state
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const categories = [
     'All Reports',
@@ -225,8 +235,8 @@ export default function CustomReportsPage() {
             chartType:
               (it.config?.chartType as string | undefined) ?? 'table',
             dataSource: it.dataSource ?? '',
-            filters: [],
-            columns: [],
+            filters: (it.config?.filters as ReportFilter[] | undefined) ?? [],
+            columns: (it.config?.columns as ReportColumn[] | undefined) ?? [],
             createdBy: it.createdByName ?? 'System',
             createdAt: '',
             lastRun: it.lastRunAt ?? '',
@@ -257,62 +267,97 @@ export default function CustomReportsPage() {
     setColumns([]);
   };
 
-  const handleSaveReport = () => {
-    const newReport: CustomReport = {
-      id: Date.now().toString(),
-      name: reportName,
-      description: reportDescription,
-      category: reportCategory,
-      chartType: selectedChartType,
-      dataSource: selectedDataSource,
-      filters,
-      columns,
-      createdBy: 'Current User',
-      createdAt: new Date().toISOString().split('T')[0],
-      lastRun: 'Never',
-      isFavorite: false,
-      isShared: false,
-      status: 'draft',
-    };
-
-    setReports([...reports, newReport]);
-    setIsCreating(false);
-    resetForm();
-    alert('Report created successfully!');
-  };
-
-  const handleDeleteReport = (id: string) => {
-    if (confirm('Are you sure you want to delete this report?')) {
-      setReports(reports.filter((r) => r.id !== id));
+  const handleSaveReport = async () => {
+    if (!reportName.trim()) {
+      setActionError('Report name is required.');
+      return;
+    }
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      await createSavedReportItem({
+        name: reportName,
+        description: reportDescription,
+        category: reportCategory || 'Custom',
+        dataSource: selectedDataSource,
+        outputFormat: 'pdf',
+        config: { chartType: selectedChartType, filters, columns },
+      });
+      setIsCreating(false);
+      resetForm();
+      loadReports();
+      setNotice('Report created successfully.');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create report');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDuplicateReport = (report: CustomReport) => {
-    const duplicated: CustomReport = {
-      ...report,
-      id: Date.now().toString(),
-      name: `${report.name} (Copy)`,
-      createdAt: new Date().toISOString().split('T')[0],
-      lastRun: 'Never',
-    };
-    setReports([...reports, duplicated]);
+  const handleDeleteReport = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this report?')) return;
+    setActionError(null);
+    try {
+      await deleteSavedReportItem(id);
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      setNotice('Report deleted.');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete report');
+    }
   };
 
-  const handleToggleFavorite = (id: string) => {
-    setReports(
-      reports.map((r) => (r.id === id ? { ...r, isFavorite: !r.isFavorite } : r))
-    );
+  const handleDuplicateReport = async (report: CustomReport) => {
+    setActionError(null);
+    try {
+      await createSavedReportItem({
+        name: `${report.name} (Copy)`,
+        description: report.description,
+        category: report.category,
+        dataSource: report.dataSource,
+        outputFormat: 'pdf',
+        config: {
+          chartType: report.chartType,
+          filters: report.filters,
+          columns: report.columns,
+        },
+      });
+      loadReports();
+      setNotice('Report duplicated.');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to duplicate report');
+    }
   };
 
-  const handleRunReport = (report: CustomReport) => {
-    alert(`Running report: ${report.name}`);
-    setReports(
-      reports.map((r) =>
-        r.id === report.id
-          ? { ...r, lastRun: new Date().toISOString().split('T')[0] }
-          : r
-      )
+  const handleToggleFavorite = async (id: string) => {
+    const report = reports.find((r) => r.id === id);
+    if (!report) return;
+    const next = !report.isFavorite;
+    // Optimistic update
+    setReports((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, isFavorite: next } : r)),
     );
+    try {
+      await updateSavedReportItem(id, { isFavorite: next });
+    } catch (err) {
+      // Roll back on failure
+      setReports((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, isFavorite: !next } : r)),
+      );
+      setActionError(err instanceof Error ? err.message : 'Failed to update favorite');
+    }
+  };
+
+  // NOTE: report rendering/execution has no backend endpoint yet — this records
+  // the last-run timestamp via the saved-item update endpoint. See NEEDS BACKEND.
+  const handleRunReport = async (report: CustomReport) => {
+    setActionError(null);
+    try {
+      await updateSavedReportItem(report.id, { lastRunAt: new Date().toISOString() });
+      loadReports();
+      setNotice(`Marked "${report.name}" as run. (Rendering not yet available.)`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to run report');
+    }
   };
 
   const handleAddFilter = () => {
@@ -646,10 +691,11 @@ export default function CustomReportsPage() {
               ) : (
                 <button
                   onClick={handleSaveReport}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                  disabled={isSaving}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  Save Report
+                  {isSaving ? 'Saving…' : 'Save Report'}
                 </button>
               )}
             </div>
@@ -662,6 +708,22 @@ export default function CustomReportsPage() {
   return (
     <div className="w-full min-h-screen px-3 py-2">
       <div className="w-full space-y-3">
+        {actionError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
+            <span>{actionError}</span>
+            <button onClick={() => setActionError(null)} className="text-red-500 hover:text-red-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        {notice && (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex justify-between items-center">
+            <span>{notice}</span>
+            <button onClick={() => setNotice(null)} className="text-green-500 hover:text-green-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-3">
           <div className="flex justify-end items-start gap-2 mb-2">

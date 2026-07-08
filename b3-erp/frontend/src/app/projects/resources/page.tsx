@@ -46,33 +46,36 @@ export default function ResourceAllocationPage() {
   const [resources, setResources] = useState<Res[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadResources = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await projectManagementService.getProjectsResourcesList();
+      const mapped: Res[] = raw.map((r: any) => ({
+        id: r.id ?? r.userId ?? r.resourceId ?? '',
+        name: r.resourceName ?? r.userName ?? r.name ?? r.userId ?? 'Unknown',
+        role: r.role ?? r.designation ?? '-',
+        dept: r.department ?? r.dept ?? '-',
+        utilization: Number(r.utilization ?? r.allocationPercentage ?? r.allocation ?? 0),
+      }));
+      setResources(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load resources');
+      setResources([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await projectManagementService.getProjectsResourcesList();
-        const mapped: Res[] = raw.map((r: any) => ({
-          id: r.id ?? r.userId ?? r.resourceId ?? '',
-          name: r.resourceName ?? r.userName ?? r.name ?? r.userId ?? 'Unknown',
-          role: r.role ?? r.designation ?? '-',
-          dept: r.department ?? r.dept ?? '-',
-          utilization: Number(r.utilization ?? r.allocationPercentage ?? r.allocation ?? 0),
-        }));
-        if (!cancelled) setResources(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load resources');
-          setResources([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
+    (async () => {
+      if (!cancelled) await loadResources();
+    })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Top overutilized: sort by utilization desc, take top rows.
@@ -102,58 +105,171 @@ export default function ResourceAllocationPage() {
   const [selectedAllocation, setSelectedAllocation] = useState<any>(null);
 
   // Modal Handlers
-  const handleAllocateResource = (data: any) => {
-    console.log('Allocate Resource:', data);
-    setShowAllocate(false);
-    toast?.({ title: "Resource allocated", description: `Resource allocated successfully` });
+  // Allocate a resource → POST /project-resources (createResource). The modal
+  // collects resourceId (mapped to userId), projectId, role, allocation %, dates.
+  const handleAllocateResource = async (data: any) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await projectManagementService.createResource({
+        projectId: data.projectId,
+        userId: data.resourceId ?? data.userId,
+        role: data.role || undefined,
+        allocationPercentage: data.allocation != null ? Number(data.allocation) : undefined,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined,
+      });
+      setShowAllocate(false);
+      toast?.({ title: "Resource allocated", description: "Resource allocated successfully" });
+      await loadResources();
+    } catch (err) {
+      toast?.({
+        title: "Allocation failed",
+        description: err instanceof Error ? err.message : "Could not allocate resource.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleBulkAllocation = (data: any) => {
-    console.log('Bulk Allocation:', data);
-    setIsBulkAllocationModalOpen(false);
-    toast?.({ title: "Resources allocated", description: `${data.selectedResources.length} resources allocated` });
+  // Bulk allocation → one createResource call per selected resource.
+  const handleBulkAllocation = async (data: any) => {
+    if (isSubmitting) return;
+    const ids: string[] = data.selectedResources ?? [];
+    if (ids.length === 0) {
+      toast?.({ title: "No resources selected", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await Promise.all(
+        ids.map((userId) =>
+          projectManagementService.createResource({
+            projectId: data.projectId,
+            userId,
+            allocationPercentage: data.allocation != null ? Number(data.allocation) : undefined,
+            startDate: data.startDate || undefined,
+            endDate: data.endDate || undefined,
+          }),
+        ),
+      );
+      setIsBulkAllocationModalOpen(false);
+      toast?.({ title: "Resources allocated", description: `${ids.length} resources allocated` });
+      await loadResources();
+    } catch (err) {
+      toast?.({
+        title: "Bulk allocation failed",
+        description: err instanceof Error ? err.message : "Could not allocate resources.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleEditAllocation = (data: any) => {
-    console.log('Edit Allocation:', data);
-    setIsEditAllocationModalOpen(false);
-    toast?.({ title: "Allocation updated", description: "Allocation updated successfully" });
+  // Edit an existing allocation → PATCH /project-resources/:id (updateResource).
+  const handleEditAllocation = async (data: any) => {
+    const id = selectedAllocation?.id ?? data?.id;
+    if (!id) {
+      toast?.({ title: "Cannot update", description: "Missing allocation id.", variant: "destructive" });
+      return;
+    }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await projectManagementService.updateResource(id, {
+        role: data.role || undefined,
+        allocationPercentage: data.allocation != null ? Number(data.allocation) : undefined,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined,
+      });
+      setIsEditAllocationModalOpen(false);
+      toast?.({ title: "Allocation updated", description: "Allocation updated successfully" });
+      await loadResources();
+    } catch (err) {
+      toast?.({
+        title: "Update failed",
+        description: err instanceof Error ? err.message : "Could not update allocation.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleTransferResource = (data: any) => {
-    console.log('Transfer Resource:', data);
+  // Release a resource → DELETE /project-resources/:id (deleteResource).
+  const handleReleaseResource = async (_data: any) => {
+    const id = selectedResource?.id;
+    if (!id) {
+      toast?.({ title: "Cannot release", description: "No resource selected.", variant: "destructive" });
+      return;
+    }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await projectManagementService.deleteResource(id);
+      setIsReleaseResourceModalOpen(false);
+      toast?.({ title: "Resource released", description: "Resource released successfully" });
+      await loadResources();
+    } catch (err) {
+      toast?.({
+        title: "Release failed",
+        description: err instanceof Error ? err.message : "Could not release resource.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // NOTE: The following actions have no dedicated backend endpoint yet
+  // (transfer, workload-balancing, request-approval, skills, time-logging via
+  // this modal). They close the modal and inform the user rather than
+  // pretending to persist. Reported as NEEDS BACKEND.
+  const handleTransferResource = (_data: any) => {
     setIsTransferResourceModalOpen(false);
-    toast?.({ title: "Resource transferred", description: "Resource transferred successfully" });
+    toast?.({
+      title: "Transfer unavailable",
+      description: "Resource transfer is not yet supported by the backend.",
+      variant: "destructive",
+    });
   };
 
-  const handleWorkloadBalancing = (data: any) => {
-    console.log('Workload Balancing:', data);
+  const handleWorkloadBalancing = (_data: any) => {
     setIsWorkloadBalancingModalOpen(false);
-    toast?.({ title: "Workload balanced", description: "Workload rebalanced successfully" });
+    toast?.({
+      title: "Balancing unavailable",
+      description: "Automated workload balancing is not yet supported by the backend.",
+      variant: "destructive",
+    });
   };
 
-  const handleRequestResource = (data: any) => {
-    console.log('Request Resource:', data);
+  const handleRequestResource = (_data: any) => {
     setIsRequestResourceModalOpen(false);
-    toast?.({ title: "Request submitted", description: "Resource request submitted for approval" });
+    toast?.({
+      title: "Requests unavailable",
+      description: "Resource requests are not yet supported by the backend.",
+      variant: "destructive",
+    });
   };
 
-  const handleReleaseResource = (data: any) => {
-    console.log('Release Resource:', data);
-    setIsReleaseResourceModalOpen(false);
-    toast?.({ title: "Resource released", description: "Resource released successfully" });
-  };
-
-  const handleSaveSkills = (data: any) => {
-    console.log('Save Skills:', data);
+  const handleSaveSkills = (_data: any) => {
     setIsResourceSkillsModalOpen(false);
-    toast?.({ title: "Skills updated", description: `${data.skills.length} skills saved` });
+    toast?.({
+      title: "Skills unavailable",
+      description: "Saving resource skills is not yet supported by the backend.",
+      variant: "destructive",
+    });
   };
 
-  const handleLogTime = (data: any) => {
-    console.log('Log Time:', data);
+  const handleLogTime = (_data: any) => {
     setIsTimeTrackingModalOpen(false);
-    toast?.({ title: "Time logged", description: `${data.hours} hours logged successfully` });
+    toast?.({
+      title: "Time logging unavailable",
+      description: "Logging time from this view is not yet supported by the backend.",
+      variant: "destructive",
+    });
   };
 
   return (
@@ -432,15 +548,26 @@ export default function ResourceAllocationPage() {
         }}
       />
 
-      <AssignToProjectModal
-        isOpen={showAllocate}
-        onClose={() => setShowAllocate(false)}
-        resource={selectedResource as any}
-        onSubmit={(data: any) => {
-          setShowAllocate(false);
-          toast?.({ title: "Resource allocated", description: `${data?.resourceName || 'Resource'} → ${data?.project || 'Project'}` });
-        }}
-      />
+      {/* AssignToProjectModal requires a selected resource; only render it when
+          one is chosen. New (unselected) allocations use AllocateResourceModal
+          below. onSubmit persists via POST /project-resources. */}
+      {selectedResource && (
+        <AssignToProjectModal
+          isOpen={showAllocate}
+          onClose={() => setShowAllocate(false)}
+          resource={selectedResource as any}
+          onSubmit={(data: any) =>
+            handleAllocateResource({
+              resourceId: selectedResource.id,
+              projectId: data.projectId,
+              role: selectedResource.role,
+              allocation: data.allocation,
+              startDate: data.startDate,
+              endDate: data.endDate,
+            })
+          }
+        />
+      )}
 
       <ConfirmDialog
         isOpen={showExport}

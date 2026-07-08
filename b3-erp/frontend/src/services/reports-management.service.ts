@@ -1155,6 +1155,53 @@ export async function fetchSavedReportItems(
   return Array.isArray(body) ? body : [];
 }
 
+/** Persist a new saved / custom report definition. Returns the created row. */
+export async function createSavedReportItem(
+  data: Partial<ReportSavedItem>,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<ReportSavedItem> {
+  const res = await fetch(`${API_BASE_URL}/reports/saved-items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companyId, ...data }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to save report (${res.status})`);
+  }
+  return (await res.json()) as ReportSavedItem;
+}
+
+/** Update an existing saved / custom report definition. */
+export async function updateSavedReportItem(
+  id: string,
+  data: Partial<ReportSavedItem>,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<ReportSavedItem> {
+  const res = await fetch(`${API_BASE_URL}/reports/saved-items/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companyId, ...data }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update report (${res.status})`);
+  }
+  return (await res.json()) as ReportSavedItem;
+}
+
+/** Soft-delete a saved / custom report definition. */
+export async function deleteSavedReportItem(
+  id: string,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE_URL}/reports/saved-items/${id}?companyId=${encodeURIComponent(companyId)}`,
+    { method: 'DELETE', headers: { 'Content-Type': 'application/json' } },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to delete report (${res.status})`);
+  }
+}
+
 // ============================================================================
 // SAVED CUSTOM DASHBOARDS ("My Dashboards" on /reports/dashboards)
 // ============================================================================
@@ -1232,4 +1279,35 @@ export async function createReportDashboard(
     throw new Error(`Failed to create dashboard (${res.status})`);
   }
   return (await res.json()) as ReportDashboardItem;
+}
+
+/** Update an existing saved custom dashboard. */
+export async function updateReportDashboard(
+  id: string,
+  data: Partial<ReportDashboardItem>,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<ReportDashboardItem> {
+  const res = await fetch(`${API_BASE_URL}/reports/custom-dashboards/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companyId, ...data }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update dashboard (${res.status})`);
+  }
+  return (await res.json()) as ReportDashboardItem;
+}
+
+/** Soft-delete a saved custom dashboard. */
+export async function deleteReportDashboard(
+  id: string,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE_URL}/reports/custom-dashboards/${id}?companyId=${encodeURIComponent(companyId)}`,
+    { method: 'DELETE', headers: { 'Content-Type': 'application/json' } },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to delete dashboard (${res.status})`);
+  }
 }

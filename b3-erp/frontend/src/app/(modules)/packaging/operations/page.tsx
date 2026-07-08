@@ -49,40 +49,6 @@ interface PackingJob {
     };
 }
 
-const mockPackingJobs: PackingJob[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'SS304 Kitchen Sink Panel',
-        quantity: 24,
-        status: 'Complete',
-        packingTeam: 'Packing Team A',
-        startDate: '2025-01-23',
-        completionDate: '2025-01-23',
-        materialsUsed: { crates: 2, wrapping: '50m', thermocol: 12, stickers: 24 },
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-004',
-        productName: 'Drawer Slide Assembly',
-        quantity: 30,
-        status: 'Labeled',
-        packingTeam: 'Packing Team B',
-        startDate: '2025-01-24',
-        materialsUsed: { crates: 3, wrapping: '60m', thermocol: 15, stickers: 30 },
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-005',
-        productName: 'Countertop Support Bracket',
-        quantity: 40,
-        status: 'Packing',
-        packingTeam: 'Packing Team A',
-        startDate: '2025-01-25',
-        materialsUsed: { crates: 4, wrapping: '80m', thermocol: 20, stickers: 40 },
-    },
-];
-
 function mapJob(m: PackagingJobDto): PackingJob {
     const mu = m.materialsUsed || {};
     return {
@@ -118,6 +84,47 @@ export default function PackagingOperationsPage() {
     const [jobs, setJobs] = useState<PackingJob[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [loading, setLoading] = useState(false);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+    const loadJobs = async (projectId: string) => {
+        setLoading(true);
+        try {
+            const data = await PackagingService.getJobs(projectId);
+            setJobs(Array.isArray(data) ? data.map(mapJob) : []);
+        } catch (error) {
+            console.error('Failed to load jobs:', error);
+            setJobs([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdateStatus = async (job: PackingJob, newStatus: PackingJob['status']) => {
+        try {
+            setUpdatingId(job.id);
+            const payload: Partial<PackagingJobDto> = { status: newStatus };
+            if (newStatus === 'Complete') {
+                payload.completionDate = new Date().toISOString().slice(0, 10);
+            } else if (newStatus === 'Packing' && !job.startDate) {
+                payload.startDate = new Date().toISOString().slice(0, 10);
+            }
+            await PackagingService.updateJob(job.id, payload);
+            toast({
+                title: newStatus === 'Complete' ? 'Job Completed' : 'Job Started',
+                description: `${job.productName} is now ${newStatus}.`,
+            });
+            if (selectedProject) await loadJobs(selectedProject.id);
+        } catch (error) {
+            console.error('Failed to update job:', error);
+            toast({
+                title: 'Update Failed',
+                description: error instanceof Error ? error.message : 'Could not update the job.',
+                variant: 'destructive',
+            });
+        } finally {
+            setUpdatingId(null);
+        }
+    };
 
     // Load projects
     useEffect(() => {
@@ -152,19 +159,8 @@ export default function PackagingOperationsPage() {
     // Load jobs when project is selected
     useEffect(() => {
         if (!selectedProject) return;
-        const loadJobs = async () => {
-            setLoading(true);
-            try {
-                const data = await PackagingService.getJobs(selectedProject.id);
-                setJobs(Array.isArray(data) ? data.map(mapJob) : []);
-            } catch (error) {
-                console.error('Failed to load jobs:', error);
-                setJobs([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadJobs();
+        loadJobs(selectedProject.id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
@@ -414,28 +410,20 @@ export default function PackagingOperationsPage() {
                                             </button>
                                             {job.status === 'In Queue' && (
                                                 <button
-                                                    onClick={() => {
-                                                        toast({
-                                                            title: "Job Started",
-                                                            description: `Packing started for ${job.productName}`,
-                                                        });
-                                                    }}
-                                                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                                                    onClick={() => handleUpdateStatus(job, 'Packing')}
+                                                    disabled={updatingId === job.id}
+                                                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    Start Packing
+                                                    {updatingId === job.id ? 'Starting…' : 'Start Packing'}
                                                 </button>
                                             )}
                                             {job.status === 'Packing' && (
                                                 <button
-                                                    onClick={() => {
-                                                        toast({
-                                                            title: "Job Completed",
-                                                            description: `Packing completed for ${job.productName}`,
-                                                        });
-                                                    }}
-                                                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium transition-colors"
+                                                    onClick={() => handleUpdateStatus(job, 'Complete')}
+                                                    disabled={updatingId === job.id}
+                                                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    Complete Job
+                                                    {updatingId === job.id ? 'Completing…' : 'Complete Job'}
                                                 </button>
                                             )}
                                         </div>

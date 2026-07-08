@@ -193,6 +193,9 @@ export default function AddRFQPage() {
   const [showVendorDetails, setShowVendorDetails] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isLoadingPRItems, setIsLoadingPRItems] = useState(false);
 
   useEffect(() => {
     setIsLoadingVendors(true);
@@ -291,30 +294,28 @@ export default function AddRFQPage() {
     }
   };
 
-  const loadFromPR = (prId: string) => {
-    // Mock loading items from PR
-    const mockItems: RFQItem[] = [
-      {
-        id: '1',
-        itemCode: 'SP-CNC-2045',
-        description: 'CNC Router Spindle Bearing Assembly',
-        specifications: 'High-precision bearing, SKF/NSK brand, 60mm bore, 110mm OD',
-        quantity: 2,
-        unit: 'Nos',
-        targetPrice: 12500,
-      },
-      {
-        id: '2',
-        itemCode: 'RM-PLY-001',
-        description: 'Commercial Grade Plywood 19mm',
-        specifications: 'BWP grade, 8x4 ft, ISI marked',
-        quantity: 150,
-        unit: 'Sheets',
-        targetPrice: 1850,
-      },
-    ];
-    updateFormData('items', mockItems);
+  const loadFromPR = async (prId: string) => {
     updateFormData('linkedPR', prId);
+    if (!prId) return;
+    setIsLoadingPRItems(true);
+    setSubmitError(null);
+    try {
+      const pr = await purchaseRequisitionService.getRequisitionById(prId);
+      const items: RFQItem[] = (pr.items ?? []).map((it) => ({
+        id: it.id || it.itemId || Date.now().toString(),
+        itemCode: it.itemCode || it.itemId || '',
+        description: it.itemName || it.description || '',
+        specifications: it.description || '',
+        quantity: it.quantity || 0,
+        unit: it.unit || 'Nos',
+        targetPrice: it.estimatedUnitPrice || 0,
+      }));
+      updateFormData('items', items);
+    } catch (err) {
+      setSubmitError('Failed to load items from the selected purchase requisition.');
+    } finally {
+      setIsLoadingPRItems(false);
+    }
   };
 
   const validateForm = () => {
@@ -373,26 +374,41 @@ export default function AddRFQPage() {
   });
 
   const handleSaveDraft = async () => {
-    try {
-      await procurementRFQService.createRFQ(buildPayload());
-    } catch (err) {
-      console.error('Error saving RFQ draft:', err);
-    }
-    router.push('/rfq');
-  };
-
-  const handleIssueRFQ = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) {
-      alert('Please fix all errors before issuing RFQ');
-      return;
-    }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
     try {
       await procurementRFQService.createRFQ(buildPayload());
       router.push('/rfq');
     } catch (err) {
-      console.error('Error issuing RFQ:', err);
-      alert('Failed to issue RFQ');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save RFQ draft.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleIssueRFQ = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    if (!validateForm()) {
+      setSubmitError('Please fix all errors before issuing the RFQ.');
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      // Create the RFQ, then send it to the invited vendors.
+      const created = await procurementRFQService.createRFQ(buildPayload());
+      try {
+        await procurementRFQService.sendRFQ(created.id);
+      } catch {
+        // RFQ was created; sending is best-effort and can be retried from the list.
+      }
+      router.push('/rfq');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to issue the RFQ.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -434,22 +450,30 @@ export default function AddRFQPage() {
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                disabled={isSubmitting}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />
-                <span>Save as Draft</span>
+                <span>{isSubmitting ? 'Saving…' : 'Save as Draft'}</span>
               </button>
               <button
                 type="button"
                 onClick={handleIssueRFQ}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={isSubmitting}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 <Send className="h-4 w-4" />
-                <span>Issue RFQ</span>
+                <span>{isSubmitting ? 'Issuing…' : 'Issue RFQ'}</span>
               </button>
             </div>
           </div>
         </div>
+        {submitError && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{submitError}</span>
+            <button onClick={() => setSubmitError(null)} className="text-red-500 hover:text-red-700">×</button>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleIssueRFQ} className="space-y-3">
@@ -529,7 +553,9 @@ export default function AddRFQPage() {
                   ))}
                 </select>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Load items automatically from an existing PR</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {isLoadingPRItems ? 'Loading items from PR…' : 'Load items automatically from an existing PR'}
+              </p>
             </div>
 
             <div>
@@ -1060,17 +1086,19 @@ export default function AddRFQPage() {
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                className="flex items-center space-x-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-semibold"
+                disabled={isSubmitting}
+                className="flex items-center space-x-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-semibold disabled:opacity-50"
               >
                 <Save className="h-5 w-5" />
-                <span>Save as Draft</span>
+                <span>{isSubmitting ? 'Saving…' : 'Save as Draft'}</span>
               </button>
               <button
                 type="submit"
-                className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                disabled={isSubmitting}
+                className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:opacity-50"
               >
                 <Send className="h-5 w-5" />
-                <span>Issue RFQ</span>
+                <span>{isSubmitting ? 'Issuing…' : 'Issue RFQ'}</span>
               </button>
             </div>
           </div>

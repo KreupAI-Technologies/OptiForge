@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { WarrantyService } from '@/services/warranty.service';
+import { WarrantyService, WarrantyClaimRecord } from '@/services/warranty.service';
 import {
   FileText,
   Edit,
@@ -41,6 +41,57 @@ interface ClaimDocument {
   uploadedBy: string;
 }
 
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatDate(dateStr: string) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatDateTime(dateStr: string) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-IN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** Normalise raw backend status codes to the display labels used below. */
+function mapStatus(status?: string): string {
+  switch ((status || '').toLowerCase()) {
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'closed':
+    case 'completed':
+      return 'Completed';
+    case 'under_investigation':
+    case 'investigating':
+      return 'Under Investigation';
+    case 'pending':
+    case 'pending_review':
+    case 'submitted':
+    case 'open':
+      return 'Pending Review';
+    default:
+      return status || 'Pending Review';
+  }
+}
+
 export default function ClaimDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'details' | 'timeline' | 'documents'>('details');
@@ -50,171 +101,105 @@ export default function ClaimDetailsPage({ params }: { params: { id: string } })
   const [rejectionReason, setRejectionReason] = useState('');
   const [comment, setComment] = useState('');
 
-  // Mock Claim Data
+  // Real claim data
+  const [record, setRecord] = useState<WarrantyClaimRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const fetchClaim = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadError(null);
+      const data = await WarrantyService.getClaimById(params.id);
+      setRecord(data);
+    } catch (err) {
+      console.error('Error loading warranty claim:', err);
+      setLoadError('Failed to load warranty claim. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchClaim();
+  }, [fetchClaim]);
+
+  const DASH = '—';
+
+  // View model mapped from the backend record; missing fields render as '—'
+  // rather than fabricated values.
   const claim = {
-    id: params.id,
-    claimNumber: 'CLM-2025-0045',
-    status: 'Pending Review',
-    priority: 'High',
-
-    // Warranty Info
-    warrantyNumber: 'WRN-2025-0001',
-    warrantyType: 'Standard',
-    warrantyStartDate: '2024-06-15',
-    warrantyEndDate: '2025-06-15',
-
-    // Customer Info
+    id: record?.id ?? params.id,
+    claimNumber: record?.claimNumber ?? DASH,
+    status: mapStatus(record?.status),
+    priority: record?.actionRequired ?? DASH,
+    warrantyNumber: record?.warrantyId ?? DASH,
+    warrantyEndDate: '',
     customer: {
-      id: 'CUST-001',
-      name: 'Sharma Kitchens Pvt Ltd',
-      phone: '+91-98765-43210',
-      email: 'rajesh.sharma@sharmakitchens.com',
-      address: '123, MG Road, Koramangala, Bangalore, Karnataka - 560034'
+      id: record?.customerId ?? DASH,
+      name: record?.customerName ?? DASH,
+      phone: record?.contactPhone ?? DASH,
+      email: DASH,
+      address: DASH,
     },
-
-    // Product Info
     product: {
-      name: 'Commercial Gas Range - 6 Burner',
-      serialNumber: 'CGR-2024-123456',
-      modelNumber: 'CGR-6B-PRO',
-      purchaseDate: '2024-06-10',
-      installationDate: '2024-06-15'
+      name: record?.equipmentId ?? DASH,
+      serialNumber: DASH,
+      modelNumber: DASH,
+      purchaseDate: '',
+      installationDate: '',
     },
-
-    // Claim Details
-    dateRaised: '2025-02-15',
-    issueReported: 'Gas burner ignition failure',
-    detailedDescription: 'Customer reported that 3 out of 6 burners are not igniting properly. The control valve appears to be faulty and needs replacement. Issue started after routine cleaning. Gas supply is normal. Customer requests urgent repair as kitchen operations are affected.',
-
-    // Inspection
-    inspectionDate: '2025-02-16',
-    inspectedBy: 'Rajesh Kumar',
-    inspectionNotes: 'Inspected the equipment on-site. Confirmed that control valve is defective. Checked gas supply - no issues. Verified that damage is covered under warranty terms. Recommended immediate replacement of control valve assembly.',
-
-    // Financial
-    claimAmount: 8500,
-    breakdownParts: 3500,
-    breakdownLabor: 2000,
-    breakdownMisc: 3000,
-
-    // Assignment
-    assignedTo: 'Rajesh Kumar',
-    assignedDate: '2025-02-15',
-
-    // Coverage
-    coverageVerified: true,
-    withinWarrantyPeriod: true,
+    dateRaised: record?.claimDate ?? '',
+    issueReported: record?.faultCategory ?? DASH,
+    detailedDescription: record?.faultDescription ?? DASH,
+    inspectionDate: record?.faultDate ?? '',
+    inspectedBy: DASH,
+    inspectionNotes: record?.claimReason ?? DASH,
+    claimAmount: record?.totalCost ?? 0,
+    breakdownParts: record?.partsCost ?? 0,
+    breakdownLabor: record?.laborCost ?? 0,
+    breakdownMisc: 0,
+    assignedTo: record?.approvedBy ?? DASH,
+    assignedDate: record?.approvalDate ?? '',
     deductibleAmount: 0,
-
-    createdDate: '2025-02-15T10:30:00',
-    lastUpdated: '2025-02-16T14:45:00'
   };
 
-  // Mock Timeline
-  const timeline: ClaimTimeline[] = [
-    {
-      id: 'T1',
-      date: '2025-02-15 10:30',
-      action: 'Claim Filed',
-      description: 'Warranty claim filed by customer service representative',
-      performedBy: 'System',
-      status: 'Filed'
-    },
-    {
-      id: 'T2',
-      date: '2025-02-15 11:15',
-      action: 'Claim Assigned',
-      description: 'Claim assigned to field engineer for inspection',
-      performedBy: 'Operations Manager',
-      status: 'Assigned'
-    },
-    {
-      id: 'T3',
-      date: '2025-02-16 09:00',
-      action: 'Site Inspection Scheduled',
-      description: 'Inspection scheduled for Feb 16, 2025 at 2:00 PM',
-      performedBy: 'Rajesh Kumar',
-      status: 'Scheduled'
-    },
-    {
-      id: 'T4',
-      date: '2025-02-16 14:45',
-      action: 'Inspection Completed',
-      description: 'On-site inspection completed. Defect confirmed. Report submitted.',
-      performedBy: 'Rajesh Kumar',
-      status: 'Inspected'
-    },
-    {
-      id: 'T5',
-      date: '2025-02-16 15:30',
-      action: 'Under Review',
-      description: 'Claim is now under review by warranty manager',
-      performedBy: 'System',
-      status: 'Review'
-    }
-  ];
+  // Timeline derived from record milestones (no fabricated entries).
+  const timeline: ClaimTimeline[] = record
+    ? [
+        {
+          id: 'created',
+          date: record.createdAt ? formatDateTime(record.createdAt) : DASH,
+          action: 'Claim Filed',
+          description: 'Warranty claim recorded in the system',
+          performedBy: 'System',
+          status: 'Filed',
+        },
+        ...(record.approvalDate
+          ? [
+              {
+                id: 'approved',
+                date: formatDateTime(record.approvalDate),
+                action: 'Claim Approved',
+                description: 'Claim approved',
+                performedBy: record.approvedBy ?? 'System',
+                status: 'Approved',
+              },
+            ]
+          : []),
+        {
+          id: 'updated',
+          date: record.updatedAt ? formatDateTime(record.updatedAt) : DASH,
+          action: 'Last Updated',
+          description: `Current status: ${mapStatus(record.status)}`,
+          performedBy: 'System',
+          status: mapStatus(record.status),
+        },
+      ]
+    : [];
 
-  // Mock Documents
-  const documents: ClaimDocument[] = [
-    {
-      id: 'DOC-001',
-      name: 'Inspection Report.pdf',
-      type: 'PDF',
-      size: '2.4 MB',
-      uploadedDate: '2025-02-16',
-      uploadedBy: 'Rajesh Kumar'
-    },
-    {
-      id: 'DOC-002',
-      name: 'Defective Parts Photos.zip',
-      type: 'ZIP',
-      size: '5.8 MB',
-      uploadedDate: '2025-02-16',
-      uploadedBy: 'Rajesh Kumar'
-    },
-    {
-      id: 'DOC-003',
-      name: 'Warranty Certificate.pdf',
-      type: 'PDF',
-      size: '845 KB',
-      uploadedDate: '2025-02-15',
-      uploadedBy: 'System'
-    },
-    {
-      id: 'DOC-004',
-      name: 'Purchase Invoice.pdf',
-      type: 'PDF',
-      size: '1.2 MB',
-      uploadedDate: '2025-02-15',
-      uploadedBy: 'System'
-    }
-  ];
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // No document endpoint yet — show an empty state instead of fabricated files.
+  const documents: ClaimDocument[] = [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -264,6 +249,34 @@ export default function ClaimDetailsPage({ params }: { params: { id: string } })
       setIsSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-2 text-gray-600">
+          <Clock className="w-8 h-8 animate-spin text-blue-600" />
+          <p>Loading warranty claim…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError || !record) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500" />
+          <p className="text-gray-900 font-medium">{loadError || 'Warranty claim not found.'}</p>
+          <button
+            onClick={fetchClaim}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-3">
@@ -578,6 +591,12 @@ export default function ClaimDetailsPage({ params }: { params: { id: string } })
               Upload Document
             </button>
           </div>
+
+          {documents.length === 0 && (
+            <div className="bg-white p-8 rounded-lg border border-dashed border-gray-300 text-center text-sm text-gray-500">
+              No documents attached to this claim.
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {documents.map((doc) => (

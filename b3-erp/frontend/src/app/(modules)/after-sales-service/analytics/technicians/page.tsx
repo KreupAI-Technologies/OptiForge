@@ -99,15 +99,23 @@ export default function TechniciansAnalyticsPage() {
     }
 
     return filtered;
-  }, [searchTerm, selectedRegion, selectedStatus, sortBy]);
+  }, [searchTerm, selectedRegion, selectedStatus, sortBy, mockTechnicians]);
 
+  const activeTechs = mockTechnicians.filter(t => t.status === 'active');
+  const hasActive = activeTechs.length > 0;
   const stats = {
-    total: mockTechnicians.filter(t => t.status === 'active').length,
-    avgRating: (mockTechnicians.filter(t => t.status === 'active').reduce((sum, t) => sum + t.rating, 0) / mockTechnicians.filter(t => t.status === 'active').length).toFixed(2),
-    totalServices: mockTechnicians.filter(t => t.status === 'active').reduce((sum, t) => sum + t.totalServices, 0),
-    totalFTF: mockTechnicians.filter(t => t.status === 'active').reduce((sum, t) => sum + t.ftfCount, 0),
-    topPerformer: mockTechnicians.filter(t => t.status === 'active').reduce((best, current) => (current.rating > best.rating ? current : best)),
-    avgCompletionRate: (mockTechnicians.filter(t => t.status === 'active').reduce((sum, t) => sum + t.completionRate, 0) / mockTechnicians.filter(t => t.status === 'active').length).toFixed(1)
+    total: activeTechs.length,
+    avgRating: hasActive
+      ? (activeTechs.reduce((sum, t) => sum + t.rating, 0) / activeTechs.length).toFixed(2)
+      : '0.00',
+    totalServices: activeTechs.reduce((sum, t) => sum + t.totalServices, 0),
+    totalFTF: activeTechs.reduce((sum, t) => sum + t.ftfCount, 0),
+    topPerformer: hasActive
+      ? activeTechs.reduce((best, current) => (current.rating > best.rating ? current : best))
+      : null,
+    avgCompletionRate: hasActive
+      ? (activeTechs.reduce((sum, t) => sum + t.completionRate, 0) / activeTechs.length).toFixed(1)
+      : '0.0'
   };
 
   const getStatusColor = (status: string) => {
@@ -211,30 +219,32 @@ export default function TechniciansAnalyticsPage() {
       </div>
 
       {/* Top Performer */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg p-3 mb-3 shadow-md text-white">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium opacity-90">Top Performer</p>
-            <h3 className="text-2xl font-bold mt-2">{stats.topPerformer.name}</h3>
-            <p className="text-sm opacity-90 mt-1">{stats.topPerformer.region} • {stats.topPerformer.experience} years experience</p>
-            <div className="flex gap-3 mt-4">
-              <div>
-                <p className="text-xs opacity-75">Rating</p>
-                <p className="text-xl font-bold">{stats.topPerformer.rating}/5</p>
-              </div>
-              <div>
-                <p className="text-xs opacity-75">Services</p>
-                <p className="text-xl font-bold">{stats.topPerformer.totalServices}</p>
-              </div>
-              <div>
-                <p className="text-xs opacity-75">FTF Rate</p>
-                <p className="text-xl font-bold">{((stats.topPerformer.ftfCount / stats.topPerformer.totalServices) * 100).toFixed(0)}%</p>
+      {stats.topPerformer && (
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg p-3 mb-3 shadow-md text-white">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium opacity-90">Top Performer</p>
+              <h3 className="text-2xl font-bold mt-2">{stats.topPerformer.name}</h3>
+              <p className="text-sm opacity-90 mt-1">{stats.topPerformer.region} • {stats.topPerformer.experience} years experience</p>
+              <div className="flex gap-3 mt-4">
+                <div>
+                  <p className="text-xs opacity-75">Rating</p>
+                  <p className="text-xl font-bold">{stats.topPerformer.rating}/5</p>
+                </div>
+                <div>
+                  <p className="text-xs opacity-75">Services</p>
+                  <p className="text-xl font-bold">{stats.topPerformer.totalServices}</p>
+                </div>
+                <div>
+                  <p className="text-xs opacity-75">FTF Rate</p>
+                  <p className="text-xl font-bold">{stats.topPerformer.totalServices > 0 ? ((stats.topPerformer.ftfCount / stats.topPerformer.totalServices) * 100).toFixed(0) : '0'}%</p>
+                </div>
               </div>
             </div>
+            <Award className="h-16 w-16 opacity-20" />
           </div>
-          <Award className="h-16 w-16 opacity-20" />
         </div>
-      </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 mb-3 shadow-sm">

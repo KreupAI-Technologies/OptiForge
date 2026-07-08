@@ -40,15 +40,6 @@ interface PackingMaterial {
     status: 'Available' | 'Low Stock' | 'Out of Stock';
 }
 
-const mockMaterials: PackingMaterial[] = [
-    { id: 'PM-001', name: 'Wooden Crates (Large)', category: 'Crates', currentStock: 45, required: 20, unit: 'pcs', status: 'Available' },
-    { id: 'PM-002', name: 'Wrapping Rolls (Bubble)', category: 'Wrapping', currentStock: 8, required: 15, unit: 'rolls', status: 'Low Stock' },
-    { id: 'PM-003', name: 'Branding Stickers', category: 'Branding', currentStock: 500, required: 100, unit: 'pcs', status: 'Available' },
-    { id: 'PM-004', name: 'Thermocol Sheets', category: 'Protection', currentStock: 0, required: 25, unit: 'sheets', status: 'Out of Stock' },
-    { id: 'PM-005', name: 'Wooden Crates (Medium)', category: 'Crates', currentStock: 30, required: 10, unit: 'pcs', status: 'Available' },
-    { id: 'PM-006', name: 'Stretch Film', category: 'Wrapping', currentStock: 12, required: 8, unit: 'rolls', status: 'Available' },
-];
-
 function mapMaterial(m: PackagingMaterialDto): PackingMaterial {
     return {
         id: m.id || '',

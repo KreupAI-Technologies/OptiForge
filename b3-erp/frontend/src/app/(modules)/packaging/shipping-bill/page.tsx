@@ -41,6 +41,7 @@ interface ShippingBillItem {
 }
 
 interface ShippingBill {
+    id: string;
     billNumber: string;
     orderNumber: string;
     customerName: string;
@@ -51,37 +52,10 @@ interface ShippingBill {
     status: 'Draft' | 'Generated' | 'Printed';
 }
 
-const mockBills: ShippingBill[] = [
-    {
-        billNumber: 'SB-2024-001',
-        orderNumber: 'ORD-KT-345',
-        customerName: 'Pearl Apartments - Tower A',
-        destination: 'Bangalore, Karnataka',
-        items: [
-            { id: '1', itemDescription: 'Modular Kitchen Cabinet Set', quantity: 15, packageType: 'Wooden Crate', weight: '450 kg', dimensions: '200x80x60 cm' },
-            { id: '2', itemDescription: 'Kitchen Accessories Kit', quantity: 3, packageType: 'Cardboard Box', weight: '25 kg', dimensions: '50x40x30 cm' },
-        ],
-        totalPackages: 18,
-        totalWeight: '475 kg',
-        status: 'Generated'
-    },
-    {
-        billNumber: 'SB-2024-002',
-        orderNumber: 'ORD-KT-346',
-        customerName: 'Villa Project - Phase 2',
-        destination: 'Chennai, Tamil Nadu',
-        items: [
-            { id: '1', itemDescription: 'Kitchen Base Units', quantity: 20, packageType: 'Wooden Crate', weight: '600 kg', dimensions: '220x90x70 cm' },
-        ],
-        totalPackages: 20,
-        totalWeight: '600 kg',
-        status: 'Draft'
-    }
-];
-
 function mapBill(b: PackagingShippingBillDto): ShippingBill {
     const items = Array.isArray(b.items) ? b.items : [];
     return {
+        id: b.id || '',
         billNumber: b.billNumber || '',
         orderNumber: b.orderNumber || '',
         customerName: b.customerName || '',
@@ -115,6 +89,26 @@ export default function ShippingBillPage() {
     const [bills, setBills] = useState<ShippingBill[]>([]);
     const [selectedBill, setSelectedBill] = useState<ShippingBill | null>(null);
     const [loading, setLoading] = useState(false);
+    const [updating, setUpdating] = useState(false);
+
+    const loadBills = async (projectId: string, keepBillNumber?: string) => {
+        setLoading(true);
+        try {
+            const data = await PackagingService.getShippingBills(projectId);
+            const mapped = Array.isArray(data) ? data.map(mapBill) : [];
+            setBills(mapped);
+            const keep = keepBillNumber
+                ? mapped.find(b => b.billNumber === keepBillNumber)
+                : undefined;
+            setSelectedBill(keep ?? (mapped.length ? mapped[0] : null));
+        } catch (error) {
+            console.error('Failed to load shipping bills:', error);
+            setBills([]);
+            setSelectedBill(null);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Load projects
     useEffect(() => {
@@ -149,22 +143,8 @@ export default function ShippingBillPage() {
     // Load bills when project is selected
     useEffect(() => {
         if (!selectedProject) return;
-        const loadBills = async () => {
-            setLoading(true);
-            try {
-                const data = await PackagingService.getShippingBills(selectedProject.id);
-                const mapped = Array.isArray(data) ? data.map(mapBill) : [];
-                setBills(mapped);
-                setSelectedBill(mapped.length ? mapped[0] : null);
-            } catch (error) {
-                console.error('Failed to load shipping bills:', error);
-                setBills([]);
-                setSelectedBill(null);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadBills();
+        loadBills(selectedProject.id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
@@ -173,25 +153,43 @@ export default function ShippingBillPage() {
         toast({ title: 'Project Selected', description: `Viewing shipping bills for ${project.name}` });
     };
 
-    const handleGenerateBill = (billNumber: string) => {
-        setBills(bills.map(bill =>
-            bill.billNumber === billNumber ? { ...bill, status: 'Generated' } : bill
-        ));
-        toast({
-            title: 'Shipping Bill Generated',
-            description: `${billNumber} has been generated successfully`,
-        });
+    const handleUpdateBillStatus = async (
+        bill: ShippingBill,
+        status: ShippingBill['status'],
+    ) => {
+        if (!bill.id || !selectedProject) {
+            toast({
+                title: 'Cannot Update',
+                description: 'This bill is missing an identifier and cannot be persisted.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        try {
+            setUpdating(true);
+            await PackagingService.updateShippingBill(bill.id, { status });
+            toast({
+                title: status === 'Printed' ? 'Printing Shipping Bill' : 'Shipping Bill Generated',
+                description:
+                    status === 'Printed'
+                        ? `${bill.billNumber} is being sent to printer`
+                        : `${bill.billNumber} has been generated successfully`,
+            });
+            await loadBills(selectedProject.id, bill.billNumber);
+        } catch (error) {
+            console.error('Failed to update shipping bill:', error);
+            toast({
+                title: 'Update Failed',
+                description: error instanceof Error ? error.message : 'Could not update the shipping bill.',
+                variant: 'destructive',
+            });
+        } finally {
+            setUpdating(false);
+        }
     };
 
-    const handlePrintBill = (billNumber: string) => {
-        setBills(bills.map(bill =>
-            bill.billNumber === billNumber ? { ...bill, status: 'Printed' } : bill
-        ));
-        toast({
-            title: 'Printing Shipping Bill',
-            description: `${billNumber} is being sent to printer`,
-        });
-    };
+    const handleGenerateBill = (bill: ShippingBill) => handleUpdateBillStatus(bill, 'Generated');
+    const handlePrintBill = (bill: ShippingBill) => handleUpdateBillStatus(bill, 'Printed');
 
     const filteredProjects = projects.filter(p =>
         p.name.toLowerCase().includes(projectSearch.toLowerCase()) ||
@@ -342,19 +340,21 @@ export default function ShippingBillPage() {
                                         {selectedBill.status === 'Draft' && (
                                             <Button
                                                 size="sm"
-                                                onClick={() => handleGenerateBill(selectedBill.billNumber)}
+                                                disabled={updating}
+                                                onClick={() => handleGenerateBill(selectedBill)}
                                             >
                                                 <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                Generate
+                                                {updating ? 'Generating…' : 'Generate'}
                                             </Button>
                                         )}
                                         {selectedBill.status === 'Generated' && (
                                             <Button
                                                 size="sm"
-                                                onClick={() => handlePrintBill(selectedBill.billNumber)}
+                                                disabled={updating}
+                                                onClick={() => handlePrintBill(selectedBill)}
                                             >
                                                 <Printer className="h-4 w-4 mr-1" />
-                                                Print
+                                                {updating ? 'Printing…' : 'Print'}
                                             </Button>
                                         )}
                                         {selectedBill.status === 'Printed' && (
