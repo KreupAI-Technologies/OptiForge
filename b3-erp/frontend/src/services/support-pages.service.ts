@@ -63,6 +63,30 @@ export const supportPagesService = {
   async getAutomationRules(): Promise<any[]> { return asArray(await request('/support/automation/rules')); },
   async getScheduledChanges(): Promise<any[]> { return asArray(await request('/support/changes/scheduled')); },
   async getFaqs(): Promise<any[]> { return asArray(await request('/support/knowledge/faqs')); },
+  async createFaq(data: Record<string, any>): Promise<any> {
+    return request('/support/knowledge/faqs', {
+      method: 'POST',
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
+    });
+  },
+  async updateFaq(id: string, data: Record<string, any>): Promise<any> {
+    return request(`/support/knowledge/faqs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteFaq(id: string): Promise<any> {
+    return request(`/support/knowledge/faqs/${id}`, { method: 'DELETE' });
+  },
+  async rateFaq(id: string, helpful: boolean, current: { helpful: number; notHelpful: number }): Promise<any> {
+    const body = helpful
+      ? { helpful: (current.helpful ?? 0) + 1 }
+      : { notHelpful: (current.notHelpful ?? 0) + 1 };
+    return request(`/support/knowledge/faqs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  },
   async getSlaSettings(): Promise<any> { return await request('/support/sla/settings'); },
   async getTeamAgents(): Promise<any[]> { return asArray(await request('/support/team/agents')); },
   async getOmnichannel(): Promise<any[]> { return asArray(await request('/support/omnichannel')); },

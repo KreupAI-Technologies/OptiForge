@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { cpqAnalyticsService, CPQDashboardSummary } from '@/services/cpq/cpq-analytics.service';
+import { cpqPricingService, PricingRule as ApiPricingRule } from '@/services/cpq/cpq-pricing.service';
 import { PricingRulesEngine, PricingRule } from '@/components/cpq/PricingRulesEngine';
 import { CreateRuleModal, EditRuleModal, TestRuleModal } from '@/components/cpq/PricingRuleModals';
 import { PricingVersionControl, PricingVersion } from '@/components/cpq/PricingVersionControl';
@@ -31,48 +32,10 @@ import { MarginAnalysis, QuoteMarginAnalysis, MarginGuardrail } from '@/componen
 import { GuardrailModal, ViewQuoteDetailModal, OptimizeMarginModal } from '@/components/cpq/MarginAnalysisModals';
 import { exportToCsv } from '@/lib/export';
 
-// Mock Data
-const mockRules: PricingRule[] = [
-  {
-    id: '1',
-    name: 'Volume Discount - Enterprise',
-    description: 'Automatic 15% discount for orders over $50,000',
-    type: 'volume',
-    priority: 10,
-    status: 'active',
-    conditions: [
-      { id: 'c1', field: 'deal_value', operator: 'greater_than', value: 50000 },
-    ],
-    actions: [
-      { type: 'add_discount', value: 15, applyTo: 'total' },
-    ],
-    validFrom: '2025-01-01',
-    createdBy: 'Admin',
-    createdAt: '2025-01-15',
-    lastModified: '2025-01-20',
-    executionCount: 47,
-  },
-  {
-    id: '2',
-    name: 'Bundle Pricing - Starter Pack',
-    description: '20% discount when buying all starter products together',
-    type: 'bundle',
-    priority: 8,
-    status: 'active',
-    conditions: [
-      { id: 'c2', field: 'product_category', operator: 'equals', value: 'starter_pack' },
-      { id: 'c3', field: 'quantity', operator: 'greater_than', value: 3, logicOperator: 'AND' },
-    ],
-    actions: [
-      { type: 'add_discount', value: 20, applyTo: 'line_items' },
-    ],
-    createdBy: 'Sales Manager',
-    createdAt: '2025-01-10',
-    lastModified: '2025-01-18',
-    executionCount: 23,
-  },
-];
-
+// Mock Data — the tabs below (version control, guided-selling wizard, approval
+// matrix, document generation, e-signature, margin analysis) have no backend
+// entities yet; their sample data is retained until those endpoints exist. The
+// pricing-rules tab is wired to the live /cpq/pricing/rules API.
 const mockVersions: PricingVersion[] = [
   {
     id: '1',
@@ -351,6 +314,95 @@ const mockGuardrails: MarginGuardrail[] = [
   },
 ];
 
+// ---- Pricing-rule mapping between the backend PricingRule entity and the
+// PricingRulesEngine component model ----
+
+const ruleTypeToApi = (t: PricingRule['type']): ApiPricingRule['ruleType'] => {
+  switch (t) {
+    case 'discount':
+      return 'discount';
+    case 'markup':
+      return 'markup';
+    case 'volume':
+      return 'volume';
+    default:
+      return 'promotional';
+  }
+};
+
+const apiToRuleType = (t: ApiPricingRule['ruleType']): PricingRule['type'] => {
+  switch (t) {
+    case 'discount':
+      return 'discount';
+    case 'markup':
+      return 'markup';
+    case 'volume':
+      return 'volume';
+    default:
+      return 'bundle';
+  }
+};
+
+const apiRuleToComponent = (r: ApiPricingRule): PricingRule => ({
+  id: r.id,
+  name: r.ruleName,
+  description: r.formulaExpression,
+  type: apiToRuleType(r.ruleType),
+  priority: Number(r.priority) || 1,
+  status: r.isActive ? 'active' : 'inactive',
+  conditions: (r.conditions ?? []).map((c, i) => ({
+    id: `c${i}`,
+    field: c.field,
+    operator: (c.operator === 'not_equals' || c.operator === 'not_in'
+      ? 'equals'
+      : c.operator) as PricingRule['conditions'][number]['operator'],
+    value: c.value,
+  })),
+  actions: [
+    {
+      type:
+        r.adjustmentType === 'fixed'
+          ? 'add_amount'
+          : r.adjustmentType === 'formula'
+            ? 'multiply'
+            : 'add_discount',
+      value: Number(r.adjustmentValue) || 0,
+      applyTo: 'total',
+    },
+  ],
+  validFrom: r.validFrom,
+  validTo: r.validTo,
+  createdBy: '',
+  createdAt: r.createdAt,
+  lastModified: r.updatedAt,
+});
+
+const componentRuleToApiPayload = (r: Partial<PricingRule>): Partial<ApiPricingRule> => {
+  const action = r.actions?.[0];
+  const adjustmentType: ApiPricingRule['adjustmentType'] =
+    action?.type === 'add_amount' || action?.type === 'set_price'
+      ? 'fixed'
+      : action?.type === 'multiply'
+        ? 'formula'
+        : 'percentage';
+  return {
+    ruleName: r.name ?? '',
+    ruleType: ruleTypeToApi(r.type ?? 'discount'),
+    priority: r.priority ?? 1,
+    conditions: (r.conditions ?? []).map((c) => ({
+      field: c.field,
+      operator: c.operator as ApiPricingRule['conditions'][number]['operator'],
+      value: c.value,
+    })),
+    adjustmentType,
+    adjustmentValue: Number(action?.value) || 0,
+    formulaExpression: r.description,
+    validFrom: r.validFrom,
+    validTo: r.validTo,
+    isActive: r.status === 'active',
+  };
+};
+
 export default function CPQAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<string>('pricing-rules');
 
@@ -379,12 +431,33 @@ export default function CPQAdvancedFeaturesPage() {
     };
   }, []);
 
-  // Pricing Rules State
-  const [rules, setRules] = useState<PricingRule[]>(mockRules);
+  // Pricing Rules State (loaded from /cpq/pricing/rules)
+  const [rules, setRules] = useState<PricingRule[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [rulesError, setRulesError] = useState<string | null>(null);
+  const [rulesActionError, setRulesActionError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [selectedRule, setSelectedRule] = useState<PricingRule | null>(null);
+
+  const loadRules = async () => {
+    setRulesLoading(true);
+    setRulesError(null);
+    try {
+      const apiRules = await cpqPricingService.findAllRules();
+      setRules((apiRules ?? []).map(apiRuleToComponent));
+    } catch (err) {
+      setRulesError(err instanceof Error ? err.message : 'Failed to load pricing rules');
+      setRules([]);
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRules();
+  }, []);
 
   // Version Control State
   const [versions, setVersions] = useState<PricingVersion[]>(mockVersions);
@@ -441,24 +514,15 @@ export default function CPQAdvancedFeaturesPage() {
     setIsCreateModalOpen(true);
   };
 
-  const handleSaveNewRule = (newRule: Partial<PricingRule>) => {
-    const ruleWithId: PricingRule = {
-      id: `rule-${Date.now()}`,
-      name: newRule.name || '',
-      description: newRule.description,
-      type: newRule.type || 'discount',
-      priority: newRule.priority || 1,
-      status: newRule.status || 'draft',
-      conditions: newRule.conditions || [],
-      actions: newRule.actions || [],
-      validFrom: newRule.validFrom,
-      validTo: newRule.validTo,
-      createdBy: newRule.createdBy || 'Current User',
-      createdAt: newRule.createdAt || new Date().toISOString(),
-      lastModified: newRule.lastModified || new Date().toISOString(),
-      executionCount: 0
-    };
-    setRules([...rules, ruleWithId]);
+  const handleSaveNewRule = async (newRule: Partial<PricingRule>) => {
+    setRulesActionError(null);
+    try {
+      await cpqPricingService.createRule(componentRuleToApiPayload(newRule));
+      setIsCreateModalOpen(false);
+      await loadRules();
+    } catch (err) {
+      setRulesActionError(err instanceof Error ? err.message : 'Failed to create pricing rule');
+    }
   };
 
   const handleEditRule = (ruleId: string) => {
@@ -469,45 +533,57 @@ export default function CPQAdvancedFeaturesPage() {
     }
   };
 
-  const handleSaveEditedRule = (updatedRule: PricingRule) => {
-    setRules(rules.map(r => r.id === updatedRule.id ? updatedRule : r));
-  };
-
-  const handleDeleteRule = (ruleId: string) => {
-    const rule = rules.find(r => r.id === ruleId);
-    if (rule && confirm(`Are you sure you want to delete the rule "${rule.name}"?`)) {
-      setRules(rules.filter(r => r.id !== ruleId));
+  const handleSaveEditedRule = async (updatedRule: PricingRule) => {
+    setRulesActionError(null);
+    try {
+      await cpqPricingService.updateRule(updatedRule.id, componentRuleToApiPayload(updatedRule));
+      setIsEditModalOpen(false);
+      setSelectedRule(null);
+      await loadRules();
+    } catch (err) {
+      setRulesActionError(err instanceof Error ? err.message : 'Failed to update pricing rule');
     }
   };
 
-  const handleDuplicateRule = (ruleId: string) => {
+  const handleDeleteRule = async (ruleId: string) => {
     const rule = rules.find(r => r.id === ruleId);
-    if (rule) {
-      const duplicatedRule: PricingRule = {
-        ...rule,
-        id: `rule-${Date.now()}`,
-        name: `${rule.name} (Copy)`,
-        status: 'draft',
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        executionCount: 0
-      };
-      setRules([...rules, duplicatedRule]);
+    if (!rule) return;
+    if (!confirm(`Are you sure you want to delete the rule "${rule.name}"?`)) return;
+    setRulesActionError(null);
+    try {
+      await cpqPricingService.deleteRule(ruleId);
+      await loadRules();
+    } catch (err) {
+      setRulesActionError(err instanceof Error ? err.message : 'Failed to delete pricing rule');
     }
   };
 
-  const handleToggleStatus = (ruleId: string) => {
-    setRules(rules.map(r => {
-      if (r.id === ruleId) {
-        const newStatus = r.status === 'active' ? 'inactive' : 'active';
-        return {
-          ...r,
-          status: newStatus,
-          lastModified: new Date().toISOString()
-        };
-      }
-      return r;
-    }));
+  const handleDuplicateRule = async (ruleId: string) => {
+    const rule = rules.find(r => r.id === ruleId);
+    if (!rule) return;
+    setRulesActionError(null);
+    try {
+      await cpqPricingService.createRule({
+        ...componentRuleToApiPayload(rule),
+        ruleName: `${rule.name} (Copy)`,
+        isActive: false,
+      });
+      await loadRules();
+    } catch (err) {
+      setRulesActionError(err instanceof Error ? err.message : 'Failed to duplicate pricing rule');
+    }
+  };
+
+  const handleToggleStatus = async (ruleId: string) => {
+    const rule = rules.find(r => r.id === ruleId);
+    if (!rule) return;
+    setRulesActionError(null);
+    try {
+      await cpqPricingService.updateRule(ruleId, { isActive: rule.status !== 'active' });
+      await loadRules();
+    } catch (err) {
+      setRulesActionError(err instanceof Error ? err.message : 'Failed to update rule status');
+    }
   };
 
   const handleTestRule = (ruleId: string) => {
@@ -1319,6 +1395,22 @@ export default function CPQAdvancedFeaturesPage() {
       <div>
         {activeTab === 'pricing-rules' && (
           <>
+            {rulesLoading && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading pricing rules…
+              </div>
+            )}
+            {rulesError && !rulesLoading && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {rulesError}
+              </div>
+            )}
+            {rulesActionError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {rulesActionError}
+              </div>
+            )}
             <PricingRulesEngine
               rules={rules}
               onCreateRule={handleCreateRule}

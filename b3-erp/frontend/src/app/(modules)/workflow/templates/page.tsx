@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Eye, Edit, Trash2, Copy, Play, Pause,
@@ -46,67 +46,66 @@ export default function WorkflowTemplatesPage() {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<
+    { kind: 'success' | 'error'; message: string } | null
+  >(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const loadTemplates = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Service returns a rich workflow-template shape; map it defensively to
+      // this page's lightweight WorkflowTemplate model.
+      const raw = (await WorkflowService.getAllWorkflowTemplates()) as any[];
+      const categoryMap: Record<string, WorkflowTemplate['category']> = {
+        approval: 'approval',
+        automation: 'automation',
+        notification: 'notification',
+        custom: 'custom',
+      };
+      const statusMap: Record<string, WorkflowTemplate['status']> = {
+        active: 'active',
+        draft: 'draft',
+        inactive: 'archived',
+        archived: 'archived',
+      };
+      const mapped: WorkflowTemplate[] = (raw ?? []).map((t) => {
+        const rawCategory = String(t.category ?? '').toLowerCase();
+        const rawStatus = String(t.status ?? '').toLowerCase();
+        return {
+          id: String(t.id ?? t.code ?? ''),
+          name: t.name ?? '',
+          description: t.description ?? '',
+          category: categoryMap[rawCategory] ?? 'custom',
+          status: statusMap[rawStatus] ?? 'draft',
+          version: String(t.version ?? '1'),
+          steps: Array.isArray(t.steps) ? t.steps.length : Number(t.steps ?? 0),
+          usageCount: Number(t.instanceCount ?? t.usageCount ?? 0),
+          avgDuration: t.avgDuration ?? 'N/A',
+          successRate: Number(t.successRate ?? 0),
+          createdBy: t.createdBy ?? 'Unknown',
+          createdAt: t.createdAt
+            ? new Date(t.createdAt).toISOString().split('T')[0]
+            : '',
+          lastModified: t.updatedAt
+            ? new Date(t.updatedAt).toISOString().split('T')[0]
+            : (t.lastModified ?? ''),
+          tags: Array.isArray(t.tags) ? t.tags : t.category ? [String(t.category)] : [],
+        };
+      });
+      setTemplates(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load workflow templates');
+      setTemplates([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        // Service returns a rich workflow-template shape; map it defensively to
-        // this page's lightweight WorkflowTemplate model.
-        const raw = (await WorkflowService.getAllWorkflowTemplates()) as any[];
-        const categoryMap: Record<string, WorkflowTemplate['category']> = {
-          approval: 'approval',
-          automation: 'automation',
-          notification: 'notification',
-          custom: 'custom',
-        };
-        const statusMap: Record<string, WorkflowTemplate['status']> = {
-          active: 'active',
-          draft: 'draft',
-          inactive: 'archived',
-          archived: 'archived',
-        };
-        const mapped: WorkflowTemplate[] = (raw ?? []).map((t) => {
-          const rawCategory = String(t.category ?? '').toLowerCase();
-          const rawStatus = String(t.status ?? '').toLowerCase();
-          return {
-            id: String(t.id ?? t.code ?? ''),
-            name: t.name ?? '',
-            description: t.description ?? '',
-            category: categoryMap[rawCategory] ?? 'custom',
-            status: statusMap[rawStatus] ?? 'draft',
-            version: String(t.version ?? '1'),
-            steps: Array.isArray(t.steps) ? t.steps.length : Number(t.steps ?? 0),
-            usageCount: Number(t.instanceCount ?? t.usageCount ?? 0),
-            avgDuration: t.avgDuration ?? 'N/A',
-            successRate: Number(t.successRate ?? 0),
-            createdBy: t.createdBy ?? 'Unknown',
-            createdAt: t.createdAt
-              ? new Date(t.createdAt).toISOString().split('T')[0]
-              : '',
-            lastModified: t.updatedAt
-              ? new Date(t.updatedAt).toISOString().split('T')[0]
-              : (t.lastModified ?? ''),
-            tags: Array.isArray(t.tags) ? t.tags : t.category ? [String(t.category)] : [],
-          };
-        });
-        if (!cancelled) setTemplates(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load workflow templates');
-          setTemplates([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadTemplates();
+  }, [loadTemplates]);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -138,57 +137,112 @@ export default function WorkflowTemplatesPage() {
     avgSuccessRate: (templates.reduce((sum, t) => sum + t.successRate, 0) / templates.length).toFixed(1),
   };
 
-  const handleDeleteTemplate = (id: string) => {
-    if (confirm('Are you sure you want to delete this workflow template?')) {
-      setTemplates(templates.filter((t) => t.id !== id));
+  const handleDeleteTemplate = async (template: WorkflowTemplate) => {
+    if (busyId) return;
+    if (!confirm('Are you sure you want to delete this workflow template?')) return;
+    setBusyId(template.id);
+    setActionFeedback(null);
+    try {
+      await WorkflowService.deleteTemplate(template.id);
+      await loadTemplates();
+      setActionFeedback({ kind: 'success', message: `"${template.name}" deleted.` });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message: err instanceof Error ? `Failed to delete template: ${err.message}` : 'Failed to delete template.',
+      });
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const handleDuplicateTemplate = (template: WorkflowTemplate) => {
-    const newTemplate = {
-      ...template,
-      id: `WT${String(templates.length + 1).padStart(3, '0')}`,
-      name: `${template.name} (Copy)`,
-      status: 'draft' as const,
-      version: '1.0',
-      usageCount: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-      lastModified: new Date().toISOString().split('T')[0],
-    };
-    setTemplates([...templates, newTemplate]);
+  // Duplicate by reading the full source template (so its steps come along) and
+  // creating a new draft copy via the create endpoint, then re-fetching.
+  const handleDuplicateTemplate = async (template: WorkflowTemplate) => {
+    if (busyId) return;
+    setBusyId(template.id);
+    setActionFeedback(null);
+    try {
+      const source = (await WorkflowService.getTemplateById(template.id)) as any;
+      await WorkflowService.createTemplate({
+        name: `${template.name} (Copy)`,
+        description: source?.description ?? template.description,
+        category: source?.category ?? template.category,
+        steps: Array.isArray(source?.steps) ? source.steps : [],
+        status: 'draft',
+      } as any);
+      await loadTemplates();
+      setActionFeedback({ kind: 'success', message: `"${template.name}" duplicated.` });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message: err instanceof Error ? `Failed to duplicate template: ${err.message}` : 'Failed to duplicate template.',
+      });
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const handleActivateTemplate = (id: string) => {
-    setTemplates(templates.map(t =>
-      t.id === id ? { ...t, status: 'active' as const } : t
-    ));
+  const handleActivateTemplate = async (template: WorkflowTemplate) => {
+    if (busyId) return;
+    setBusyId(template.id);
+    setActionFeedback(null);
+    try {
+      await WorkflowService.updateTemplate(template.id, { status: 'active' } as any);
+      await loadTemplates();
+      setActionFeedback({ kind: 'success', message: `"${template.name}" activated.` });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message: err instanceof Error ? `Failed to activate template: ${err.message}` : 'Failed to activate template.',
+      });
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = async (action: string) => {
     if (selectedTemplates.length === 0) {
-      alert('Please select at least one template');
+      setActionFeedback({ kind: 'error', message: 'Please select at least one template.' });
       return;
     }
 
-    switch (action) {
-      case 'delete':
-        if (confirm(`Are you sure you want to delete ${selectedTemplates.length} template(s)?`)) {
-          setTemplates(templates.filter(t => !selectedTemplates.includes(t.id)));
-          setSelectedTemplates([]);
-        }
-        break;
-      case 'archive':
-        setTemplates(templates.map(t =>
-          selectedTemplates.includes(t.id) ? { ...t, status: 'archived' as const } : t
-        ));
-        setSelectedTemplates([]);
-        break;
-      case 'export':
-        exportToCsv(
-          'workflow-templates',
-          filteredTemplates.filter((t) => selectedTemplates.includes(t.id)) as unknown as Record<string, unknown>[],
+    if (action === 'export') {
+      exportToCsv(
+        'workflow-templates',
+        filteredTemplates.filter((t) => selectedTemplates.includes(t.id)) as unknown as Record<string, unknown>[],
+      );
+      return;
+    }
+
+    if (action === 'delete' && !confirm(`Are you sure you want to delete ${selectedTemplates.length} template(s)?`)) {
+      return;
+    }
+
+    setActionFeedback(null);
+    try {
+      const ids = [...selectedTemplates];
+      if (action === 'delete') {
+        await Promise.all(ids.map((id) => WorkflowService.deleteTemplate(id)));
+      } else if (action === 'archive') {
+        await Promise.all(
+          ids.map((id) => WorkflowService.updateTemplate(id, { status: 'archived' } as any)),
         );
-        break;
+      }
+      setSelectedTemplates([]);
+      await loadTemplates();
+      setActionFeedback({
+        kind: 'success',
+        message: `${ids.length} template(s) ${action === 'delete' ? 'deleted' : 'archived'}.`,
+      });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message:
+          err instanceof Error
+            ? `Bulk ${action} failed: ${err.message}`
+            : `Bulk ${action} failed.`,
+      });
     }
   };
 
@@ -230,7 +284,8 @@ export default function WorkflowTemplatesPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => alert('Import template functionality')}
+              onClick={() => router.push('/workflow/templates/create')}
+              title="Build a new template from scratch"
               className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 flex items-center gap-2"
             >
               <Upload className="h-4 w-4" />
@@ -264,6 +319,31 @@ export default function WorkflowTemplatesPage() {
         {!isLoading && !loadError && templates.length === 0 && (
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
             No workflow templates found.
+          </div>
+        )}
+        {actionFeedback && (
+          <div
+            className={`flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm ${
+              actionFeedback.kind === 'success'
+                ? 'border-green-200 bg-green-50 text-green-700'
+                : 'border-red-200 bg-red-50 text-red-700'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              {actionFeedback.kind === 'success' ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              {actionFeedback.message}
+            </span>
+            <button
+              onClick={() => setActionFeedback(null)}
+              className="opacity-60 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              <XCircle className="h-4 w-4" />
+            </button>
           </div>
         )}
         {/* Stats Cards */}
@@ -520,23 +600,26 @@ export default function WorkflowTemplatesPage() {
                 </button>
                 <button
                   onClick={() => handleDuplicateTemplate(template)}
-                  className="flex items-center justify-center px-3 py-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                  disabled={busyId === template.id}
+                  className="flex items-center justify-center px-3 py-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 
                 >
                   <Copy className="h-4 w-4" />
                 </button>
                 {template.status === 'draft' && (
                   <button
-                    onClick={() => handleActivateTemplate(template.id)}
-                    className="flex items-center justify-center px-3 py-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                    onClick={() => handleActivateTemplate(template)}
+                    disabled={busyId === template.id}
+                    className="flex items-center justify-center px-3 py-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 
                   >
                     <Play className="h-4 w-4" />
                   </button>
                 )}
                 <button
-                  onClick={() => handleDeleteTemplate(template.id)}
-                  className="flex items-center justify-center px-3 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                  onClick={() => handleDeleteTemplate(template)}
+                  disabled={busyId === template.id}
+                  className="flex items-center justify-center px-3 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 
                 >
                   <Trash2 className="h-4 w-4" />

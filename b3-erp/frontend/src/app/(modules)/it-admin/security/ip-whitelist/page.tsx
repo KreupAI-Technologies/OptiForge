@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Shield, Plus, Trash2, CheckCircle2, XCircle, Globe, MapPin, Building, User, Clock, AlertTriangle, Download, Upload, Save } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Shield, Plus, Trash2, CheckCircle2, XCircle, Globe, MapPin, Building, User, Clock, Download, Save } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
-import { AdminManagementService } from '@/services/admin-management.service';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface IPWhitelistEntry {
   id: string;
@@ -41,40 +41,48 @@ const IPWhitelistPage = () => {
   const [entries, setEntries] = useState<IPWhitelistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Add-entry form state
+  const [formIp, setFormIp] = useState('');
+  const [formType, setFormType] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formCategory, setFormCategory] = useState('');
+  const [formExpiresAt, setFormExpiresAt] = useState('');
+
+  const loadEntries = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await ItAdminService.getIpWhitelist();
+      setEntries(
+        (Array.isArray(data) ? data : []).map((e) => ({
+          id: String(e.id),
+          ipAddress: e.ipAddress ?? '',
+          type: e.type ?? 'Single',
+          description: e.description ?? '',
+          category: e.category ?? '',
+          addedBy: e.addedBy ?? '',
+          addedDate: e.addedDate ?? e.createdAt ?? '',
+          lastAccess: e.lastAccess ?? '',
+          accessCount: e.accessCount ?? 0,
+          status: e.status ?? 'Active',
+          expiresAt: e.expiresAt,
+        })),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load IP whitelist');
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await AdminManagementService.getIPWhitelist();
-        if (!mounted) return;
-        setEntries(
-          (Array.isArray(data) ? data : []).map((e: any) => ({
-            id: String(e.id),
-            ipAddress: e.ipAddress ?? '',
-            type: e.type ?? 'Single',
-            description: e.description ?? '',
-            category: e.category ?? '',
-            addedBy: e.addedBy ?? '',
-            addedDate: e.addedDate ?? '',
-            lastAccess: e.lastAccess ?? '',
-            accessCount: e.accessCount ?? 0,
-            status: e.status ?? 'Active',
-            expiresAt: e.expiresAt,
-          })),
-        );
-      } catch (err) {
-        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load IP whitelist');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    loadEntries();
+  }, [loadEntries]);
 
   const [accessLogs] = useState<IPAccessLog[]>([
     {
@@ -223,28 +231,54 @@ const IPWhitelistPage = () => {
   };
 
   const handleAddEntry = () => {
+    setFormIp('');
+    setFormType('');
+    setFormDescription('');
+    setFormCategory('');
+    setFormExpiresAt('');
     setShowAddModal(true);
   };
 
-  const handleDeleteEntry = (id: string) => {
-    if (confirm('Are you sure you want to remove this IP from the whitelist?')) {
-      setEntries(entries.filter(e => e.id !== id));
-      alert('IP entry removed successfully!');
+  const handleDeleteEntry = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this IP from the whitelist?')) return;
+    setDeletingId(id);
+    setBanner(null);
+    try {
+      await ItAdminService.deleteIpWhitelistEntry(id);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      setBanner({ type: 'success', text: 'IP entry removed successfully.' });
+    } catch (err) {
+      setBanner({ type: 'error', text: err instanceof Error ? err.message : 'Failed to remove IP entry' });
+    } finally {
+      setDeletingId(null);
     }
-  };
-
-  const handleImport = () => {
-    alert('Import IP whitelist from CSV file...');
   };
 
   const handleExport = () => {
     exportToCsv('ip-whitelist', filteredEntries as unknown as Record<string, unknown>[]);
   };
 
-  const handleSaveEntry = (e: React.FormEvent) => {
+  const handleSaveEntry = async (e: React.FormEvent) => {
     e.preventDefault();
-    setShowAddModal(false);
-    alert('IP entry added successfully!');
+    setSubmitting(true);
+    setBanner(null);
+    try {
+      await ItAdminService.createIpWhitelistEntry({
+        ipAddress: formIp,
+        type: formType || undefined,
+        description: formDescription || undefined,
+        category: formCategory || undefined,
+        expiresAt: formExpiresAt || undefined,
+        status: 'Active',
+      });
+      setShowAddModal(false);
+      setBanner({ type: 'success', text: 'IP entry added successfully.' });
+      await loadEntries();
+    } catch (err) {
+      setBanner({ type: 'error', text: err instanceof Error ? err.message : 'Failed to add IP entry' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -254,6 +288,17 @@ const IPWhitelistPage = () => {
       )}
       {error && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
+      {banner && (
+        <div
+          className={`mb-3 rounded-lg border px-4 py-2 text-sm ${
+            banner.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {banner.text}
+        </div>
       )}
       {/* Header */}
       <div className="mb-3">
@@ -268,13 +313,6 @@ const IPWhitelistPage = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={handleImport}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              <Upload className="w-4 h-4" />
-              Import
-            </button>
             <button
               onClick={handleExport}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -460,8 +498,9 @@ const IPWhitelistPage = () => {
                       <td className="py-3 px-4 text-right">
                         <button
                           onClick={() => handleDeleteEntry(entry.id)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                         
+                          disabled={deletingId === entry.id}
+                          title="Remove"
+                          className="text-red-600 hover:text-red-700 p-1 disabled:opacity-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -557,6 +596,8 @@ const IPWhitelistPage = () => {
                   <input
                     type="text"
                     required
+                    value={formIp}
+                    onChange={(e) => setFormIp(e.target.value)}
                     placeholder="e.g., 192.168.1.100 or 192.168.1.0/24"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
@@ -571,6 +612,8 @@ const IPWhitelistPage = () => {
                   </label>
                   <select
                     required
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="">Select type</option>
@@ -586,6 +629,8 @@ const IPWhitelistPage = () => {
                   <input
                     type="text"
                     required
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
                     placeholder="e.g., Corporate Office Network"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
@@ -597,6 +642,8 @@ const IPWhitelistPage = () => {
                   </label>
                   <select
                     required
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="">Select category</option>
@@ -615,6 +662,8 @@ const IPWhitelistPage = () => {
                   </label>
                   <input
                     type="date"
+                    value={formExpiresAt}
+                    onChange={(e) => setFormExpiresAt(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -626,10 +675,11 @@ const IPWhitelistPage = () => {
               <div className="flex gap-3 mt-6">
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60"
                 >
                   <Save className="w-4 h-4" />
-                  Add Entry
+                  {submitting ? 'Adding...' : 'Add Entry'}
                 </button>
                 <button
                   type="button"

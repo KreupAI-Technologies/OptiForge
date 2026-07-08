@@ -59,23 +59,39 @@ export default function CreateWorkflowTemplatePage() {
     };
 
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (saving) return;
+        if (!formData.name.trim()) {
+            setError('Template name is required.');
+            return;
+        }
+        if (steps.length === 0) {
+            setError('Add at least one workflow step.');
+            return;
+        }
         setSaving(true);
+        setError(null);
         try {
             await WorkflowService.createTemplate({
                 name: formData.name,
                 description: formData.description,
                 category: formData.category,
+                tags: formData.tags
+                    .split(',')
+                    .map((t) => t.trim())
+                    .filter(Boolean),
                 steps: steps.map((s, i) => ({ ...s, order: i + 1 })),
-            });
-            alert('Workflow template created successfully!');
+            } as any);
             router.push('/workflow/templates');
         } catch (err) {
-            console.error('Error creating workflow template:', err);
-            alert('Failed to create workflow template');
+            setError(
+                err instanceof Error
+                    ? `Failed to create workflow template: ${err.message}`
+                    : 'Failed to create workflow template.',
+            );
         } finally {
             setSaving(false);
         }
@@ -108,16 +124,18 @@ export default function CreateWorkflowTemplatePage() {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => router.back()}
-                            className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50"
+                            disabled={saving}
+                            className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSubmit}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest"
+                            disabled={saving}
+                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Save className="w-4 h-4" />
-                            Save Template
+                            {saving ? 'Saving…' : 'Save Template'}
                         </button>
                     </div>
                 </div>
@@ -126,6 +144,12 @@ export default function CreateWorkflowTemplatePage() {
             <div className="flex-1 overflow-hidden flex">
                 {/* Left Side: Configuration */}
                 <div className="w-1/3 border-r border-gray-200 bg-white overflow-y-auto p-3 space-y-3">
+                    {error && (
+                        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <AlertCircle className="h-4 w-4" />
+                            {error}
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
                             <FileText className="w-4 h-4 text-orange-600" /> Basic Details

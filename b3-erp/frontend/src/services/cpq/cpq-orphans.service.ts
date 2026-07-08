@@ -146,8 +146,27 @@ export interface CPQCrossSellRule {
   updatedAt: string;
 }
 
+async function postJson<T>(path: string, body: unknown): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: companyHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+    return (await res.json()) as T;
+  } catch (error) {
+    console.error(`Error posting ${path}:`, error);
+    throw error instanceof Error ? error : new Error(`POST ${path} failed`);
+  }
+}
+
 export const cpqCrossSellService = {
   findAll: () => getJson<CPQCrossSellRule>('/cpq/cross-sell-rules'),
+  create: (data: Partial<CPQCrossSellRule>) =>
+    postJson<CPQCrossSellRule>('/cpq/cross-sell-rules', data),
+  remove: (id: string) => deleteJson(`/cpq/cross-sell-rules/${id}`),
 };
 
 // ==================== Recommendations (guided-selling/recommendations) ==
@@ -189,6 +208,9 @@ export const cpqRecommendationService = {
       q ? `/cpq/recommendations?${q}` : '/cpq/recommendations',
     );
   },
+  create: (data: Partial<CPQRecommendation>) =>
+    postJson<CPQRecommendation>('/cpq/recommendations', data),
+  remove: (id: string) => deleteJson(`/cpq/recommendations/${id}`),
 };
 
 // ==================== Code lists (settings/numbering) ===================

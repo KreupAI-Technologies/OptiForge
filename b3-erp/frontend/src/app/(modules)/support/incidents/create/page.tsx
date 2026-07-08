@@ -50,6 +50,8 @@ const CreateIncidentPage = () => {
 
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const services: AffectedService[] = [
     { id: '1', name: 'ERP Application', status: 'Operational' },
@@ -125,38 +127,58 @@ const CreateIncidentPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSaveDraft = () => {
+  const priorityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+    P0: 'critical',
+    P1: 'high',
+    P2: 'medium',
+    P3: 'low',
+  };
+  const impactMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+    Critical: 'critical',
+    High: 'high',
+    Medium: 'medium',
+    Low: 'low',
+  };
+
+  const handleSaveDraft = async () => {
+    if (savingDraft || submitting) return;
     if (!formData.title.trim()) {
       setErrors({ title: 'At least a title is required to save draft' });
       return;
     }
-    alert('Incident saved as draft');
-    router.push('/support/incidents/tracking');
+    setSavingDraft(true);
+    setErrors({});
+    try {
+      await ITILService.createIncident({
+        title: formData.title,
+        description: formData.description,
+        priority: priorityMap[formData.priority] ?? 'medium',
+        impact: impactMap[formData.severity] ?? 'medium',
+        urgency: impactMap[formData.severity] ?? 'medium',
+        category: formData.category,
+        status: 'pending',
+        reportedBy: formData.reportedBy || undefined,
+        companyId: COMPANY_ID,
+      });
+      router.push('/support/incidents/tracking');
+    } catch (err) {
+      setErrors({ submit: err instanceof Error ? err.message : 'Failed to save draft. Please try again.' });
+      setSavingDraft(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (submitting) return;
     if (!validateForm()) {
       return;
     }
 
-    const priorityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
-      P0: 'critical',
-      P1: 'high',
-      P2: 'medium',
-      P3: 'low',
-    };
-    const impactMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
-      Critical: 'critical',
-      High: 'high',
-      Medium: 'medium',
-      Low: 'low',
-    };
-
     const priority = priorityMap[formData.priority] ?? 'medium';
     const impact = impactMap[formData.severity] ?? 'medium';
 
+    setSubmitting(true);
     try {
       await ITILService.createIncident({
         title: formData.title,
@@ -171,8 +193,8 @@ const CreateIncidentPage = () => {
       });
       router.push('/support/incidents/tracking');
     } catch (err) {
-      setErrors({ submit: 'Failed to create incident. Please try again.' });
-      alert('Failed to create incident. Please try again.');
+      setErrors({ submit: err instanceof Error ? err.message : 'Failed to create incident. Please try again.' });
+      setSubmitting(false);
     }
   };
 
@@ -469,20 +491,25 @@ const CreateIncidentPage = () => {
             {/* Action Buttons */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
               <div className="space-y-3">
+                {errors.submit && (
+                  <p className="text-red-600 text-sm">{errors.submit}</p>
+                )}
                 <button
                   type="submit"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  disabled={submitting || savingDraft}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
-                  Create Incident
+                  {submitting ? 'Creating…' : 'Create Incident'}
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveDraft}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  disabled={submitting || savingDraft}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="w-4 h-4" />
-                  Save as Draft
+                  {savingDraft ? 'Saving…' : 'Save as Draft'}
                 </button>
               </div>
             </div>

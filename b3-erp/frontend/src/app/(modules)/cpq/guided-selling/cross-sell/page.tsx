@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -63,52 +63,50 @@ export default function CrossSellPage() {
   const [opportunities, setOpportunities] = useState<CrossSellOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const loadOpportunities = useCallback(async () => {
     setLoading(true);
     setError(null);
-    cpqCrossSellService
-      .findAll()
-      .then((rows) => {
-        if (!active) return;
-        const mapped: CrossSellOpportunity[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
-          id: String(r?.id ?? ''),
-          primaryProduct: {
-            code: r?.primaryProduct?.code ?? '',
-            name: r?.primaryProduct?.name ?? '',
-            category: r?.primaryProduct?.category ?? '',
-            value: Number(r?.primaryProduct?.value) || 0
-          },
-          suggestedProduct: {
-            code: r?.suggestedProduct?.code ?? '',
-            name: r?.suggestedProduct?.name ?? '',
-            category: r?.suggestedProduct?.category ?? '',
-            value: Number(r?.suggestedProduct?.value) || 0
-          },
-          relationship: (r?.relationship ?? 'complement') as any,
-          coOccurrenceRate: Number(r?.coOccurrenceRate) || 0,
-          avgAdditionalRevenue: Number(r?.avgAdditionalRevenue) || 0,
-          conversionRate: Number(r?.conversionRate) || 0,
-          customersCount: Number(r?.customersCount) || 0,
-          totalOpportunityValue: Number(r?.totalOpportunityValue) || 0,
-          recommendationStrength: (r?.recommendationStrength ?? 'medium') as any,
-          activeCampaigns: Number(r?.activeCampaigns) || 0,
-          lastUpdated: r?.updatedAt ? String(r.updatedAt).split('T')[0] : ''
-        }));
-        setOpportunities(mapped);
-      })
-      .catch((e: any) => {
-        if (!active) return;
-        setError(e?.message || 'Failed to load cross-sell opportunities');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+    try {
+      const rows = await cpqCrossSellService.findAll();
+      const mapped: CrossSellOpportunity[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+        id: String(r?.id ?? ''),
+        primaryProduct: {
+          code: r?.primaryProduct?.code ?? '',
+          name: r?.primaryProduct?.name ?? '',
+          category: r?.primaryProduct?.category ?? '',
+          value: Number(r?.primaryProduct?.value) || 0
+        },
+        suggestedProduct: {
+          code: r?.suggestedProduct?.code ?? '',
+          name: r?.suggestedProduct?.name ?? '',
+          category: r?.suggestedProduct?.category ?? '',
+          value: Number(r?.suggestedProduct?.value) || 0
+        },
+        relationship: (r?.relationship ?? 'complement') as any,
+        coOccurrenceRate: Number(r?.coOccurrenceRate) || 0,
+        avgAdditionalRevenue: Number(r?.avgAdditionalRevenue) || 0,
+        conversionRate: Number(r?.conversionRate) || 0,
+        customersCount: Number(r?.customersCount) || 0,
+        totalOpportunityValue: Number(r?.totalOpportunityValue) || 0,
+        recommendationStrength: (r?.recommendationStrength ?? 'medium') as any,
+        activeCampaigns: Number(r?.activeCampaigns) || 0,
+        lastUpdated: r?.updatedAt ? String(r.updatedAt).split('T')[0] : ''
+      }));
+      setOpportunities(mapped);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load cross-sell opportunities');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadOpportunities();
+  }, [loadOpportunities]);
 
   const relationships = ['all', 'complement', 'essential', 'upgrade', 'bundle'];
 
@@ -123,10 +121,35 @@ export default function CrossSellPage() {
     setIsCampaignOpen(true);
   };
 
-  const handleSaveCampaign = (campaign: any) => {
-    console.log('Campaign saved:', campaign);
-    setIsCampaignOpen(false);
-    setSelectedOpportunity(null);
+  const handleSaveCampaign = async (campaign: any) => {
+    setIsSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      // There is no dedicated "campaign" entity on the backend; a cross-sell
+      // campaign is persisted as a cross-sell rule row that captures the product
+      // pairing and marks one active campaign against it.
+      await cpqCrossSellService.create({
+        primaryProduct: selectedOpportunity?.primaryProduct ?? campaign?.primaryProduct ?? null,
+        suggestedProduct: selectedOpportunity?.suggestedProduct ?? campaign?.suggestedProduct ?? null,
+        relationship: (selectedOpportunity?.relationship ?? 'complement') as any,
+        recommendationStrength: (selectedOpportunity?.recommendationStrength ?? 'medium') as any,
+        conversionRate: Number(selectedOpportunity?.conversionRate) || 0,
+        avgAdditionalRevenue: Number(selectedOpportunity?.avgAdditionalRevenue) || 0,
+        totalOpportunityValue: Number(selectedOpportunity?.totalOpportunityValue) || 0,
+        customersCount: Number(selectedOpportunity?.customersCount) || 0,
+        coOccurrenceRate: Number(selectedOpportunity?.coOccurrenceRate) || 0,
+        activeCampaigns: (Number(selectedOpportunity?.activeCampaigns) || 0) + 1,
+      });
+      setActionSuccess(`Campaign "${campaign?.campaignName ?? 'New campaign'}" created.`);
+      setIsCampaignOpen(false);
+      setSelectedOpportunity(null);
+      await loadOpportunities();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to create campaign');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const filteredOpportunities = opportunities.filter(opp => {
@@ -208,6 +231,25 @@ export default function CrossSellPage() {
       {error && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
           {error}
+        </div>
+      )}
+
+      {/* Action Feedback */}
+      {actionSuccess && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
+          <CheckCircle2 className="h-4 w-4" />
+          {actionSuccess}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {actionError}
+        </div>
+      )}
+      {isSaving && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Saving campaign…
         </div>
       )}
 

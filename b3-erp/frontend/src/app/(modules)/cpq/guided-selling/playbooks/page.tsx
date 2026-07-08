@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -65,54 +65,61 @@ export default function GuidedSellingPlaybooksPage() {
   const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const loadPlaybooks = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Backend returns the SalesPlaybook ORM shape (name/description/industry/
+      // customerSegment/stages[]/usageCount/successRate/isActive); map it to this
+      // page's analytics-oriented Playbook model. Deal-size/cycle-time metrics are
+      // not part of the playbook record and default to 0.
+      const raw = (await cpqGuidedSellingService.findAllPlaybooks()) as any[];
+      const toDate = (v: unknown): string =>
+        v ? new Date(v as string).toISOString().split('T')[0] : '';
+      const mapped: Playbook[] = (raw ?? []).map((p) => ({
+        id: p.id ?? '',
+        playbookCode: p.playbookCode ?? p.id ?? '',
+        playbookName: p.name ?? '',
+        category: p.industry ?? '',
+        targetSegment: p.customerSegment ?? '',
+        productFocus: p.productFocus ?? '',
+        stages: Array.isArray(p.stages) ? p.stages.length : Number(p.stages ?? 0),
+        avgDealSize: Number(p.avgDealSize ?? 0),
+        winRate: Number(p.successRate ?? 0),
+        avgCycleTime: Number(p.avgCycleTime ?? 0),
+        usageCount: Number(p.usageCount ?? 0),
+        successfulDeals: Number(p.successfulDeals ?? 0),
+        status: p.isActive === false ? 'archived' : 'active',
+        createdBy: p.createdBy ?? '',
+        createdDate: toDate(p.createdAt),
+        lastUpdated: toDate(p.updatedAt ?? p.createdAt),
+        description: p.description ?? '',
+      }));
+      setPlaybooks(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load playbooks');
+      setPlaybooks([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        // Backend returns the SalesPlaybook ORM shape (name/description/industry/
-        // customerSegment/stages[]/usageCount/successRate/isActive); map it to this
-        // page's analytics-oriented Playbook model. Deal-size/cycle-time metrics are
-        // not part of the playbook record and default to 0.
-        const raw = (await cpqGuidedSellingService.findAllPlaybooks()) as any[];
-        const toDate = (v: unknown): string =>
-          v ? new Date(v as string).toISOString().split('T')[0] : '';
-        const mapped: Playbook[] = (raw ?? []).map((p) => ({
-          id: p.id ?? '',
-          playbookCode: p.playbookCode ?? p.id ?? '',
-          playbookName: p.name ?? '',
-          category: p.industry ?? '',
-          targetSegment: p.customerSegment ?? '',
-          productFocus: p.productFocus ?? '',
-          stages: Array.isArray(p.stages) ? p.stages.length : Number(p.stages ?? 0),
-          avgDealSize: Number(p.avgDealSize ?? 0),
-          winRate: Number(p.successRate ?? 0),
-          avgCycleTime: Number(p.avgCycleTime ?? 0),
-          usageCount: Number(p.usageCount ?? 0),
-          successfulDeals: Number(p.successfulDeals ?? 0),
-          status: p.isActive === false ? 'archived' : 'active',
-          createdBy: p.createdBy ?? '',
-          createdDate: toDate(p.createdAt),
-          lastUpdated: toDate(p.updatedAt ?? p.createdAt),
-          description: p.description ?? '',
-        }));
-        if (!cancelled) setPlaybooks(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load playbooks');
-          setPlaybooks([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadPlaybooks();
+  }, [loadPlaybooks]);
+
+  // Map this page's analytics-oriented Playbook to the backend SalesPlaybook shape.
+  const toPlaybookPayload = (p: Playbook) => ({
+    name: p.playbookName,
+    description: p.description,
+    industry: p.category,
+    customerSegment: p.targetSegment,
+    isActive: p.status !== 'archived',
+  });
 
   const categories = ['all', ...Array.from(new Set(playbooks.map(p => p.category)))];
 
@@ -132,32 +139,66 @@ export default function GuidedSellingPlaybooksPage() {
     setIsViewOpen(true);
   };
 
-  const handleUse = (playbook: Playbook) => {
+  const handleUse = async (playbook: Playbook) => {
     setSelectedPlaybook(playbook);
     setIsUseOpen(true);
-  };
-
-  const handleCopy = (playbook: Playbook) => {
-    const copy: Playbook = {
-      ...playbook,
-      id: `PB${Date.now()}`,
-      playbookCode: `${playbook.playbookCode}-COPY`,
-      playbookName: `${playbook.playbookName} (Copy)`,
-      status: 'draft',
-      createdDate: new Date().toISOString().split('T')[0],
-      lastUpdated: new Date().toISOString().split('T')[0]
-    };
-    setPlaybooks([copy, ...playbooks]);
-  };
-
-  const handleSave = (playbook: Playbook) => {
-    if (selectedPlaybook) {
-      setPlaybooks(playbooks.map(p => p.id === playbook.id ? playbook : p));
-    } else {
-      setPlaybooks([playbook, ...playbooks]);
+    // Record usage against the backend so usageCount stays in sync.
+    if (playbook.id) {
+      try {
+        await cpqGuidedSellingService.recordPlaybookUsage(playbook.id);
+        setPlaybooks((prev) =>
+          prev.map((p) =>
+            p.id === playbook.id ? { ...p, usageCount: p.usageCount + 1 } : p,
+          ),
+        );
+      } catch {
+        // Non-blocking: opening the playbook should not fail on usage tracking.
+      }
     }
-    setIsModalOpen(false);
-    setSelectedPlaybook(null);
+  };
+
+  const handleCopy = async (playbook: Playbook) => {
+    setIsSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await cpqGuidedSellingService.createPlaybook({
+        ...toPlaybookPayload(playbook),
+        name: `${playbook.playbookName} (Copy)`,
+        isActive: false,
+      });
+      setActionSuccess(`Playbook "${playbook.playbookName}" duplicated.`);
+      await loadPlaybooks();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to duplicate playbook');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSave = async (playbook: Playbook) => {
+    setIsSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      if (selectedPlaybook?.id) {
+        await cpqGuidedSellingService.updatePlaybook(
+          selectedPlaybook.id,
+          toPlaybookPayload(playbook),
+        );
+        setActionSuccess(`Playbook "${playbook.playbookName}" updated.`);
+      } else {
+        await cpqGuidedSellingService.createPlaybook(toPlaybookPayload(playbook));
+        setActionSuccess(`Playbook "${playbook.playbookName}" created.`);
+      }
+      setIsModalOpen(false);
+      setSelectedPlaybook(null);
+      await loadPlaybooks();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to save playbook');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const filteredPlaybooks = playbooks.filter(playbook => {
@@ -204,6 +245,24 @@ export default function GuidedSellingPlaybooksPage() {
       {!isLoading && !loadError && playbooks.length === 0 && (
         <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
           No playbooks found.
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <CheckCircle2 className="h-4 w-4" />
+          {actionSuccess}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
+      {isSaving && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Saving…
         </div>
       )}
       {/* Inline Header */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -46,45 +46,51 @@ export default function CPQQuotesTemplatesPage() {
   const [templates, setTemplates] = useState<QuoteTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        // Backend returns the QuoteTemplate ORM shape (templateName/description/
-        // category/isActive/createdAt); map it to this page's template model.
-        // sections and isFavorite are presentation-only and default to 0/false.
-        const raw = (await cpqQuoteService.findAllTemplates()) as any[]
-        const toDate = (v: unknown): string =>
-          v ? new Date(v as string).toISOString().split('T')[0] : ''
-        const mapped: QuoteTemplate[] = (raw ?? []).map((t) => ({
-          id: t.id ?? '',
-          name: t.templateName ?? '',
-          description: t.description ?? '',
-          category: t.category ?? '',
-          sections: Array.isArray(t.sections) ? t.sections.length : Number(t.sections ?? 0),
-          lastUsed: toDate(t.updatedAt ?? t.createdAt),
-          usageCount: Number(t.usageCount ?? 0),
-          isFavorite: Boolean(t.isFavorite ?? false),
-          status: t.isActive === false ? 'inactive' : 'active',
-        }))
-        if (!cancelled) setTemplates(mapped)
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load quote templates')
-          setTemplates([])
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
+  const loadTemplates = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      // Backend returns the QuoteTemplate ORM shape (templateName/description/
+      // category/isActive/createdAt); map it to this page's template model.
+      // sections and isFavorite are presentation-only and default to 0/false.
+      const raw = (await cpqQuoteService.findAllTemplates()) as any[]
+      const toDate = (v: unknown): string =>
+        v ? new Date(v as string).toISOString().split('T')[0] : ''
+      const mapped: QuoteTemplate[] = (raw ?? []).map((t) => ({
+        id: t.id ?? '',
+        name: t.name ?? t.templateName ?? '',
+        description: t.description ?? '',
+        category: t.category ?? '',
+        sections: Array.isArray(t.sections) ? t.sections.length : Number(t.sections ?? 0),
+        lastUsed: toDate(t.updatedAt ?? t.createdAt),
+        usageCount: Number(t.usageCount ?? 0),
+        isFavorite: Boolean(t.isFavorite ?? false),
+        status: t.isActive === false ? 'inactive' : 'active',
+      }))
+      setTemplates(mapped)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load quote templates')
+      setTemplates([])
+    } finally {
+      setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    loadTemplates()
+  }, [loadTemplates])
+
+  // Map this page's template model to the backend QuoteTemplate shape.
+  const toTemplatePayload = (t: QuoteTemplate) => ({
+    name: t.name,
+    description: t.description,
+    category: t.category,
+    isActive: t.status !== 'inactive',
+  })
 
   const getCategoryColor = (category: string) => {
     const colors: any = {
@@ -126,32 +132,49 @@ export default function CPQQuotesTemplatesPage() {
     setIsUseModalOpen(true)
   }
 
-  const handleDuplicateTemplate = (template: QuoteTemplate) => {
-    const duplicated: QuoteTemplate = {
-      ...template,
-      id: `TPL-${Date.now().toString().slice(-3)}`,
-      name: `${template.name} (Copy)`,
-      usageCount: 0,
-      lastUsed: new Date().toISOString().split('T')[0]
+  const handleDuplicateTemplate = async (template: QuoteTemplate) => {
+    setIsSaving(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      await cpqQuoteService.createTemplate({
+        ...toTemplatePayload(template),
+        name: `${template.name} (Copy)`,
+      })
+      setActionSuccess(`Template "${template.name}" duplicated.`)
+      setIsViewModalOpen(false)
+      await loadTemplates()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to duplicate template')
+    } finally {
+      setIsSaving(false)
     }
-    setTemplates([...templates, duplicated])
-    setIsViewModalOpen(false)
   }
 
-  const handleSaveTemplate = (template: QuoteTemplate) => {
-    if (selectedTemplate) {
-      // Edit existing template
-      setTemplates(templates.map(t =>
-        t.id === template.id ? template : t
-      ))
-    } else {
-      // Add new template
-      setTemplates([...templates, template])
+  const handleSaveTemplate = async (template: QuoteTemplate) => {
+    setIsSaving(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      if (selectedTemplate?.id) {
+        await cpqQuoteService.updateTemplate(selectedTemplate.id, toTemplatePayload(template))
+        setActionSuccess(`Template "${template.name}" updated.`)
+      } else {
+        await cpqQuoteService.createTemplate(toTemplatePayload(template))
+        setActionSuccess(`Template "${template.name}" created.`)
+      }
+      setIsTemplateModalOpen(false)
+      setSelectedTemplate(null)
+      await loadTemplates()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to save template')
+    } finally {
+      setIsSaving(false)
     }
-    setIsTemplateModalOpen(false)
-    setSelectedTemplate(null)
   }
 
+  // Favorite is a presentation-only flag (no backend column), so it is kept in
+  // local UI state only.
   const handleToggleFavorite = (template: QuoteTemplate) => {
     setTemplates(templates.map(t =>
       t.id === template.id ? { ...t, isFavorite: !t.isFavorite } : t
@@ -190,12 +213,39 @@ export default function CPQQuotesTemplatesPage() {
     setAppliedFilters(filters)
   }
 
-  const handleConfirmUseTemplate = (quoteData: any) => {
-    // Simulate creating a quote and navigating
-    console.log('Creating quote from template:', quoteData)
-    setIsUseModalOpen(false)
-    // In a real app, this would navigate to the quote builder with pre-filled data
-    // router.push(`/cpq/quotes/create?templateId=${quoteData.templateId}`)
+  const handleConfirmUseTemplate = async (quoteData: any) => {
+    if (!quoteData?.templateId) return
+    setIsSaving(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      const validUntil: string | undefined = quoteData.validUntil
+      const validityDays = validUntil
+        ? Math.max(
+            1,
+            Math.round(
+              (new Date(validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+            ),
+          )
+        : undefined
+      const created = await cpqQuoteService.createFromTemplate(quoteData.templateId, {
+        customerName: quoteData.customerName,
+        title: quoteData.projectName,
+        ...(validityDays ? { validityDays } : {}),
+      })
+      setActionSuccess(`Quote created from "${quoteData.templateName}".`)
+      setIsUseModalOpen(false)
+      // Navigate to the newly created quote when we have an id.
+      if (created?.id) {
+        router.push(`/cpq/quotes/builder?id=${created.id}`)
+      } else {
+        await loadTemplates()
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create quote from template')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Filtering logic
@@ -250,6 +300,23 @@ export default function CPQQuotesTemplatesPage() {
       {!isLoading && !loadError && templates.length === 0 && (
         <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
           No quote templates found.
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {actionSuccess}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
+      {isSaving && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Saving…
         </div>
       )}
       {/* Action Buttons */}

@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Download, Eye, Edit, Key, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, Download, Eye, Edit, UserCheck, UserX, RefreshCw } from 'lucide-react';
 import { UserManagementService, User as ServiceUser } from '@/services/user-management.service';
+import { ItAdminService } from '@/services/it-admin.service';
 import { exportToCsv } from '@/lib/export';
 
 interface User {
@@ -19,6 +21,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,40 +29,41 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const fetchedUsers = await UserManagementService.getAllUsers();
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fetchedUsers = await UserManagementService.getAllUsers();
 
-        // Transform service users to page format
-        const transformedUsers: User[] = fetchedUsers.map((user: ServiceUser) => ({
-          id: user.id,
-          displayName: user.displayName,
-          email: user.email,
-          roleName: user.roleName,
-          department: user.department,
-          phone: user.phone,
-          lastLogin: user.lastLogin,
-          accountCreated: new Date(user.createdAt).toISOString().split('T')[0],
-          status: user.status as 'active' | 'inactive' | 'locked' | 'pending' | 'suspended',
-          passwordChangedAt: user.passwordChangedAt,
-        }));
+      // Transform service users to page format
+      const transformedUsers: User[] = fetchedUsers.map((user: ServiceUser) => ({
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        roleName: user.roleName,
+        department: user.department,
+        phone: user.phone,
+        lastLogin: user.lastLogin,
+        accountCreated: new Date(user.createdAt).toISOString().split('T')[0],
+        status: user.status as 'active' | 'inactive' | 'locked' | 'pending' | 'suspended',
+        passwordChangedAt: user.passwordChangedAt,
+      }));
 
-        setUsers(transformedUsers);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load users');
-        console.error('Error fetching users:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
+      setUsers(transformedUsers);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load users');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =
@@ -103,15 +107,40 @@ export default function UsersPage() {
   };
 
   const handleView = (userId: string) => {
-    console.log('Viewing user:', userId);
+    router.push(`/it-admin/users/${userId}`);
   };
 
   const handleEdit = (userId: string) => {
-    console.log('Editing user:', userId);
+    router.push(`/it-admin/users/${userId}/edit`);
   };
 
-  const handleResetPassword = (userId: string) => {
-    console.log('Resetting password for user:', userId);
+  const handleDeactivate = async (userId: string) => {
+    if (!confirm('Deactivate this user account?')) return;
+    setActionId(userId);
+    setBanner(null);
+    try {
+      await ItAdminService.deactivateUser(userId);
+      setBanner({ type: 'success', text: 'User deactivated.' });
+      await fetchUsers();
+    } catch (err) {
+      setBanner({ type: 'error', text: err instanceof Error ? err.message : 'Failed to deactivate user' });
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleActivate = async (userId: string) => {
+    setActionId(userId);
+    setBanner(null);
+    try {
+      await ItAdminService.activateUser(userId);
+      setBanner({ type: 'success', text: 'User activated.' });
+      await fetchUsers();
+    } catch (err) {
+      setBanner({ type: 'error', text: err instanceof Error ? err.message : 'Failed to activate user' });
+    } finally {
+      setActionId(null);
+    }
   };
 
   if (loading) {
@@ -142,6 +171,18 @@ export default function UsersPage() {
           <p className="text-gray-600 mt-1">Manage system users and access control</p>
         </div>
       </div>
+
+      {banner && (
+        <div
+          className={`rounded-lg border px-4 py-2 text-sm ${
+            banner.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {banner.text}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -329,25 +370,37 @@ export default function UsersPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleView(user.id)}
+                        title="View"
                         className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                       
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(user.id)}
+                        title="Edit"
                         className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                       
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => handleResetPassword(user.id)}
-                        className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50"
-                       
-                      >
-                        <Key className="w-4 h-4" />
-                      </button>
+                      {user.status === 'active' ? (
+                        <button
+                          onClick={() => handleDeactivate(user.id)}
+                          disabled={actionId === user.id}
+                          title="Deactivate"
+                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <UserX className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleActivate(user.id)}
+                          disabled={actionId === user.id}
+                          title="Activate"
+                          className="text-emerald-600 hover:text-emerald-900 p-1 rounded hover:bg-emerald-50 disabled:opacity-50"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

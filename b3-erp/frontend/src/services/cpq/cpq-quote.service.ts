@@ -74,7 +74,8 @@ export interface QuoteItem {
 export interface QuoteTemplate {
   id: string;
   companyId: string;
-  templateName: string;
+  // Backend entity column is `name`; kept aligned so create/update round-trips.
+  name: string;
   description?: string;
   category?: string;
   defaultValidityDays: number;
@@ -243,34 +244,6 @@ const MOCK_QUOTE_ITEMS: QuoteItem[] = [
     costPrice: 2500,
     marginPercentage: 50,
     displayOrder: 3,
-  },
-];
-
-const MOCK_TEMPLATES: QuoteTemplate[] = [
-  {
-    id: 'template-001',
-    companyId: 'company-001',
-    templateName: 'Standard Machine Quote',
-    description: 'Standard template for machine sales',
-    category: 'Machines',
-    defaultValidityDays: 30,
-    defaultPaymentTerms: 'Net 30',
-    defaultDeliveryTerms: 'FOB Destination',
-    termsAndConditions: 'Standard terms and conditions apply...',
-    isActive: true,
-    createdAt: '2025-01-01T00:00:00Z',
-  },
-  {
-    id: 'template-002',
-    companyId: 'company-001',
-    templateName: 'Turnkey Solution Quote',
-    description: 'Template for complete turnkey solutions',
-    category: 'Solutions',
-    defaultValidityDays: 45,
-    defaultPaymentTerms: 'Net 60 with 30% advance',
-    defaultDeliveryTerms: 'DDP',
-    isActive: true,
-    createdAt: '2025-01-01T00:00:00Z',
   },
 ];
 
@@ -552,39 +525,40 @@ class CPQQuoteService {
     }
   }
 
-  // Templates
+  // Templates — served by QuoteController at /cpq/quotes/templates.
+  private templatesUrl = '/cpq/quotes/templates';
+
   async findAllTemplates(filters?: { category?: string; isActive?: boolean }): Promise<QuoteTemplate[]> {
-    try {
-      const params = new URLSearchParams();
-      if (filters?.category) params.append('category', filters.category);
-      if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive));
-      const response = await apiClient.get<QuoteTemplate[]>(`/cpq/quote-templates?${params.toString()}`);
-      return response.data;
-    } catch (error) {
-      console.error('API Error fetching templates, using mock data:', error);
-      let result = [...MOCK_TEMPLATES];
-      if (filters?.category) result = result.filter((t) => t.category === filters.category);
-      if (filters?.isActive !== undefined) result = result.filter((t) => t.isActive === filters.isActive);
-      return result;
-    }
+    const params = new URLSearchParams();
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive));
+    const qs = params.toString();
+    const response = await apiClient.get<QuoteTemplate[]>(
+      qs ? `${this.templatesUrl}?${qs}` : this.templatesUrl,
+    );
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async createTemplate(data: Partial<QuoteTemplate>): Promise<QuoteTemplate> {
+    const response = await apiClient.post<QuoteTemplate>(this.templatesUrl, data);
+    return response.data;
+  }
+
+  async updateTemplate(id: string, data: Partial<QuoteTemplate>): Promise<QuoteTemplate> {
+    const response = await apiClient.patch<QuoteTemplate>(`${this.templatesUrl}/${id}`, data);
+    return response.data;
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    await apiClient.delete(`${this.templatesUrl}/${id}`);
   }
 
   async createFromTemplate(templateId: string, data: Partial<Quote>): Promise<Quote> {
-    try {
-      const response = await apiClient.post<Quote>(`/cpq/quote-templates/${templateId}/create-quote`, data);
-      return response.data;
-    } catch (error) {
-      console.error('API Error creating from template:', error);
-      const template = MOCK_TEMPLATES.find((t) => t.id === templateId);
-      return this.create({
-        quote: {
-          ...data,
-          validityDays: template?.defaultValidityDays || 30,
-          paymentTerms: template?.defaultPaymentTerms,
-          deliveryTerms: template?.defaultDeliveryTerms,
-        },
-      });
-    }
+    const response = await apiClient.post<Quote>(
+      `${this.templatesUrl}/${templateId}/create-quote`,
+      data,
+    );
+    return response.data;
   }
 }
 

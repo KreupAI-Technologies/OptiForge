@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell, AlertTriangle, Shield, Lock, Users, Activity, XCircle, CheckCircle2, Clock, Settings, Mail, Smartphone, Download, Eye, Trash2 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, SecurityAlertDto } from '@/services/it-admin.service';
 
 interface SecurityAlert {
   id: string;
@@ -42,37 +42,44 @@ const SecurityAlertsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const mapAlert = (a: SecurityAlertDto): SecurityAlert => ({
+    id: a.id,
+    type: a.type,
+    severity: a.severity,
+    title: a.title,
+    description: a.description ?? '',
+    timestamp: a.timestamp ?? a.createdAt ?? '',
+    source: a.source ?? '',
+    ipAddress: a.ipAddress ?? '',
+    userId: a.userId,
+    userName: a.userName,
+    status: a.status,
+    actionTaken: a.actionTaken,
+    assignedTo: a.assignedTo,
+  });
+
+  const loadAlerts = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await ItAdminService.getSecurityAlerts();
+      setAlerts((data ?? []).map(mapAlert));
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load security alerts');
+      setAlerts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await ItAdminService.getSecurityAlerts();
-        if (!mounted) return;
-        const mapped: SecurityAlert[] = (data ?? []).map((a) => ({
-          id: a.id,
-          type: a.type,
-          severity: a.severity,
-          title: a.title,
-          description: a.description ?? '',
-          timestamp: a.timestamp ?? a.createdAt ?? '',
-          source: a.source ?? '',
-          ipAddress: a.ipAddress ?? '',
-          userId: a.userId,
-          userName: a.userName,
-          status: a.status,
-          actionTaken: a.actionTaken,
-          assignedTo: a.assignedTo,
-        }));
-        setAlerts(mapped);
-      } catch {
-        if (mounted) setAlerts([]);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    loadAlerts();
+  }, [loadAlerts]);
 
   const [alertRules] = useState<AlertRule[]>([
     {
@@ -223,23 +230,51 @@ const SecurityAlertsPage = () => {
     }
   };
 
-  const handleViewAlert = (alertId: string) => {
-    alert(`Viewing details for alert ${alertId}`);
-  };
-
-  const handleResolveAlert = (alertId: string) => {
-    if (confirm('Mark this alert as resolved?')) {
-      setAlerts((prev) =>
-        prev.map((a) =>
-          a.id === alertId ? { ...a, status: 'Resolved' } : a,
-        ),
-      );
+  const handleAcknowledgeAlert = async (alertId: string) => {
+    setActionId(alertId);
+    setBanner(null);
+    try {
+      const updated = await ItAdminService.updateSecurityAlert(alertId, {
+        status: 'investigating',
+      });
+      setAlerts((prev) => prev.map((a) => (a.id === alertId ? mapAlert(updated) : a)));
+      setBanner({ type: 'success', text: 'Alert acknowledged.' });
+    } catch (e) {
+      setBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to acknowledge alert' });
+    } finally {
+      setActionId(null);
     }
   };
 
-  const handleDeleteAlert = (alertId: string) => {
-    if (confirm('Delete this alert permanently?')) {
+  const handleResolveAlert = async (alertId: string) => {
+    if (!confirm('Mark this alert as resolved?')) return;
+    setActionId(alertId);
+    setBanner(null);
+    try {
+      const updated = await ItAdminService.updateSecurityAlert(alertId, {
+        status: 'resolved',
+      });
+      setAlerts((prev) => prev.map((a) => (a.id === alertId ? mapAlert(updated) : a)));
+      setBanner({ type: 'success', text: 'Alert resolved.' });
+    } catch (e) {
+      setBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to resolve alert' });
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDeleteAlert = async (alertId: string) => {
+    if (!confirm('Delete this alert permanently?')) return;
+    setActionId(alertId);
+    setBanner(null);
+    try {
+      await ItAdminService.deleteSecurityAlert(alertId);
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+      setBanner({ type: 'success', text: 'Alert deleted.' });
+    } catch (e) {
+      setBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to delete alert' });
+    } finally {
+      setActionId(null);
     }
   };
 
@@ -274,6 +309,24 @@ const SecurityAlertsPage = () => {
           </button>
         </div>
       </div>
+
+      {banner && (
+        <div
+          className={`mb-3 rounded-lg border px-4 py-2 text-sm ${
+            banner.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {banner.text}
+        </div>
+      )}
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading security alerts...</div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
@@ -468,26 +521,31 @@ const SecurityAlertsPage = () => {
                     </div>
 
                     <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleViewAlert(alert.id)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                       
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      {alert.status !== 'Resolved' && (
+                      {alert.status.toLowerCase() !== 'resolved' && alert.status.toLowerCase() !== 'investigating' && (
+                        <button
+                          onClick={() => handleAcknowledgeAlert(alert.id)}
+                          disabled={actionId === alert.id}
+                          title="Acknowledge"
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
+                      {alert.status.toLowerCase() !== 'resolved' && (
                         <button
                           onClick={() => handleResolveAlert(alert.id)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                         
+                          disabled={actionId === alert.id}
+                          title="Resolve"
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                         </button>
                       )}
                       <button
                         onClick={() => handleDeleteAlert(alert.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                       
+                        disabled={actionId === alert.id}
+                        title="Delete"
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
