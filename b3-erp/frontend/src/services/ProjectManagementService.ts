@@ -3166,6 +3166,33 @@ class ProjectManagementService {
     signProjectClosure(id: string, data: { signatory: string; title: string }): Promise<any> {
         return this.pmModulePatch<any>(`/api/project-closure/sign/${id}`, data);
     }
+
+    // ---------------------------------------------------------------------
+    // Single-record fetch/update for detail (view/edit) pages.
+    // Mirrors the pmList/pmUpdate style: GET/PUT
+    // /project-management/<feature>/:id on the NestJS domain backend.
+    // ---------------------------------------------------------------------
+    private async pmGet<T>(feature: string, id: string): Promise<T | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/${feature}/${encodeURIComponent(id)}`);
+            if (!res.ok) throw new Error(`GET ${feature}/${id} failed: ${res.status}`);
+            const data = await res.json();
+            return data && typeof data === 'object' ? (data as T) : null;
+        } catch (error) {
+            console.error(`Error fetching ${feature}/${id}:`, error);
+            throw error;
+        }
+    }
+
+    // Project plans — single record
+    getProjectPlan(id: string) { return this.pmGet<PmProjectPlan>('project-plans', id); }
+
+    // Commissioning — single record + update
+    getCommissioning(id: string) { return this.pmGet<PmCommissioningRecord>('commissioning', id); }
+    updateCommissioning(id: string, data: Partial<PmCommissioningRecord>) { return this.pmUpdate<PmCommissioningRecord>('commissioning', id, data); }
+
+    // Deliverables — single record
+    getDeliverable(id: string) { return this.pmGet<PmDeliverable>('deliverables', id); }
 }
 
 export const projectManagementService = new ProjectManagementService();

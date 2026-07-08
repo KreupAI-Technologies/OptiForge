@@ -649,6 +649,9 @@ export const crmService = {
 
     create: (data: any) =>
       request<any>('/crm/territories', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/territories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
 
   // ===========================

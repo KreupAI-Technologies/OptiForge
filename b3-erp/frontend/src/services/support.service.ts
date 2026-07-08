@@ -1451,6 +1451,13 @@ export const ITILService = {
     return apiRequest(`/support/itil/incidents?${params}`);
   },
 
+  async getIncidentById(id: string, companyId: string): Promise<ITILIncident> {
+    if (USE_MOCK_DATA) {
+      throw new Error('Incident not found');
+    }
+    return apiRequest<ITILIncident>(`/support/itil/incidents/${id}?companyId=${companyId}`);
+  },
+
   async createIncident(data: Partial<ITILIncident> & { companyId: string }): Promise<ITILIncident> {
     if (USE_MOCK_DATA) {
       return Promise.resolve({

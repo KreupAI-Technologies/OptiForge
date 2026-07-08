@@ -217,6 +217,11 @@ class InventoryService {
         return (response as any)?.data ?? response;
     }
 
+    async updateWarehouse(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/warehouses/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
     async getWarehouseLocations(id: string): Promise<any[]> {
         const response = await apiClient.get<any[]>(`/inventory/warehouses/${id}/locations`);
         return this.unwrapArray(response);

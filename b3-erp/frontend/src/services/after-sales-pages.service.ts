@@ -252,4 +252,57 @@ export class AfterSalesPagesService {
       { method: 'POST', body: JSON.stringify(body) },
     );
   }
+
+  // ---- Updates -----------------------------------------------------------
+  static updateInvoice<T = any>(id: string, body: any): Promise<T> {
+    return request<T>(
+      `/after-sales/billing/invoices/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    );
+  }
+  static extendWarranty<T = any>(id: string, body: any): Promise<T> {
+    return request<T>(
+      `/after-sales/warranties/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    );
+  }
+
+  // ---- Parts detail reads (backend exposes list routes only; resolve the
+  //      single record from the list by id — no dedicated by-id route) ------
+  static async partsRequisition<T = any>(id: string): Promise<T | undefined> {
+    const list = await this.partsRequisitions<any[]>();
+    return (Array.isArray(list) ? list : []).find(
+      (r) => String(r?.id) === String(id) || String(r?.requisitionNumber) === String(id),
+    ) as T | undefined;
+  }
+  static async partsConsumptionItem<T = any>(id: string): Promise<T | undefined> {
+    const list = await this.partsConsumption<any[]>();
+    return (Array.isArray(list) ? list : []).find(
+      (r) => String(r?.id) === String(id) || String(r?.consumptionId) === String(id),
+    ) as T | undefined;
+  }
+  static async partsReturn<T = any>(id: string): Promise<T | undefined> {
+    const list = await this.partsReturns<any[]>();
+    return (Array.isArray(list) ? list : []).find(
+      (r) => String(r?.id) === String(id) || String(r?.returnId) === String(id),
+    ) as T | undefined;
+  }
+  static updatePartsRequisition<T = any>(id: string, body: any): Promise<T> {
+    return request<T>(
+      `/after-sales/parts/requisitions/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    );
+  }
+  static updatePartsConsumption<T = any>(id: string, body: any): Promise<T> {
+    return request<T>(
+      `/after-sales/parts/consumption/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    );
+  }
+  static updatePartsReturn<T = any>(id: string, body: any): Promise<T> {
+    return request<T>(
+      `/after-sales/parts/returns/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    );
+  }
 }
