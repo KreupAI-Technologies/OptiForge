@@ -3,11 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Package, AlertCircle } from 'lucide-react'
-import { estimationMaterialCostService } from '@/services/estimation-material-cost.service'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
+
+const companyId = 'default-company-id'
 
 export default function AddMaterialRatePage() {
   const router = useRouter()
 
+  const [submitting, setSubmitting] = useState(false)
   const [materialCode, setMaterialCode] = useState('')
   const [materialName, setMaterialName] = useState('')
   const [category, setCategory] = useState('')
@@ -80,20 +83,32 @@ export default function AddMaterialRatePage() {
       return
     }
 
+    setSubmitting(true)
     try {
-      await estimationMaterialCostService.createRate({
-        materialCode,
-        materialName,
+      await estimationResourceRateService.createResourceRate(companyId, {
+        rateType: 'Material',
+        code: materialCode,
+        name: materialName,
         category,
-        unit,
-        currentPrice: parseFloat(currentRate),
-        supplier,
+        unit: unit as any,
+        currency: 'INR',
+        standardRate: parseFloat(currentRate),
+        isActive: status === 'active',
+        effectiveFrom: effectiveFrom || undefined,
+        supplierName: supplier,
+        description: notes || undefined,
+        // Material-specific extras spread onto the payload
+        leadTime: parseInt(leadTime) || 0,
+        minimumOrderQty: parseFloat(minimumOrderQty) || 0,
         status,
-      })
+        notes,
+      } as any)
       router.push('/estimation/rates/materials')
     } catch (error) {
       console.error('Failed to create material rate:', error)
-      alert('Failed to save material rate. Please try again.')
+      alert(error instanceof Error ? error.message : 'Failed to save material rate. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -116,10 +131,11 @@ export default function AddMaterialRatePage() {
           </div>
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={submitting}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            Save Rate
+            {submitting ? 'Saving...' : 'Save Rate'}
           </button>
         </div>
       </div>
@@ -328,10 +344,11 @@ export default function AddMaterialRatePage() {
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={submitting}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              Save Rate
+              {submitting ? 'Saving...' : 'Save Rate'}
             </button>
           </div>
         </div>

@@ -31,6 +31,7 @@ import {
   type MRPSettings,
 } from '@/components/production/MRPRunModals';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { exportToCsv } from '@/lib/export';
 
 // TypeScript Interfaces
 interface MRPRequirement {
@@ -672,13 +673,28 @@ const MRPPage: React.FC = () => {
     loadMrpData();
   }, [loadMrpData]);
 
-  // Run MRP
-  const handleRunMRP = () => {
+  // Run MRP — create a run then execute it against the backend, then refresh.
+  const handleRunMRP = async (config?: any) => {
     setIsRunning(true);
-    setTimeout(() => {
-      setIsRunning(false);
+    setLoadError(null);
+    try {
+      const created = await ProductionOrphanService.createMrpRun({
+        planningHorizon: config?.planningHorizon ?? mrpConfig.planningHorizon,
+        leadTimeConsideration: config?.leadTimeConsideration ?? mrpConfig.leadTimeConsideration,
+        safetyStockConsideration: config?.safetyStockConsideration ?? mrpConfig.safetyStockConsideration,
+        reorderPointMethod: config?.reorderPointMethod ?? mrpConfig.reorderPointMethod,
+      });
+      const runId = created?.id ?? created?.runId;
+      if (runId) {
+        await ProductionOrphanService.executeMrpRun(String(runId));
+      }
+      await loadMrpData();
       setLastRunDate(new Date().toLocaleString());
-    }, 3000);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to run MRP');
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   // Toggle Purchase Suggestion Selection
@@ -695,20 +711,31 @@ const MRPPage: React.FC = () => {
   };
 
   // Create Bulk Purchase Requisitions
+  // NEEDS BACKEND: no purchase-requisition creation endpoint is reachable from the
+  // shared production service. Keep the selection validation; surface a clear note
+  // instead of a fake success until a PR endpoint exists.
   const handleCreateBulkPR = () => {
     const selectedItems = purchaseSuggestions.filter((item) => item.selected);
     if (selectedItems.length === 0) {
       alert('Please select at least one item to create purchase requisitions.');
       return;
     }
-    alert(`Creating ${selectedItems.length} purchase requisitions...`);
-    // API call would go here
+    setLoadError(
+      'Bulk purchase-requisition creation is not available yet (no backend endpoint).',
+    );
   };
 
-  // Export to Excel
+  // Export the currently-active tab's rows to CSV.
   const handleExportToExcel = () => {
-    alert('Exporting MRP data to Excel...');
-    // Export logic would go here
+    const map: Record<typeof activeTab, { name: string; rows: readonly object[] }> = {
+      requirements: { name: 'mrp-requirements', rows: filteredRequirements },
+      shortages: { name: 'mrp-shortages', rows: shortages },
+      purchases: { name: 'mrp-purchase-suggestions', rows: purchaseSuggestions },
+      excess: { name: 'mrp-excess-stock', rows: excessStock },
+      timephased: { name: 'mrp-time-phased', rows: timePhases },
+    };
+    const target = map[activeTab];
+    exportToCsv(target.name, target.rows);
   };
 
   // Get Status Badge
@@ -741,14 +768,8 @@ const MRPPage: React.FC = () => {
 
   const handleRunMRPSubmit = async (config: any) => {
     setIsRunMRPOpen(false);
-    // Trigger the running state, then refresh live dashboard data (runs,
-    // planned orders, shortages) once the run window elapses.
-    handleRunMRP();
-    try {
-      await loadMrpData();
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to refresh MRP data');
-    }
+    // Create + execute the MRP run against the backend, then refresh dashboard data.
+    await handleRunMRP(config);
   };
 
   const handleSaveConfig = (settings: MRPSettings) => {

@@ -72,6 +72,8 @@ export default function AddBOQPage() {
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const updateFormData = (field: keyof BOQFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -178,30 +180,38 @@ export default function AddBOQPage() {
   });
 
   const handleSaveAsDraft = async () => {
+    setSubmitError(null);
+    setIsSaving(true);
     try {
       await estimationBOQService.create(buildPayload() as any);
       router.push('/estimation/boq');
     } catch (error) {
       console.error('Error saving BOQ draft:', error);
-      alert('Failed to save BOQ. Please try again.');
+      setSubmitError('Failed to save BOQ. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      alert('Please fix the errors before submitting');
+      setSubmitError('Please fix the errors before submitting.');
       return;
     }
 
+    setSubmitError(null);
+    setIsSaving(true);
     try {
       const created = (await estimationBOQService.create(buildPayload() as any)) as any;
       if (created?.id) {
-        try { await estimationBOQService.submitForReview(created.id); } catch { /* ignore */ }
+        await estimationBOQService.submitForReview(created.id);
       }
       router.push('/estimation/boq');
     } catch (error) {
       console.error('Error submitting BOQ:', error);
-      alert('Failed to submit BOQ. Please try again.');
+      setSubmitError('Failed to submit BOQ. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -494,27 +504,36 @@ export default function AddBOQPage() {
 
       {/* Fixed Footer */}
       <div className="border-t border-gray-200 bg-white px-3 py-4 flex-shrink-0">
+        {submitError && (
+          <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
+            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+            <p className="text-sm text-red-600">{submitError}</p>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <button
             onClick={handleCancel}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={isSaving}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
           >
             Cancel
           </button>
           <div className="flex items-center space-x-3">
             <button
               onClick={handleSaveAsDraft}
-              className="flex items-center space-x-2 px-6 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+              disabled={isSaving}
+              className="flex items-center space-x-2 px-6 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-60"
             >
               <Save className="h-5 w-5" />
-              <span>Save as Draft</span>
+              <span>{isSaving ? 'Saving...' : 'Save as Draft'}</span>
             </button>
             <button
               onClick={handleSubmit}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={isSaving}
+              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               <Send className="h-5 w-5" />
-              <span>Submit for Review</span>
+              <span>{isSaving ? 'Submitting...' : 'Submit for Review'}</span>
             </button>
           </div>
         </div>

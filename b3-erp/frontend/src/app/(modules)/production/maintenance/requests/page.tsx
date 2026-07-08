@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { useRouter } from 'next/navigation';
 import {
@@ -50,28 +50,39 @@ export default function MaintenanceRequestsPage() {
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const emptyForm = {
+    equipmentCode: '',
+    equipmentName: '',
+    location: '',
+    requestType: 'breakdown',
+    priority: 'medium',
+    requestedBy: '',
+    description: '',
+    estimatedCost: 0,
+    status: 'pending',
+  };
+  const [form, setForm] = useState<Record<string, any>>(emptyForm);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await ProductionOrphanService.getMaintenanceRequests()) as any[];
-        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
-          ...d,
-          id: String(d?.id ?? i),
-        })) as unknown as MaintenanceRequest[];
-        if (!cancelled) setMaintenanceRequests(mapped);
-      } catch (err: any) {
-        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await ProductionOrphanService.getMaintenanceRequests()) as any[];
+      const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+        ...d,
+        id: String(d?.id ?? i),
+      })) as unknown as MaintenanceRequest[];
+      setMaintenanceRequests(mapped);
+    } catch (err: any) {
+      setLoadError(err?.message ?? 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const filteredRequests = maintenanceRequests.filter(request => {
     const matchesSearch =
@@ -127,23 +138,81 @@ export default function MaintenanceRequestsPage() {
   };
 
   const handleCreateRequest = () => {
+    setForm(emptyForm);
+    setActionError(null);
     setShowCreateModal(true);
   };
 
-  const handleApproveRequest = (request: MaintenanceRequest) => {
-    if (confirm(`Approve maintenance request ${request.requestNumber}?`)) {
-      alert(`Request ${request.requestNumber} approved! Assigned to maintenance team.`);
+  const handleApproveRequest = async (request: MaintenanceRequest) => {
+    if (!confirm(`Approve maintenance request ${request.requestNumber}?`)) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.updateMaintenanceRequest(request.id, { status: 'approved' });
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to approve request');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleRejectRequest = (request: MaintenanceRequest) => {
-    if (confirm(`Reject maintenance request ${request.requestNumber}?`)) {
-      alert(`Request ${request.requestNumber} rejected.`);
+  const handleRejectRequest = async (request: MaintenanceRequest) => {
+    if (!confirm(`Reject maintenance request ${request.requestNumber}?`)) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.updateMaintenanceRequest(request.id, { status: 'rejected' });
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to reject request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmitRequest = async () => {
+    if (!form.equipmentCode?.trim() || !form.description?.trim()) {
+      setActionError('Please fill equipment code and description.');
+      return;
+    }
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.createMaintenanceRequest({
+        ...form,
+        estimatedCost: Number(form.estimatedCost) || 0,
+      });
+      setShowCreateModal(false);
+      setForm(emptyForm);
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to create request');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading maintenance requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {actionError && !showCreateModal && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -427,24 +496,110 @@ export default function MaintenanceRequestsPage() {
       {/* Create Request Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
-          <div className="bg-white rounded-lg p-3 w-full max-w-2xl">
+          <div className="bg-white rounded-lg p-3 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-900 mb-2">Create New Maintenance Request</h2>
-            <p className="text-gray-600 mb-2">Form fields will be added here...</p>
+            {actionError && (
+              <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {actionError}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Equipment Code</label>
+                <input
+                  type="text"
+                  value={form.equipmentCode}
+                  onChange={(e) => setForm({ ...form, equipmentCode: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Equipment Name</label>
+                <input
+                  type="text"
+                  value={form.equipmentName}
+                  onChange={(e) => setForm({ ...form, equipmentName: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Location</label>
+                <input
+                  type="text"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Request Type</label>
+                <select
+                  value={form.requestType}
+                  onChange={(e) => setForm({ ...form, requestType: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="breakdown">Breakdown</option>
+                  <option value="preventive">Preventive</option>
+                  <option value="corrective">Corrective</option>
+                  <option value="inspection">Inspection</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Requested By</label>
+                <input
+                  type="text"
+                  value={form.requestedBy}
+                  onChange={(e) => setForm({ ...form, requestedBy: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Estimated Cost</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.estimatedCost}
+                  onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={3}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                onClick={() => { setShowCreateModal(false); setActionError(null); }}
+                disabled={submitting}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('New maintenance request created and submitted for approval!');
-                  setShowCreateModal(false);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={handleSubmitRequest}
+                disabled={submitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                Submit Request
+                {submitting ? 'Submitting…' : 'Submit Request'}
               </button>
             </div>
           </div>

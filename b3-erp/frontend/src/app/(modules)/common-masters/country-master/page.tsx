@@ -18,6 +18,11 @@ export default function CountryMasterPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [editingCountry, setEditingCountry] = useState<Country | null>(null);
+  const [form, setForm] = useState<{ code: string; name: string; dialCode: string; currency: string }>({
+    code: '', name: '', dialCode: '', currency: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch countries from the live backend, mapping the raw API shape to the page's Country model.
   const loadCountries = async () => {
@@ -186,8 +191,46 @@ export default function CountryMasterPage() {
   ];
 
   const handleEdit = (country: Country) => {
-    showToast(`Editing country: ${country.name}`, 'info');
-    // TODO: Implement edit functionality
+    setEditingCountry(country);
+    setForm({
+      code: country.code,
+      name: country.name,
+      dialCode: country.dialCode ?? '',
+      currency: country.currency ?? '',
+    });
+    setShowAddModal(true);
+  };
+
+  const handleSaveCountry = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      showToast('Country code and name are required.', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      if (editingCountry) {
+        await commonMastersService.updateCountry(editingCountry.id, {
+          code: form.code,
+          name: form.name,
+          phoneCode: form.dialCode || undefined,
+        } as any);
+        showToast(`${form.name} updated successfully`, 'success');
+      } else {
+        await commonMastersService.createCountry({
+          code: form.code,
+          name: form.name,
+          phoneCode: form.dialCode || undefined,
+          currency: form.currency || undefined,
+        });
+        showToast(`${form.name} created successfully`, 'success');
+      }
+      setShowAddModal(false);
+      await loadCountries();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save country', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -212,8 +255,9 @@ export default function CountryMasterPage() {
   };
 
   const handleAddCountry = () => {
+    setEditingCountry(null);
+    setForm({ code: '', name: '', dialCode: '', currency: '' });
     setShowAddModal(true);
-    showToast('Add country functionality will be implemented', 'info');
   };
 
   const clearFilters = () => {
@@ -406,12 +450,12 @@ export default function CountryMasterPage() {
         />
       </div>
 
-      {/* Add Modal Placeholder */}
+      {/* Add / Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-3 max-w-2xl w-full mx-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-bold">Add New Country</h2>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">{editingCountry ? 'Edit Country' : 'Add New Country'}</h2>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -419,13 +463,62 @@ export default function CountryMasterPage() {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="text-center py-12 text-gray-500">
-              <p>Add Country Form - Under Development</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country Code *</label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. IN"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. India"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dial Code</label>
+                <input
+                  type="text"
+                  value={form.dialCode}
+                  onChange={(e) => setForm({ ...form, dialCode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. +91"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                <input
+                  type="text"
+                  value={form.currency}
+                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. INR"
+                  disabled={!!editingCountry}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
-                Close
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveCountry}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving…' : editingCountry ? 'Update Country' : 'Create Country'}
               </button>
             </div>
           </div>

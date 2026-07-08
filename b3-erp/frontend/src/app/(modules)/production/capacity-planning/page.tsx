@@ -163,92 +163,11 @@ const CapacityPlanningPage = () => {
   const [scenarioName, setScenarioName] = useState('');
 
   // Mock Data - Work Center Capacity
-  const [workCenters, setWorkCenters] = useState<WorkCenterCapacity[]>([
-    {
-      id: 'WC001',
-      workCenterCode: 'WC-FAB-01',
-      workCenterName: 'Fabrication Shop 1',
-      department: 'Fabrication',
-      numberOfMachines: 4,
-      shiftsPerDay: 2,
-      hoursPerShift: 8,
-      workingDaysPerWeek: 6,
-      efficiencyFactor: 0.85,
-      availableCapacityHours: 326.4,
-      status: 'active',
-      costPerHour: 850,
-    },
-    {
-      id: 'WC002',
-      workCenterCode: 'WC-WEL-01',
-      workCenterName: 'Welding Station A',
-      department: 'Welding',
-      numberOfMachines: 6,
-      shiftsPerDay: 3,
-      hoursPerShift: 8,
-      workingDaysPerWeek: 6,
-      efficiencyFactor: 0.82,
-      availableCapacityHours: 708.5,
-      status: 'active',
-      costPerHour: 950,
-    },
-    {
-      id: 'WC003',
-      workCenterCode: 'WC-ASM-01',
-      workCenterName: 'Assembly Line 1',
-      department: 'Assembly',
-      numberOfMachines: 2,
-      shiftsPerDay: 2,
-      hoursPerShift: 8,
-      workingDaysPerWeek: 6,
-      efficiencyFactor: 0.90,
-      availableCapacityHours: 172.8,
-      status: 'active',
-      costPerHour: 650,
-    },
-    {
-      id: 'WC004',
-      workCenterCode: 'WC-TEST-01',
-      workCenterName: 'Testing Bay',
-      department: 'Quality',
-      numberOfMachines: 3,
-      shiftsPerDay: 1,
-      hoursPerShift: 8,
-      workingDaysPerWeek: 6,
-      efficiencyFactor: 0.88,
-      availableCapacityHours: 126.7,
-      status: 'active',
-      costPerHour: 750,
-    },
-    {
-      id: 'WC005',
-      workCenterCode: 'WC-PAINT-01',
-      workCenterName: 'Paint Shop',
-      department: 'Finishing',
-      numberOfMachines: 2,
-      shiftsPerDay: 2,
-      hoursPerShift: 8,
-      workingDaysPerWeek: 5.5,
-      efficiencyFactor: 0.80,
-      availableCapacityHours: 140.8,
-      status: 'active',
-      costPerHour: 700,
-    },
-    {
-      id: 'WC006',
-      workCenterCode: 'WC-MACH-01',
-      workCenterName: 'CNC Machining',
-      department: 'Machining',
-      numberOfMachines: 5,
-      shiftsPerDay: 2,
-      hoursPerShift: 8,
-      workingDaysPerWeek: 6,
-      efficiencyFactor: 0.87,
-      availableCapacityHours: 417.6,
-      status: 'active',
-      costPerHour: 1200,
-    },
-  ]);
+  // Work center capacity — loaded live from the backend (no mock fallback).
+  const [workCenters, setWorkCenters] = useState<WorkCenterCapacity[]>([]);
+  const [capacityLoadError, setCapacityLoadError] = useState<string | null>(null);
+  const [capacityActionMessage, setCapacityActionMessage] = useState<string | null>(null);
+
 
   // Mock Data - Capacity vs Load by Period
   const [capacityLoad, setCapacityLoad] = useState<{ [key: string]: LoadPeriod[] }>({
@@ -584,16 +503,15 @@ const CapacityPlanningPage = () => {
 
   // Load real capacity data; overwrite the mock workCenters fallback only when data returns.
   const loadCapacity = useCallback(async () => {
+    setCapacityLoadError(null);
     try {
       const res = await ProductionOrphanService.getCapacityPlans();
       const data = Array.isArray(res) ? res : ((res as any)?.data ?? res);
-      if (Array.isArray(data) && data.length > 0) {
-        setWorkCenters(data.map(mapWorkCenter));
-      }
-      // else: keep mock fallback so the rich UI still renders on empty DB.
+      setWorkCenters(Array.isArray(data) ? data.map(mapWorkCenter) : []);
     } catch (err) {
       console.error('Failed to load capacity plans:', err);
-      // keep mock fallback
+      setCapacityLoadError(err instanceof Error ? err.message : 'Failed to load capacity plans.');
+      setWorkCenters([]);
     }
   }, []);
 
@@ -681,13 +599,15 @@ const CapacityPlanningPage = () => {
   };
 
   // Optimize Schedule
+  // NEEDS BACKEND: capacity-plan controller has no optimize route. Surface a note.
   const optimizeSchedule = () => {
-    alert('Optimizing production schedule to balance capacity load...\n\nThis will automatically reschedule work orders to minimize bottlenecks.');
+    setCapacityActionMessage('Schedule optimization is not available yet (no backend endpoint).');
   };
 
   // Plan Overtime
+  // NEEDS BACKEND: no overtime-planning endpoint reachable from this page.
   const planOvertime = () => {
-    alert('Planning overtime hours for overloaded work centers...\n\nThis will calculate required overtime and associated costs.');
+    setCapacityActionMessage('Overtime planning is not available yet (no backend endpoint).');
   };
 
   // Export Report
@@ -729,6 +649,15 @@ const CapacityPlanningPage = () => {
 
   return (
     <div className="p-6 space-y-3 bg-gray-50 min-h-screen">
+      {capacityLoadError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{capacityLoadError}</div>
+      )}
+      {capacityActionMessage && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <span>{capacityActionMessage}</span>
+          <button onClick={() => setCapacityActionMessage(null)} className="text-blue-500 hover:text-blue-800">Dismiss</button>
+        </div>
+      )}
       {/* Header Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
         <div className="flex items-center justify-between mb-3">

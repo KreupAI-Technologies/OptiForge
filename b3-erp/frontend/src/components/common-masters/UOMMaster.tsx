@@ -95,14 +95,11 @@ export default function UOMMaster() {
   const [activeTab, setActiveTab] = useState('basic');
   const companyId = 'MAIN_COMPANY_ID';
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
+  const loadUOMs = async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
         const rows = await commonMastersService.getAllUoms('default-company-id');
-        if (cancelled) return;
         const mapped: UOM[] = (rows ?? []).map((u: any) => ({
           id: String(u.id),
           uomCode: u.code ?? u.uomCode ?? '',
@@ -140,18 +137,15 @@ export default function UOMMaster() {
         }));
         setUOMs(mapped);
       } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load UOMs');
-          setUOMs([]);
-        }
+        setLoadError(err instanceof Error ? err.message : 'Failed to load UOMs');
+        setUOMs([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  };
+
+  useEffect(() => {
+    loadUOMs();
   }, []);
 
   const handleImport = async () => {
@@ -194,34 +188,44 @@ export default function UOMMaster() {
     setActiveTab('basic');
   };
 
-  const handleDeleteUOM = (id: string) => {
+  const handleDeleteUOM = async (id: string) => {
     const hasConversions = conversions.some(conv => conv.fromUOM === id || conv.toUOM === id);
     if (hasConversions) {
       alert('Cannot delete UOM with existing conversions. Please delete conversions first.');
       return;
     }
-    if (confirm('Are you sure you want to delete this UOM?')) {
-      setUOMs(uoms.filter(uom => uom.id !== id));
+    if (!confirm('Are you sure you want to delete this UOM?')) return;
+    try {
+      await commonMastersService.deleteUom(id);
+      await loadUOMs();
+    } catch (error) {
+      console.error('Failed to delete UOM:', error);
+      alert('Failed to delete UOM.');
     }
   };
 
-  const handleSaveUOM = (uomData: any) => {
-    if (editingUOM) {
-      setUOMs(uoms.map(uom =>
-        uom.id === editingUOM.id
-          ? { ...uom, ...uomData, updatedAt: new Date().toISOString().split('T')[0] }
-          : uom
-      ));
-    } else {
-      const newUOM: UOM = {
-        id: Date.now().toString(),
-        ...uomData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setUOMs([...uoms, newUOM]);
+  const handleSaveUOM = async (uomData: any) => {
+    try {
+      const isActive = uomData.status ? uomData.status === 'active' : true;
+      if (editingUOM) {
+        await commonMastersService.updateUom(editingUOM.id, {
+          code: uomData.uomCode,
+          name: uomData.uomName,
+          isActive,
+        });
+      } else {
+        await commonMastersService.createUom({
+          code: uomData.uomCode,
+          name: uomData.uomName,
+          companyId: 'default-company-id',
+        });
+      }
+      setShowModal(false);
+      await loadUOMs();
+    } catch (error) {
+      console.error('Failed to save UOM:', error);
+      alert('Failed to save UOM.');
     }
-    setShowModal(false);
   };
 
   const handleAddConversion = () => {

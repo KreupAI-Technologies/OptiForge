@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { PurchaseRequisitionModal } from '@/components/production/PurchaseRequisitionModal';
 import { workOrderService } from '@/services/work-order.service';
+import { purchaseRequisitionService } from '@/services/purchase-requisition.service';
 
 // TypeScript Interfaces
 interface MaterialRequirement {
@@ -206,152 +207,6 @@ const supervisors = ['Rajesh Kumar', 'Priya Desai', 'Amit Sharma', 'Suresh Patel
 
 const uomOptions = ['Pcs', 'Sets', 'KG', 'MT', 'Ltrs', 'Meters', 'SqM'];
 
-// Mock BOM explosion data
-const mockBOMMaterials: MaterialRequirement[] = [
-  {
-    id: '1',
-    itemCode: 'PLY-18MM-BWP',
-    description: 'BWP Plywood 18mm - 8ft x 4ft (IS 303)',
-    requiredQty: '25',
-    uom: 'Sheets',
-    stockAvailable: 150,
-    stockStatus: 'available',
-    canSubstitute: false,
-    substituteItem: '',
-    reserveStock: false,
-  },
-  {
-    id: '2',
-    itemCode: 'HNG-BLM-165',
-    description: 'Blum Soft-close Hinges 165° - European Standard',
-    requiredQty: '200',
-    uom: 'Pcs',
-    stockAvailable: 850,
-    stockStatus: 'available',
-    canSubstitute: true,
-    substituteItem: 'HNG-HFL-165',
-    reserveStock: false,
-  },
-  {
-    id: '3',
-    itemCode: 'HDWR-KNB-SS',
-    description: 'Stainless Steel Cabinet Handles - Chrome Finish',
-    requiredQty: '100',
-    uom: 'Pcs',
-    stockAvailable: 450,
-    stockStatus: 'available',
-    canSubstitute: false,
-    substituteItem: '',
-    reserveStock: false,
-  },
-  {
-    id: '4',
-    itemCode: 'LMNT-PVC-2MM',
-    description: 'PVC Edge Banding - Oak Finish 2mm x 50m',
-    requiredQty: '15',
-    uom: 'Rolls',
-    stockAvailable: 8,
-    stockStatus: 'shortage',
-    canSubstitute: true,
-    substituteItem: 'LMNT-PVC-ALT',
-    reserveStock: false,
-  },
-  {
-    id: '5',
-    itemCode: 'PAINT-PU-WHT',
-    description: 'Polyurethane Paint - Pure White Matt Finish',
-    requiredQty: '20',
-    uom: 'Ltrs',
-    stockAvailable: 45,
-    stockStatus: 'available',
-    canSubstitute: false,
-    substituteItem: '',
-    reserveStock: false,
-  },
-  {
-    id: '6',
-    itemCode: 'SCRW-SS-M4',
-    description: 'Stainless Steel Screws M4 x 20mm',
-    requiredQty: '500',
-    uom: 'Pcs',
-    stockAvailable: 2000,
-    stockStatus: 'available',
-    canSubstitute: false,
-    substituteItem: '',
-    reserveStock: false,
-  },
-];
-
-// Mock routing operations
-const mockRoutingOperations: Operation[] = [
-  {
-    id: '1',
-    sequence: 10,
-    operationName: 'Cutting & Sizing',
-    workCenter: 'CNC Cutting Center',
-    setupTime: '30',
-    runTime: '240',
-    timePerPiece: '4.8',
-    estimatedDuration: '4.5 hrs',
-    resourceAvailability: 'available',
-  },
-  {
-    id: '2',
-    sequence: 20,
-    operationName: 'Edge Banding',
-    workCenter: 'Edge Banding Machine',
-    setupTime: '20',
-    runTime: '180',
-    timePerPiece: '3.6',
-    estimatedDuration: '3.3 hrs',
-    resourceAvailability: 'available',
-  },
-  {
-    id: '3',
-    sequence: 30,
-    operationName: 'Drilling & Hardware Mounting',
-    workCenter: 'Assembly Line 1',
-    setupTime: '15',
-    runTime: '360',
-    timePerPiece: '7.2',
-    estimatedDuration: '6.3 hrs',
-    resourceAvailability: 'available',
-  },
-  {
-    id: '4',
-    sequence: 40,
-    operationName: 'Painting & Finishing',
-    workCenter: 'Paint Shop',
-    setupTime: '45',
-    runTime: '420',
-    timePerPiece: '8.4',
-    estimatedDuration: '7.8 hrs',
-    resourceAvailability: 'limited',
-  },
-  {
-    id: '5',
-    sequence: 50,
-    operationName: 'Quality Inspection',
-    workCenter: 'QC Station',
-    setupTime: '10',
-    runTime: '90',
-    timePerPiece: '1.8',
-    estimatedDuration: '1.7 hrs',
-    resourceAvailability: 'available',
-  },
-  {
-    id: '6',
-    sequence: 60,
-    operationName: 'Packing & Dispatch',
-    workCenter: 'Packing Station',
-    setupTime: '15',
-    runTime: '120',
-    timePerPiece: '2.4',
-    estimatedDuration: '2.3 hrs',
-    resourceAvailability: 'available',
-  },
-];
-
 const stockStatusColors = {
   available: 'bg-green-100 text-green-700',
   shortage: 'bg-orange-100 text-orange-700',
@@ -379,6 +234,9 @@ export default function AddWorkOrderPage() {
   const [showBOMExplosion, setShowBOMExplosion] = useState(false);
   const [showSchedulePreview, setShowSchedulePreview] = useState(false);
   const [isPRModalOpen, setIsPRModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<WorkOrderFormData>({
     woNumber: woNumber,
@@ -443,9 +301,24 @@ export default function AddWorkOrderPage() {
       updateFormData('revision', product.revision);
       updateFormData('bomRef', product.bomRef);
       updateFormData('routingRef', product.routingRef);
-      // Auto-populate materials and operations
-      updateFormData('materialRequirements', mockBOMMaterials.map(m => ({ ...m, id: Math.random().toString(36).substr(2, 9) })));
-      updateFormData('operations', mockRoutingOperations.map(o => ({ ...o, id: Math.random().toString(36).substr(2, 9) })));
+      // Show BOM/routing sections with blank starter rows for the user to fill in.
+      // (No BOM-explosion endpoint is wired for this page — see NEEDS BACKEND.)
+      if (formData.materialRequirements.length === 0) {
+        updateFormData('materialRequirements', [{
+          id: Math.random().toString(36).substr(2, 9),
+          itemCode: '', description: '', requiredQty: '1', uom: 'Pcs',
+          stockAvailable: 0, stockStatus: 'available' as const,
+          canSubstitute: false, substituteItem: '', reserveStock: false,
+        }]);
+      }
+      if (formData.operations.length === 0) {
+        updateFormData('operations', [{
+          id: Math.random().toString(36).substr(2, 9),
+          sequence: 10, operationName: '', workCenter: 'Assembly Line 1',
+          setupTime: '0', runTime: '0', timePerPiece: '0',
+          estimatedDuration: '0 hrs', resourceAvailability: 'available' as const,
+        }]);
+      }
       setShowBOMExplosion(true);
     }
   };
@@ -579,26 +452,63 @@ export default function AddWorkOrderPage() {
   };
 
   const handleSaveDraft = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
     try {
-      await workOrderService.createWorkOrder(formData as any);
+      await workOrderService.createWorkOrder({ ...formData, status: 'draft' } as any);
       router.push('/production/work-orders');
     } catch (error) {
-      console.error('Failed to save work order draft:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save work order draft');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleRelease = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
     try {
       await workOrderService.createWorkOrder(formData as any);
       router.push('/production/work-orders');
     } catch (error) {
-      console.error('Failed to create work order:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Failed to create work order');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handlePRSubmit = (prData: any) => {
-    console.log('Purchase Requisition created:', prData);
-    alert(`Purchase Requisition ${prData.prNumber} created successfully!\n\nItems: ${prData.items.length}\nTotal Cost: ₹${prData.items.reduce((sum: number, item: any) => sum + (parseFloat(item.estimatedCost) || 0), 0).toLocaleString('en-IN')}\n\nPR has been submitted for approval.`);
+  const handlePRSubmit = async (prData: any) => {
+    setSubmitError(null);
+    setNotice(null);
+    try {
+      const totalCost = prData.items.reduce(
+        (sum: number, item: any) => sum + (parseFloat(item.estimatedCost) || 0),
+        0,
+      );
+      // Real PR-create endpoint exists (POST /procurement/purchase-requisitions).
+      // NOTE: the modal collects itemCode/estimatedCost but not the itemId the
+      // backend DTO requires, so items are sent without itemId. See NEEDS BACKEND.
+      await purchaseRequisitionService.createRequisition({
+        title: `Materials for Work Order ${woNumber}`,
+        description: `Auto-generated from work order ${woNumber} material shortages`,
+        department: 'Production',
+        priority: 'High',
+        requiredDate: formData.dueDate || new Date().toISOString().split('T')[0],
+        currency: 'INR',
+        justification: `Material shortage for work order ${woNumber}`,
+        items: (prData.items || []).map((item: any) => ({
+          itemId: item.itemId || item.itemCode,
+          quantity: parseFloat(item.requiredQty) || 0,
+          estimatedUnitPrice: parseFloat(item.estimatedCost) || 0,
+          requiredDate: formData.dueDate || new Date().toISOString().split('T')[0],
+          notes: item.description,
+        })),
+      });
+      setIsPRModalOpen(false);
+      setNotice(`Purchase Requisition created (₹${totalCost.toLocaleString('en-IN')}) and submitted for approval.`);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to create Purchase Requisition');
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -1478,27 +1388,36 @@ export default function AddWorkOrderPage() {
 
       {/* Fixed Footer */}
       <div className="border-t border-gray-200 bg-white px-3 py-4 flex-shrink-0">
+        {submitError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{submitError}</div>
+        )}
+        {notice && (
+          <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">{notice}</div>
+        )}
         <div className="flex items-center justify-between">
           <button
             onClick={() => router.push('/production/work-orders')}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={submitting}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <div className="flex items-center space-x-3">
             <button
               onClick={handleSaveDraft}
-              className="flex items-center space-x-2 px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={submitting}
+              className="flex items-center space-x-2 px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-5 w-5" />
-              <span>Save as Draft</span>
+              <span>{submitting ? 'Saving…' : 'Save as Draft'}</span>
             </button>
             <button
               onClick={handleRelease}
-              className="flex items-center space-x-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              disabled={submitting}
+              className="flex items-center space-x-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="h-5 w-5" />
-              <span>Release Work Order</span>
+              <span>{submitting ? 'Releasing…' : 'Release Work Order'}</span>
             </button>
           </div>
         </div>

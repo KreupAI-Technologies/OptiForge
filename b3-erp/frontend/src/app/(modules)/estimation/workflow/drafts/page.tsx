@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { costEstimateService } from '@/services/estimation-cost-estimate.service'
+import { costEstimateService, CostEstimate } from '@/services/estimation-cost-estimate.service'
 import {
   FileText,
   Edit2,
@@ -17,6 +17,8 @@ import {
   User,
   DollarSign
 } from 'lucide-react'
+
+const companyId = 'default-company-id'
 
 interface DraftEstimate {
   id: string
@@ -34,8 +36,48 @@ interface DraftEstimate {
   notes: string
 }
 
+function mapEstimateToDraft(est: CostEstimate): DraftEstimate {
+  return {
+    id: est.id,
+    estimateNumber: est.estimateNumber || '',
+    projectName: est.title || '',
+    customerName: est.customerName || '',
+    contactPerson: est.customerName || '',
+    category: est.estimateType || '',
+    estimatedValue: est.totalCost || 0,
+    items: 0,
+    createdBy: est.submittedBy || '',
+    createdDate: est.createdAt ? new Date(est.createdAt).toLocaleDateString() : '',
+    lastModified: est.updatedAt ? new Date(est.updatedAt).toLocaleString() : '',
+    completionPercent: 100,
+    notes: est.description || '',
+  }
+}
+
 export default function EstimateWorkflowDraftsPage() {
   const router = useRouter()
+
+  const [drafts, setDrafts] = useState<DraftEstimate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadDrafts = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await costEstimateService.findAll(companyId, { status: 'Draft' })
+      setDrafts(Array.isArray(data) ? data.map(mapEstimateToDraft) : [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load drafts.')
+      setDrafts([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDrafts()
+  }, [loadDrafts])
 
   const handleNewDraft = () => {
     router.push('/estimation/workflow/drafts/create')
@@ -56,7 +98,7 @@ export default function EstimateWorkflowDraftsPage() {
       return
     }
     try {
-      await costEstimateService.delete('default', draftId)
+      await costEstimateService.delete(companyId, draftId)
       setDrafts(prev => prev.filter(d => d.id !== draftId))
     } catch (err) {
       alert('Failed to delete draft. Please try again.')
@@ -66,144 +108,6 @@ export default function EstimateWorkflowDraftsPage() {
   const handleSendDraft = (draftId: string) => {
     router.push(`/estimation/workflow/send/${draftId}`)
   }
-
-  const [drafts, setDrafts] = useState<DraftEstimate[]>([
-    {
-      id: 'DRAFT-001',
-      estimateNumber: 'EST-2025-0145',
-      projectName: 'Luxury Villa - Complete Kitchen Setup',
-      customerName: 'Prestige Constructions Pvt Ltd',
-      contactPerson: 'Mr. Rajesh Kumar',
-      category: 'Modular Kitchen',
-      estimatedValue: 3850000,
-      items: 45,
-      createdBy: 'Amit Sharma',
-      createdDate: '2025-10-18',
-      lastModified: '2025-10-20 14:30',
-      completionPercent: 75,
-      notes: 'Pending cabinet hardware selection and countertop finalization'
-    },
-    {
-      id: 'DRAFT-002',
-      estimateNumber: 'EST-2025-0148',
-      projectName: 'Restaurant Kitchen - Commercial Setup',
-      customerName: 'Foodie Hub Restaurants',
-      contactPerson: 'Ms. Priya Desai',
-      category: 'Commercial Kitchen',
-      estimatedValue: 8500000,
-      items: 62,
-      createdBy: 'Neha Patel',
-      createdDate: '2025-10-19',
-      lastModified: '2025-10-20 11:15',
-      completionPercent: 60,
-      notes: 'Waiting for industrial chimney specifications from client'
-    },
-    {
-      id: 'DRAFT-003',
-      estimateNumber: 'EST-2025-0149',
-      projectName: '3BHK Apartment - Kitchen Renovation',
-      customerName: 'Mr. Suresh Menon',
-      contactPerson: 'Mr. Suresh Menon',
-      category: 'Kitchen Renovation',
-      estimatedValue: 1250000,
-      items: 28,
-      createdBy: 'Vikram Singh',
-      createdDate: '2025-10-19',
-      lastModified: '2025-10-20 09:45',
-      completionPercent: 85,
-      notes: 'Almost complete, pending final pricing approval from management'
-    },
-    {
-      id: 'DRAFT-004',
-      estimateNumber: 'EST-2025-0151',
-      projectName: 'Builder Package - 50 Units Standard Kitchen',
-      customerName: 'Rainbow Builders & Developers',
-      contactPerson: 'Mr. Anil Verma',
-      category: 'Builder Package',
-      estimatedValue: 12500000,
-      items: 18,
-      createdBy: 'Ravi Kumar',
-      createdDate: '2025-10-20',
-      lastModified: '2025-10-20 10:20',
-      completionPercent: 40,
-      notes: 'Initial draft - working on bulk discount calculation'
-    },
-    {
-      id: 'DRAFT-005',
-      estimateNumber: 'EST-2025-0152',
-      projectName: 'Premium Island Kitchen with Breakfast Counter',
-      customerName: 'Mrs. Anjali Kapoor',
-      contactPerson: 'Mrs. Anjali Kapoor',
-      category: 'Island Kitchen',
-      estimatedValue: 4250000,
-      items: 52,
-      createdBy: 'Amit Sharma',
-      createdDate: '2025-10-20',
-      lastModified: '2025-10-20 15:00',
-      completionPercent: 55,
-      notes: 'Client requested premium quartz countertop options'
-    },
-    {
-      id: 'DRAFT-006',
-      estimateNumber: 'EST-2025-0146',
-      projectName: 'L-Shaped Kitchen - Contemporary Design',
-      customerName: 'Mr. Deepak Shah',
-      contactPerson: 'Mr. Deepak Shah',
-      category: 'L-Shaped Kitchen',
-      estimatedValue: 2850000,
-      items: 38,
-      createdBy: 'Neha Patel',
-      createdDate: '2025-10-18',
-      lastModified: '2025-10-19 16:30',
-      completionPercent: 70,
-      notes: 'Waiting for site measurements verification'
-    },
-    {
-      id: 'DRAFT-007',
-      estimateNumber: 'EST-2025-0150',
-      projectName: 'Compact Kitchen for 2BHK',
-      customerName: 'Ms. Kavita Reddy',
-      contactPerson: 'Ms. Kavita Reddy',
-      category: 'Compact Kitchen',
-      estimatedValue: 850000,
-      items: 22,
-      createdBy: 'Vikram Singh',
-      createdDate: '2025-10-19',
-      lastModified: '2025-10-20 08:15',
-      completionPercent: 90,
-      notes: 'Ready for review, minor adjustments needed in accessories'
-    },
-    {
-      id: 'DRAFT-008',
-      estimateNumber: 'EST-2025-0153',
-      projectName: 'Hotel Kitchen - 5 Star Property',
-      customerName: 'Grand Hyatt Hotels India',
-      contactPerson: 'Mr. Karthik Iyer',
-      category: 'Institutional Kitchen',
-      estimatedValue: 18500000,
-      items: 85,
-      createdBy: 'Ravi Kumar',
-      createdDate: '2025-10-20',
-      lastModified: '2025-10-20 12:45',
-      completionPercent: 35,
-      notes: 'Large project - initial draft stage, multiple revisions expected'
-    },
-    {
-      id: 'DRAFT-009',
-      estimateNumber: 'EST-2025-0147',
-      projectName: 'Parallel Kitchen with Utility Area',
-      customerName: 'Dr. Ramesh Sharma',
-      contactPerson: 'Dr. Ramesh Sharma',
-      category: 'Parallel Kitchen',
-      estimatedValue: 1950000,
-      items: 32,
-      createdBy: 'Amit Sharma',
-      createdDate: '2025-10-18',
-      lastModified: '2025-10-20 13:20',
-      completionPercent: 80,
-      notes: 'Awaiting client feedback on appliance selection'
-    }
-  ])
 
   const getCompletionColor = (percent: number) => {
     if (percent >= 80) return 'bg-green-500'
@@ -220,7 +124,7 @@ export default function EstimateWorkflowDraftsPage() {
   }
 
   const totalDrafts = drafts.length
-  const avgCompletion = drafts.reduce((sum, d) => sum + d.completionPercent, 0) / totalDrafts
+  const avgCompletion = totalDrafts > 0 ? drafts.reduce((sum, d) => sum + d.completionPercent, 0) / totalDrafts : 0
   const totalValue = drafts.reduce((sum, d) => sum + d.estimatedValue, 0)
   const nearComplete = drafts.filter(d => d.completionPercent >= 80).length
 
@@ -288,7 +192,25 @@ export default function EstimateWorkflowDraftsPage() {
         </div>
       </div>
 
+      {/* States */}
+      {loading && (
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+          Loading drafts...
+        </div>
+      )}
+      {!loading && error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center text-sm text-red-600">
+          {error}
+        </div>
+      )}
+      {!loading && !error && drafts.length === 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+          No draft estimates found.
+        </div>
+      )}
+
       {/* Drafts Grid */}
+      {!loading && !error && drafts.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {drafts.map((draft) => (
           <div key={draft.id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
@@ -392,6 +314,7 @@ export default function EstimateWorkflowDraftsPage() {
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }

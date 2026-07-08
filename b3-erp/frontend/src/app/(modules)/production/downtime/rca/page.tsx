@@ -81,6 +81,8 @@ export default function DowntimeRCAPage() {
   const [selectedRCA, setSelectedRCA] = useState<RCAInvestigationType | null>(null);
   const [selectedAction, setSelectedAction] = useState<any>(null);
   const [selectedActionType, setSelectedActionType] = useState<'corrective' | 'preventive'>('corrective');
+  // When set, the CreateRCAModal operates in "edit" mode and PUTs to updateRootCauseAnalysis.
+  const [editingRcaId, setEditingRcaId] = useState<string | null>(null);
 
   // RCA investigations
   const [rcaInvestigations, setRcaInvestigations] = useState<RCAInvestigation[]>([]);
@@ -221,17 +223,31 @@ export default function DowntimeRCAPage() {
 
   // Modal handlers
   const handleCreateRCA = () => {
+    setEditingRcaId(null);
+    setIsCreateRCAOpen(true);
+  };
+
+  const handleEditRCA = () => {
+    // Open the RCA modal in edit mode, seeded from the currently-viewed RCA.
+    if (!selectedRCA) return;
+    setEditingRcaId(selectedRCA.id);
+    setIsViewRCAOpen(false);
     setIsCreateRCAOpen(true);
   };
 
   const handleCreateRCASubmit = async (data: CreateRCAData) => {
     try {
-      await ProductionOrphanService.createRootCauseAnalysis(data);
+      if (editingRcaId) {
+        await ProductionOrphanService.updateRootCauseAnalysis(editingRcaId, data);
+      } else {
+        await ProductionOrphanService.createRootCauseAnalysis(data);
+      }
       refreshRcas();
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to create RCA');
+      setLoadError(err instanceof Error ? err.message : 'Failed to save RCA');
     } finally {
       setIsCreateRCAOpen(false);
+      setEditingRcaId(null);
     }
   };
 
@@ -680,7 +696,10 @@ export default function DowntimeRCAPage() {
       {/* Modals */}
       <CreateRCAModal
         isOpen={isCreateRCAOpen}
-        onClose={() => setIsCreateRCAOpen(false)}
+        onClose={() => {
+          setIsCreateRCAOpen(false);
+          setEditingRcaId(null);
+        }}
         onSubmit={handleCreateRCASubmit}
       />
 
@@ -688,7 +707,7 @@ export default function DowntimeRCAPage() {
         isOpen={isViewRCAOpen}
         onClose={() => setIsViewRCAOpen(false)}
         investigation={selectedRCA}
-        onEdit={() => alert('Edit RCA not implemented')}
+        onEdit={handleEditRCA}
         onAddRootCause={handleAddRootCause}
         onAddCorrectiveAction={handleAddCorrectiveAction}
         onAddPreventiveAction={handleAddPreventiveAction}

@@ -122,9 +122,15 @@ export default function EstimationAnalyticsReportsPage() {
     loadReports()
   }, [loadReports])
 
-  const handleDownloadReport = (reportId: string, reportName: string) => {
-    console.log('Downloading report:', reportId, reportName)
-    alert(`Downloading report: ${reportName}`)
+  // Report file download/generation has no backend endpoint yet
+  // (estimation/report-schedules only exposes schedule CRUD). Surface an
+  // honest, non-blocking notice instead of faking a download.
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const handleDownloadReport = (_reportId: string, reportName: string) => {
+    setNotice(
+      `Downloading "${reportName}" is not yet available — the report-generation backend endpoint has not been implemented.`,
+    )
   }
 
   const handleScheduleReport = (reportId: string, reportName: string) => {
@@ -142,14 +148,12 @@ export default function EstimationAnalyticsReportsPage() {
   const handleBulkDownload = () => {
     const availableReports = reports.filter(r => r.status === 'available')
     if (availableReports.length === 0) {
-      alert('No reports available for download')
+      setNotice('No reports available for download.')
       return
     }
-    const reportNames = availableReports.map(r => r.name).join(', ')
-    if (confirm(`Download ${availableReports.length} reports?\n\n${reportNames}`)) {
-      console.log('Bulk downloading reports:', availableReports.map(r => r.id))
-      alert(`Preparing ${availableReports.length} reports for download...`)
-    }
+    setNotice(
+      'Bulk report download is not yet available — the report-generation backend endpoint has not been implemented.',
+    )
   }
 
   const handleViewSchedule = (reportId: string) => {
@@ -254,6 +258,21 @@ export default function EstimationAnalyticsReportsPage() {
             onClick={loadReports}
             className="px-3 py-1.5 text-sm text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-100">
             Retry
+          </button>
+        </div>
+      )}
+
+      {/* Notice (e.g. features awaiting a backend endpoint) */}
+      {notice && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-amber-800">
+            <AlertCircle className="h-5 w-5" />
+            <span className="text-sm">{notice}</span>
+          </div>
+          <button
+            onClick={() => setNotice(null)}
+            className="px-3 py-1.5 text-sm text-amber-800 bg-white border border-amber-300 rounded-lg hover:bg-amber-100">
+            Dismiss
           </button>
         </div>
       )}

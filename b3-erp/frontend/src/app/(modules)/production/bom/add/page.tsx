@@ -165,6 +165,8 @@ export default function BOMAddPage() {
   const [items, setItems] = useState<ItemOption[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [existingBOMs, setExistingBOMs] = useState<ExistingBOMOption[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     // Auto-generate BOM number
@@ -502,6 +504,8 @@ export default function BOMAddPage() {
     if (!validateBOM()) {
       return;
     }
+    setSaving(true);
+    setSaveError(null);
     try {
       const payload = {
         ...bom,
@@ -518,6 +522,9 @@ export default function BOMAddPage() {
       router.push('/production/bom');
     } catch (error) {
       console.error('Failed to create BOM:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to create BOM. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -527,19 +534,44 @@ export default function BOMAddPage() {
     }
   };
 
-  const handleCopyFromExisting = () => {
-    if (selectedCopyBOM) {
-      // In real implementation, fetch BOM data and copy components
-      console.log('Copying from BOM:', selectedCopyBOM);
+  const handleCopyFromExisting = async () => {
+    if (!selectedCopyBOM) return;
+    setSaveError(null);
+    try {
+      const all = await bomService.getAllBOMs();
+      const source = (all || []).find((b) => b.bomCode === selectedCopyBOM);
+      if (source) {
+        const full = await bomService.getBOMById(source.id);
+        const copied: BOMComponent[] = (full.components || []).map((c) => ({
+          id: `copy-${Date.now()}-${Math.random()}`,
+          level: 0,
+          itemCode: c.itemCode,
+          itemName: c.itemName,
+          description: c.notes || '',
+          quantity: c.quantity,
+          uom: c.uom,
+          itemType: 'component',
+          stockAvailable: 0,
+          costPerUnit: c.unitCost,
+          extendedCost: calculateExtendedCost(c.quantity, c.unitCost),
+          makeOrBuy: 'buy',
+          scrapPercent: c.scrapPercentage,
+          isRequired: true,
+          isPhantom: c.isPhantom,
+        }));
+        setComponents(copied);
+      }
       setShowCopyModal(false);
-      // Add sample components for demo
-      addComponent(0);
+    } catch (error) {
+      console.error('Failed to copy BOM:', error);
+      setSaveError('Failed to copy the selected BOM.');
     }
   };
 
+  // NEEDS BACKEND: no Excel-parse endpoint. File is captured client-side; parsing
+  // into BOM rows requires a backend import endpoint (TODO).
   const handleImportFromExcel = () => {
-    // Placeholder for Excel import
-    alert('Excel import functionality: Select an Excel file with BOM structure');
+    document.getElementById('bom-excel-import-input')?.click();
   };
 
   const renderComponentRow = (component: BOMComponent, parentId?: string): JSX.Element[] => {
@@ -817,24 +849,27 @@ export default function BOMAddPage() {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => handleSave('draft')}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              disabled={saving}
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FileText className="h-4 w-4" />
-              <span>Save as Draft</span>
+              <span>{saving ? 'Saving…' : 'Save as Draft'}</span>
             </button>
             <button
               onClick={() => handleSave('submit')}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={saving}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle className="h-4 w-4" />
-              <span>Submit for Approval</span>
+              <span>{saving ? 'Saving…' : 'Submit for Approval'}</span>
             </button>
             <button
               onClick={() => handleSave('activate')}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              disabled={saving}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />
-              <span>Activate</span>
+              <span>{saving ? 'Saving…' : 'Activate'}</span>
             </button>
             <button
               onClick={handleCancel}
@@ -863,6 +898,25 @@ export default function BOMAddPage() {
           </div>
         </div>
       )}
+
+      {/* Save Error */}
+      {saveError && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 flex items-start space-x-2">
+          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700">{saveError}</p>
+        </div>
+      )}
+
+      {/* Hidden Excel import input (NEEDS BACKEND: no parse endpoint yet) */}
+      <input
+        id="bom-excel-import-input"
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={() => {
+          setSaveError('Excel import is not available yet (no backend parse endpoint). Please enter components manually.');
+        }}
+      />
 
       {/* BOM Details Form */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 mb-3">
@@ -1063,8 +1117,10 @@ export default function BOMAddPage() {
 
           <button
             onClick={() => {
+              // NEEDS BACKEND: no assembly-template endpoint yet. TODO: load
+              // templates once /production/bom-templates exists.
               setEntryMethod('template');
-              alert('Template functionality: Select from common assembly templates');
+              setSaveError('Assembly templates are not available yet (no backend endpoint).');
             }}
             className={`p-4 border-2 rounded-lg text-left transition-all ${entryMethod === 'template'
                 ? 'border-orange-500 bg-orange-50'

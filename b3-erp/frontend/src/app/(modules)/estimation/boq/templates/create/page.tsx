@@ -66,6 +66,7 @@ export default function CreateBOQTemplate() {
       specifications: '',
     },
   ]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleBack = () => {
     router.push('/estimation/boq/templates');
@@ -144,6 +145,7 @@ export default function CreateBOQTemplate() {
       return;
     }
 
+    setIsSaving(true);
     try {
       await estimationTemplateService.createBoqTemplate({
         companyId,
@@ -158,6 +160,7 @@ export default function CreateBOQTemplate() {
     } catch (error) {
       console.error('Error creating template:', error);
       alert('Failed to create template. Please try again.');
+      setIsSaving(false);
     }
   };
 
@@ -177,10 +180,11 @@ export default function CreateBOQTemplate() {
           </div>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={isSaving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            Save Template
+            {isSaving ? 'Saving...' : 'Save Template'}
           </button>
         </div>
       </div>
@@ -413,16 +417,18 @@ export default function CreateBOQTemplate() {
           <div className="flex justify-end gap-3 pb-6">
             <button
               onClick={handleBack}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              disabled={isSaving}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={isSaving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Save Template
+              {isSaving ? 'Saving...' : 'Save Template'}
             </button>
           </div>
         </div>

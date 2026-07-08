@@ -152,13 +152,8 @@ const ProductionPlanningPage = () => {
   const [mpsData, setMpsData] = useState<MPSProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true); setLoadError(null);
-      try {
-        const raw = (await ProductionOrphanService.getMasterSchedules()) as any[];
-        const mapped: MPSProduct[] = (raw || []).map((r: any, idx: number) => ({
+  const mapSchedules = (raw: any[]): MPSProduct[] =>
+    (raw || []).map((r: any, idx: number) => ({
           id: String(r.id ?? `MPS-${idx + 1}`),
           productCode: String(r.productCode ?? ''),
           productName: String(r.productName ?? ''),
@@ -191,6 +186,13 @@ const ProductionPlanningPage = () => {
           totalPlanned: Number(r.totalPlanned ?? 0),
           status: (r.status ?? 'ok') as MPSProduct['status'],
         }));
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getMasterSchedules()) as any[];
+        const mapped = mapSchedules(raw);
         if (!cancelled) setMpsData(mapped);
       } catch (err) {
         if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setMpsData([]); }
@@ -347,9 +349,15 @@ const ProductionPlanningPage = () => {
     return 'bg-green-50 text-green-800';
   };
 
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
   // Generate Production Orders
+  // NEEDS BACKEND: no bulk "work-orders-from-plan" endpoint reachable here.
   const generateProductionOrders = () => {
-    alert('Generating Production Orders from planned releases...\n\nThis will create Work Orders for all planned order releases in the MPS.');
+    setActionMessage(
+      'Generating production orders from the plan is not available yet (no backend endpoint).',
+    );
   };
 
   // Run MRP
@@ -367,22 +375,60 @@ const ProductionPlanningPage = () => {
     setIsExportModalOpen(true);
   };
 
-  // Handler functions
-  const handleRunMRP = (options: any) => {
-    console.log('Running MRP with options:', options);
-    alert(`Running MRP Cascade!\n\nType: ${options.regenerative ? 'Regenerative' : 'Net Change'}\nNetting: ${options.nettingMode}\nHorizon: ${options.horizonWeeks} weeks\n\nThis will explode BOMs and generate material requirements for all components.`);
+  // Run MRP Cascade — create + execute a real MRP run against the backend.
+  const handleRunMRP = async (options: any) => {
+    setIsRunMRPModalOpen(false);
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const created = await ProductionOrphanService.createMrpRun({
+        regenerative: options?.regenerative,
+        nettingMode: options?.nettingMode,
+        horizonWeeks: options?.horizonWeeks,
+      });
+      const runId = created?.id ?? created?.runId;
+      if (runId) {
+        await ProductionOrphanService.executeMrpRun(String(runId));
+      }
+      setActionMessage('MRP cascade run created and executed.');
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : 'Failed to run MRP cascade.');
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleExport = (format: string, options: any) => {
     exportToCsv('master-production-schedule', filteredProducts as unknown as Record<string, unknown>[]);
+    setIsExportModalOpen(false);
   };
 
-  const handleAdjustPlan = (adjustments: any) => {
-    console.log('Applying plan adjustments:', adjustments);
-    alert(`Plan Adjustment Applied!\n\nType: ${adjustments.adjustmentType}\nPeriod: ${adjustments.selectedPeriod}\nValue: ${adjustments.adjustmentValue}\nReason: ${adjustments.reason}`);
+  // Adjust Plan — persist adjustments against the selected master schedule.
+  const handleAdjustPlan = async (adjustments: any) => {
+    setIsAdjustPlanModalOpen(false);
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const scheduleId = selectedProductForAdjust?.id;
+      if (scheduleId) {
+        await ProductionOrphanService.updateMasterSchedule(String(scheduleId), adjustments);
+        setActionMessage('Plan adjustment saved.');
+        // Refresh master schedules after a successful adjustment.
+        const raw = (await ProductionOrphanService.getMasterSchedules()) as any[];
+        setMpsData((prev) => (Array.isArray(raw) ? mapSchedules(raw) : prev));
+      } else {
+        setActionMessage('No master schedule selected to adjust.');
+      }
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : 'Failed to apply plan adjustment.');
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   // Save Scenario
+  // NEEDS BACKEND: no what-if scenario persistence endpoint exists. Keep the
+  // validation and hold the scenario locally with a clear note.
   const saveScenario = () => {
     if (!scenarioName) {
       alert('Please enter a scenario name');
@@ -407,13 +453,21 @@ const ProductionPlanningPage = () => {
     setScenarioName('');
     setDemandAdjustment(0);
     setCapacityAdjustment(0);
-    alert(`Scenario "${newScenario.name}" saved successfully!`);
+    setActionMessage(
+      `Scenario "${newScenario.name}" saved locally. Persisting scenarios needs a backend endpoint.`,
+    );
   };
 
   return (
     <div className="p-6 space-y-3 bg-gray-50 min-h-screen">
       {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
       {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
+      {actionMessage && (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <span>{actionMessage}</span>
+          <button onClick={() => setActionMessage(null)} className="text-blue-500 hover:text-blue-800">Dismiss</button>
+        </div>
+      )}
       {/* Header Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
         <div className="flex items-center justify-between mb-3">

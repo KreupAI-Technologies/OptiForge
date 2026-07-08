@@ -220,20 +220,25 @@ const ProductionQualityPage = () => {
     }
   }
 
-  const handleApproveSubmit = (decision: 'approve' | 'reject' | 'request-changes', comments: string, signature: string) => {
-    if (selectedInspection) {
-      const nextStatus: QualityInspection['pass_fail_status'] =
-        decision === 'approve' ? 'passed' : decision === 'reject' ? 'failed' : 'conditional'
-      setInspections(prev =>
-        prev.map(i =>
-          i.id === selectedInspection.id
-            ? { ...i, pass_fail_status: nextStatus, remarks: comments || i.remarks }
-            : i,
-        ),
-      )
+  const handleApproveSubmit = async (decision: 'approve' | 'reject' | 'request-changes', comments: string, signature: string) => {
+    const id = selectedInspection?.inspection_id
+    const nextStatus: QualityInspection['pass_fail_status'] =
+      decision === 'approve' ? 'passed' : decision === 'reject' ? 'failed' : 'conditional'
+    try {
+      if (id != null) {
+        await ProductionOrphanService.updateNcr(String(id), {
+          status: nextStatus,
+          remarks: comments || undefined,
+          signature: signature || undefined,
+        })
+      }
+    } catch (err) {
+      console.error('Error approving inspection:', err)
+    } finally {
+      setIsApproveOpen(false)
+      setSelectedInspection(null)
+      setRefreshKey((k) => k + 1)
     }
-    setIsApproveOpen(false)
-    setSelectedInspection(null)
   }
 
   const handleExportSubmit = (_data: any) => {

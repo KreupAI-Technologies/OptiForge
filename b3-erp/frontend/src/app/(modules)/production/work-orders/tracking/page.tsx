@@ -61,43 +61,56 @@ export default function WorkOrderTrackingPage() {
   const [trackingOrders, setTrackingOrders] = useState<WorkOrderTracking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const mapTracking = (r: any): WorkOrderTracking => ({
+    id: String(r.id ?? ''),
+    workOrderNumber: r.workOrderNumber ?? '',
+    productCode: r.productCode ?? '',
+    productName: r.productName ?? '',
+    quantity: Number(r.quantity ?? 0),
+    unit: r.unit ?? '',
+    salesOrderNumber: r.salesOrderNumber ?? '',
+    customerName: r.customerName ?? '',
+    currentStatus: (r.currentStatus ?? 'pending') as WorkOrderTracking['currentStatus'],
+    currentStation: r.currentStation ?? '',
+    completionPercentage: Number(r.completionPercentage ?? 0),
+    startDate: r.startDate ?? '',
+    dueDate: r.dueDate ?? '',
+    estimatedCompletion: r.estimatedCompletion ?? '',
+    assignedTeam: r.assignedTeam ?? '',
+    timeline: Array.isArray(r.timeline) ? r.timeline.map((t: any): TrackingEvent => ({
+      id: String(t.id ?? ''),
+      station: t.station ?? '',
+      status: (t.status ?? 'pending') as TrackingEvent['status'],
+      startTime: t.startTime ?? '',
+      endTime: t.endTime ?? '',
+      duration: Number(t.duration ?? 0),
+      operator: t.operator ?? '',
+      notes: t.notes ?? '',
+      issues: Array.isArray(t.issues) ? t.issues.map((i: any) => String(i)) : [],
+    })) : [],
+    lastUpdate: r.lastUpdate ?? '',
+    priority: (r.priority ?? 'medium') as WorkOrderTracking['priority'],
+  });
+
+  const loadOrders = async () => {
+    setLoadError(null);
+    try {
+      const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
+      setTrackingOrders((raw || []).map(mapTracking));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load'); setTrackingOrders([]);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
-        const mapped: WorkOrderTracking[] = (raw || []).map((r: any) => ({
-          id: String(r.id ?? ''),
-          workOrderNumber: r.workOrderNumber ?? '',
-          productCode: r.productCode ?? '',
-          productName: r.productName ?? '',
-          quantity: Number(r.quantity ?? 0),
-          unit: r.unit ?? '',
-          salesOrderNumber: r.salesOrderNumber ?? '',
-          customerName: r.customerName ?? '',
-          currentStatus: (r.currentStatus ?? 'pending') as WorkOrderTracking['currentStatus'],
-          currentStation: r.currentStation ?? '',
-          completionPercentage: Number(r.completionPercentage ?? 0),
-          startDate: r.startDate ?? '',
-          dueDate: r.dueDate ?? '',
-          estimatedCompletion: r.estimatedCompletion ?? '',
-          assignedTeam: r.assignedTeam ?? '',
-          timeline: Array.isArray(r.timeline) ? r.timeline.map((t: any): TrackingEvent => ({
-            id: String(t.id ?? ''),
-            station: t.station ?? '',
-            status: (t.status ?? 'pending') as TrackingEvent['status'],
-            startTime: t.startTime ?? '',
-            endTime: t.endTime ?? '',
-            duration: Number(t.duration ?? 0),
-            operator: t.operator ?? '',
-            notes: t.notes ?? '',
-            issues: Array.isArray(t.issues) ? t.issues.map((i: any) => String(i)) : [],
-          })) : [],
-          lastUpdate: r.lastUpdate ?? '',
-          priority: (r.priority ?? 'medium') as WorkOrderTracking['priority'],
-        }));
-        if (!cancelled) setTrackingOrders(mapped);
+        if (!cancelled) setTrackingOrders((raw || []).map(mapTracking));
       } catch (err) {
         if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setTrackingOrders([]); }
       } finally { if (!cancelled) setIsLoading(false); }
@@ -128,15 +141,15 @@ export default function WorkOrderTrackingPage() {
     return 'bg-gray-300';
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    console.log('Refreshing tracking data...');
-
-    // Simulate data refresh
-    setTimeout(() => {
+    try {
+      await loadOrders();
+    } catch {
+      // error surfaced via loadError banner
+    } finally {
       setIsRefreshing(false);
-      alert('Tracking data refreshed successfully!\n\nAll work order statuses and timelines have been updated with the latest information from the production floor.');
-    }, 1000);
+    }
   };
 
   return (

@@ -30,6 +30,7 @@ export default function CustomReportPage() {
     'Modular', 'L-Shape', 'U-Shape', 'Parallel', 'Island',
   ])
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [generateError, setGenerateError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -118,37 +119,27 @@ export default function CustomReportPage() {
   }
 
   const handleGenerate = () => {
+    setGenerateError(null)
     if (!reportName.trim()) {
-      alert('Please enter a report name')
+      setGenerateError('Please enter a report name')
       return
     }
     if (selectedMetrics.length === 0) {
-      alert('Please select at least one metric')
+      setGenerateError('Please select at least one metric')
       return
     }
     if (dateRange === 'custom' && (!customStartDate || !customEndDate)) {
-      alert('Please select custom date range')
+      setGenerateError('Please select a custom date range')
       return
     }
 
-    const report = {
-      name: reportName,
-      description: reportDescription,
-      dateRange,
-      customStartDate,
-      customEndDate,
-      metrics: selectedMetrics,
-      filters: selectedFilters,
-      groupBy,
-      outputFormat,
-      includeCharts,
-      includeRawData,
-      generatedAt: new Date().toISOString()
-    }
-
-    console.log('Generating custom report:', report)
-    alert(`Generating report: ${reportName}`)
-    router.push('/estimation/analytics/reports')
+    // Ad-hoc custom report generation has no backend endpoint yet
+    // (estimation/report-schedules only supports scheduled CRUD, and
+    // estimation analytics exposes no report-render endpoint). Surface an
+    // honest message instead of faking success. See NEEDS BACKEND note.
+    setGenerateError(
+      'Custom report generation is not yet available — the reporting backend endpoint has not been implemented. To automate delivery of a report, use "Schedule Report" instead.',
+    )
   }
 
   const metricsByCategory = availableMetrics.reduce((acc, metric) => {
@@ -190,6 +181,11 @@ export default function CustomReportPage() {
         {loadError && (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {loadError}
+          </div>
+        )}
+        {generateError && (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {generateError}
           </div>
         )}
         <div className="grid grid-cols-3 gap-3">

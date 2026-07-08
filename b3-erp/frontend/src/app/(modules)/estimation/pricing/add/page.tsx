@@ -29,6 +29,7 @@ import {
   estimationMaterialCostService,
   MaterialCostRate,
 } from '@/services/estimation-material-cost.service';
+import { estimationPricingService } from '@/services/estimation-pricing.service';
 
 interface PriceItem {
   id: string;
@@ -73,6 +74,8 @@ export default function AddPricingPage() {
   const [importSource, setImportSource] = useState<'manual' | 'existing' | 'catalog'>('manual');
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const categories = ['Base Cabinets', 'Wall Cabinets', 'Countertops', 'Hardware', 'Tall Units', 'Accessories'];
 
@@ -210,16 +213,57 @@ export default function AddPricingPage() {
     }
   };
 
-  const handleSubmitDraft = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Saved as draft:', formData);
-    router.push('/estimation/pricing');
+  const buildPricingPayload = () => {
+    const baseCost = formData.priceItems.reduce((sum, item) => sum + (item.basePrice || 0), 0);
+    const totalPrice = formData.priceItems.reduce((sum, item) => sum + (item.finalPrice || 0), 0);
+    const avgMargin =
+      formData.priceItems.length > 0
+        ? formData.priceItems.reduce((sum, item) => sum + (item.marginPercent || 0), 0) /
+          formData.priceItems.length
+        : 0;
+    const avgDiscount =
+      formData.priceItems.length > 0
+        ? formData.priceItems.reduce((sum, item) => sum + (item.discountPercent || 0), 0) /
+          formData.priceItems.length
+        : 0;
+    return {
+      title: formData.priceListName,
+      description: formData.description,
+      costEstimateId: '',
+      currency: formData.currency,
+      pricingStrategy: 'Cost Plus' as const,
+      baseCost,
+      markupPercentage: avgMargin,
+      discountPercentage: avgDiscount,
+      subtotal: baseCost,
+      totalPrice,
+      validUntil: formData.effectiveTo || undefined,
+    };
   };
 
-  const handleSubmitPublish = (e: React.FormEvent) => {
+  const savePricing = async (status: 'Draft' | 'Pending Approval') => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await estimationPricingService.create('default-company-id', {
+        ...buildPricingPayload(),
+        status,
+      });
+      router.push('/estimation/pricing');
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save price list');
+      setIsSaving(false);
+    }
+  };
+
+  const handleSubmitDraft = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Published:', formData);
-    router.push('/estimation/pricing');
+    await savePricing('Draft');
+  };
+
+  const handleSubmitPublish = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await savePricing('Pending Approval');
   };
 
   return (
@@ -703,6 +747,13 @@ export default function AddPricingPage() {
           </div>
         )}
 
+        {/* Save Error */}
+        {saveError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {saveError}
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center justify-between">
           <button
@@ -716,18 +767,20 @@ export default function AddPricingPage() {
           <div className="flex items-center space-x-4">
             <button
               type="submit"
-              className="px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium flex items-center space-x-2"
+              disabled={isSaving}
+              className="px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium flex items-center space-x-2 disabled:opacity-60"
             >
               <Save className="h-5 w-5" />
-              <span>Save as Draft</span>
+              <span>{isSaving ? 'Saving...' : 'Save as Draft'}</span>
             </button>
             <button
               type="button"
               onClick={handleSubmitPublish}
-              className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center space-x-2"
+              disabled={isSaving}
+              className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center space-x-2 disabled:opacity-60"
             >
               <TrendingUp className="h-5 w-5" />
-              <span>Publish Price List</span>
+              <span>{isSaving ? 'Saving...' : 'Publish Price List'}</span>
             </button>
           </div>
         </div>

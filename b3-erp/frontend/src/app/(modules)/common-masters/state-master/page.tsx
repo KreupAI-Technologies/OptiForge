@@ -18,6 +18,13 @@ export default function StateMasterPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingState, setEditingState] = useState<State | null>(null);
+  const [countryOptions, setCountryOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [form, setForm] = useState<{ code: string; name: string; countryId: string; isActive: boolean }>({
+    code: '', name: '', countryId: '', isActive: true,
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   // Toast notification effect
   useEffect(() => {
@@ -55,8 +62,18 @@ export default function StateMasterPage() {
     }
   };
 
+  const loadCountries = async () => {
+    try {
+      const raw = await commonMastersService.getAllCountries();
+      setCountryOptions((raw ?? []).map((c: any) => ({ id: String(c.id), name: c.name ?? '' })));
+    } catch (err) {
+      console.error('Failed to load countries:', err);
+    }
+  };
+
   useEffect(() => {
     loadStates();
+    loadCountries();
   }, []);
 
   // Show toast notification
@@ -66,13 +83,48 @@ export default function StateMasterPage() {
 
   // Action handlers
   const handleAddState = () => {
-    showToast('Add state functionality will be implemented', 'info');
-    // TODO: Open add state modal/form
+    setEditingState(null);
+    setForm({ code: '', name: '', countryId: '', isActive: true });
+    setShowModal(true);
   };
 
   const handleEditState = (state: State) => {
-    showToast(`Editing state: ${state.name}`, 'info');
-    // TODO: Open edit state modal/form
+    setEditingState(state);
+    const countryId = countryOptions.find(c => c.name === state.countryName)?.id ?? '';
+    setForm({ code: state.code, name: state.name, countryId, isActive: state.isActive });
+    setShowModal(true);
+  };
+
+  const handleSaveState = async () => {
+    if (!form.name.trim() || !form.code.trim() || !form.countryId) {
+      showToast('Code, name and country are required.', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      if (editingState) {
+        await commonMastersService.updateState(editingState.id, {
+          code: form.code,
+          name: form.name,
+          countryId: form.countryId,
+          isActive: form.isActive,
+        } as any);
+        showToast(`${form.name} updated successfully`, 'success');
+      } else {
+        await commonMastersService.createState({
+          code: form.code,
+          name: form.name,
+          countryId: form.countryId,
+        });
+        showToast(`${form.name} created successfully`, 'success');
+      }
+      setShowModal(false);
+      await loadStates();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save state', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteState = async (state: State) => {
@@ -428,6 +480,81 @@ export default function StateMasterPage() {
           emptyDescription="Try adjusting your search or filters to find what you're looking for."
         />
       </div>
+
+      {/* Add / Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">{editingState ? 'Edit State' : 'Add New State'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
+                <select
+                  value={form.countryId}
+                  onChange={(e) => setForm({ ...form, countryId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select country</option>
+                  {countryOptions.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State Code *</label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. MH"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State/Province Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Maharashtra"
+                />
+              </div>
+              {editingState && (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm text-gray-700">Active</span>
+                </label>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveState}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving…' : editingState ? 'Update State' : 'Create State'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>

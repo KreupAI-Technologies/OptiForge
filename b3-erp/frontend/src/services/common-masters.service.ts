@@ -1216,6 +1216,23 @@ class CommonMastersService {
         return response.data || [];
     }
 
+    // ===========================
+    // ITEM CRUD
+    // ===========================
+    async createItem(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/api/v1/common-masters/items', data);
+        return response.data;
+    }
+
+    async updateItem(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/api/v1/common-masters/items/${id}`, data);
+        return response.data;
+    }
+
+    async deleteItem(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/items/${id}`);
+    }
+
     /** Full item list (with type, uom, prices) for item/material pickers in BOM/work-order forms. */
     async getItemsFull(companyId?: string): Promise<Array<{
         id: string; code: string; name: string; description?: string; itemType?: string;

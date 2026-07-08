@@ -9,6 +9,7 @@ import {
   PieChart, Target, Zap, Award, AlertCircle
 } from 'lucide-react';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { exportToCsv } from '@/lib/export';
 
 interface OEEMetrics {
   availability: number;
@@ -167,46 +168,41 @@ export default function ProductionAnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const res: any = await ProductionOrphanService.getProductivityMetrics();
-        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
-        const mapped: OperatorProductivity[] = raw.map((m, idx) => {
-          const unitsProduced = Number(m.unitsProduced ?? m.actualOutput ?? m.output ?? m.units ?? 0);
-          const target = Number(m.target ?? m.targetOutput ?? m.plannedOutput ?? 0);
-          const efficiency = Number(
-            m.efficiency ?? (target > 0 ? (unitsProduced / target) * 100 : 0),
-          );
-          return {
-            operatorId: m.operatorId ?? m.employeeId ?? m.id ?? `OP-${idx + 1}`,
-            operatorName: m.operatorName ?? m.employeeName ?? m.name ?? 'Unknown',
-            shift: m.shift ?? m.shiftName ?? '-',
-            unitsProduced,
-            target,
-            efficiency,
-            qualityRate: Number(m.qualityRate ?? m.quality ?? 0),
-            rank: Number(m.rank ?? idx + 1),
-          };
-        });
-        if (!cancelled) setOperatorProductivity(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load productivity metrics');
-          setOperatorProductivity([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const loadMetrics = React.useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res: any = await ProductionOrphanService.getProductivityMetrics();
+      const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
+      const mapped: OperatorProductivity[] = raw.map((m, idx) => {
+        const unitsProduced = Number(m.unitsProduced ?? m.actualOutput ?? m.output ?? m.units ?? 0);
+        const target = Number(m.target ?? m.targetOutput ?? m.plannedOutput ?? 0);
+        const efficiency = Number(
+          m.efficiency ?? (target > 0 ? (unitsProduced / target) * 100 : 0),
+        );
+        return {
+          operatorId: m.operatorId ?? m.employeeId ?? m.id ?? `OP-${idx + 1}`,
+          operatorName: m.operatorName ?? m.employeeName ?? m.name ?? 'Unknown',
+          shift: m.shift ?? m.shiftName ?? '-',
+          unitsProduced,
+          target,
+          efficiency,
+          qualityRate: Number(m.qualityRate ?? m.quality ?? 0),
+          rank: Number(m.rank ?? idx + 1),
+        };
+      });
+      setOperatorProductivity(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load productivity metrics');
+      setOperatorProductivity([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadMetrics();
+  }, [loadMetrics]);
 
   const getUtilizationColor = (utilization: number): string => {
     if (utilization >= 90) return 'bg-green-500';
@@ -239,16 +235,21 @@ export default function ProductionAnalyticsPage() {
   };
 
   // Handler functions
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
+    try {
+      await loadMetrics();
+    } finally {
       setIsRefreshing(false);
-      alert('Dashboard data refreshed successfully!');
-    }, 1000);
+    }
   };
 
   const handleExportDashboard = () => {
-    alert('Exporting complete analytics dashboard to Excel...');
+    // Export the live operator-productivity dataset (the API-backed table on this page).
+    exportToCsv(
+      'production-analytics-operator-productivity',
+      operatorProductivity as unknown as Record<string, unknown>[],
+    );
   };
 
   const handleViewAllProducts = () => {
@@ -256,11 +257,26 @@ export default function ProductionAnalyticsPage() {
   };
 
   const handleViewAllOperators = () => {
-    alert('Viewing all operator productivity rankings...');
+    router.push('/production/analytics/productivity');
+  };
+
+  // Map each report card to its dedicated analytics sub-route.
+  const reportRoutes: Record<string, string> = {
+    'Daily Production Report': '/production/analytics/productivity',
+    'Work Order Status': '/production/work-orders',
+    'Material Consumption': '/production/analytics/variance',
+    'Quality Report': '/production/analytics/variance',
+    'Efficiency Report': '/production/analytics/efficiency',
+    'Downtime Analysis': '/production/downtime/analysis',
+    'Cost Variance Report': '/production/analytics/variance',
+    'Labor Productivity': '/production/analytics/productivity',
   };
 
   const handleReportClick = (reportType: string) => {
-    alert(`Opening ${reportType} report...`);
+    const route = reportRoutes[reportType];
+    if (route) {
+      router.push(route);
+    }
   };
 
   return (
