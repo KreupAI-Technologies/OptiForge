@@ -13,7 +13,52 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 function asArray<T>(d: any): T[] { return Array.isArray(d) ? d : (d?.data ?? []); }
 
+export interface SupportOverview {
+  activePolicies: number;
+  breachesLast30Days: number;
+  complianceRate: number;
+  totalTickets: number;
+  breachedTickets: number;
+}
+
+export interface OnboardingTask {
+  id: string;
+  companyId?: string;
+  title: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  category: 'setup' | 'training' | 'data' | 'security';
+  estimatedTime?: string;
+  sortOrder?: number;
+}
+
+// Onboarding seed rows are stored under companyId 'company-1'.
+const ONBOARDING_COMPANY = 'company-1';
+
 export const supportPagesService = {
+  // --- Support KPI overview (SLA compliance dashboard) ---
+  async getSupportOverview(companyId = 'company-1'): Promise<SupportOverview> {
+    return request<SupportOverview>(`/support/sla/dashboard?companyId=${encodeURIComponent(companyId)}`);
+  },
+
+  // --- Onboarding checklist tasks (net-new: /support/onboarding/tasks) ---
+  async getOnboardingTasks(): Promise<OnboardingTask[]> {
+    const res = await fetch(`${API_BASE_URL}/support/onboarding/tasks`, {
+      headers: { 'Content-Type': 'application/json', 'x-company-id': ONBOARDING_COMPANY },
+    });
+    if (!res.ok) throw new Error(`Request failed (${res.status}) for /support/onboarding/tasks`);
+    return asArray<OnboardingTask>(await res.json());
+  },
+  async updateOnboardingTask(id: string, data: Partial<OnboardingTask>): Promise<OnboardingTask> {
+    const res = await fetch(`${API_BASE_URL}/support/onboarding/tasks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-company-id': ONBOARDING_COMPANY },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Request failed (${res.status}) for onboarding task ${id}`);
+    return res.json() as Promise<OnboardingTask>;
+  },
+
   async getHardwareAssets(): Promise<any[]> { return asArray(await request('/support/assets/hardware')); },
   async getAutomationRules(): Promise<any[]> { return asArray(await request('/support/automation/rules')); },
   async getScheduledChanges(): Promise<any[]> { return asArray(await request('/support/changes/scheduled')); },

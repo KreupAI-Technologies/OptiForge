@@ -16,6 +16,7 @@ function asArray<T>(d: any): T[] { return Array.isArray(d) ? d : (d?.data ?? [])
 export const procurementPagesService = {
   async getPurchaseOrders(): Promise<any[]> { return asArray(await request('/procurement/purchase-orders')); },
   async getVendors(): Promise<any[]> { return asArray(await request('/procurement/vendors')); },
+  async getRfqs(): Promise<any[]> { return asArray(await request('/procurement/rfqs')); },
 
   // ---- Dashboard insights (procurement/insights/*) ----
   async getAnalyticsInsights(): Promise<any> { return request('/procurement/insights/analytics'); },

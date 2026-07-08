@@ -1,82 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ArrowLeft, CheckCircle, Circle, ArrowRight, Play, FileText, Users, Settings, Database, Shield } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, CheckCircle, Circle, ArrowRight, Play, FileText, Users, Settings, Database, Shield, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-
-interface OnboardingTask {
-    id: string;
-    title: string;
-    description: string;
-    status: 'pending' | 'in_progress' | 'completed';
-    category: 'setup' | 'training' | 'data' | 'security';
-    estimatedTime: string;
-}
+import { supportPagesService, OnboardingTask } from '@/services/support-pages.service';
 
 export default function OnboardingPage() {
-    const [tasks, setTasks] = useState<OnboardingTask[]>([
-        {
-            id: '1',
-            title: 'Company Profile Setup',
-            description: 'Configure basic company details, logo, and branding settings.',
-            status: 'completed',
-            category: 'setup',
-            estimatedTime: '15 mins'
-        },
-        {
-            id: '2',
-            title: 'User Roles & Permissions',
-            description: 'Define user roles and assign access permissions for your team.',
-            status: 'completed',
-            category: 'security',
-            estimatedTime: '30 mins'
-        },
-        {
-            id: '3',
-            title: 'Import Customer Data',
-            description: 'Upload your existing customer database via CSV or API.',
-            status: 'in_progress',
-            category: 'data',
-            estimatedTime: '1 hour'
-        },
-        {
-            id: '4',
-            title: 'Configure Email Settings',
-            description: 'Set up SMTP server and email templates for notifications.',
-            status: 'pending',
-            category: 'setup',
-            estimatedTime: '20 mins'
-        },
-        {
-            id: '5',
-            title: 'Team Training Session',
-            description: 'Schedule and complete the initial product training webinar.',
-            status: 'pending',
-            category: 'training',
-            estimatedTime: '2 hours'
-        },
-        {
-            id: '6',
-            title: 'Setup Backup Policy',
-            description: 'Configure automated data backup frequency and retention.',
-            status: 'pending',
-            category: 'security',
-            estimatedTime: '15 mins'
-        }
-    ]);
+    const [tasks, setTasks] = useState<OnboardingTask[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const toggleStatus = (id: string) => {
-        setTasks(tasks.map(task => {
-            if (task.id === id) {
-                const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-                return { ...task, status: newStatus };
-            }
-            return task;
-        }));
+    useEffect(() => {
+        let active = true;
+        setLoading(true);
+        setError(null);
+        supportPagesService
+            .getOnboardingTasks()
+            .then((data) => { if (active) setTasks(Array.isArray(data) ? data : []); })
+            .catch((e) => { if (active) setError(e?.message ?? 'Failed to load onboarding tasks'); })
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, []);
+
+    const toggleStatus = async (id: string) => {
+        const target = tasks.find((t) => t.id === id);
+        if (!target) return;
+        const newStatus: OnboardingTask['status'] =
+            target.status === 'completed' ? 'pending' : 'completed';
+        // Optimistic update
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+        try {
+            await supportPagesService.updateOnboardingTask(id, { status: newStatus });
+        } catch {
+            // Revert on failure
+            setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: target.status } : t)));
+        }
     };
 
     const completedCount = tasks.filter(t => t.status === 'completed').length;
-    const progress = Math.round((completedCount / tasks.length) * 100);
+    const progress = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
 
     return (
         <div className="w-full min-h-screen bg-gray-50 p-3">
@@ -126,7 +88,20 @@ export default function OnboardingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Task List */}
                 <div className="lg:col-span-2 space-y-2">
-                    {tasks.map((task) => (
+                    {loading ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-500 bg-white rounded-xl p-6 border border-gray-200">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Loading onboarding tasks…
+                        </div>
+                    ) : error ? (
+                        <div className="flex items-center gap-2 text-sm text-red-600 bg-white rounded-xl p-6 border border-red-200">
+                            <AlertCircle className="w-4 h-4" /> {error}
+                        </div>
+                    ) : tasks.length === 0 ? (
+                        <div className="text-sm text-gray-400 bg-white rounded-xl p-6 border border-gray-200">
+                            No onboarding tasks found.
+                        </div>
+                    ) : (
+                        tasks.map((task) => (
                         <div
                             key={task.id}
                             className={`bg-white rounded-xl p-3 border transition-all duration-200 ${task.status === 'completed' ? 'border-green-200 bg-green-50/30' :
@@ -172,7 +147,8 @@ export default function OnboardingPage() {
                                 </button>
                             </div>
                         </div>
-                    ))}
+                    ))
+                    )}
                 </div>
 
                 {/* Resources Sidebar */}

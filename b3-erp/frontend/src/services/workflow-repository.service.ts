@@ -64,7 +64,31 @@ export interface WorkflowInstanceDTO {
   updatedAt: string;
 }
 
+export interface WorkflowStatsDTO {
+  totalDefinitions: number;
+  activeDefinitions: number;
+  totalInstances: number;
+  runningInstances: number;
+  completedInstances: number;
+  failedInstances: number;
+}
+
 export const workflowRepositoryService = {
+  /** Aggregate workflow KPI counts (definitions + instances). */
+  async getStats(): Promise<WorkflowStatsDTO> {
+    const res = await apiClient.get<WorkflowStatsDTO>(`${BASE}/stats`);
+    return (
+      res.data ?? {
+        totalDefinitions: 0,
+        activeDefinitions: 0,
+        totalInstances: 0,
+        runningInstances: 0,
+        completedInstances: 0,
+        failedInstances: 0,
+      }
+    );
+  },
+
   /** List workflow definitions (optionally filtered by type/status). */
   async getDefinitions(filters?: {
     type?: string;

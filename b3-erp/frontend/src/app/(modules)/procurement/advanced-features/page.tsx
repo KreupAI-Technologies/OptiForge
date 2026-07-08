@@ -36,6 +36,14 @@ import {
     Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { procurementPagesService } from '@/services/procurement-pages.service';
+
+interface ProcurementKpis {
+    purchaseOrders: number;
+    rfqs: number;
+    vendors: number;
+    totalSpend: number | null;
+}
 
 interface FeatureCard {
     id: string;
@@ -51,6 +59,8 @@ export default function AdvancedFeaturesPage() {
     const searchParams = useSearchParams();
     const [activeSection, setActiveSection] = useState<string>('all');
     const [loading, setLoading] = useState(true);
+    const [kpis, setKpis] = useState<ProcurementKpis | null>(null);
+    const [kpiError, setKpiError] = useState<string | null>(null);
 
     useEffect(() => {
         // Check for hash in URL and scroll to section
@@ -64,8 +74,40 @@ export default function AdvancedFeaturesPage() {
                 }
             }, 100);
         }
-        setLoading(false);
+
+        let active = true;
+        (async () => {
+            try {
+                const [pos, rfqs, vendors, spend] = await Promise.all([
+                    procurementPagesService.getPurchaseOrders().catch(() => []),
+                    procurementPagesService.getRfqs().catch(() => []),
+                    procurementPagesService.getVendors().catch(() => []),
+                    procurementPagesService.getSpendOverview().catch(() => null),
+                ]);
+                if (!active) return;
+                const totalSpend =
+                    spend?.totalSpend ?? spend?.total ?? spend?.totalAmount ?? null;
+                setKpis({
+                    purchaseOrders: Array.isArray(pos) ? pos.length : 0,
+                    rfqs: Array.isArray(rfqs) ? rfqs.length : 0,
+                    vendors: Array.isArray(vendors) ? vendors.length : 0,
+                    totalSpend: typeof totalSpend === 'number' ? totalSpend : null,
+                });
+            } catch (e: any) {
+                if (active) setKpiError(e?.message ?? 'Failed to load procurement metrics');
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => { active = false; };
     }, []);
+
+    const formatSpend = (v: number | null): string => {
+        if (v == null) return '—';
+        if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+        if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+        return `$${v.toLocaleString()}`;
+    };
 
     const portalFeatures: FeatureCard[] = [
         {
@@ -405,14 +447,19 @@ export default function AdvancedFeaturesPage() {
                     </div>
                 </div>
 
-                {/* Quick Stats */}
+                {/* Quick Stats — live procurement KPIs */}
+                {kpiError && (
+                    <div className="mb-3 flex items-center gap-2 text-sm text-red-600">
+                        <AlertCircle className="h-4 w-4" /> {kpiError}
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                         <CardContent className="pt-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-blue-100 text-sm">Active Features</p>
-                                    <p className="text-3xl font-bold">18</p>
+                                    <p className="text-blue-100 text-sm">Purchase Orders</p>
+                                    <p className="text-3xl font-bold">{kpis ? kpis.purchaseOrders : '—'}</p>
                                 </div>
                                 <CheckCircle2 className="h-10 w-10 text-blue-200" />
                             </div>
@@ -422,8 +469,8 @@ export default function AdvancedFeaturesPage() {
                         <CardContent className="pt-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-green-100 text-sm">Cost Savings YTD</p>
-                                    <p className="text-3xl font-bold">$1.2M</p>
+                                    <p className="text-green-100 text-sm">Total Spend</p>
+                                    <p className="text-3xl font-bold">{kpis ? formatSpend(kpis.totalSpend) : '—'}</p>
                                 </div>
                                 <DollarSign className="h-10 w-10 text-green-200" />
                             </div>
@@ -434,7 +481,7 @@ export default function AdvancedFeaturesPage() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-purple-100 text-sm">Active Vendors</p>
-                                    <p className="text-3xl font-bold">156</p>
+                                    <p className="text-3xl font-bold">{kpis ? kpis.vendors : '—'}</p>
                                 </div>
                                 <Users className="h-10 w-10 text-purple-200" />
                             </div>
@@ -444,8 +491,8 @@ export default function AdvancedFeaturesPage() {
                         <CardContent className="pt-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-orange-100 text-sm">Compliance Rate</p>
-                                    <p className="text-3xl font-bold">94.5%</p>
+                                    <p className="text-orange-100 text-sm">Open RFQs</p>
+                                    <p className="text-3xl font-bold">{kpis ? kpis.rfqs : '—'}</p>
                                 </div>
                                 <Shield className="h-10 w-10 text-orange-200" />
                             </div>
