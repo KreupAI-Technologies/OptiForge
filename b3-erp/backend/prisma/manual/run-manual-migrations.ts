@@ -51,6 +51,7 @@ const MIGRATION_ORDER: string[] = [
     'orphan_workflow.sql',
     'orphan_workflow_comments.sql',
     'orphan_notifications.sql',
+    'orphan_attachments.sql',
     // Domain modules (independent orphan tables)
     'orphan_crm.sql',
     'orphan_sales.sql',
@@ -70,6 +71,7 @@ const MIGRATION_ORDER: string[] = [
     'orphan_project-management.sql',
     'orphan_installation.sql',
     'orphan_finance.sql',
+    'orphan_finance_statutory.sql',
     'orphan_hr.sql',
     'orphan_quality.sql',
     'orphan_after_sales.sql',

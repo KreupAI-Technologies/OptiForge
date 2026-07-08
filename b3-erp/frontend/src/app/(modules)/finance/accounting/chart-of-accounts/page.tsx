@@ -214,6 +214,29 @@ export default function ChartOfAccountsPage() {
     }
   };
 
+  // Bulk import parsed chart-of-accounts rows (JSON). validateOnly runs a
+  // dry-run; otherwise accounts are created via the backend import endpoint.
+  const handleBulkImport = async (data: { accounts: any[]; validateOnly?: boolean }) => {
+    setIsSubmitting(true);
+    setActionMessage(null);
+    try {
+      const res = await FinanceService.bulkImportAccounts({
+        accounts: data.accounts,
+        validateOnly: data.validateOnly,
+      });
+      setIsBulkImportModalOpen(false);
+      const summary = data.validateOnly
+        ? `Validated ${res?.total ?? 0} row(s): ${res?.failed ?? 0} error(s).`
+        : `Imported ${res?.created ?? 0} account(s) (${res?.skipped ?? 0} skipped, ${res?.failed ?? 0} failed).`;
+      setActionMessage({ type: (res?.failed ?? 0) > 0 ? 'error' : 'success', text: summary });
+      if (!data.validateOnly) await loadAccounts();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to import accounts.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Build tree structure
   const buildTree = (accounts: Account[]): Account[] => {
     const accountMap = new Map<string, Account>();
@@ -644,10 +667,8 @@ export default function ChartOfAccountsPage() {
       <BulkImportAccountsModal
         isOpen={isBulkImportModalOpen}
         onClose={() => setIsBulkImportModalOpen(false)}
-        onImport={(data: any) => {
-          console.log('Importing accounts:', data);
-          setIsBulkImportModalOpen(false);
-        }}
+        onImport={handleBulkImport}
+        isSubmitting={isSubmitting}
       />
 
       <ExportChartModal

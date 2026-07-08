@@ -45,6 +45,29 @@ export class ChartOfAccountsController {
     return this.chartOfAccountsService.create(createDto);
   }
 
+  @Post('bulk-import')
+  @ApiOperation({ summary: 'Bulk import chart-of-accounts from parsed JSON rows' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Import summary (per-row results)',
+  })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid payload' })
+  async bulkImport(
+    @Body()
+    body: {
+      accounts?: any[];
+      rows?: any[];
+      validateOnly?: boolean;
+      createdBy?: string;
+    },
+  ): Promise<any> {
+    const rows = body?.accounts ?? body?.rows ?? [];
+    return this.chartOfAccountsService.bulkImport(rows, {
+      validateOnly: body?.validateOnly,
+      createdBy: body?.createdBy,
+    });
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all accounts' })
   @ApiQuery({ name: 'accountType', required: false, description: 'Filter by account type' })

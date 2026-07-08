@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DollarSign, FileText, TrendingUp, ArrowLeft, Download, Eye, Calendar, Filter } from 'lucide-react';
-import { fetchReportCatalog } from '@/services/reports-management.service';
+import {
+  fetchReportCatalog,
+  exportFinancialReport,
+  type ReportExportFormat,
+} from '@/services/reports-management.service';
 
 interface FinancialReport {
   id: string;
@@ -36,6 +40,51 @@ export default function FinancialReportsPage() {
   const [financialReports, setFinancialReports] = useState<FinancialReport[]>(defaultFinancialReports);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [exportAllBusy, setExportAllBusy] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // Map a catalog href to a stable reportKey the backend can resolve datasets
+  // by (e.g. "/reports/finance/ar-aging" -> "finance.ar-aging").
+  const reportKeyFromHref = (href: string): string | undefined => {
+    const seg = href.replace(/^\/+|\/+$/g, '').split('/');
+    // ["reports","finance","ar-aging"] -> "finance.ar-aging"
+    if (seg.length >= 3 && seg[0] === 'reports') return seg.slice(1).join('.');
+    return undefined;
+  };
+
+  const handleExportReport = async (
+    report: FinancialReport,
+    format: ReportExportFormat,
+  ) => {
+    setExportError(null);
+    setExportingId(report.id);
+    try {
+      await exportFinancialReport(format, {
+        reportKey: reportKeyFromHref(report.href),
+      });
+    } catch (err) {
+      setExportError(
+        err instanceof Error ? err.message : 'Failed to export report',
+      );
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handleExportAll = async (format: ReportExportFormat) => {
+    setExportError(null);
+    setExportAllBusy(true);
+    try {
+      await exportFinancialReport(format);
+    } catch (err) {
+      setExportError(
+        err instanceof Error ? err.message : 'Failed to export reports',
+      );
+    } finally {
+      setExportAllBusy(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -90,15 +139,39 @@ export default function FinancialReportsPage() {
             <ArrowLeft className="w-4 h-4" />
             Back to Reports
           </Link>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Financial Reports</h1>
+                <p className="text-gray-600">Comprehensive financial analysis and accounting reports - click any card to view</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Financial Reports</h1>
-              <p className="text-gray-600">Comprehensive financial analysis and accounting reports - click any card to view</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleExportAll('pdf')}
+                disabled={exportAllBusy}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              >
+                <Download className="w-4 h-4" />
+                {exportAllBusy ? 'Exporting…' : 'Export PDF'}
+              </button>
+              <button
+                onClick={() => handleExportAll('excel')}
+                disabled={exportAllBusy}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60"
+              >
+                Export Excel
+              </button>
             </div>
           </div>
+          {exportError && (
+            <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              {exportError}
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -162,6 +235,32 @@ export default function FinancialReportsPage() {
                   <div className="text-xs text-blue-600 font-medium group-hover:underline">
                     View Report →
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-3">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleExportReport(report, 'pdf');
+                    }}
+                    disabled={exportingId === report.id}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs disabled:opacity-60"
+                  >
+                    <Download className="w-3.5 h-3.5 text-gray-600" />
+                    {exportingId === report.id ? 'Downloading…' : 'PDF'}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleExportReport(report, 'excel');
+                    }}
+                    disabled={exportingId === report.id}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs disabled:opacity-60"
+                  >
+                    Excel
+                  </button>
                 </div>
               </div>
             </Link>

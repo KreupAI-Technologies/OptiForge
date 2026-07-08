@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Users, Save, Download, Upload, Search, Filter, Calendar, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { EmployeeService } from '@/services/employee.service';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { AttachmentsService } from '@/services/attachments.service';
 
 interface EmployeePunch {
   id: string;
@@ -146,6 +147,9 @@ export default function BulkPunchPage() {
   };
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     // Only persist rows the supervisor actually punched in for.
@@ -191,11 +195,116 @@ export default function BulkPunchPage() {
     exportToCsv('bulk-punch', filteredData);
   };
 
-  const handleImport = () => {
-    // NOTE: Bulk import from Excel/CSV is not yet implemented on the backend.
-    // The data view and per-row/bulk punch entry + save are fully wired to the
-    // live employees and attendance endpoints; only file import remains stubbed.
-    alert('Bulk import from Excel/CSV is not yet available. Please enter punch data directly in the table below and use "Save All Changes".');
+  const handleImportClick = () => {
+    importInputRef.current?.click();
+  };
+
+  // Normalise a header/key to a lookup-friendly form.
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Pull the first matching value from a parsed row given candidate header names.
+  const pick = (
+    row: Record<string, string>,
+    normMap: Record<string, string>,
+    candidates: string[],
+  ): string => {
+    for (const c of candidates) {
+      const key = normMap[norm(c)];
+      if (key !== undefined && row[key] != null && String(row[key]).trim() !== '') {
+        return String(row[key]).trim();
+      }
+    }
+    return '';
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setIsImporting(true);
+    setImportNotice(null);
+    setLoadError(null);
+    try {
+      const { rows } = await AttachmentsService.parseSpreadsheet(file);
+      if (rows.length === 0) {
+        setImportNotice('The uploaded file contained no data rows.');
+        return;
+      }
+
+      // Index existing employee rows by code and by name for matching.
+      const byCode = new Map<string, EmployeePunch>();
+      const byName = new Map<string, EmployeePunch>();
+      punchData.forEach((emp) => {
+        if (emp.employeeCode) byCode.set(norm(emp.employeeCode), emp);
+        if (emp.employeeName) byName.set(norm(emp.employeeName), emp);
+      });
+
+      let matched = 0;
+      const unmatched: string[] = [];
+
+      // Apply parsed punch values onto existing rows only — never fabricate rows.
+      const updates = new Map<string, Partial<EmployeePunch>>();
+      for (const raw of rows) {
+        const normMap: Record<string, string> = {};
+        Object.keys(raw).forEach((k) => (normMap[norm(k)] = k));
+
+        const code = pick(raw, normMap, ['employeeCode', 'empCode', 'code', 'employeeId', 'empId']);
+        const name = pick(raw, normMap, ['employeeName', 'name', 'fullName']);
+        const target =
+          (code && byCode.get(norm(code))) || (name && byName.get(norm(name))) || null;
+
+        if (!target) {
+          unmatched.push(code || name || '(unknown)');
+          continue;
+        }
+        matched++;
+
+        const punchIn = pick(raw, normMap, ['punchIn', 'in', 'timeIn', 'checkIn']);
+        const punchOut = pick(raw, normMap, ['punchOut', 'out', 'timeOut', 'checkOut']);
+        const breakDuration = pick(raw, normMap, ['break', 'breakDuration', 'breakMin', 'breakMinutes']);
+        const remarks = pick(raw, normMap, ['remarks', 'remark', 'notes', 'note']);
+
+        updates.set(target.id, {
+          ...(punchIn ? { punchIn } : {}),
+          ...(punchOut ? { punchOut } : {}),
+          ...(breakDuration ? { breakDuration } : {}),
+          ...(remarks ? { remarks } : {}),
+        });
+      }
+
+      // Merge and recompute work hours / status for updated rows.
+      setPunchData((prev) =>
+        prev.map((emp) => {
+          const patch = updates.get(emp.id);
+          if (!patch) return emp;
+          const updated = { ...emp, ...patch };
+          if (updated.punchIn && updated.punchOut) {
+            const inTime = new Date(`2000-01-01T${updated.punchIn}`);
+            const outTime = new Date(`2000-01-01T${updated.punchOut}`);
+            const diffHours = (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60);
+            const breakHours = parseInt(updated.breakDuration || '0') / 60;
+            updated.workHours = Math.max(0, diffHours - breakHours);
+            updated.status =
+              updated.workHours === 0 ? 'absent' : updated.workHours < 4 ? 'half_day' : 'present';
+          }
+          return updated;
+        }),
+      );
+
+      const parts = [`Imported ${matched} row(s) onto matching employees.`];
+      if (unmatched.length > 0) {
+        parts.push(
+          `${unmatched.length} row(s) had no matching employee and were skipped` +
+            ` (${unmatched.slice(0, 5).join(', ')}${unmatched.length > 5 ? '…' : ''}).`,
+        );
+      }
+      setImportNotice(parts.join(' '));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to import spreadsheet');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -216,6 +325,14 @@ export default function BulkPunchPage() {
       {loadError && (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm mb-3">
           {loadError}
+        </div>
+      )}
+      {importNotice && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2 text-sm mb-3 flex items-start justify-between gap-3">
+          <span>{importNotice}</span>
+          <button onClick={() => setImportNotice(null)} className="text-amber-700 hover:text-amber-900">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -266,12 +383,20 @@ export default function BulkPunchPage() {
             </button>
           </div>
           <div className="flex gap-2">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={handleImportFile}
+            />
             <button
-              onClick={handleImport}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              onClick={handleImportClick}
+              disabled={isImporting || isLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60"
             >
               <Upload className="h-4 w-4" />
-              Import
+              {isImporting ? 'Importing…' : 'Import'}
             </button>
             <button
               onClick={handleExport}
@@ -518,7 +643,7 @@ export default function BulkPunchPage() {
           <li>• <strong>Work hours</strong> are automatically calculated: (Punch Out - Punch In) - Break Duration</li>
           <li>• <strong>Status</strong> is auto-updated based on work hours (&lt; 4hrs = Half Day, 0hrs = Absent)</li>
           <li>• Use <strong>filters</strong> to manage specific departments or shifts efficiently</li>
-          <li>• <strong>Import/Export</strong> Excel functionality for offline bulk editing</li>
+          <li>• <strong>Import</strong> an Excel/CSV file (columns: Employee Code/Name, Punch In, Punch Out, Break, Remarks) to populate matching rows; <strong>Export</strong> the current view for offline editing</li>
           <li>• Remember to <strong>Save All Changes</strong> before leaving the page</li>
         </ul>
       </div>

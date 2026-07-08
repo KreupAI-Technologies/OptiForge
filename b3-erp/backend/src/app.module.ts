@@ -17,6 +17,7 @@ import { cacheConfigFactory } from './common/cache/cache.config';
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { AfterSalesServiceModule } from './modules/after-sales-service/after-sales-service.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
+import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { CommonMastersModule } from './modules/common-masters/common-masters.module';
@@ -127,6 +128,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     QualityModule,
     WorkflowModule,
     ApprovalsModule,
+    AttachmentsModule,
     ReportsModule,
     DashboardModule,
     AdvancedFeaturesModule,

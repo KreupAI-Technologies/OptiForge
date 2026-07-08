@@ -1203,6 +1203,109 @@ export async function deleteSavedReportItem(
 }
 
 // ============================================================================
+// REPORT EXECUTION + FILE DOWNLOAD (run saved reports, export files)
+// Backend source of truth: reports/report-generation.controller.ts
+//   POST reports/custom/:id/run           -> { rows, columns, summary, ... }
+//   GET  reports/custom/:id/export        -> downloadable file (pdf|excel|csv)
+//   GET  reports/financial/export         -> downloadable file (pdf|excel|csv)
+// ============================================================================
+
+export type ReportExportFormat = 'pdf' | 'excel' | 'csv';
+
+export interface RunReportResult {
+  reportId: string;
+  reportName: string;
+  columns: { key: string; header: string }[];
+  rows: Record<string, unknown>[];
+  summary: Record<string, unknown>;
+  rowCount: number;
+  runCount: number;
+  lastRunAt: string;
+}
+
+/** Run a saved custom report and return its computed rows + summary. */
+export async function runSavedReportItem(
+  id: string,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<RunReportResult> {
+  const res = await fetch(
+    `${API_BASE_URL}/reports/custom/${id}/run?companyId=${encodeURIComponent(
+      companyId,
+    )}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to run report (${res.status})`);
+  }
+  return (await res.json()) as RunReportResult;
+}
+
+function filenameFromDisposition(
+  header: string | null,
+  fallback: string,
+): string {
+  if (!header) return fallback;
+  const match = /filename="?([^"]+)"?/i.exec(header);
+  return match?.[1] ?? fallback;
+}
+
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+async function downloadReportFile(
+  url: string,
+  fallbackName: string,
+): Promise<void> {
+  const res = await fetch(url, { method: 'GET' });
+  if (!res.ok) {
+    throw new Error(`Report download failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const filename = filenameFromDisposition(
+    res.headers.get('content-disposition'),
+    fallbackName,
+  );
+  triggerBlobDownload(blob, filename);
+}
+
+/** Download a saved custom report as a PDF / Excel / CSV file. */
+export async function exportSavedReportItem(
+  id: string,
+  format: ReportExportFormat = 'pdf',
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<void> {
+  const params = new URLSearchParams({ companyId, format });
+  await downloadReportFile(
+    `${API_BASE_URL}/reports/custom/${id}/export?${params.toString()}`,
+    `report.${format === 'excel' ? 'xlsx' : format}`,
+  );
+}
+
+/** Generate + download a financial report file. */
+export async function exportFinancialReport(
+  format: ReportExportFormat = 'pdf',
+  options?: { reportKey?: string; companyId?: string },
+): Promise<void> {
+  const params = new URLSearchParams({
+    companyId: options?.companyId ?? DEFAULT_COMPANY_ID,
+    format,
+  });
+  if (options?.reportKey) params.set('reportKey', options.reportKey);
+  await downloadReportFile(
+    `${API_BASE_URL}/reports/financial/export?${params.toString()}`,
+    `financial-report.${format === 'excel' ? 'xlsx' : format}`,
+  );
+}
+
+// ============================================================================
 // SAVED CUSTOM DASHBOARDS ("My Dashboards" on /reports/dashboards)
 // ============================================================================
 

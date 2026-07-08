@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FileText, FolderOpen, Shield, BookOpen, Award, AlertTriangle,
   Plus, Search, Filter, Upload, Download, Eye, CheckCircle,
-  XCircle, Clock, AlertCircle, Users, Calendar, Bell
+  XCircle, Clock, AlertCircle, Users, Calendar, Bell, Loader2, Trash2
 } from 'lucide-react';
+import { AttachmentsService, type Attachment } from '@/services/attachments.service';
 import {
   DocumentManagementService,
   DocumentCategory,
@@ -547,6 +548,173 @@ function ComplianceTrackingSection({ tracking, status }: { tracking: DocumentCom
 }
 
 // ============================================================================
+// Upload Documents Component (real file upload/list/delete)
+// ============================================================================
+
+// Owning-record type for HR employee-document uploads in the attachments store.
+const HR_DOC_ENTITY_TYPE = 'hr-document';
+
+function UploadDocumentsSection() {
+  const [employeeId, setEmployeeId] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const load = async (id: string) => {
+    if (!id.trim()) {
+      setAttachments([]);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const rows = await AttachmentsService.list(HR_DOC_ENTITY_TYPE, id.trim());
+      setAttachments(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load documents');
+      setAttachments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFilesChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    if (!employeeId.trim()) {
+      setError('Enter an employee id before uploading.');
+      return;
+    }
+    setIsUploading(true);
+    setError(null);
+    try {
+      await Promise.all(
+        files.map((file) =>
+          AttachmentsService.upload(file, HR_DOC_ENTITY_TYPE, employeeId.trim()),
+        ),
+      );
+      await load(employeeId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setError(null);
+    try {
+      await AttachmentsService.remove(id);
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h3 className="text-lg font-semibold text-white">Upload Documents</h3>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Employee ID"
+            value={employeeId}
+            onChange={(e) => setEmployeeId(e.target.value)}
+            onBlur={() => load(employeeId)}
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFilesChosen}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading || !employeeId.trim()}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50"
+          >
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {isUploading ? 'Uploading…' : 'Upload'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-2 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-900">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">File</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Size</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Uploaded</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700">
+            {isLoading ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Loading…
+                </td>
+              </tr>
+            ) : attachments.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  {employeeId.trim()
+                    ? 'No documents uploaded for this employee.'
+                    : 'Enter an employee id to view and upload documents.'}
+                </td>
+              </tr>
+            ) : (
+              attachments.map((a) => (
+                <tr key={a.id} className="hover:bg-gray-750">
+                  <td className="px-4 py-3 text-white">{a.fileName}</td>
+                  <td className="px-4 py-3 text-gray-300">{a.mimeType}</td>
+                  <td className="px-4 py-3 text-gray-300">{(a.size / 1024).toFixed(0)} KB</td>
+                  <td className="px-4 py-3 text-gray-300">
+                    {a.createdAt ? new Date(a.createdAt).toLocaleString() : '-'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-3">
+                      <a
+                        href={AttachmentsService.downloadUrl(a.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 text-sm"
+                      >
+                        <Download className="h-4 w-4" />
+                      </a>
+                      <button
+                        onClick={() => handleDelete(a.id)}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -731,7 +899,7 @@ export default function DocumentManagementPage() {
     switch (mainTab) {
       case 'employee_documents':
         if (employeeDocSubTab === 'upload') {
-          return <div className="text-gray-400 text-center py-8">Upload Documents section coming soon</div>;
+          return <UploadDocumentsSection />;
         }
         const docCategory = employeeDocSubTab === 'personal' ? DocumentCategory.PERSONAL :
                           employeeDocSubTab === 'educational' ? DocumentCategory.EDUCATIONAL :

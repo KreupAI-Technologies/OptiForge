@@ -1600,6 +1600,197 @@ export class FinanceService {
   }
 
   // ==========================================================================
+  // Statutory: GST returns (record/import GSTR-2A, file GSTR-1/3B, download doc)
+  // ==========================================================================
+  private static async downloadBlob(
+    endpoint: string,
+    options?: RequestInit,
+  ): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: { ...(options?.headers ?? {}) },
+    });
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+    return response.blob();
+  }
+
+  static async getGstReturns(filters?: {
+    returnType?: string;
+    period?: string;
+    status?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.returnType) q.set('returnType', filters.returnType);
+    if (filters?.period) q.set('period', filters.period);
+    if (filters?.status) q.set('status', filters.status);
+    const qs = q.toString();
+    return this.toArray(await this.request<any>(`/finance/gst/returns${qs ? `?${qs}` : ''}`));
+  }
+
+  static async importGstr2a(data: {
+    period: string;
+    rows: any[];
+    notes?: string;
+  }): Promise<any> {
+    return this.request<any>('/finance/gst/gstr-2a/import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async fileGstReturn(data: {
+    returnType: string;
+    period: string;
+    dueDate?: string;
+    totalSales?: number;
+    totalPurchases?: number;
+    outputTax?: number;
+    inputTax?: number;
+    netTax?: number;
+    rows?: any[];
+  }): Promise<any> {
+    return this.request<any>('/finance/gst/returns/file', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async downloadGstReturn(
+    id: string,
+    format: 'pdf' | 'excel' = 'pdf',
+  ): Promise<Blob> {
+    return this.downloadBlob(`/finance/gst/returns/${id}/download?format=${format}`);
+  }
+
+  // ==========================================================================
+  // Statutory: TDS returns + challans + Form-16A
+  // ==========================================================================
+  static async getTdsReturns(filters?: {
+    formType?: string;
+    quarter?: string;
+    status?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.formType) q.set('formType', filters.formType);
+    if (filters?.quarter) q.set('quarter', filters.quarter);
+    if (filters?.status) q.set('status', filters.status);
+    const qs = q.toString();
+    return this.toArray(await this.request<any>(`/finance/tds/returns${qs ? `?${qs}` : ''}`));
+  }
+
+  static async fileTdsReturn(data: {
+    formType: string;
+    quarter: string;
+    dueDate?: string;
+    totalDeductions?: number;
+    totalDeposited?: number;
+    deducteeCount?: number;
+    rows?: any[];
+  }): Promise<any> {
+    return this.request<any>('/finance/tds/returns/file', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async downloadTdsReturn(
+    id: string,
+    format: 'pdf' | 'excel' = 'pdf',
+  ): Promise<Blob> {
+    return this.downloadBlob(`/finance/tds/returns/${id}/download?format=${format}`);
+  }
+
+  static async getTdsChallans(filters?: {
+    section?: string;
+    quarter?: string;
+    status?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.section) q.set('section', filters.section);
+    if (filters?.quarter) q.set('quarter', filters.quarter);
+    if (filters?.status) q.set('status', filters.status);
+    const qs = q.toString();
+    return this.toArray(await this.request<any>(`/finance/tds/challans${qs ? `?${qs}` : ''}`));
+  }
+
+  static async createTdsChallan(data: {
+    challanNumber?: string;
+    challanDate?: string;
+    amount: number;
+    section: string;
+    bankName?: string;
+    bsrCode?: string;
+    quarter?: string;
+  }): Promise<any> {
+    return this.request<any>('/finance/tds/challans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async downloadTdsChallan(
+    id: string,
+    format: 'pdf' | 'excel' = 'pdf',
+  ): Promise<Blob> {
+    return this.downloadBlob(`/finance/tds/challans/${id}/download?format=${format}`);
+  }
+
+  static async generateForm16a(data: {
+    deducteeName: string;
+    deducteePAN: string;
+    deductorName?: string;
+    deductorTAN?: string;
+    section?: string;
+    paymentDate?: string;
+    grossAmount?: number;
+    tdsRate?: number;
+    tdsAmount?: number;
+    challanNumber?: string;
+    challanDate?: string;
+    bsrCode?: string;
+    quarter?: string;
+  }): Promise<Blob> {
+    return this.downloadBlob('/finance/tds/form-16a', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==========================================================================
+  // Period-close checklist (per financial period)
+  // ==========================================================================
+  static async getPeriodCloseChecklist(periodId: string): Promise<any> {
+    return this.request<any>(`/finance/period-close/${periodId}/checklist`);
+  }
+
+  static async updatePeriodCloseStep(
+    periodId: string,
+    stepKey: string,
+    body: { status?: string; completedBy?: string; notes?: string },
+  ): Promise<any> {
+    return this.request<any>(`/finance/period-close/${periodId}/checklist/${stepKey}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
+  // ==========================================================================
+  // Chart of accounts: bulk import (parsed JSON rows)
+  // ==========================================================================
+  static async bulkImportAccounts(data: {
+    accounts: any[];
+    validateOnly?: boolean;
+  }): Promise<any> {
+    return this.request<any>('/finance/chart-of-accounts/bulk-import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==========================================================================
   // Expense claims (reuses accounts module — GET /api/accounts/expense-claims/:id)
   // ==========================================================================
   static async getExpenseClaim(id: string): Promise<ExpenseClaimDetail> {

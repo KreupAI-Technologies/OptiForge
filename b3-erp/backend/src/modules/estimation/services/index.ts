@@ -1,6 +1,7 @@
 export * from './boq.service';
 export * from './cost-estimate.service';
 export * from './estimate-analytics.service';
+export * from './estimation-report.service';
 export * from './estimation-category.service';
 export * from './labor-cost-rate.service';
 export * from './material-cost-rate.service';

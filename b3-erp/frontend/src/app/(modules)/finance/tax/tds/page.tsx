@@ -177,79 +177,51 @@ export default function TDSManagementPage() {
   }, []);
 
 
-  // TODO(NEEDS BACKEND): No endpoint for TDS returns. These are illustrative
-  // placeholder rows only. Replace with a real service call once a
-  // TDS-returns endpoint exists. Not live data.
-  const tdsReturns: TDSReturn[] = [
-    {
-      id: 'TR001',
-      quarter: 'Q4 FY 2024-25',
-      formType: '24Q',
-      dueDate: '2025-05-31',
-      status: 'Draft',
-      totalDeductions: 500000,
-      totalDeposited: 500000,
-      deducteeCount: 45
-    },
-    {
-      id: 'TR002',
-      quarter: 'Q4 FY 2024-25',
-      formType: '26Q',
-      dueDate: '2025-04-30',
-      status: 'Ready to File',
-      totalDeductions: 57500,
-      totalDeposited: 17500,
-      deducteeCount: 4
-    },
-    {
-      id: 'TR003',
-      quarter: 'Q3 FY 2024-25',
-      formType: '24Q',
-      dueDate: '2025-02-15',
-      status: 'Filed',
-      filedDate: '2025-02-10',
-      acknowledgementNumber: 'ACK202402ABCD1234',
-      totalDeductions: 480000,
-      totalDeposited: 480000,
-      deducteeCount: 42
-    },
-    {
-      id: 'TR004',
-      quarter: 'Q3 FY 2024-25',
-      formType: '26Q',
-      dueDate: '2025-01-31',
-      status: 'Filed',
-      filedDate: '2025-01-28',
-      acknowledgementNumber: 'ACK202401EFGH5678',
-      totalDeductions: 52000,
-      totalDeposited: 52000,
-      deducteeCount: 5
-    }
-  ];
+  // TDS returns + challans, loaded from the statutory endpoints.
+  const [tdsReturns, setTdsReturns] = useState<TDSReturn[]>([]);
+  const [challans, setChallans] = useState<any[]>([]);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // TODO(NEEDS BACKEND): No endpoint for TDS challans. These are illustrative
-  // placeholder rows only. Replace with a real service call once a
-  // TDS-challans endpoint exists. Not live data.
-  const challans = [
-    {
-      id: 'CH001',
-      challanNumber: 'CH2025010112345',
-      date: '2025-01-16',
-      amount: 10000,
-      section: '194C',
-      bankName: 'HDFC Bank',
-      status: 'Paid'
-    },
-    {
-      id: 'CH002',
-      challanNumber: 'CH2025011398765',
-      date: '2025-01-13',
-      amount: 7500,
-      section: '194C',
-      bankName: 'ICICI Bank',
-      status: 'Paid'
+  const loadReturnsAndChallans = React.useCallback(async (): Promise<void> => {
+    try {
+      const [rets, chs] = await Promise.all([
+        FinanceService.getTdsReturns(),
+        FinanceService.getTdsChallans(),
+      ]);
+      setTdsReturns(
+        (Array.isArray(rets) ? rets : []).map((r: any) => ({
+          id: String(r.id),
+          quarter: String(r.quarter ?? ''),
+          formType: (r.formType ?? '24Q') as TDSReturn['formType'],
+          dueDate: r.dueDate ? String(r.dueDate).slice(0, 10) : '',
+          status: (r.status ?? 'Draft') as TDSReturn['status'],
+          filedDate: r.filedDate ? String(r.filedDate).slice(0, 10) : undefined,
+          acknowledgementNumber: r.acknowledgementNumber ?? undefined,
+          totalDeductions: Number(r.totalDeductions ?? 0),
+          totalDeposited: Number(r.totalDeposited ?? 0),
+          deducteeCount: Number(r.deducteeCount ?? 0),
+        })),
+      );
+      setChallans(
+        (Array.isArray(chs) ? chs : []).map((c: any) => ({
+          id: String(c.id),
+          challanNumber: c.challanNumber ?? '',
+          date: c.challanDate ? String(c.challanDate).slice(0, 10) : '',
+          amount: Number(c.amount ?? 0),
+          section: c.section ?? '',
+          bankName: c.bankName ?? '',
+          status: c.status ?? 'Paid',
+        })),
+      );
+    } catch {
+      // Non-fatal: tabs simply render empty until data exists.
     }
-  ];
+  }, []);
+
+  useEffect(() => {
+    void loadReturnsAndChallans();
+  }, [loadReturnsAndChallans]);
 
   const filteredTransactions = tdsTransactions.filter(txn => {
     const matchesSearch =
@@ -383,12 +355,48 @@ export default function TDSManagementPage() {
     }
   };
 
-  const handleDownloadForm16A = () => {
+  // Trigger a browser download for a generated Blob.
+  const triggerBlobDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Generate Form 16A for the first deposited deductee (or prompt if none).
+  const handleDownloadForm16A = async () => {
+    const deposited = tdsTransactions.filter((t) => t.deposited);
+    if (deposited.length === 0) {
+      setActionMessage({ type: 'error', text: 'No deposited TDS transactions available for Form 16A.' });
+      return;
+    }
     setIsDownloading(true);
-    setTimeout(() => {
-      alert('Download Form 16A\n\nGenerate TDS certificates for all deductees.\n\nOptions:\n- Individual Form 16A for each deductee\n- Consolidated ZIP file\n- Quarter selection\n\nThe form includes:\n- Deductor details (TAN)\n- Deductee details (PAN)\n- Payment and deduction details\n- Challan information\n- Digital signature\n\nNote: Only for deposited TDS transactions');
+    setActionMessage(null);
+    try {
+      const txn = deposited[0];
+      const blob = await FinanceService.generateForm16a({
+        deducteeName: txn.deductee,
+        deducteePAN: txn.pan,
+        section: txn.section,
+        paymentDate: txn.date,
+        grossAmount: txn.grossAmount,
+        tdsRate: txn.tdsRate,
+        tdsAmount: txn.tdsAmount,
+        challanNumber: txn.challanNumber,
+        challanDate: txn.challanDate,
+        quarter: txn.quarter,
+      });
+      triggerBlobDownload(blob, `Form16A_${txn.pan}_${txn.quarter}.pdf`);
+      setActionMessage({ type: 'success', text: `Form 16A generated for ${txn.deductee}.` });
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to generate Form 16A.' });
+    } finally {
       setIsDownloading(false);
-    }, 500);
+    }
   };
 
   const handleExportTDS = () => {
@@ -430,41 +438,104 @@ export default function TDSManagementPage() {
     alert(`TDS Transaction Details\n\nPayment Ref: ${txn.paymentRef}\nDate: ${txn.date}\nDeductee: ${txn.deductee}\nPAN: ${txn.pan}\nSection: ${txn.section}\n\nGross Amount: ${formatCurrency(txn.grossAmount)}\nTDS Rate: ${txn.tdsRate}%\nTDS Amount: ${formatCurrency(txn.tdsAmount)}\nNet Payment: ${formatCurrency(txn.netPayment)}\n\nQuarter: ${txn.quarter}\n${txn.challanNumber ? `Challan: ${txn.challanNumber}\nChallan Date: ${txn.challanDate}` : 'Challan: Not deposited yet'}\nStatus: ${txn.deposited ? 'Deposited' : 'Pending Deposit'}`);
   };
 
-  const handleDownloadTransactionCertificate = (txn: TDSTransaction) => {
+  const handleDownloadTransactionCertificate = async (txn: TDSTransaction) => {
     if (!txn.deposited) {
-      alert('Certificate Not Available\n\nForm 16A can only be generated for deposited TDS.\n\nPlease deposit the TDS first using a challan.');
+      setActionMessage({ type: 'error', text: 'Form 16A can only be generated for deposited TDS. Deposit the TDS first.' });
       return;
     }
-    alert(`Download Form 16A for ${txn.deductee}\n\nThis will generate Form 16A certificate with:\n- Deductor TAN and details\n- Deductee PAN: ${txn.pan}\n- Payment date: ${txn.date}\n- Gross Amount: ${formatCurrency(txn.grossAmount)}\n- TDS Amount: ${formatCurrency(txn.tdsAmount)}\n- Challan: ${txn.challanNumber}\n- Challan Date: ${txn.challanDate}\n\nFormat: PDF with digital signature`);
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const blob = await FinanceService.generateForm16a({
+        deducteeName: txn.deductee,
+        deducteePAN: txn.pan,
+        section: txn.section,
+        paymentDate: txn.date,
+        grossAmount: txn.grossAmount,
+        tdsRate: txn.tdsRate,
+        tdsAmount: txn.tdsAmount,
+        challanNumber: txn.challanNumber,
+        challanDate: txn.challanDate,
+        quarter: txn.quarter,
+      });
+      triggerBlobDownload(blob, `Form16A_${txn.pan}_${txn.quarter}.pdf`);
+      setActionMessage({ type: 'success', text: `Form 16A generated for ${txn.deductee}.` });
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to generate Form 16A.' });
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleViewReturn = (ret: TDSReturn) => {
     alert(`TDS Return Details\n\nForm: ${ret.formType}\nQuarter: ${ret.quarter}\nDue Date: ${ret.dueDate}\nStatus: ${ret.status}\n${ret.filedDate ? `\nFiled Date: ${ret.filedDate}` : ''}${ret.acknowledgementNumber ? `\nAcknowledgement: ${ret.acknowledgementNumber}` : ''}\n\nTotal Deductions: ${formatCurrency(ret.totalDeductions)}\nTotal Deposited: ${formatCurrency(ret.totalDeposited)}\nNumber of Deductees: ${ret.deducteeCount}\n\n${ret.totalDeductions === ret.totalDeposited ? 'All TDS deposited ✓' : 'Pending deposit: ' + formatCurrency(ret.totalDeductions - ret.totalDeposited)}`);
   };
 
-  const handleFileReturn = (ret: TDSReturn) => {
+  // File a TDS return. If the row is a not-yet-persisted draft, file it fresh;
+  // otherwise re-file the persisted record.
+  const handleFileReturn = async (ret: TDSReturn) => {
     if (ret.totalDeductions !== ret.totalDeposited) {
-      alert(`Cannot File Return\n\nAll TDS must be deposited before filing.\n\nPending Deposit: ${formatCurrency(ret.totalDeductions - ret.totalDeposited)}\n\nPlease deposit the pending amount first.`);
+      setActionMessage({
+        type: 'error',
+        text: `All TDS must be deposited before filing. Pending: ${formatCurrency(ret.totalDeductions - ret.totalDeposited)}.`,
+      });
       return;
     }
-
-    const confirm = window.confirm(`File ${ret.formType} for ${ret.quarter}?\n\nTotal Deductions: ${formatCurrency(ret.totalDeductions)}\nDeductees: ${ret.deducteeCount}\nDue Date: ${ret.dueDate}\n\nThis will:\n- Validate all transactions\n- Generate return file\n- Upload to TRACES portal\n- Generate acknowledgement\n\nDo you want to continue?`);
-
-    if (confirm) {
-      alert(`Filing ${ret.formType} for ${ret.quarter}\n\nIn production, this would:\n- Validate PAN and TAN\n- Generate FVU file\n- Upload to TRACES\n- Receive token number\n- Send confirmation email\n\nDemo: Return filed successfully!\nAcknowledgement: ACK${new Date().getFullYear()}${(Math.random() * 100000000).toFixed(0).padStart(8, '0')}`);
+    const ok = window.confirm(
+      `File ${ret.formType} for ${ret.quarter}?\n\nThis records a Filed return with an acknowledgement number.`,
+    );
+    if (!ok) return;
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const filed = await FinanceService.fileTdsReturn({
+        formType: ret.formType,
+        quarter: ret.quarter,
+        dueDate: ret.dueDate || undefined,
+        totalDeductions: ret.totalDeductions,
+        totalDeposited: ret.totalDeposited,
+        deducteeCount: ret.deducteeCount,
+      });
+      setActionMessage({
+        type: 'success',
+        text: `${ret.formType} filed for ${ret.quarter}. Ack: ${filed?.acknowledgementNumber ?? '—'}`,
+      });
+      await loadReturnsAndChallans();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to file return.' });
+    } finally {
+      setActionBusy(false);
     }
   };
 
-  const handleDownloadReturn = (ret: TDSReturn) => {
-    alert(`Download ${ret.formType} for ${ret.quarter}\n\nAvailable formats:\n\n1. FVU File - For TRACES upload\n   (.txt format, ready to upload)\n\n2. PDF Summary - Consolidated report\n   (All transactions, challans, totals)\n\n3. Excel Workbook - Detailed analysis\n   (Transaction-wise breakdown)\n\n4. Justification Report - For review\n   (Annexures and supporting docs)\n\nSelect the format based on your requirement.`);
+  const handleDownloadReturn = async (ret: TDSReturn) => {
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const blob = await FinanceService.downloadTdsReturn(ret.id, 'pdf');
+      triggerBlobDownload(blob, `TDS_${ret.formType}_${ret.quarter}.pdf`);
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to download return.' });
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleViewChallan = (challan: any) => {
     alert(`Challan Details\n\nChallan Number: ${challan.challanNumber}\nDate: ${challan.date}\nAmount: ${formatCurrency(challan.amount)}\nSection: ${challan.section}\nBank: ${challan.bankName}\nStatus: ${challan.status}\n\nThis challan covers TDS deposits made for the specified section and period.`);
   };
 
-  const handleDownloadChallan = (challan: any) => {
-    alert(`Download Challan Receipt\n\nChallan: ${challan.challanNumber}\n\nThis will download:\n- Original bank challan copy\n- BSR code details\n- Challan date and amount\n- Section-wise breakup\n\nFormat: PDF\n\nRequired for TDS return filing and deductee certificates.`);
+  const handleDownloadChallan = async (challan: any) => {
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const blob = await FinanceService.downloadTdsChallan(challan.id, 'pdf');
+      triggerBlobDownload(blob, `Challan_${challan.challanNumber}.pdf`);
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to download challan.' });
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   return (
@@ -475,6 +546,16 @@ export default function TDSManagementPage() {
         )}
         {loadError && !isLoading && (
           <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{loadError}</div>
+        )}
+        {actionMessage && (
+          <div
+            className={`rounded-lg border px-4 py-2 text-sm ${actionMessage.type === 'success'
+              ? 'border-green-400/30 bg-green-500/10 text-green-200'
+              : 'border-red-400/30 bg-red-500/10 text-red-200'
+              }`}
+          >
+            {actionMessage.text}
+          </div>
         )}
         {/* Header */}
         <div className="flex items-center justify-between">

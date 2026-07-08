@@ -227,11 +227,65 @@ export default function GSTManagementPage() {
     );
   };
 
-  // NEEDS BACKEND: GSTR-2A import has no endpoint in the finance service map
-  // (only tax-masters + statutory report exist). Kept as an informational stub;
-  // does NOT fabricate success.
-  const handleImportGSTR2A = () => {
-    alert('Import GSTR-2A is not yet available.\n\nNo GST-portal import endpoint is wired on the backend. Once available, this will import and reconcile GSTR-2A data from the GST portal.');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Load persisted GST return records (GSTR-2A imports + filed GSTR-1/3B).
+  const loadGstReturns = React.useCallback(async (): Promise<void> => {
+    try {
+      const recs = await FinanceService.getGstReturns();
+      if (Array.isArray(recs) && recs.length > 0) {
+        const mapped: GSTReturn[] = recs.map((r: any) => ({
+          id: String(r.id),
+          returnType: (r.returnType ?? 'GSTR-3B') as GSTReturn['returnType'],
+          period: String(r.period ?? ''),
+          dueDate: r.dueDate ?? '',
+          status: r.status === 'Filed' ? 'Filed' : r.status === 'Imported' ? 'Draft' : 'Draft',
+          filedDate: r.filedDate ?? undefined,
+          arn: r.ackNo ?? undefined,
+          totalSales: Number(r.totalSales ?? 0),
+          totalPurchases: Number(r.totalPurchases ?? 0),
+          outputTax: Number(r.outputTax ?? 0),
+          inputTax: Number(r.inputTax ?? 0),
+          netTax: Number(r.netTax ?? 0),
+        }));
+        setGstReturns(mapped);
+      }
+    } catch {
+      // Non-fatal: the returns tab falls back to derived rows.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadGstReturns();
+  }, [loadGstReturns]);
+
+  // Import / record a GSTR-2A dataset. Accepts pasted JSON rows.
+  const handleImportGSTR2A = async () => {
+    const raw = window.prompt(
+      `Import GSTR-2A for period ${periodFilter}.\n\nPaste a JSON array of rows (invoiceNumber, partyName, gstin, taxableAmount, cgst, sgst, igst, cess):`,
+      '[]',
+    );
+    if (raw == null) return;
+    let rows: any[];
+    try {
+      rows = JSON.parse(raw);
+      if (!Array.isArray(rows)) throw new Error('Expected a JSON array');
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Invalid JSON.' });
+      return;
+    }
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      await FinanceService.importGstr2a({ period: periodFilter, rows });
+      setActionMessage({ type: 'success', text: `GSTR-2A imported (${rows.length} rows) for ${periodFilter}.` });
+      await loadGstReturns();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to import GSTR-2A.' });
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const openCreateRate = () => {
@@ -369,14 +423,60 @@ export default function GSTManagementPage() {
     alert(`GST Return Details\n\nReturn Type: ${ret.returnType}\nPeriod: ${ret.period}\nDue Date: ${ret.dueDate}\nStatus: ${ret.status}\n${ret.filedDate ? `\nFiled Date: ${ret.filedDate}` : ''}${ret.arn ? `\nARN: ${ret.arn}` : ''}\n\nTotal Sales: ${formatCurrency(ret.totalSales)}\nTotal Purchases: ${formatCurrency(ret.totalPurchases)}\nOutput Tax: ${formatCurrency(ret.outputTax)}\nInput Tax: ${formatCurrency(ret.inputTax)}\nNet Tax: ${formatCurrency(ret.netTax)}\n\n${ret.netTax >= 0 ? 'Tax Payable' : 'Tax Refund'}`);
   };
 
-  // NEEDS BACKEND: no GST-portal filing endpoint exists in the finance service map.
-  const handleFileReturn = (ret: GSTReturn) => {
-    alert(`Filing ${ret.returnType} for ${ret.period} is not yet available.\n\nNo GST-portal filing endpoint is wired on the backend. This action does not submit anything.`);
+  // File a GSTR-1 / GSTR-3B return. Persists a Filed record with an Ack number.
+  const handleFileReturn = async (ret: GSTReturn) => {
+    const ok = window.confirm(
+      `File ${ret.returnType} for ${ret.period}?\n\nThis records a Filed return with an acknowledgement number.`,
+    );
+    if (!ok) return;
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const filed = await FinanceService.fileGstReturn({
+        returnType: ret.returnType,
+        period: ret.period,
+        dueDate: ret.dueDate || undefined,
+        totalSales: ret.totalSales,
+        totalPurchases: ret.totalPurchases,
+        outputTax: ret.outputTax,
+        inputTax: ret.inputTax,
+        netTax: ret.netTax,
+      });
+      setActionMessage({
+        type: 'success',
+        text: `${ret.returnType} filed for ${ret.period}. Ack: ${filed?.ackNo ?? '—'}`,
+      });
+      await loadGstReturns();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to file return.' });
+    } finally {
+      setActionBusy(false);
+    }
   };
 
-  // NEEDS BACKEND: no return-download/generation endpoint exists in the finance service map.
-  const handleDownloadReturn = (ret: GSTReturn) => {
-    alert(`Downloading ${ret.returnType} for ${ret.period} is not yet available.\n\nNo return-generation endpoint is wired on the backend.`);
+  // Download a persisted return as a PDF (only for records that have a real id).
+  const handleDownloadReturn = async (ret: GSTReturn) => {
+    if (!ret.id || ret.id.startsWith('GR-')) {
+      setActionMessage({ type: 'error', text: 'File this return first to enable download.' });
+      return;
+    }
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const blob = await FinanceService.downloadGstReturn(ret.id, 'pdf');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${ret.returnType}_${ret.period}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to download return.' });
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   return (
@@ -392,6 +492,16 @@ export default function GSTManagementPage() {
             {loadError}
           </div>
         )}
+        {actionMessage && (
+          <div
+            className={`rounded-lg border px-4 py-3 text-sm ${actionMessage.type === 'success'
+              ? 'border-green-500/40 bg-green-500/10 text-green-200'
+              : 'border-red-500/40 bg-red-500/10 text-red-200'
+              }`}
+          >
+            {actionMessage.text}
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -401,11 +511,12 @@ export default function GSTManagementPage() {
           <div className="flex gap-3">
             <button
               onClick={handleImportGSTR2A}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              title="GSTR-2A import (backend endpoint not yet available)"
+              disabled={actionBusy}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Import / record a GSTR-2A dataset (paste JSON rows)"
             >
               <Upload className="w-4 h-4" />
-              Import GSTR-2A
+              {actionBusy ? 'Working…' : 'Import GSTR-2A'}
             </button>
             <button
               onClick={openCreateRate}
