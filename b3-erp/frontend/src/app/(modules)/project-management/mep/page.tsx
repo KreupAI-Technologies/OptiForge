@@ -105,6 +105,8 @@ export default function MEPManagementPage() {
     drawingName: '',
   });
 
+  // NEEDS BACKEND: there is no MEP-drawing controller/endpoint in the PM module
+  // yet, so create/share operate on the local list only (read is also seeded).
   const handleCreateDrawing = () => {
     if (!newDrawing.projectName || !newDrawing.drawingType || !newDrawing.drawingName) {
       toast({

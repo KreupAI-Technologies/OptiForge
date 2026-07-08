@@ -70,6 +70,8 @@ export default function VendorTrackingPage() {
     }
   };
 
+  // NEEDS BACKEND: no PO-shipment tracking endpoint exists yet, so this only
+  // acknowledges the refresh request in the UI.
   const handleTrack = (id: string) => {
     toast({ title: "Tracking Updated", description: `Fetched latest status for ${id}` });
   };

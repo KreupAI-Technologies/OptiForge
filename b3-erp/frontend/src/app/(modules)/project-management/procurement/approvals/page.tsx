@@ -65,14 +65,23 @@ export default function ApprovalWorkflowPage() {
   const loadProjectData = async (id: string) => {
     setLoading(true);
     try {
-      const project = await projectManagementService.getProject(id);
-      setSelectedProject(project);
-      // Mock approval requests for the project
-      setRequests([
-        { id: 'PR-2025-001', type: 'Purchase Requisition', project: project.name, amount: '₹ 45,000', requester: 'John Doe', date: '2025-02-10', status: 'Pending', level: 'L1' },
-        { id: 'PR-2025-002', type: 'Purchase Requisition', project: project.name, amount: '₹ 1,20,000', requester: 'Jane Smith', date: '2025-02-11', status: 'Pending', level: 'L2' },
-        { id: 'PO-2025-089', type: 'Purchase Order', project: project.name, amount: '₹ 28,500', requester: 'Mike CAD', date: '2025-02-09', status: 'Approved', level: 'L1' },
+      const [project, prs] = await Promise.all([
+        projectManagementService.getProject(id),
+        projectManagementService.getProcurementPr(id).catch(() => []),
       ]);
+      setSelectedProject(project);
+      // Real project purchase requisitions from the procurement backend.
+      const mapped: ApprovalRequest[] = (prs || []).map((pr: any) => ({
+        id: pr.id,
+        type: 'Purchase Requisition',
+        project: project.name,
+        amount: pr.totalAmount ? `₹ ${Number(pr.totalAmount).toLocaleString('en-IN')}` : '—',
+        requester: pr.requestedBy || '—',
+        date: (pr.createdAt || '').toString().split('T')[0] || '',
+        status: pr.status === 'APPROVED' ? 'Approved' : pr.status === 'REJECTED' ? 'Rejected' : 'Pending',
+        level: 'L1',
+      }));
+      setRequests(mapped);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/procurement/approvals');
@@ -81,6 +90,8 @@ export default function ApprovalWorkflowPage() {
     }
   };
 
+  // NOTE: the procurement backend exposes PR create/list but no PR status-update
+  // endpoint, so approve/reject is an optimistic UI transition until that lands.
   const handleApprove = (id: string) => {
     setRequests(requests.map(r => r.id === id ? { ...r, status: 'Approved' } : r));
     toast({ title: "Request Approved", description: `${id} has been approved successfully.` });

@@ -36,6 +36,7 @@ export default function BendingPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<BendingJob[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
@@ -75,9 +76,34 @@ export default function BendingPage() {
     }
   };
 
-  const handleStatusChange = (id: string, newStatus: BendingJob['status']) => {
+  const handleStatusChange = async (id: string, newStatus: BendingJob['status']) => {
+    const prev = jobs;
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
-    toast({ title: 'Status Updated', description: `Job ${id} marked as ${newStatus}` });
+    // Persist a production log only when the operation completes.
+    if (newStatus !== 'Completed' || !projectId) {
+      toast({ title: 'Status Updated', description: `Job ${id} marked as ${newStatus}` });
+      return;
+    }
+    setSavingId(id);
+    try {
+      await projectManagementService.logProductionOperation({
+        projectId,
+        operationType: 'bending',
+        startTime: new Date().toISOString(),
+        endTime: new Date().toISOString(),
+        yieldCount: 1,
+      });
+      toast({ title: 'Bending Logged', description: `Job ${id} completed and logged to production.` });
+    } catch (error) {
+      setJobs(prev);
+      toast({
+        variant: 'destructive',
+        title: 'Could not log operation',
+        description: error instanceof Error ? error.message : 'Bending requires Logo Etching (5.6) to be verified first.',
+      });
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // View 1: Project Selection
@@ -206,8 +232,8 @@ export default function BendingPage() {
                       </Button>
                     )}
                     {job.status === 'In Progress' && (
-                      <Button className="w-full font-bold" variant="outline" onClick={() => handleStatusChange(job.id, 'Completed')}>
-                        Mark Complete
+                      <Button className="w-full font-bold" variant="outline" disabled={savingId === job.id} onClick={() => handleStatusChange(job.id, 'Completed')}>
+                        {savingId === job.id ? 'Logging…' : 'Mark Complete'}
                       </Button>
                     )}
                     {job.status === 'Completed' && (

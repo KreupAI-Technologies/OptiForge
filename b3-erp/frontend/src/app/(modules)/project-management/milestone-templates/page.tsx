@@ -119,10 +119,26 @@ export default function MilestoneTemplatesPage() {
  const [showExportModal, setShowExportModal] = useState(false);
  const [showImportModal, setShowImportModal] = useState(false);
 
+ const [isSaving, setIsSaving] = useState(false);
+
+ const reloadTemplates = async () => {
+  const rows = await projectManagementService.listMilestoneTemplates();
+  setTemplates(rows.map(normalizeTemplate));
+ };
+
  // Handlers
- const handleCreate = (data: any) => {
-  console.log('Create template:', data);
-  setShowCreateModal(false);
+ const handleCreate = async (data: any) => {
+  setIsSaving(true);
+  try {
+   const created = await projectManagementService.createMilestoneTemplate(data);
+   if (!created) throw new Error('Create failed');
+   await reloadTemplates();
+   setShowCreateModal(false);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to create template');
+  } finally {
+   setIsSaving(false);
+  }
  };
 
  const handleEdit = (template: MilestoneTemplate) => {
@@ -155,16 +171,36 @@ export default function MilestoneTemplatesPage() {
   setShowExportModal(true);
  };
 
- const handleEditSave = (data: any) => {
-  console.log('Edit template:', data);
-  setShowEditModal(false);
-  setSelectedTemplate(null);
+ const handleEditSave = async (data: any) => {
+  if (!selectedTemplate) return;
+  setIsSaving(true);
+  try {
+   const updated = await projectManagementService.updateMilestoneTemplate(selectedTemplate.id, data);
+   if (!updated) throw new Error('Update failed');
+   await reloadTemplates();
+   setShowEditModal(false);
+   setSelectedTemplate(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to update template');
+  } finally {
+   setIsSaving(false);
+  }
  };
 
- const handleDuplicateSave = (data: any) => {
-  console.log('Duplicate template:', data);
-  setShowDuplicateModal(false);
-  setSelectedTemplate(null);
+ const handleDuplicateSave = async (data: any) => {
+  setIsSaving(true);
+  try {
+   const { id, ...rest } = data ?? {};
+   const created = await projectManagementService.createMilestoneTemplate(rest);
+   if (!created) throw new Error('Duplicate failed');
+   await reloadTemplates();
+   setShowDuplicateModal(false);
+   setSelectedTemplate(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to duplicate template');
+  } finally {
+   setIsSaving(false);
+  }
  };
 
  const handleDeleteConfirm = async () => {
@@ -180,10 +216,24 @@ export default function MilestoneTemplatesPage() {
   setSelectedTemplate(null);
  };
 
- const handleMilestonesSave = (data: any) => {
-  console.log('Milestones saved:', data);
-  setShowManageMilestonesModal(false);
-  setSelectedTemplate(null);
+ const handleMilestonesSave = async (data: any) => {
+  if (!selectedTemplate) return;
+  setIsSaving(true);
+  try {
+   const milestones = Array.isArray(data?.milestones) ? data.milestones : data;
+   const updated = await projectManagementService.updateMilestoneTemplate(selectedTemplate.id, {
+    milestones,
+    totalMilestones: Array.isArray(milestones) ? milestones.length : selectedTemplate.totalMilestones,
+   } as any);
+   if (!updated) throw new Error('Save failed');
+   await reloadTemplates();
+   setShowManageMilestonesModal(false);
+   setSelectedTemplate(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to save milestones');
+  } finally {
+   setIsSaving(false);
+  }
  };
 
  const handleExportSave = (data: any) => {
@@ -192,9 +242,20 @@ export default function MilestoneTemplatesPage() {
   setSelectedTemplate(null);
  };
 
- const handleImport = (data: any) => {
-  console.log('Import template:', data);
-  setShowImportModal(false);
+ const handleImport = async (data: any) => {
+  setIsSaving(true);
+  try {
+   const rows = Array.isArray(data) ? data : [data];
+   for (const row of rows) {
+    if (row) await projectManagementService.createMilestoneTemplate(row);
+   }
+   await reloadTemplates();
+   setShowImportModal(false);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to import templates');
+  } finally {
+   setIsSaving(false);
+  }
  };
 
  // Seed fallback data used only when the API returns no rows.
@@ -1252,7 +1313,9 @@ export default function MilestoneTemplatesPage() {
   },
  ];
 
- const effectiveTemplates: MilestoneTemplate[] = templates.length > 0 ? templates : seedTemplates;
+ // Show real API data only; render the empty state when there are no rows.
+ const effectiveTemplates: MilestoneTemplate[] = templates;
+ void seedTemplates;
 
  const filteredTemplates = effectiveTemplates.filter((template) => {
   const matchesSearch =

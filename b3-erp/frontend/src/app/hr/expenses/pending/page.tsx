@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import { Clock, CheckCircle, XCircle, Eye, Download, FileText, Calendar, User } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import ConfirmationModal from '@/components/payroll/ConfirmationModal';
@@ -78,7 +79,10 @@ export default function PendingExpensesPage() {
     if (!selectedExpense) return;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await HrExpensesService.updateExpenseClaim(selectedExpense.id, {
+        status: 'approved',
+        ...(notes ? { notes } : {}),
+      });
 
       setExpenses(expenses.map(exp =>
         exp.id === selectedExpense.id
@@ -96,7 +100,7 @@ export default function PendingExpensesPage() {
     } catch (error) {
       toast({
         title: "Approval Failed",
-        description: "Failed to approve expense. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to approve expense. Please try again.",
         variant: "destructive"
       });
     }
@@ -106,7 +110,10 @@ export default function PendingExpensesPage() {
     if (!selectedExpense || !reason) return;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await HrExpensesService.updateExpenseClaim(selectedExpense.id, {
+        status: 'rejected',
+        rejectionReason: reason,
+      });
 
       setExpenses(expenses.map(exp =>
         exp.id === selectedExpense.id
@@ -124,7 +131,7 @@ export default function PendingExpensesPage() {
     } catch (error) {
       toast({
         title: "Rejection Failed",
-        description: "Failed to reject expense. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to reject expense. Please try again.",
         variant: "destructive"
       });
     }

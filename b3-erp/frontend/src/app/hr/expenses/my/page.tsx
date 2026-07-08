@@ -6,6 +6,7 @@ import { Wallet, Plus, CheckCircle, Clock, XCircle, AlertTriangle, AlertCircle, 
 import { toast } from '@/hooks/use-toast';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 
 interface ExpenseClaim {
   id: string;
@@ -73,12 +74,12 @@ export default function MyExpensesPage() {
   const mockExpenses: ExpenseClaim[] = rows;
 
   const filteredExpenses = useMemo(() => {
-    return mockExpenses.filter(expense => {
+    return rows.filter(expense => {
       const matchesStatus = selectedStatus === 'all' || expense.status === selectedStatus;
       const matchesCategory = selectedCategory === 'all' || expense.category === selectedCategory;
       return matchesStatus && matchesCategory;
     });
-  }, [selectedStatus, selectedCategory]);
+  }, [selectedStatus, selectedCategory, rows]);
 
   const stats = {
     total: mockExpenses.filter(e => e.status !== 'draft').length,
@@ -168,7 +169,10 @@ export default function MyExpensesPage() {
 
   const handleDeleteDraft = async (expense: ExpenseClaim) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await HrExpensesService.deleteExpenseClaim(expense.id);
+      setRows((prev) => prev.filter((r) => r.id !== expense.id));
+      setShowDetailsModal(false);
+      setSelectedExpense(null);
       toast({
         title: "Draft Deleted",
         description: `Draft ${expense.claimNumber} has been deleted`
@@ -176,7 +180,7 @@ export default function MyExpensesPage() {
     } catch (error) {
       toast({
         title: "Delete Failed",
-        description: "Failed to delete draft",
+        description: error instanceof Error ? error.message : "Failed to delete draft",
         variant: "destructive"
       });
     }

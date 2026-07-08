@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmployeeService } from '@/services/employee.service';
+import { LeaveService } from '@/services/leave.service';
 import {
   ArrowLeft,
   Save,
@@ -75,6 +76,26 @@ export default function AddLeavePage() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [leaveTypeOptions, setLeaveTypeOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rawTypes = await LeaveService.getAllLeaveTypesRaw();
+        if (!cancelled) {
+          setLeaveTypeOptions(
+            (rawTypes as any[]).map((t) => ({ id: String(t.id ?? ''), name: t.name ?? '' })),
+          );
+        }
+      } catch {
+        if (!cancelled) setLeaveTypeOptions([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,27 +248,56 @@ export default function AddLeavePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      alert('Please fix all errors before submitting');
+      setSubmitError('Please fix all errors before submitting');
+      return;
+    }
+    if (isSubmitting) return;
+
+    // Resolve backend employeeId + leaveTypeId.
+    const employeeId = selectedEmployee?.id ?? '';
+    const match = leaveTypeOptions.find(
+      (t) =>
+        t.name.toLowerCase() === formData.leaveType.toLowerCase() ||
+        t.name.toLowerCase().includes(formData.leaveType.toLowerCase()),
+    );
+    const leaveTypeId = match?.id ?? '';
+    if (!employeeId) {
+      setSubmitError('Unable to resolve the selected employee record.');
+      return;
+    }
+    if (!leaveTypeId) {
+      setSubmitError(`No matching leave type found for "${formData.leaveType}".`);
       return;
     }
 
-    // API call would go here
-    const leaveRequestData = {
-      ...formData,
-      totalDays: calculateTotalDays(),
-      attachments: attachments.map((f) => f.name),
-      status: 'pending',
-      appliedDate: new Date().toISOString().split('T')[0],
-    };
-
-    console.log('Creating leave request:', leaveRequestData);
-
-    alert('Leave request submitted successfully!');
-    router.push('/hr/leave');
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await LeaveService.applyLeave({
+        employeeId,
+        leaveTypeId,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        reason: formData.reason,
+        contactDuringLeave: formData.contactDuringLeave,
+        emergencyContact: formData.emergencyContact,
+        emergencyPhone: formData.emergencyPhone,
+        handoverTo: formData.handoverTo,
+        handoverNotes: formData.handoverNotes,
+        totalDays: calculateTotalDays(),
+      } as any);
+      router.push('/hr/leave');
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Failed to submit leave request',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const totalDays = calculateTotalDays();
@@ -258,6 +308,7 @@ export default function AddLeavePage() {
       <div className="w-full">
         {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>)}
         {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
+        {submitError && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</div>)}
         {/* Header */}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -405,7 +456,10 @@ export default function AddLeavePage() {
                   }`}
                 >
                   <option value="">Select Leave Type</option>
-                  {leaveTypes.map((type) => (
+                  {(leaveTypeOptions.length > 0
+                    ? leaveTypeOptions.map((t) => ({ value: t.name }))
+                    : leaveTypes
+                  ).map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.value}
                     </option>
@@ -693,10 +747,11 @@ export default function AddLeavePage() {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Submit Leave Request
+              {isSubmitting ? 'Submitting…' : 'Submit Leave Request'}
             </button>
           </div>
         </form>

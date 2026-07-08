@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Receipt, Upload, X, Plus, Trash2, Calendar, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 
 interface ExpenseItem {
   id: string;
@@ -178,10 +179,19 @@ export default function SubmitExpensePage() {
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
       const totalAmount = expenseItems.reduce((sum, item) => sum + item.amount, 0);
+
+      await HrExpensesService.createExpenseClaim({
+        title: expenseTitle,
+        status: 'submitted',
+        totalAmount,
+        items: expenseItems.map((item) => ({
+          category: item.category,
+          description: item.description,
+          amount: item.amount,
+          date: item.date,
+        })),
+      });
 
       toast({
         title: "Expense Submitted",
@@ -197,10 +207,29 @@ export default function SubmitExpensePage() {
         amount: 0,
         date: new Date().toISOString().split('T')[0]
       }]);
+
+      // Refresh the recent claims list.
+      try {
+        const raw = (await HrPagesService.expenseClaims()) as any[];
+        setRecentClaims(
+          (raw ?? []).map((c, idx) => ({
+            id: String(c.id ?? idx),
+            claimNumber: c.claimNumber ?? '',
+            category: c.category ?? '',
+            amount: Number(c.amount ?? 0),
+            currency: c.currency ?? 'INR',
+            description: c.description ?? '',
+            status: c.status ?? '',
+            submittedDate: c.submittedDate ?? c.expenseDate ?? '',
+          })),
+        );
+      } catch {
+        /* non-fatal: list refresh failure should not block submission success */
+      }
     } catch (error) {
       toast({
         title: "Submission Failed",
-        description: "Failed to submit expense. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to submit expense. Please try again.",
         variant: "destructive"
       });
     } finally {

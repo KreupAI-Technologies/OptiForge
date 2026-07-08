@@ -17,6 +17,7 @@ export default function MobileFieldViewPage() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     loadSchedule();
@@ -58,7 +59,7 @@ export default function MobileFieldViewPage() {
       return;
     }
     try {
-      await projectManagementService.checkIn();
+      await projectManagementService.checkIn({ location: location ?? undefined });
       setIsCheckedIn(true);
       toast({
         title: "Checked In",
@@ -83,7 +84,7 @@ export default function MobileFieldViewPage() {
       return;
     }
     try {
-      await projectManagementService.checkOut();
+      await projectManagementService.checkOut({ location: location ?? undefined });
       setIsCheckedIn(false);
       toast({
         title: "Checked Out",
@@ -139,6 +140,29 @@ export default function MobileFieldViewPage() {
 
   const clearPhoto = () => {
     setPhotoPreview(null);
+  };
+
+  const handleUploadPhoto = async () => {
+    if (!photoPreview) return;
+    if (!isOnline) {
+      toast({ variant: "destructive", title: "Offline", description: "Cannot upload while offline." });
+      return;
+    }
+    // Attribute the photo to today's scheduled project when available.
+    const projectId = (schedule[0] as any)?.projectId || (schedule[0] as any)?.id || 'field';
+    setUploadingPhoto(true);
+    try {
+      await projectManagementService.uploadSitePhoto(String(projectId), {
+        photoUrl: photoPreview,
+        description: location ? `Site photo @ ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Site photo',
+      });
+      toast({ title: "Photo Uploaded", description: "Site photo uploaded successfully." });
+      setPhotoPreview(null);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Upload failed", description: error instanceof Error ? error.message : "Could not upload the photo." });
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   return (
@@ -281,8 +305,8 @@ export default function MobileFieldViewPage() {
                 <X className="h-4 w-4" />
               </Button>
               <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/50 to-transparent">
-                <Button className="w-full bg-white text-black hover:bg-gray-100">
-                  Upload Photo
+                <Button className="w-full bg-white text-black hover:bg-gray-100" onClick={handleUploadPhoto} disabled={uploadingPhoto}>
+                  {uploadingPhoto ? 'Uploading…' : 'Upload Photo'}
                 </Button>
               </div>
             </div>

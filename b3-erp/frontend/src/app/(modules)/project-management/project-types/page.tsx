@@ -89,10 +89,26 @@ export default function ProjectTypesPage() {
  const [showViewDetailsModal, setShowViewDetailsModal] = useState(false);
  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
 
+ const [savingType, setSavingType] = useState(false);
+
+ const reloadTypes = async () => {
+  const rows = await projectManagementService.listPmProjectTypes();
+  setProjectTypes(Array.isArray(rows) ? (rows as unknown as ProjectType[]) : []);
+ };
+
  // Handlers for Project Types
- const handleCreateType = (data: any) => {
-  console.log('Create type:', data);
-  setShowCreateTypeModal(false);
+ const handleCreateType = async (data: any) => {
+  setSavingType(true);
+  try {
+   const created = await projectManagementService.createPmProjectType(data);
+   if (!created) throw new Error('Create failed');
+   await reloadTypes();
+   setShowCreateTypeModal(false);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to create project type');
+  } finally {
+   setSavingType(false);
+  }
  };
 
  const handleEditType = (type: ProjectType) => {
@@ -120,16 +136,36 @@ export default function ProjectTypesPage() {
   setShowViewDetailsModal(true);
  };
 
- const handleEditTypeSave = (data: any) => {
-  console.log('Edit type:', data);
-  setShowEditTypeModal(false);
-  setSelectedType(null);
+ const handleEditTypeSave = async (data: any) => {
+  if (!selectedType) return;
+  setSavingType(true);
+  try {
+   const updated = await projectManagementService.updatePmProjectType(selectedType.id, data);
+   if (!updated) throw new Error('Update failed');
+   await reloadTypes();
+   setShowEditTypeModal(false);
+   setSelectedType(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to update project type');
+  } finally {
+   setSavingType(false);
+  }
  };
 
- const handleDuplicateSave = (data: any) => {
-  console.log('Duplicate type:', data);
-  setShowDuplicateTypeModal(false);
-  setSelectedType(null);
+ const handleDuplicateSave = async (data: any) => {
+  setSavingType(true);
+  try {
+   const { id, ...rest } = data ?? {};
+   const created = await projectManagementService.createPmProjectType(rest);
+   if (!created) throw new Error('Duplicate failed');
+   await reloadTypes();
+   setShowDuplicateTypeModal(false);
+   setSelectedType(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to duplicate project type');
+  } finally {
+   setSavingType(false);
+  }
  };
 
  const handleDeleteConfirm = async () => {
@@ -145,15 +181,31 @@ export default function ProjectTypesPage() {
   setSelectedType(null);
  };
 
- const handleFieldsSave = (data: any) => {
-  console.log('Custom fields:', data);
-  setShowCustomFieldsModal(false);
-  setSelectedType(null);
+ const handleFieldsSave = async (data: any) => {
+  if (!selectedType) {
+   setShowCustomFieldsModal(false);
+   return;
+  }
+  setSavingType(true);
+  try {
+   const customFields = data?.customFields ?? data;
+   const updated = await projectManagementService.updatePmProjectType(selectedType.id, { customFields } as any);
+   if (!updated) throw new Error('Save failed');
+   await reloadTypes();
+   setShowCustomFieldsModal(false);
+   setSelectedType(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to save custom fields');
+  } finally {
+   setSavingType(false);
+  }
  };
 
- // Handlers for Categories
- const handleCreateCategory = (data: any) => {
-  console.log('Create category:', data);
+ // Handlers for Categories.
+ // NEEDS BACKEND: there is no project-category endpoint in the PM module, so
+ // category create/edit close their modals without persisting. The categories
+ // tab is likewise seeded from a static list until that backend exists.
+ const handleCreateCategory = (_data: any) => {
   setShowCreateCategoryModal(false);
  };
 
@@ -162,8 +214,7 @@ export default function ProjectTypesPage() {
   setShowEditCategoryModal(true);
  };
 
- const handleEditCategorySave = (data: any) => {
-  console.log('Edit category:', data);
+ const handleEditCategorySave = (_data: any) => {
   setShowEditCategoryModal(false);
   setSelectedCategory(null);
  };

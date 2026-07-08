@@ -42,6 +42,10 @@ export default function GRNEntryPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<GRNItem[]>([]);
+  const [poRef, setPoRef] = useState('PO-2025-088');
+  const [invoiceNo, setInvoiceNo] = useState('');
+  const [receivedBy, setReceivedBy] = useState('Store Manager');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -92,9 +96,25 @@ export default function GRNEntryPage() {
     setItems(items.map(item => item.id === id ? { ...item, remarks: text } : item));
   };
 
-  const handleSubmit = () => {
-    toast({ title: "GRN Submitted", description: "Goods Receipt Note #GRN-2025-045 created successfully." });
-    setTimeout(() => { router.push('/project-management/procurement/bom-reception'); }, 1500);
+  const handleSubmit = async () => {
+    if (!poRef.trim()) {
+      toast({ variant: "destructive", title: "PO reference required", description: "Enter the purchase-order reference before submitting the GRN." });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const grn = await projectManagementService.createGoodsReceipt({
+        purchaseOrderId: poRef.trim(),
+        receivedBy: receivedBy.trim() || 'Store Manager',
+        deliveryNoteRef: invoiceNo.trim(),
+      });
+      toast({ title: "GRN Submitted", description: `Goods Receipt Note ${grn?.id ? `#${grn.id}` : ''} created successfully.` });
+      router.push('/project-management/procurement/bom-reception');
+    } catch (error) {
+      toast({ variant: "destructive", title: "Failed to submit GRN", description: error instanceof Error ? error.message : "Could not create the goods receipt note." });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // View 1: Project Selection
@@ -171,8 +191,8 @@ export default function GRNEntryPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => router.push(window.location.pathname)}>Change Project</Button>
-          <Button onClick={handleSubmit} size="sm" className="bg-green-600 hover:bg-green-700">
-            <Save className="w-4 h-4 mr-2" />Submit GRN
+          <Button onClick={handleSubmit} size="sm" disabled={submitting} className="bg-green-600 hover:bg-green-700">
+            <Save className="w-4 h-4 mr-2" />{submitting ? 'Submitting…' : 'Submit GRN'}
           </Button>
         </div>
       </div>
@@ -253,11 +273,11 @@ export default function GRNEntryPage() {
               <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-gray-500">PO Reference</Label>
-                  <Input value="PO-2025-088" readOnly className="bg-gray-50 font-medium" />
+                  <Input value={poRef} onChange={(e) => setPoRef(e.target.value)} className="font-medium" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-gray-500">Vendor Invoice No.</Label>
-                  <Input placeholder="INV-12345" />
+                  <Input placeholder="INV-12345" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-gray-500">Received Date</Label>
@@ -265,7 +285,7 @@ export default function GRNEntryPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-gray-500">Received By</Label>
-                  <Input defaultValue="Store Manager" />
+                  <Input value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} />
                 </div>
 
                 <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100 mt-4">

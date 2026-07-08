@@ -219,12 +219,18 @@ const seedMaterials: Material[] = [
 ];
 
 export default function MRPPage() {
- const [materials, setMaterials] = useState<Material[]>(seedMaterials);
+ const [materials, setMaterials] = useState<Material[]>([]);
+ const [savingMaterial, setSavingMaterial] = useState(false);
+
+ const reloadMaterials = async () => {
+  const rows = await projectManagementService.listMrpMaterials();
+  setMaterials(Array.isArray(rows) ? (rows as unknown as Material[]) : []);
+ };
 
  useEffect(() => {
-  projectManagementService.listMrpMaterials()
-   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMaterials(rows as unknown as Material[]); })
-   .catch(() => { /* keep seed data on error */ });
+  // Show real MRP data only; empty state renders when the API returns no rows.
+  void seedMaterials;
+  reloadMaterials().catch(() => setMaterials([]));
  }, []);
 
  const [searchTerm, setSearchTerm] = useState('');
@@ -304,69 +310,69 @@ export default function MRPPage() {
   });
  };
 
- // Modal handlers
- const handleAddMaterial = (data: any) => {
-  console.log('Adding material:', data);
-  setShowAddModal(false);
+ // Persist an MRP material create/update, then refresh.
+ const saveMaterial = async (data: any, close: () => void, mode: 'create' | 'update') => {
+  setSavingMaterial(true);
+  try {
+   if (mode === 'create') {
+    const created = await projectManagementService.createMrpMaterial(data);
+    if (!created) throw new Error('Create failed');
+   } else {
+    if (!selectedMaterial) { close(); return; }
+    const updated = await projectManagementService.updateMrpMaterial(String((selectedMaterial as any).id), data);
+    if (!updated) throw new Error('Update failed');
+   }
+   await reloadMaterials();
+   close();
+   setSelectedMaterial(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to save material');
+  } finally {
+   setSavingMaterial(false);
+  }
  };
 
- const handleEditMaterial = (data: any) => {
-  console.log('Editing material:', data);
-  setShowEditModal(false);
-  setSelectedMaterial(null);
- };
+ // Modal handlers
+ const handleAddMaterial = (data: any) => saveMaterial(data, () => setShowAddModal(false), 'create');
+ const handleEditMaterial = (data: any) => saveMaterial(data, () => setShowEditModal(false), 'update');
 
  const handleViewDetails = () => {
   // View only, no action needed
  };
 
- const handleCreatePO = (data: any) => {
-  console.log('Creating purchase order:', data);
-  setShowPurchaseOrderModal(false);
-  setSelectedMaterial(null);
- };
-
- const handleUpdateStock = (data: any) => {
-  console.log('Updating stock:', data);
-  setShowUpdateStockModal(false);
-  setSelectedMaterial(null);
- };
+ const handleUpdateStock = (data: any) => saveMaterial(data, () => setShowUpdateStockModal(false), 'update');
 
  const handleTrackDelivery = () => {
   // View only, no action needed
  };
 
- const handleScheduleDelivery = (data: any) => {
-  console.log('Scheduling delivery:', data);
-  setShowScheduleDeliveryModal(false);
-  setSelectedMaterial(null);
- };
+ const handleScheduleDelivery = (data: any) => saveMaterial(data, () => setShowScheduleDeliveryModal(false), 'update');
+ const handleMarkShortage = (data: any) => saveMaterial({ ...data, status: data?.status ?? 'Shortage' }, () => setShowMarkShortageModal(false), 'update');
 
- const handleMarkShortage = (data: any) => {
-  console.log('Marking shortage:', data);
-  setShowMarkShortageModal(false);
-  setSelectedMaterial(null);
- };
-
- const handleExport = (data: any) => {
+ const handleExport = (_data: any) => {
   exportToCsv('mrp', filteredMaterials as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 
- const handleImport = (data: any) => {
-  console.log('Importing materials:', data);
-  setShowImportModal(false);
+ const handleImport = async (data: any) => {
+  setSavingMaterial(true);
+  try {
+   const rows = Array.isArray(data) ? data : [data];
+   for (const row of rows) { if (row) await projectManagementService.createMrpMaterial(row); }
+   await reloadMaterials();
+   setShowImportModal(false);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to import materials');
+  } finally {
+   setSavingMaterial(false);
+  }
  };
 
- const handleGenerateReport = (data: any) => {
-  console.log('Generating report:', data);
-  setShowReportModal(false);
- };
-
- const handleForecast = (data: any) => {
-  console.log('Forecasting demand:', data);
-  setShowForecastModal(false);
- };
+ // NEEDS BACKEND: no PO-creation, demand-report or forecast endpoint in the MRP
+ // module yet — these close their modals without persisting.
+ const handleCreatePO = (_data: any) => { setShowPurchaseOrderModal(false); setSelectedMaterial(null); };
+ const handleGenerateReport = (_data: any) => { setShowReportModal(false); };
+ const handleForecast = (_data: any) => { setShowForecastModal(false); };
 
  // Helper functions to open modals with material context
  const openEditModal = (material: Material) => {

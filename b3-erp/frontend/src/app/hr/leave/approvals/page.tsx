@@ -1,13 +1,60 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, XCircle, Search, Filter, X, Calendar, AlertCircle, User, FileText, Clock } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
-import { mockPendingLeaveApprovals, LeaveTransaction } from '@/data/hr/leave-balances';
+import { LeaveTransaction } from '@/data/hr/leave-balances';
 import { LeaveService } from '@/services/leave.service';
 
+const toDateStr = (d: any): string => {
+  if (!d) return '';
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? '' : dt.toISOString();
+};
+
+const mapToTransaction = (a: any): LeaveTransaction => ({
+  id: String(a.id ?? ''),
+  employeeId: a.employeeCode ?? a.employeeId ?? '',
+  employeeName: a.employeeName ?? a.employee?.fullName ?? '',
+  leaveTypeCode: a.leaveTypeCode ?? a.leaveType?.code ?? '',
+  leaveTypeName: a.leaveTypeName ?? a.leaveType?.name ?? '',
+  leaveTypeIcon: '📅',
+  fromDate: toDateStr(a.startDate ?? a.fromDate),
+  toDate: toDateStr(a.endDate ?? a.toDate),
+  days: Number(a.totalDays ?? a.days ?? 0),
+  reason: a.reason ?? '',
+  status: 'pending',
+  appliedOn: toDateStr(a.appliedAt ?? a.createdAt),
+  emergencyContact: a.emergencyContact ?? undefined,
+});
+
 export default function LeaveApprovalsPage() {
-  const [applications, setApplications] = useState<LeaveTransaction[]>(mockPendingLeaveApprovals);
+  const [applications, setApplications] = useState<LeaveTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await LeaveService.getAllLeaveApplicationsRaw();
+        const pending = (rows as any[]).filter(
+          (r) => String(r.status ?? '').toUpperCase() === 'PENDING',
+        );
+        if (!cancelled) setApplications(pending.map(mapToTransaction));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pending applications');
+          setApplications([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLeaveType, setFilterLeaveType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -321,6 +368,19 @@ export default function LeaveApprovalsPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading pending applications…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

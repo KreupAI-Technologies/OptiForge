@@ -115,6 +115,33 @@ export const HrExpensesService = {
       await request(`/hr/card-transactions${withCompany({ category })}`),
     );
   },
+
+  // ---- Update expense claim (PUT) -----------------------------------------
+  // The expense-claim controller has no dedicated approve/reject routes;
+  // status transitions (approve/reject/pay) are applied via PUT.
+  async updateExpenseClaim(id: string, body: Record<string, any>): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/hr/expense-claims/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`API Error ${res.status}: ${res.statusText}`);
+    }
+    return res.json();
+  },
+
+  // ---- Delete expense claim (DELETE) --------------------------------------
+  async deleteExpenseClaim(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE_URL}/hr/expense-claims/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(`API Error ${res.status}: ${res.statusText}`);
+    }
+    return res.json();
+  },
 };
 
 export default HrExpensesService;

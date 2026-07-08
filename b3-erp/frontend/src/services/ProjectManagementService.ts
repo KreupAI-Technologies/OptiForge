@@ -2002,13 +2002,29 @@ class ProjectManagementService {
         }
     }
 
-    async checkIn(): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 600));
-        // In a real app, this would verify location, etc.
+    // Field engineer attendance — NestJS mobile-api (api/v1 prefix).
+    //   POST /mobile-api/check-in   { engineerId, projectId, location }
+    //   POST /mobile-api/check-out  { engineerId, projectId, location, workSummary }
+    async checkIn(payload?: { engineerId?: string; projectId?: string; location?: { lat: number; lng: number } }): Promise<void> {
+        await this.pmModulePost<any>('/mobile-api/check-in', {
+            engineerId: payload?.engineerId ?? 'current-user',
+            projectId: payload?.projectId ?? '',
+            location: payload?.location ?? { lat: 0, lng: 0 },
+        });
     }
 
-    async checkOut(): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 600));
+    async checkOut(payload?: { engineerId?: string; projectId?: string; location?: { lat: number; lng: number }; workSummary?: string }): Promise<void> {
+        await this.pmModulePost<any>('/mobile-api/check-out', {
+            engineerId: payload?.engineerId ?? 'current-user',
+            projectId: payload?.projectId ?? '',
+            location: payload?.location ?? { lat: 0, lng: 0 },
+            workSummary: payload?.workSummary ?? '',
+        });
+    }
+
+    /** Upload a geo-tagged site photo against a project (mobile-api). */
+    uploadSitePhoto(projectId: string, data: { photoUrl: string; description: string }): Promise<any> {
+        return this.pmModulePost<any>(`/mobile-api/upload-photo/${projectId}`, data);
     }
 
     async getSiteMeasurements(projectId: string): Promise<RoomMeasurements[]> {
@@ -2389,6 +2405,21 @@ class ProjectManagementService {
             return (await res.json()) as PmMilestoneTemplate;
         } catch (error) {
             console.error('Error creating milestone template:', error);
+            return null;
+        }
+    }
+
+    async updateMilestoneTemplate(id: string, data: Partial<PmMilestoneTemplate>): Promise<PmMilestoneTemplate | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/milestone-templates/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT milestone template failed: ${res.status}`);
+            return (await res.json()) as PmMilestoneTemplate;
+        } catch (error) {
+            console.error('Error updating milestone template:', error);
             return null;
         }
     }
@@ -2938,6 +2969,59 @@ class ProjectManagementService {
     // Goods receipt (GRN) — [id]/procurement/receipt
     createGoodsReceipt(data: { purchaseOrderId: string; receivedBy: string; deliveryNoteRef: string }) {
         return this.pmModulePost<any>('/api/procurement/grn', data);
+    }
+
+    // ---------------------------------------------------------------------
+    // PROJECT-SCOPED PROCUREMENT + PRODUCTION writes (NestJS).
+    // Backs the (modules)/project-management/procurement/* and production/*
+    // shop-flow pages. Endpoints (b3-erp/backend, prefixed api/v1):
+    //   POST  /api/procurement/reserve/:projectId/:bomHeaderId
+    //   POST  /api/procurement/pr        { projectId, bomHeaderId, requestedBy }
+    //   POST  /api/procurement/grn       { purchaseOrderId, receivedBy, deliveryNoteRef }
+    //   PATCH /api/procurement/grn/:id/qc { passed, notes }
+    //   POST  /api/production/log        (ProductionLog partial)
+    //   POST  /api/production/trial/:projectId  { inspectedBy }
+    //   PATCH /api/production/trial/:id  { result, notes }
+    // ---------------------------------------------------------------------
+
+    /** Reserve on-hand stock against a project BOM. */
+    reserveProjectStock(projectId: string, bomHeaderId: string): Promise<any> {
+        return this.pmModulePost<any>(`/api/procurement/reserve/${projectId}/${bomHeaderId}`, {});
+    }
+
+    /** Generate a Purchase Requisition from a released project BOM. */
+    createProcurementPR(data: { projectId: string; bomHeaderId: string; requestedBy: string }): Promise<any> {
+        return this.pmModulePost<any>('/api/procurement/pr', data);
+    }
+
+    /** Record a GRN quality-check result (pass/fail + notes). */
+    updateGrnQc(grnId: string, data: { passed: boolean; notes: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/procurement/grn/${grnId}/qc`, data);
+    }
+
+    /** Log a shop-floor production operation (laser/bending/welding/etc.). */
+    logProductionOperation(data: {
+        projectId: string;
+        operationType: 'laser' | 'bending' | 'etching' | 'welding' | 'powder_coating' | 'assembly';
+        machineId?: string;
+        operatorId?: string;
+        startTime?: string;
+        endTime?: string;
+        yieldCount?: number;
+        rejectCount?: number;
+        idleReason?: string;
+    }): Promise<any> {
+        return this.pmModulePost<any>('/api/production/log', data);
+    }
+
+    /** Create a trial-wall / trial-assembly inspection report for a project. */
+    createProductionTrial(projectId: string, inspectedBy: string): Promise<any> {
+        return this.pmModulePost<any>(`/api/production/trial/${projectId}`, { inspectedBy });
+    }
+
+    /** Record the outcome of a trial report (result + notes). */
+    updateProductionTrial(id: string, data: { result: string; notes: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/production/trial/${id}`, data);
     }
 
     // (modules)/project-management page wiring — list endpoints

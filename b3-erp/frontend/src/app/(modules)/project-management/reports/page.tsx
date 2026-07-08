@@ -103,8 +103,9 @@ export default function ProjectReportsPage() {
  const [selectedReports, setSelectedReports] = useState<Report[]>([]);
  const [selectedTemplateForCustomize, setSelectedTemplateForCustomize] = useState<ReportTemplate | null>(null);
 
- // Mock recent reports - 12 records
- const [mockReports, setMockReports] = useState<Report[]>([
+ // Seed rows kept only as a shape reference; real data comes from the API and
+ // the effect below is authoritative (empty state renders when there are none).
+ const seedReports: Report[] = [
   {
    id: '1',
    reportName: 'Monthly Project Status Report - May 2024',
@@ -313,12 +314,19 @@ export default function ProjectReportsPage() {
    status: 'Available',
    icon: Factory,
   },
- ]);
+ ];
+
+ const [mockReports, setMockReports] = useState<Report[]>([]);
+ const [savingReport, setSavingReport] = useState(false);
+
+ const reloadReports = async () => {
+  const rows = await projectManagementService.listPmReports();
+  setMockReports(Array.isArray(rows) ? (rows as unknown as Report[]) : []);
+ };
 
  useEffect(() => {
-  projectManagementService.listPmReports()
-   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockReports(rows as unknown as Report[]); })
-   .catch(() => { /* keep seed data on error */ });
+  void seedReports;
+  reloadReports().catch(() => setMockReports([]));
  }, []);
 
  // Report templates
@@ -475,19 +483,41 @@ export default function ProjectReportsPage() {
  };
 
  // Handler functions
- const handleGenerate = (data: any) => {
-  console.log('Generate report:', data);
-  // API call would go here
+ const handleGenerate = async (data: any) => {
+  setSavingReport(true);
+  try {
+   const created = await projectManagementService.createPmReport({ ...data, status: 'Available' });
+   if (!created) throw new Error('Generate failed');
+   await reloadReports();
+   setShowGenerateModal(false);
+   setSelectedTemplate(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to generate report');
+  } finally {
+   setSavingReport(false);
+  }
  };
 
- const handleSchedule = (data: any) => {
-  console.log('Schedule report:', data);
-  // API call would go here
+ const handleSchedule = async (data: any) => {
+  setSavingReport(true);
+  try {
+   const created = await projectManagementService.createPmReport({ ...data, status: 'Scheduled' });
+   if (!created) throw new Error('Schedule failed');
+   await reloadReports();
+   setShowScheduleModal(false);
+   setSelectedReport(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to schedule report');
+  } finally {
+   setSavingReport(false);
+  }
  };
 
- const handleCustomizeTemplate = (data: any) => {
-  console.log('Customize template:', data);
-  // API call would go here
+ // NEEDS BACKEND: no report-template endpoint yet — customise/create template
+ // close their modals without persisting.
+ const handleCustomizeTemplate = (_data: any) => {
+  setShowCustomizeModal(false);
+  setSelectedTemplateForCustomize(null);
  };
 
  const handlePreview = (report: Report) => {
@@ -525,9 +555,9 @@ export default function ProjectReportsPage() {
   // API call would go here
  };
 
- const handleCreateTemplate = (data: any) => {
-  console.log('Create template:', data);
-  // API call would go here
+ // NEEDS BACKEND: no report-template endpoint yet.
+ const handleCreateTemplate = (_data: any) => {
+  // no-op until a report-template backend exists
  };
 
  const handleViewHistory = (report: Report) => {

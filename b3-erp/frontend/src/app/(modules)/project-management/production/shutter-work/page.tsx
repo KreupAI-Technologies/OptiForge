@@ -37,6 +37,7 @@ export default function ShutterWorkPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<ShutterJob[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
@@ -76,9 +77,29 @@ export default function ShutterWorkPage() {
     }
   };
 
-  const handleStatusChange = (id: string, newStatus: ShutterJob['status']) => {
+  const handleStatusChange = async (id: string, newStatus: ShutterJob['status']) => {
+    const prev = jobs;
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
-    toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+    if (newStatus !== 'Completed' || !projectId) {
+      toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+      return;
+    }
+    setSavingId(id);
+    try {
+      await projectManagementService.logProductionOperation({
+        projectId,
+        operationType: 'assembly',
+        startTime: new Date().toISOString(),
+        endTime: new Date().toISOString(),
+        yieldCount: 1,
+      });
+      toast({ title: 'Shutter Work Logged', description: `Job ${id} completed and logged to production.` });
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Could not log operation', description: error instanceof Error ? error.message : 'Failed to log shutter operation.' });
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handleFitmentCheckToggle = (id: string) => {
@@ -250,9 +271,9 @@ export default function ShutterWorkPage() {
                       <td className="p-4 text-right pr-6">
                         <div className="flex justify-end gap-2">
                           {job.status !== 'Completed' && (
-                            <Button size="sm" variant="outline" className="h-8 text-xs font-bold"
+                            <Button size="sm" variant="outline" className="h-8 text-xs font-bold" disabled={savingId === job.id}
                               onClick={() => handleStatusChange(job.id, job.status === 'Pending' ? 'In Progress' : 'Completed')}>
-                              {job.status === 'Pending' ? 'Start' : 'Complete'}
+                              {savingId === job.id ? 'Saving…' : job.status === 'Pending' ? 'Start' : 'Complete'}
                             </Button>
                           )}
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0">

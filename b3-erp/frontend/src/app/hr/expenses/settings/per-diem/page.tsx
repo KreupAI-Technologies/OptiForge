@@ -37,6 +37,39 @@ export default function Page() {
   const [rates, setRates] = useState<PerDiemRate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadRates = async (): Promise<void> => {
+    const raw = await HrPagesService.perDiemRates<any[]>();
+    const mapped: PerDiemRate[] = (raw || []).map((r) => {
+      const accommodation = Number(r.accommodationRate ?? 0);
+      const meals = Number(r.mealsRate ?? 0);
+      const incidentals = Number(r.incidentalsRate ?? 0);
+      const transport = Number(r.transportRate ?? 0);
+      const total = Number(r.totalDailyRate ?? accommodation + meals + incidentals + transport);
+      return {
+        id: r.id,
+        locationName: r.locationName ?? '',
+        locationType: r.locationType === 'international' ? 'international' : 'domestic',
+        country: r.country ?? undefined,
+        state: r.state ?? undefined,
+        city: r.city ?? undefined,
+        currency: r.currency ?? 'INR',
+        accommodationRate: accommodation,
+        mealsRate: meals,
+        incidentalsRate: incidentals,
+        transportRate: transport,
+        totalDailyRate: total,
+        effectiveFrom: r.effectiveFrom ?? '',
+        effectiveTo: r.effectiveTo ?? undefined,
+        status: r.status === 'inactive' ? 'inactive' : 'active',
+        notes: r.notes ?? undefined,
+        createdDate: r.createdAt ?? '',
+        lastModified: r.updatedAt ?? '',
+      };
+    });
+    setRates(mapped);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,120 +138,6 @@ export default function Page() {
     status: 'active' as 'active' | 'inactive',
     notes: ''
   });
-
-  const mockRates: PerDiemRate[] = [
-    {
-      id: '1',
-      locationName: 'Mumbai, Maharashtra',
-      locationType: 'domestic',
-      country: 'India',
-      state: 'Maharashtra',
-      city: 'Mumbai',
-      currency: 'INR',
-      accommodationRate: 3500,
-      mealsRate: 1200,
-      incidentalsRate: 500,
-      transportRate: 800,
-      totalDailyRate: 6000,
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      notes: 'Metro city rates - Tier 1',
-      createdDate: '2024-01-01',
-      lastModified: '2024-01-01'
-    },
-    {
-      id: '2',
-      locationName: 'Bangalore, Karnataka',
-      locationType: 'domestic',
-      country: 'India',
-      state: 'Karnataka',
-      city: 'Bangalore',
-      currency: 'INR',
-      accommodationRate: 3200,
-      mealsRate: 1100,
-      incidentalsRate: 500,
-      transportRate: 700,
-      totalDailyRate: 5500,
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      notes: 'Metro city rates - Tier 1',
-      createdDate: '2024-01-01',
-      lastModified: '2024-01-01'
-    },
-    {
-      id: '3',
-      locationName: 'Singapore',
-      locationType: 'international',
-      country: 'Singapore',
-      currency: 'SGD',
-      accommodationRate: 250,
-      mealsRate: 100,
-      incidentalsRate: 50,
-      transportRate: 30,
-      totalDailyRate: 430,
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      notes: 'International travel - APAC region',
-      createdDate: '2024-01-01',
-      lastModified: '2024-01-01'
-    },
-    {
-      id: '4',
-      locationName: 'Dubai, UAE',
-      locationType: 'international',
-      country: 'United Arab Emirates',
-      city: 'Dubai',
-      currency: 'AED',
-      accommodationRate: 800,
-      mealsRate: 350,
-      incidentalsRate: 150,
-      transportRate: 100,
-      totalDailyRate: 1400,
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      notes: 'International travel - Middle East',
-      createdDate: '2024-01-01',
-      lastModified: '2024-01-01'
-    },
-    {
-      id: '5',
-      locationName: 'Pune, Maharashtra',
-      locationType: 'domestic',
-      country: 'India',
-      state: 'Maharashtra',
-      city: 'Pune',
-      currency: 'INR',
-      accommodationRate: 2500,
-      mealsRate: 900,
-      incidentalsRate: 400,
-      transportRate: 600,
-      totalDailyRate: 4400,
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      notes: 'Metro city rates - Tier 2',
-      createdDate: '2024-01-01',
-      lastModified: '2024-01-01'
-    },
-    {
-      id: '6',
-      locationName: 'London, UK',
-      locationType: 'international',
-      country: 'United Kingdom',
-      city: 'London',
-      currency: 'GBP',
-      accommodationRate: 180,
-      mealsRate: 80,
-      incidentalsRate: 40,
-      transportRate: 30,
-      totalDailyRate: 330,
-      effectiveFrom: '2024-01-01',
-      effectiveTo: '2024-06-30',
-      status: 'inactive',
-      notes: 'International travel - Europe (Old rates)',
-      createdDate: '2023-06-01',
-      lastModified: '2024-06-30'
-    }
-  ];
 
   const filteredRates = useMemo(() => {
     return rates.filter(rate => {
@@ -310,35 +229,82 @@ export default function Page() {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    toast({
-      title: "Rate Deleted",
-      description: `Per diem rate for ${selectedRate?.locationName} has been deleted`
-    });
-    setShowDeleteModal(false);
-    setSelectedRate(null);
+  const confirmDelete = async () => {
+    if (!selectedRate) return;
+    setIsSaving(true);
+    try {
+      await HrPagesService.deletePerDiemRate(selectedRate.id);
+      await loadRates();
+      toast({
+        title: "Rate Deleted",
+        description: `Per diem rate for ${selectedRate.locationName} has been deleted`
+      });
+      setShowDeleteModal(false);
+      setSelectedRate(null);
+    } catch (err) {
+      toast({
+        title: "Delete Failed",
+        description: err instanceof Error ? err.message : "Failed to delete per diem rate.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
 
-    const totalRate = formData.accommodationRate + formData.mealsRate + formData.incidentalsRate + formData.transportRate;
+    const totalDailyRate =
+      formData.accommodationRate + formData.mealsRate + formData.incidentalsRate + formData.transportRate;
+    const payload = {
+      locationName: formData.locationName,
+      locationType: formData.locationType,
+      country: formData.country || undefined,
+      state: formData.state || undefined,
+      city: formData.city || undefined,
+      currency: formData.currency,
+      accommodationRate: formData.accommodationRate,
+      mealsRate: formData.mealsRate,
+      incidentalsRate: formData.incidentalsRate,
+      transportRate: formData.transportRate,
+      totalDailyRate,
+      effectiveFrom: formData.effectiveFrom || undefined,
+      effectiveTo: formData.effectiveTo || undefined,
+      status: formData.status,
+      notes: formData.notes || undefined,
+    };
 
-    if (showEditModal) {
+    setIsSaving(true);
+    try {
+      if (showEditModal && selectedRate) {
+        await HrPagesService.updatePerDiemRate(selectedRate.id, payload);
+        toast({
+          title: "Rate Updated",
+          description: `Per diem rate for ${formData.locationName} has been updated`
+        });
+        setShowEditModal(false);
+      } else {
+        await HrPagesService.createPerDiemRate(payload);
+        toast({
+          title: "Rate Added",
+          description: `Per diem rate for ${formData.locationName} has been added successfully`
+        });
+        setShowAddModal(false);
+      }
+      await loadRates();
+      resetForm();
+      setSelectedRate(null);
+    } catch (err) {
       toast({
-        title: "Rate Updated",
-        description: `Per diem rate for ${formData.locationName} has been updated`
+        title: "Save Failed",
+        description: err instanceof Error ? err.message : "Failed to save per diem rate.",
+        variant: "destructive"
       });
-      setShowEditModal(false);
-    } else {
-      toast({
-        title: "Rate Added",
-        description: `Per diem rate for ${formData.locationName} has been added successfully`
-      });
-      setShowAddModal(false);
+    } finally {
+      setIsSaving(false);
     }
-    resetForm();
-    setSelectedRate(null);
   };
 
   const getTotalRate = () => {
@@ -817,9 +783,10 @@ export default function Page() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                    disabled={isSaving}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                   >
-                    {showEditModal ? 'Update Rate' : 'Add Rate'}
+                    {isSaving ? 'Saving…' : showEditModal ? 'Update Rate' : 'Add Rate'}
                   </button>
                 </div>
               </div>
@@ -864,9 +831,10 @@ export default function Page() {
                 </button>
                 <button
                   onClick={confirmDelete}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                  disabled={isSaving}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-60"
                 >
-                  Delete Rate
+                  {isSaving ? 'Deleting…' : 'Delete Rate'}
                 </button>
               </div>
             </div>

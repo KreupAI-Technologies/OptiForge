@@ -198,6 +198,25 @@ export class HrPagesService {
     });
   }
 
+  // ---- Per-diem rates (CRUD) ---------------------------------------------
+  static createPerDiemRate<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/per-diem-rates', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+  static updatePerDiemRate<T = any>(id: string, payload: Record<string, unknown>): Promise<T> {
+    return request<T>(`/hr/per-diem-rates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+  static deletePerDiemRate<T = any>(id: string): Promise<T> {
+    return request<T>(`/hr/per-diem-rates/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   /** Generic escape hatch for one-off endpoints. */
   static get<T = any[]>(path: string): Promise<T> {
     return request<T>(path.startsWith('/') ? path : `/${path}`);
