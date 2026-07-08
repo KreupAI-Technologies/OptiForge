@@ -1,5 +1,14 @@
 # Not-Wired Pages Report
 
+> ## ✅ RESOLVED — branch `feat/readiness-fixes` (re-verified at HEAD)
+> Both flagged pages checked at current HEAD:
+> - `/design-system` — intentionally static internal component gallery (no domain data). **Correct as-is.**
+> - `/projects/planning/create` — **already fully wired**: imports `projectManagementService`, real `handleSubmit` → `createProjectPlan(payload)` with submit/error/success states + redirect. Stale flag.
+>
+> Net genuinely-not-wired live pages: **0**. Deprecated `_finance_*` tree is not routable.
+>
+> ---
+
 _Regenerated: 2026-07-08 (branch `main`, commit `1db4e41a`)._
 _Detector v3: import-following depth ≤ 3, follows relative + alias imports, treats relative service imports as service imports. Same classifier as [`wiring-audit-2026-07-08.md`](./wiring-audit-2026-07-08.md)._
 

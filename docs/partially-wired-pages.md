@@ -1,5 +1,15 @@
 # Partially-Wired Pages Report
 
+> ## ✅ RE-VERIFIED & RESOLVED — branch `feat/readiness-fixes`
+> All 39 flagged pages re-checked at HEAD with a marker scanner + manual inspection (`scripts/` + 4 module agents). As the detector's own history notes, most were **false positives**. Outcome:
+> - **Genuine stubs fixed** (wired to real existing services, loading/error states): finance trial-balance refresh; 3 cash-flow rows → payment view; reports/quality dashboard+inspections exports; hr/leave download + view-all; rfq/view linked-PR → real route; procurement rfq-rfp send; production/shopfloor + inventory work-center/email **mock-data fallbacks removed** → honest empty state.
+> - **Genuine backend-gap actions → honest-disabled** (not faked): cpq cad/ecommerce view-quote, procurement contracts history/upload + rfq-rfp bid shortlist/reject, finance recurring post-now, inventory low-stock email. These need net-new backend (tracked in [`pending-backend-work.md`](./pending-backend-work.md)).
+> - **False positives (left as-is):** informational `// TODO` comments, validation/confirmation `alert()`s, working `window.prompt`s that call real endpoints, static enum constants.
+>
+> **Live pages now have 0 empty-onClick, 0 console-log-onClick, 0 "coming soon" action-stub alerts.** Frontend `tsc` = 0. The residual scanner hits are all intentional (honest-disabled notices / validation alerts / informational TODOs).
+>
+> ---
+
 _Regenerated: 2026-07-08 (branch `main`, commit `1db4e41a`)._
 _Detector v3: import-following depth ≤ 3, follows relative + alias imports. Same classifier as [`wiring-audit-2026-07-08.md`](./wiring-audit-2026-07-08.md)._
 
