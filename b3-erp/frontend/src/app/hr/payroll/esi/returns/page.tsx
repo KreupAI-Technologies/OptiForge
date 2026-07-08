@@ -46,46 +46,44 @@ export default function ESIReturnsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [rows, setRows] = useState<ESIReturn[]>([]);
+  const [filing, setFiling] = useState(false);
 
-  // Fetch from backend as the sole data source
+  const loadReturns = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrPayrollService.getStatutoryFilings('esi-returns');
+      const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+        id: r.id ?? r.details?.id ?? '',
+        returnPeriod: r.returnPeriod ?? r.details?.returnPeriod ?? r.period ?? '',
+        periodType: (r.periodType ?? r.details?.periodType ?? 'half-yearly') as 'half-yearly',
+        fromMonth: r.fromMonth ?? r.details?.fromMonth ?? '',
+        toMonth: r.toMonth ?? r.details?.toMonth ?? '',
+        establishmentCode: r.establishmentCode ?? r.details?.establishmentCode ?? '',
+        employeeCount: r.employeeCount ?? r.details?.employeeCount ?? 0,
+        totalWages: r.totalWages ?? r.details?.totalWages ?? 0,
+        employeeContribution: r.employeeContribution ?? r.details?.employeeContribution ?? 0,
+        employerContribution: r.employerContribution ?? r.details?.employerContribution ?? 0,
+        totalDue: r.totalDue ?? r.amount ?? r.details?.totalDue ?? 0,
+        filedOn: r.filedOn ?? r.details?.filedOn ?? undefined,
+        filedBy: r.filedBy ?? r.details?.filedBy ?? undefined,
+        acknowledgeNumber: r.acknowledgeNumber ?? r.details?.acknowledgeNumber ?? undefined,
+        status: (r.status ?? r.details?.status ?? 'pending') as ESIReturn['status'],
+        dueDate: r.dueDate ?? r.details?.dueDate ?? r.effectiveDate ?? '',
+      } as ESIReturn));
+      setRows(mapped);
+      setReturns(mapped);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      setRows([]);
+      setReturns([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrPayrollService.getStatutoryFilings('esi-returns');
-        if (!cancelled) {
-          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
-            id: r.id ?? r.details?.id ?? '',
-            returnPeriod: r.returnPeriod ?? r.details?.returnPeriod ?? r.period ?? '',
-            periodType: (r.periodType ?? r.details?.periodType ?? 'half-yearly') as 'half-yearly',
-            fromMonth: r.fromMonth ?? r.details?.fromMonth ?? '',
-            toMonth: r.toMonth ?? r.details?.toMonth ?? '',
-            establishmentCode: r.establishmentCode ?? r.details?.establishmentCode ?? '',
-            employeeCount: r.employeeCount ?? r.details?.employeeCount ?? 0,
-            totalWages: r.totalWages ?? r.details?.totalWages ?? 0,
-            employeeContribution: r.employeeContribution ?? r.details?.employeeContribution ?? 0,
-            employerContribution: r.employerContribution ?? r.details?.employerContribution ?? 0,
-            totalDue: r.totalDue ?? r.amount ?? r.details?.totalDue ?? 0,
-            filedOn: r.filedOn ?? r.details?.filedOn ?? undefined,
-            filedBy: r.filedBy ?? r.details?.filedBy ?? undefined,
-            acknowledgeNumber: r.acknowledgeNumber ?? r.details?.acknowledgeNumber ?? undefined,
-            status: (r.status ?? r.details?.status ?? 'pending') as ESIReturn['status'],
-            dueDate: r.dueDate ?? r.details?.dueDate ?? r.effectiveDate ?? '',
-          } as ESIReturn));
-          setRows(mapped);
-          setReturns(mapped);
-        }
-      } catch (e) {
-        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); setReturns([]); }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    loadReturns();
   }, []);
 
   const filteredReturns = (returns.length > 0 ? returns : rows).filter(ret =>
@@ -142,36 +140,42 @@ export default function ESIReturnsPage() {
   };
 
   const confirmFileReturn = async () => {
-    if (!selectedReturn) return;
-
+    if (!selectedReturn || filing) return;
+    setFiling(true);
     try {
-      // Simulate API call to file return
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const filedOn = new Date().toISOString();
+      await HrPayrollService.updateStatutoryFiling(selectedReturn.id, {
+        status: 'filed',
+        details: {
+          ...(selectedReturn as any),
+          status: 'filed',
+          filedOn,
+          filedBy: 'Current User',
+        },
+      });
 
-      // Update local state
       const updatedReturns = returns.map(ret =>
         ret.id === selectedReturn.id
-          ? {
-              ...ret,
-              status: 'filed' as const,
-              filedOn: new Date().toISOString(),
-              filedBy: 'Current User'
-            }
+          ? { ...ret, status: 'filed' as const, filedOn, filedBy: 'Current User' }
           : ret
       );
-
       setReturns(updatedReturns);
+      setShowFileModal(false);
+      setSelectedReturn(null);
 
       toast({
         title: "Success",
         description: "Return filed successfully with ESIC portal",
       });
+      await loadReturns();
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to file return. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setFiling(false);
     }
   };
 

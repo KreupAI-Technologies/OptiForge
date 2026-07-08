@@ -75,6 +75,8 @@ export default function ProjectSettingsPage() {
  const [ceoApprovalThreshold, setCeoApprovalThreshold] = useState('10000000');
 
  const [isSaving, setIsSaving] = useState(false);
+ const [saveError, setSaveError] = useState<string | null>(null);
+ const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
  // Load persisted settings from the backend on mount.
  useEffect(() => {
@@ -132,6 +134,8 @@ export default function ProjectSettingsPage() {
 
  const handleSave = async () => {
   setIsSaving(true);
+  setSaveError(null);
+  setSaveSuccess(null);
   try {
    const saved = await projectManagementService.savePmSettings({
     defaultCurrency,
@@ -157,13 +161,13 @@ export default function ProjectSettingsPage() {
    });
    if (saved) {
     setHasChanges(false);
-    alert('Settings saved successfully!');
+    setSaveSuccess('Settings saved successfully.');
    } else {
-    alert('Failed to save settings. Please try again.');
+    setSaveError('Failed to save settings. Please try again.');
    }
   } catch (err) {
    console.error('Error saving settings:', err);
-   alert('Failed to save settings. Please try again.');
+   setSaveError(err instanceof Error ? err.message : 'Failed to save settings. Please try again.');
   } finally {
    setIsSaving(false);
   }
@@ -292,6 +296,12 @@ export default function ProjectSettingsPage() {
   <div className="h-screen flex flex-col overflow-hidden">
    <div className="flex-1 overflow-y-auto overflow-x-hidden">
     <div className="px-3 py-2 max-w-[1400px]">
+     {saveError && (
+      <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+     )}
+     {saveSuccess && (
+      <div className="mb-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">{saveSuccess}</div>
+     )}
      {/* Header with Title and Quick Access */}
      <div className="mb-3">
       <div className="flex flex-col gap-2">
@@ -311,10 +321,11 @@ export default function ProjectSettingsPage() {
           </button>
           <button
            onClick={handleSave}
-           className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+           disabled={isSaving}
+           className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-60"
           >
            <Save className="w-4 h-4" />
-           Save Changes
+           {isSaving ? 'Saving…' : 'Save Changes'}
           </button>
          </div>
         )}
@@ -1485,10 +1496,11 @@ export default function ProjectSettingsPage() {
      </button>
      <button
       onClick={handleSave}
-      className="flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 shadow-lg"
+      disabled={isSaving}
+      className="flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 shadow-lg disabled:opacity-60"
      >
       <Save className="w-4 h-4" />
-      Save All Changes
+      {isSaving ? 'Saving…' : 'Save All Changes'}
      </button>
     </div>
    )}

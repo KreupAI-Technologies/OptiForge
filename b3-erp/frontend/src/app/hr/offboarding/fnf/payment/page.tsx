@@ -71,130 +71,37 @@ export default function FNFPaymentPage() {
   const [mockPayments, setMockPayments] = useState<FNFPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadPayments = async () => {
+    try {
+      setLoading(true);
+      const records = await OffboardingTasksService.list('fnf-payment');
+      const mapped = records.map((r: OffboardingTaskRecord) => ({
+        id: r.id,
+        employeeCode: r.employeeCode || '',
+        employeeName: r.employeeName || '',
+        designation: r.designation || '',
+        department: r.department || '',
+        status: (r.status as any) || 'pending',
+        ...(r.data || {}),
+      })) as unknown as FNFPayment[];
+      setMockPayments(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const records = await OffboardingTasksService.list('fnf-payment');
-        if (!active) return;
-        const mapped = records.map((r: OffboardingTaskRecord) => ({
-          id: r.id,
-          employeeCode: r.employeeCode || '',
-          employeeName: r.employeeName || '',
-          designation: r.designation || '',
-          department: r.department || '',
-          status: (r.status as any) || 'pending',
-          ...(r.data || {}),
-        })) as unknown as FNFPayment[];
-        setMockPayments(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    loadPayments();
   }, []);
-
-  const _unusedMockPayments: FNFPayment[] = [
-    {
-      id: 'FNF-PAY-001', employeeId: 'EMP001', employeeName: 'Rahul Sharma', designation: 'Senior Software Engineer', department: 'Engineering',
-      lastWorkingDay: '2025-12-14',
-      bankDetails: { accountName: 'Rahul Sharma', accountNumber: '123456789012', bankName: 'HDFC Bank', ifscCode: 'HDFC0001234' },
-      fnfComponents: { salary: -176539, leaveEncashment: 79603, gratuity: 173076, reimbursements: 5000 },
-      deductions: { noticePeriodBuyout: 180000, loanRecovery: 50000 },
-      totalGross: 257679, totalDeductions: 230000, netPayable: 27679,
-      status: 'approved', approvedBy: 'Rajesh Patel - CFO', approvedOn: '2025-12-12', paymentMode: 'bank_transfer'
-    },
-    {
-      id: 'FNF-PAY-002', employeeId: 'EMP002', employeeName: 'Priya Singh', designation: 'Marketing Manager', department: 'Marketing',
-      lastWorkingDay: '2025-11-30',
-      bankDetails: { accountName: 'Priya Singh', accountNumber: '987654321098', bankName: 'ICICI Bank', ifscCode: 'ICIC0009876' },
-      fnfComponents: { salary: 123000, leaveEncashment: 126900, gratuity: 333461, bonus: 20000, reimbursements: 8000 },
-      deductions: { advanceRecovery: 15000 },
-      totalGross: 611361, totalDeductions: 15000, netPayable: 596361,
-      status: 'paid', approvedBy: 'Rajesh Patel - CFO', approvedOn: '2025-11-28', paidOn: '2025-12-01', paymentMode: 'bank_transfer', transactionRef: 'TXN20251201123456'
-    },
-    {
-      id: 'FNF-PAY-003', employeeId: 'EMP003', employeeName: 'Amit Kumar', designation: 'Product Manager', department: 'Product',
-      lastWorkingDay: '2025-10-31',
-      bankDetails: { accountName: 'Amit Kumar', accountNumber: '456789012345', bankName: 'SBI', ifscCode: 'SBIN0004567' },
-      fnfComponents: { salary: 192000, leaveEncashment: 150000, gratuity: 648461, bonus: 50000, reimbursements: 12000 },
-      deductions: {},
-      totalGross: 1052461, totalDeductions: 0, netPayable: 1052461,
-      status: 'paid', approvedBy: 'Rajesh Patel - CFO', approvedOn: '2025-10-28', paidOn: '2025-11-05', paymentMode: 'bank_transfer', transactionRef: 'TXN20251105987654'
-    },
-    {
-      id: 'FNF-PAY-004', employeeId: 'EMP004', employeeName: 'Neha Gupta', designation: 'Junior Developer', department: 'Engineering',
-      lastWorkingDay: '2025-12-31',
-      bankDetails: { accountName: 'Neha Gupta', accountNumber: '112233445566', bankName: 'Axis Bank', ifscCode: 'UTIB0001122' },
-      fnfComponents: { salary: 64000, leaveEncashment: 30000, gratuity: 0, reimbursements: 2000 },
-      deductions: {},
-      totalGross: 96000, totalDeductions: 0, netPayable: 96000,
-      status: 'pending', paymentMode: 'bank_transfer'
-    },
-    {
-      id: 'FNF-PAY-005', employeeId: 'EMP005', employeeName: 'Vikram Malhotra', designation: 'VP of Sales', department: 'Sales',
-      lastWorkingDay: '2025-09-30',
-      bankDetails: { accountName: 'Vikram Malhotra', accountNumber: '998877665544', bankName: 'HDFC Bank', ifscCode: 'HDFC0009988' },
-      fnfComponents: { salary: 368000, leaveEncashment: 270000, gratuity: 888461, bonus: 150000, reimbursements: 25000 },
-      deductions: { otherDeductions: 5000 },
-      totalGross: 1696461, totalDeductions: 5000, netPayable: 1691461,
-      status: 'approved', approvedBy: 'Rajesh Patel - CFO', approvedOn: '2025-10-05', paymentMode: 'cheque'
-    },
-    {
-      id: 'FNF-PAY-006', employeeId: 'EMP006', employeeName: 'Anjali Desai', designation: 'HR Executive', department: 'Human Resources',
-      lastWorkingDay: '2025-10-15',
-      bankDetails: { accountName: 'Anjali Desai', accountNumber: '777777777777', bankName: 'Kotak Bank', ifscCode: 'KKBK0007777' },
-      fnfComponents: { salary: -4000, leaveEncashment: 7500, gratuity: 0 },
-      deductions: { noticePeriodBuyout: 30000 },
-      totalGross: 3500, totalDeductions: 30000, netPayable: 3500,
-      status: 'approved', approvedBy: 'Rajesh Patel - CFO', approvedOn: '2025-10-18', paymentMode: 'bank_transfer'
-    },
-    {
-      id: 'FNF-PAY-007', employeeId: 'EMP007', employeeName: 'Rohan Mehra', designation: 'Content Strategist', department: 'Marketing',
-      lastWorkingDay: '2025-11-15',
-      bankDetails: { accountName: 'Rohan Mehra', accountNumber: '554433221100', bankName: 'SBI', ifscCode: 'SBIN0005544' },
-      fnfComponents: { salary: 51500, leaveEncashment: 45000, gratuity: 266538, reimbursements: 3000 },
-      deductions: {},
-      totalGross: 366038, totalDeductions: 0, netPayable: 366038,
-      status: 'processing', paymentMode: 'bank_transfer'
-    },
-    {
-      id: 'FNF-PAY-008', employeeId: 'EMP008', employeeName: 'Suresh Raina', designation: 'Operations Manager', department: 'Operations',
-      lastWorkingDay: '2025-08-31',
-      bankDetails: { accountName: 'Suresh Raina', accountNumber: '111222333444', bankName: 'ICICI Bank', ifscCode: 'ICIC0001111' },
-      fnfComponents: { salary: 211000, leaveEncashment: 220000, gratuity: 1246153, bonus: 50000 },
-      deductions: {},
-      totalGross: 1727153, totalDeductions: 0, netPayable: 1727153,
-      status: 'paid', approvedBy: 'Rajesh Patel - CFO', approvedOn: '2025-09-02', paidOn: '2025-09-05', paymentMode: 'bank_transfer', transactionRef: 'TXN20250905111222'
-    },
-    {
-      id: 'FNF-PAY-009', employeeId: 'EMP009', employeeName: 'Kavita Krishnan', designation: 'Lead Designer', department: 'Design',
-      lastWorkingDay: '2025-12-05',
-      bankDetails: { accountName: 'Kavita Krishnan', accountNumber: '999888777666', bankName: 'HDFC Bank', ifscCode: 'HDFC0009999' },
-      fnfComponents: { salary: 12115, leaveEncashment: 66000, gratuity: 270000 },
-      deductions: { loanRecovery: 10000 },
-      totalGross: 348115, totalDeductions: 10000, netPayable: 338115,
-      status: 'approved', approvedBy: 'Rajesh Patel - CFO', approvedOn: '2025-12-04', paymentMode: 'bank_transfer'
-    },
-    {
-      id: 'FNF-PAY-010', employeeId: 'EMP010', employeeName: 'Deepak Verma', designation: 'System Admin', department: 'IT',
-      lastWorkingDay: '2025-11-20',
-      bankDetails: { accountName: 'Deepak Verma', accountNumber: '333333333333', bankName: 'Axis Bank', ifscCode: 'UTIB0003333' },
-      fnfComponents: { salary: 45000, leaveEncashment: 0, gratuity: 0, reimbursements: 1539 },
-      deductions: { advanceRecovery: 5000 },
-      totalGross: 46539, totalDeductions: 5000, netPayable: 41539,
-      status: 'pending', paymentMode: 'bank_transfer'
-    }
-  ];
 
   const filteredPayments = useMemo(() => {
     return mockPayments.filter(payment => payment.status === selectedTab);
-  }, [selectedTab]);
+  }, [selectedTab, mockPayments]);
 
   const stats = {
     pending: mockPayments.filter(p => p.status === 'pending').length,
@@ -279,31 +186,86 @@ export default function FNFPaymentPage() {
     });
   };
 
-  const handleSubmitApproval = (e: React.FormEvent) => {
+  const handleSubmitApproval = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Payment Approved",
-      description: `FNF payment for ${selectedPayment?.employeeName} has been approved and is ready for processing.`
-    });
-    setShowApproveModal(false);
+    if (!selectedPayment || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedPayment.id, {
+        status: 'approved',
+        data: {
+          ...(selectedPayment as any),
+          approvalRemarks: approveFormData.approvalRemarks,
+          approvedOn: new Date().toISOString().split('T')[0],
+        },
+      });
+      toast({
+        title: 'Payment Approved',
+        description: `FNF payment for ${selectedPayment.employeeName} has been approved and is ready for processing.`,
+      });
+      setShowApproveModal(false);
+      await loadPayments();
+    } catch {
+      toast({ title: 'Failed to approve payment', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitInitiate = (e: React.FormEvent) => {
+  const handleSubmitInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Payment Initiated",
-      description: `FNF payment of ${formatCurrency(selectedPayment?.netPayable || 0)} has been initiated for ${selectedPayment?.employeeName}.`
-    });
-    setShowInitiateModal(false);
+    if (!selectedPayment || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedPayment.id, {
+        status: 'processing',
+        data: {
+          ...(selectedPayment as any),
+          paymentMode: initiateFormData.paymentMethod,
+          paymentDate: initiateFormData.paymentDate,
+          transactionRef: initiateFormData.transactionRef,
+          chequeNumber: initiateFormData.chequeNumber,
+          remarks: initiateFormData.remarks,
+        },
+      });
+      toast({
+        title: 'Payment Initiated',
+        description: `FNF payment of ${formatCurrency(selectedPayment.netPayable || 0)} has been initiated for ${selectedPayment.employeeName}.`,
+      });
+      setShowInitiateModal(false);
+      await loadPayments();
+    } catch {
+      toast({ title: 'Failed to initiate payment', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitConfirm = (e: React.FormEvent) => {
+  const handleSubmitConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Payment Confirmed",
-      description: `FNF payment for ${selectedPayment?.employeeName} has been marked as paid.`
-    });
-    setShowConfirmModal(false);
+    if (!selectedPayment || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedPayment.id, {
+        status: 'paid',
+        data: {
+          ...(selectedPayment as any),
+          actualPaymentDate: confirmFormData.actualPaymentDate,
+          transactionRef: confirmFormData.transactionRef,
+          confirmationRemarks: confirmFormData.confirmationRemarks,
+        },
+      });
+      toast({
+        title: 'Payment Confirmed',
+        description: `FNF payment for ${selectedPayment.employeeName} has been marked as paid.`,
+      });
+      setShowConfirmModal(false);
+      await loadPayments();
+    } catch {
+      toast({ title: 'Failed to confirm payment', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -312,6 +274,13 @@ export default function FNFPaymentPage() {
         <h1 className="text-2xl font-bold text-gray-900">FNF - Final Payment & Settlement</h1>
         <p className="text-sm text-gray-600 mt-1">Process and track full & final settlement payments</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading payments…</div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-3 border border-yellow-200">
@@ -790,9 +759,10 @@ export default function FNFPaymentPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50"
                   >
-                    Approve Payment
+                    {submitting ? 'Approving…' : 'Approve Payment'}
                   </button>
                   <button
                     type="button"
@@ -1008,10 +978,11 @@ export default function FNFPaymentPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 font-semibold disabled:opacity-50"
                   >
                     <Send className="inline h-5 w-5 mr-2" />
-                    Initiate Payment
+                    {submitting ? 'Initiating…' : 'Initiate Payment'}
                   </button>
                   <button
                     type="button"
@@ -1118,10 +1089,11 @@ export default function FNFPaymentPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50"
                   >
                     <CheckCircle className="inline h-5 w-5 mr-2" />
-                    Confirm Payment
+                    {submitting ? 'Confirming…' : 'Confirm Payment'}
                   </button>
                   <button
                     type="button"

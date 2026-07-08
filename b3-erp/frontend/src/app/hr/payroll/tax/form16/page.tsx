@@ -41,168 +41,93 @@ export default function Form16Page() {
   const [form16Records, setForm16Records] = useState<Form16Record[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadForm16 = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrPayrollService.getTaxRecords('form16');
+      const mapped: Form16Record[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+        id: r.id ?? r.details?.id ?? '',
+        employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+        employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '—',
+        designation: r.designation ?? r.details?.designation ?? '',
+        department: r.department ?? r.details?.department ?? '',
+        financialYear: r.financialYear ?? r.details?.financialYear ?? '',
+        pan: r.pan ?? r.details?.pan ?? '',
+        tanNumber: r.tanNumber ?? r.details?.tanNumber ?? '',
+        totalIncome: Number(r.totalIncome ?? r.details?.totalIncome ?? 0),
+        totalDeductions: Number(r.totalDeductions ?? r.details?.totalDeductions ?? 0),
+        taxableIncome: Number(r.taxableIncome ?? r.details?.taxableIncome ?? 0),
+        totalTDS: Number(r.totalTDS ?? r.amount ?? r.details?.totalTDS ?? 0),
+        taxRelief: Number(r.taxRelief ?? r.details?.taxRelief ?? 0),
+        netTaxPayable: Number(r.netTaxPayable ?? r.details?.netTaxPayable ?? 0),
+        status: (r.status ?? r.details?.status ?? 'draft') as Form16Record['status'],
+        generatedDate: r.generatedDate ?? r.details?.generatedDate ?? undefined,
+        issuedDate: r.issuedDate ?? r.details?.issuedDate ?? undefined,
+        form16Number: r.form16Number ?? r.details?.form16Number ?? undefined,
+      }));
+      setForm16Records(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load Form 16 records');
+      setForm16Records([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrPayrollService.getTaxRecords('form16');
-        const mapped: Form16Record[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
-          id: r.id ?? r.details?.id ?? '',
-          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
-          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '—',
-          designation: r.designation ?? r.details?.designation ?? '',
-          department: r.department ?? r.details?.department ?? '',
-          financialYear: r.financialYear ?? r.details?.financialYear ?? '',
-          pan: r.pan ?? r.details?.pan ?? '',
-          tanNumber: r.tanNumber ?? r.details?.tanNumber ?? '',
-          totalIncome: Number(r.totalIncome ?? r.details?.totalIncome ?? 0),
-          totalDeductions: Number(r.totalDeductions ?? r.details?.totalDeductions ?? 0),
-          taxableIncome: Number(r.taxableIncome ?? r.details?.taxableIncome ?? 0),
-          totalTDS: Number(r.totalTDS ?? r.amount ?? r.details?.totalTDS ?? 0),
-          taxRelief: Number(r.taxRelief ?? r.details?.taxRelief ?? 0),
-          netTaxPayable: Number(r.netTaxPayable ?? r.details?.netTaxPayable ?? 0),
-          status: (r.status ?? r.details?.status ?? 'draft') as Form16Record['status'],
-          generatedDate: r.generatedDate ?? r.details?.generatedDate ?? undefined,
-          issuedDate: r.issuedDate ?? r.details?.issuedDate ?? undefined,
-          form16Number: r.form16Number ?? r.details?.form16Number ?? undefined,
-        }));
-        if (!cancelled) setForm16Records(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load Form 16 records');
-          setForm16Records([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadForm16();
   }, []);
 
-  const mockForm16Records: Form16Record[] = [
-    {
-      id: 'F16-2024-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      financialYear: '2024-25',
-      pan: 'ABCDE1234F',
-      tanNumber: 'KARB01234E',
-      totalIncome: 596700,
-      totalDeductions: 225000,
-      taxableIncome: 321700,
-      totalTDS: 15850,
-      taxRelief: 12500,
-      netTaxPayable: 3350,
-      status: 'issued',
-      generatedDate: '2025-05-25',
-      issuedDate: '2025-06-01',
-      form16Number: 'F16/2024-25/001'
-    },
-    {
-      id: 'F16-2024-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      financialYear: '2024-25',
-      pan: 'FGHIJ5678K',
-      tanNumber: 'KARB01234E',
-      totalIncome: 431712,
-      totalDeductions: 180000,
-      taxableIncome: 201712,
-      totalTDS: 5043,
-      taxRelief: 12500,
-      netTaxPayable: 0,
-      status: 'generated',
-      generatedDate: '2025-05-26',
-      form16Number: 'F16/2024-25/002'
-    },
-    {
-      id: 'F16-2024-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      designation: 'Production Operator',
-      department: 'Production',
-      financialYear: '2024-25',
-      pan: 'KLMNO9012P',
-      tanNumber: 'KARB01234E',
-      totalIncome: 262488,
-      totalDeductions: 120000,
-      taxableIncome: 92488,
-      totalTDS: 0,
-      taxRelief: 0,
-      netTaxPayable: 0,
-      status: 'generated',
-      generatedDate: '2025-05-27',
-      form16Number: 'F16/2024-25/003'
-    },
-    {
-      id: 'F16-2024-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      financialYear: '2024-25',
-      pan: 'QRSTU3456V',
-      tanNumber: 'KARB01234E',
-      totalIncome: 409212,
-      totalDeductions: 85000,
-      taxableIncome: 274212,
-      totalTDS: 10711,
-      taxRelief: 12500,
-      netTaxPayable: 0,
-      status: 'draft',
-      form16Number: 'F16/2024-25/004'
-    },
-    {
-      id: 'F16-2024-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      financialYear: '2024-25',
-      pan: 'WXYZ7890A',
-      tanNumber: 'KARB01234E',
-      totalIncome: 379200,
-      totalDeductions: 195000,
-      taxableIncome: 134200,
-      totalTDS: 2071,
-      taxRelief: 12500,
-      netTaxPayable: 0,
-      status: 'issued',
-      generatedDate: '2025-05-28',
-      issuedDate: '2025-06-02',
-      form16Number: 'F16/2024-25/005'
-    },
-    {
-      id: 'F16-2024-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      designation: 'HR Executive',
-      department: 'HR',
-      financialYear: '2024-25',
-      pan: 'BCDEF2345G',
-      tanNumber: 'KARB01234E',
-      totalIncome: 394188,
-      totalDeductions: 165000,
-      taxableIncome: 179188,
-      totalTDS: 4297,
-      taxRelief: 12500,
-      netTaxPayable: 0,
-      status: 'downloaded',
-      generatedDate: '2025-05-25',
-      issuedDate: '2025-06-01',
-      form16Number: 'F16/2024-25/006'
+  const confirmGenerateForm16 = async () => {
+    if (!selectedRecord || busy) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await HrPayrollService.updateTaxRecord(selectedRecord.id, {
+        status: 'generated',
+        details: {
+          ...(selectedRecord as any),
+          status: 'generated',
+          generatedDate: new Date().toISOString().split('T')[0],
+        },
+      });
+      setShowGenerateModal(false);
+      setSelectedRecord(null);
+      await loadForm16();
+    } catch {
+      setActionError('Failed to generate Form 16. Please try again.');
+    } finally {
+      setBusy(false);
     }
-  ];
+  };
+
+  const confirmIssueForm16 = async (method: string) => {
+    if (!selectedRecord || busy) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await HrPayrollService.updateTaxRecord(selectedRecord.id, {
+        status: 'issued',
+        details: {
+          ...(selectedRecord as any),
+          status: 'issued',
+          issuedDate: new Date().toISOString().split('T')[0],
+          issueMethod: method,
+        },
+      });
+      setShowIssueModal(false);
+      setSelectedRecord(null);
+      await loadForm16();
+    } catch {
+      setActionError('Failed to issue Form 16. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const filteredRecords = useMemo(() => {
     return form16Records.filter(record => {
@@ -293,6 +218,12 @@ export default function Form16Page() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
         </div>
       )}
       {!isLoading && !loadError && form16Records.length === 0 && (
@@ -611,6 +542,8 @@ export default function Form16Page() {
             setShowGenerateModal(false);
             setSelectedRecord(null);
           }}
+          onConfirm={confirmGenerateForm16}
+          busy={busy}
           formatCurrency={formatCurrency}
         />
       )}
@@ -623,6 +556,8 @@ export default function Form16Page() {
             setShowIssueModal(false);
             setSelectedRecord(null);
           }}
+          onConfirm={confirmIssueForm16}
+          busy={busy}
         />
       )}
 
@@ -1068,10 +1003,12 @@ function BulkDownloadModal({ records, onClose }: BulkDownloadModalProps) {
 interface GenerateForm16ModalProps {
   record: Form16Record;
   onClose: () => void;
+  onConfirm: () => void;
+  busy: boolean;
   formatCurrency: (amount: number) => string;
 }
 
-function GenerateForm16Modal({ record, onClose, formatCurrency }: GenerateForm16ModalProps) {
+function GenerateForm16Modal({ record, onClose, onConfirm, busy, formatCurrency }: GenerateForm16ModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
@@ -1155,14 +1092,12 @@ function GenerateForm16Modal({ record, onClose, formatCurrency }: GenerateForm16
             Cancel
           </button>
           <button
-            onClick={() => {
-              alert('Form 16 generated successfully!');
-              onClose();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            onClick={onConfirm}
+            disabled={busy}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
           >
             <FileText className="h-4 w-4" />
-            Generate Form 16
+            {busy ? 'Generating…' : 'Generate Form 16'}
           </button>
         </div>
       </div>
@@ -1174,9 +1109,11 @@ function GenerateForm16Modal({ record, onClose, formatCurrency }: GenerateForm16
 interface IssueForm16ModalProps {
   record: Form16Record;
   onClose: () => void;
+  onConfirm: (method: string) => void;
+  busy: boolean;
 }
 
-function IssueForm16Modal({ record, onClose }: IssueForm16ModalProps) {
+function IssueForm16Modal({ record, onClose, onConfirm, busy }: IssueForm16ModalProps) {
   const [issueMethod, setIssueMethod] = useState<'email' | 'portal'>('email');
   const [emailAddress, setEmailAddress] = useState('');
 
@@ -1267,14 +1204,12 @@ function IssueForm16Modal({ record, onClose }: IssueForm16ModalProps) {
             Cancel
           </button>
           <button
-            onClick={() => {
-              alert(`Form 16 issued to employee ${issueMethod === 'email' ? 'via email' : 'on portal'}`);
-              onClose();
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+            onClick={() => onConfirm(issueMethod)}
+            disabled={busy}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
-            Issue Form 16
+            {busy ? 'Issuing…' : 'Issue Form 16'}
           </button>
         </div>
       </div>

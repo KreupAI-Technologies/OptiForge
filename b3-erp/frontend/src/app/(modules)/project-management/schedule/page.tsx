@@ -49,33 +49,50 @@ interface Task {
  status: 'Completed' | 'In Progress' | 'Not Started' | 'Delayed';
 }
 
-const seedTasks: Task[] = [
- { id: '1', name: 'Site Survey & Planning', startDate: '2024-01-15', endDate: '2024-01-25', progress: 100, assignee: 'Ramesh Nair', dependencies: [], phase: 'Initiation', status: 'Completed' },
- { id: '2', name: 'Equipment Procurement', startDate: '2024-01-26', endDate: '2024-02-15', progress: 100, assignee: 'Procurement Team', dependencies: ['1'], phase: 'Procurement', status: 'Completed' },
- { id: '3', name: 'Material Procurement', startDate: '2024-02-01', endDate: '2024-02-20', progress: 100, assignee: 'Procurement Team', dependencies: ['1'], phase: 'Procurement', status: 'Completed' },
- { id: '4', name: 'Quality Inspection', startDate: '2024-02-21', endDate: '2024-02-28', progress: 100, assignee: 'Anjali Verma', dependencies: ['2', '3'], phase: 'Procurement', status: 'Completed' },
- { id: '5', name: 'Floor Preparation', startDate: '2024-02-15', endDate: '2024-02-22', progress: 100, assignee: 'Civil Team', dependencies: ['1'], phase: 'Civil Work', status: 'Completed' },
- { id: '6', name: 'Drainage & Plumbing', startDate: '2024-02-23', endDate: '2024-03-01', progress: 100, assignee: 'Plumbing Team', dependencies: ['5'], phase: 'Civil Work', status: 'Completed' },
- { id: '7', name: 'Electrical Infrastructure', startDate: '2024-02-25', endDate: '2024-03-05', progress: 100, assignee: 'Electrical Team', dependencies: ['5'], phase: 'Civil Work', status: 'Completed' },
- { id: '8', name: 'Cooking Equipment Installation', startDate: '2024-03-06', endDate: '2024-03-15', progress: 85, assignee: 'Installation Team A', dependencies: ['4', '7'], phase: 'Installation', status: 'In Progress' },
- { id: '9', name: 'Refrigeration Units Setup', startDate: '2024-03-10', endDate: '2024-03-20', progress: 60, assignee: 'Installation Team B', dependencies: ['4', '7'], phase: 'Installation', status: 'In Progress' },
- { id: '10', name: 'Exhaust System Installation', startDate: '2024-03-15', endDate: '2024-03-25', progress: 50, assignee: 'HVAC Team', dependencies: ['8'], phase: 'Installation', status: 'In Progress' },
- { id: '11', name: 'Equipment Testing', startDate: '2024-03-26', endDate: '2024-04-05', progress: 0, assignee: 'Test Team', dependencies: ['9', '10'], phase: 'Testing', status: 'Not Started' },
- { id: '12', name: 'Safety Testing', startDate: '2024-04-06', endDate: '2024-04-12', progress: 0, assignee: 'Safety Team', dependencies: ['11'], phase: 'Testing', status: 'Not Started' },
- { id: '13', name: 'Final Commissioning', startDate: '2024-04-13', endDate: '2024-04-20', progress: 0, assignee: 'Commissioning Team', dependencies: ['12'], phase: 'Commissioning', status: 'Not Started' },
- { id: '14', name: 'Staff Training', startDate: '2024-04-21', endDate: '2024-04-26', progress: 0, assignee: 'Training Team', dependencies: ['13'], phase: 'Handover', status: 'Not Started' },
- { id: '15', name: 'Documentation Handover', startDate: '2024-04-27', endDate: '2024-04-28', progress: 0, assignee: 'Documentation Team', dependencies: ['14'], phase: 'Handover', status: 'Not Started' },
- { id: '16', name: 'Project Closure', startDate: '2024-04-29', endDate: '2024-04-30', progress: 0, assignee: 'Rajesh Kumar', dependencies: ['15'], phase: 'Handover', status: 'Not Started' },
-];
-
 export default function ScheduleGanttPage() {
- const [tasks, setTasks] = useState<Task[]>(seedTasks);
+ const [tasks, setTasks] = useState<Task[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [loadError, setLoadError] = useState<string | null>(null);
+ const [submitting, setSubmitting] = useState(false);
+ const [actionError, setActionError] = useState<string | null>(null);
+ const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+ const refreshTasks = async () => {
+  const rows = await projectManagementService.listScheduleTasks();
+  setTasks(Array.isArray(rows) ? (rows as unknown as Task[]) : []);
+ };
 
  useEffect(() => {
-  projectManagementService.listScheduleTasks()
-   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setTasks(rows as unknown as Task[]); })
-   .catch(() => { /* keep seed data on error */ });
+  let active = true;
+  (async () => {
+   setLoading(true);
+   setLoadError(null);
+   try {
+    await refreshTasks();
+   } catch (e) {
+    if (active) setLoadError(e instanceof Error ? e.message : 'Failed to load schedule');
+   } finally {
+    if (active) setLoading(false);
+   }
+  })();
+  return () => { active = false; };
  }, []);
+
+ const runAction = async (fn: () => Promise<void>, success: string, close: () => void) => {
+  setSubmitting(true);
+  setActionError(null);
+  setActionSuccess(null);
+  try {
+   await fn();
+   await refreshTasks();
+   setActionSuccess(success);
+   close();
+  } catch (err) {
+   setActionError(err instanceof Error ? err.message : 'Action failed');
+  } finally {
+   setSubmitting(false);
+  }
+ };
 
  const [viewMode, setViewMode] = useState<'days' | 'weeks' | 'months'>('weeks');
  const [currentDate, setCurrentDate] = useState(new Date('2024-03-15'));
@@ -170,17 +187,40 @@ export default function ScheduleGanttPage() {
 
  // Modal handlers
  const handleAddMilestone = (milestone: any) => {
-  console.log('Adding milestone:', milestone);
-  setShowAddMilestone(false);
+  runAction(
+   () =>
+    projectManagementService.createScheduleTask({
+     name: String(milestone?.name ?? milestone?.title ?? 'New Milestone'),
+     startDate: String(milestone?.startDate ?? milestone?.date ?? ''),
+     endDate: String(milestone?.endDate ?? milestone?.date ?? ''),
+     progress: Number(milestone?.progress ?? 0),
+     assignee: String(milestone?.assignee ?? ''),
+     dependencies: Array.isArray(milestone?.dependencies) ? milestone.dependencies : [],
+     phase: String(milestone?.phase ?? 'Milestone'),
+     status: String(milestone?.status ?? 'Not Started'),
+    }).then(() => undefined),
+   'Milestone added',
+   () => setShowAddMilestone(false)
+  );
  };
 
  const handleEditDependencies = (dependencies: any) => {
-  console.log('Updating dependencies:', dependencies);
-  setShowEditDependencies(false);
+  if (!selectedTask) { setShowEditDependencies(false); return; }
+  const deps = Array.isArray(dependencies)
+   ? dependencies
+   : Array.isArray(dependencies?.dependencies)
+    ? dependencies.dependencies
+    : selectedTask.dependencies;
+  runAction(
+   () => projectManagementService.updateScheduleTask(selectedTask.id, { dependencies: deps }).then(() => undefined),
+   'Dependencies updated',
+   () => { setShowEditDependencies(false); setSelectedTask(null); }
+  );
  };
 
  const handleApplyFilters = (filters: any) => {
-  console.log('Applying filters:', filters);
+  // Filtering is client-side over already-fetched tasks.
+  if (filters?.phase) setFilterPhase(String(filters.phase));
   setShowTimelineFilter(false);
  };
 
@@ -190,18 +230,46 @@ export default function ScheduleGanttPage() {
  };
 
  const handleAddTaskLink = (link: any) => {
-  console.log('Adding task link:', link);
-  setShowAddTaskLink(false);
+  // A task link is a dependency between two schedule tasks.
+  const fromId = String(link?.from ?? link?.fromTask ?? selectedTask?.id ?? '');
+  const toId = String(link?.to ?? link?.toTask ?? '');
+  const target = tasks.find((t) => t.id === toId);
+  if (!target || !fromId) { setShowAddTaskLink(false); return; }
+  runAction(
+   () =>
+    projectManagementService.updateScheduleTask(target.id, {
+     dependencies: Array.from(new Set([...(target.dependencies ?? []), fromId])),
+    }).then(() => undefined),
+   'Task link added',
+   () => setShowAddTaskLink(false)
+  );
  };
 
  const handleEditDuration = (duration: any) => {
-  console.log('Editing duration:', duration);
-  setShowEditDuration(false);
+  if (!selectedTask) { setShowEditDuration(false); return; }
+  runAction(
+   () =>
+    projectManagementService.updateScheduleTask(selectedTask.id, {
+     startDate: duration?.startDate ? String(duration.startDate) : selectedTask.startDate,
+     endDate: duration?.endDate ? String(duration.endDate) : selectedTask.endDate,
+    }).then(() => undefined),
+   'Duration updated',
+   () => { setShowEditDuration(false); setSelectedTask(null); }
+  );
  };
 
  const handleReschedule = (options: any) => {
-  console.log('Rescheduling:', options);
-  setShowReschedule(false);
+  const target = selectedTask ?? tasks[0];
+  if (!target) { setShowReschedule(false); return; }
+  runAction(
+   () =>
+    projectManagementService.updateScheduleTask(target.id, {
+     startDate: options?.startDate ? String(options.startDate) : target.startDate,
+     endDate: options?.endDate ? String(options.endDate) : target.endDate,
+    }).then(() => undefined),
+   'Task rescheduled',
+   () => { setShowReschedule(false); setSelectedTask(null); }
+  );
  };
 
  const handlePrint = (options: any) => {
@@ -210,8 +278,27 @@ export default function ScheduleGanttPage() {
  };
 
  const handleApplyTemplate = (template: any) => {
-  console.log('Applying template:', template);
-  setShowTemplates(false);
+  // Applying a schedule template creates its tasks against the current schedule.
+  const tmplTasks: any[] = Array.isArray(template?.tasks) ? template.tasks : [];
+  if (tmplTasks.length === 0) { setShowTemplates(false); return; }
+  runAction(
+   async () => {
+    for (const t of tmplTasks) {
+     await projectManagementService.createScheduleTask({
+      name: String(t?.name ?? 'Task'),
+      startDate: String(t?.startDate ?? ''),
+      endDate: String(t?.endDate ?? ''),
+      progress: Number(t?.progress ?? 0),
+      assignee: String(t?.assignee ?? ''),
+      dependencies: Array.isArray(t?.dependencies) ? t.dependencies : [],
+      phase: String(t?.phase ?? template?.name ?? 'Template'),
+      status: String(t?.status ?? 'Not Started'),
+     });
+    }
+   },
+   'Template applied',
+   () => setShowTemplates(false)
+  );
  };
 
  const openEditDependencies = (task: Task) => {
@@ -227,15 +314,31 @@ export default function ScheduleGanttPage() {
  return (
   <div className="w-full h-screen overflow-y-auto overflow-x-hidden">
    <div className="px-3 py-2 space-y-3">
+    {loading && (
+     <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading schedule…</div>
+    )}
+    {loadError && !loading && (
+     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>
+    )}
+    {!loading && !loadError && tasks.length === 0 && (
+     <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600">No scheduled tasks yet.</div>
+    )}
+    {actionError && (
+     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{actionError}</div>
+    )}
+    {actionSuccess && (
+     <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">{actionSuccess}</div>
+    )}
     {/* Header Actions */}
     <div className="flex justify-between items-center mb-2">
      <div className="flex items-center gap-3">
       <button
        onClick={() => setShowAddMilestone(true)}
-       className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+       disabled={submitting}
+       className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
       >
        <Plus className="w-5 h-5" />
-       Add Milestone
+       {submitting ? 'Saving…' : 'Add Milestone'}
       </button>
       <button
        onClick={() => setShowTimelineFilter(true)}

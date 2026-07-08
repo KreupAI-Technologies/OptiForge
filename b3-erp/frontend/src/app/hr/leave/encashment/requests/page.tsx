@@ -25,15 +25,6 @@ interface EncashmentRequest {
   financialYear: string;
 }
 
-const mockEncashmentRequests: EncashmentRequest[] = [
-  { id: 'ECR001', requestDate: '2025-10-20', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 15, requestedDays: 10, perDayRate: 1200, totalAmount: 12000, status: 'submitted', submittedOn: '2025-10-20', financialYear: '2025-26' },
-  { id: 'ECR002', requestDate: '2025-09-15', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 12, requestedDays: 8, perDayRate: 1200, totalAmount: 9600, status: 'approved', submittedOn: '2025-09-15', approvedBy: 'Rajesh Kumar', approvedOn: '2025-09-18', paymentMode: 'salary', financialYear: '2025-26' },
-  { id: 'ECR003', requestDate: '2025-08-10', leaveType: 'Privilege Leave', leaveTypeCode: 'PL', availableBalance: 10, requestedDays: 5, perDayRate: 1200, totalAmount: 6000, status: 'processed', submittedOn: '2025-08-10', approvedBy: 'Rajesh Kumar', approvedOn: '2025-08-12', processedOn: '2025-08-31', paymentMode: 'bank_transfer', financialYear: '2025-26' },
-  { id: 'ECR004', requestDate: '2025-07-05', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 18, requestedDays: 12, perDayRate: 1200, totalAmount: 14400, status: 'rejected', submittedOn: '2025-07-05', approvedBy: 'Rajesh Kumar', approvedOn: '2025-07-07', rejectionReason: 'Insufficient balance after upcoming planned leave', financialYear: '2025-26' },
-  { id: 'ECR005', requestDate: '2025-06-20', leaveType: 'Comp Off', leaveTypeCode: 'CO', availableBalance: 3, requestedDays: 2, perDayRate: 1200, totalAmount: 2400, status: 'processed', submittedOn: '2025-06-20', approvedBy: 'Rajesh Kumar', approvedOn: '2025-06-21', processedOn: '2025-06-30', paymentMode: 'salary', financialYear: '2025-26' },
-  { id: 'ECR006', requestDate: '2025-10-22', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 15, requestedDays: 5, perDayRate: 1200, totalAmount: 6000, status: 'draft', financialYear: '2025-26' }
-];
-
 const leaveTypesForEncashment = [
   { code: 'ALL', name: 'All Types' },
   { code: 'EL', name: 'Earned Leave' },
@@ -72,15 +63,32 @@ export default function EncashmentRequestsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showNewRequestModal, setShowNewRequestModal] = useState(false);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+
   const loadRequests = () => {
+    setLoadError(null);
     LeaveService.getEncashments()
       .then((rows) => setRequests(Array.isArray(rows) ? rows.map(mapEncashment) : []))
-      .catch(() => setRequests([]));
+      .catch(() => setLoadError('Failed to load encashment requests. Please try again.'));
   };
 
   useEffect(() => {
     loadRequests();
   }, []);
+
+  const handleSubmitRequest = async (id: string) => {
+    if (rowBusyId) return;
+    setRowBusyId(id);
+    try {
+      await LeaveService.updateEncashment(id, { status: 'submitted', submittedOn: new Date().toISOString().slice(0, 10) });
+      loadRequests();
+    } catch {
+      alert('Failed to submit request. Please try again.');
+    } finally {
+      setRowBusyId(null);
+    }
+  };
 
   // Consistent date formatter to avoid hydration errors
   const formatDate = (dateString: string, includeYear = false) => {
@@ -208,13 +216,13 @@ export default function EncashmentRequestsPage() {
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
           {row.status === 'draft' && (
-            <>
-              <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
-              <button className="text-green-600 hover:text-green-800 text-sm font-medium">Submit</button>
-            </>
-          )}
-          {row.status !== 'draft' && (
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">View</button>
+            <button
+              onClick={() => handleSubmitRequest(row.id)}
+              disabled={rowBusyId === row.id}
+              className="text-green-600 hover:text-green-800 text-sm font-medium disabled:opacity-50"
+            >
+              {rowBusyId === row.id ? 'Submitting…' : 'Submit'}
+            </button>
           )}
         </div>
       )
@@ -319,6 +327,12 @@ export default function EncashmentRequestsPage() {
           </div>
         )}
       </div>
+
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {loadError}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border overflow-hidden">
         <DataTable data={filteredData} columns={columns} pagination={{ enabled: true, pageSize: 10 }} sorting={{ enabled: true, defaultSort: { column: 'requestId', direction: 'desc' } }} emptyMessage="No encashment requests found" />

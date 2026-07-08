@@ -36,56 +36,53 @@ export default function PayrollAssignmentsPage() {
   const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const loadAssignments = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Backend returns salary structures (templates), not per-employee
+      // assignments; map best-effort to the EmployeeAssignment shape.
+      const raw = (await PayrollService.getSalaryStructures()) as any[];
+      const statusMap: Record<string, EmployeeAssignment['status']> = {
+        Active: 'active',
+        Draft: 'pending',
+        Pending: 'pending',
+        Revised: 'revised',
+        Inactive: 'pending',
+      };
+      const mapped: EmployeeAssignment[] = raw.map((r) => ({
+        id: r.id,
+        employeeId: r.applicableDesignations?.[0] ?? '',
+        employeeName: r.name ?? '',
+        designation: r.applicableDesignations?.[0] ?? '',
+        department: r.applicableDepartments?.[0] ?? '',
+        grade: '',
+        employmentType:
+          (r.applicableEmployeeTypes?.[0]?.toLowerCase() as EmployeeAssignment['employmentType']) ??
+          'permanent',
+        joiningDate: r.effectiveFrom ?? '',
+        templateCode: r.code ?? '',
+        templateName: r.name ?? '',
+        ctcAmount: Number(r.ctcAmount ?? 0),
+        effectiveFrom: r.effectiveFrom ?? '',
+        assignedBy: r.createdBy ?? 'System',
+        assignedOn: r.createdAt ?? '',
+        status: statusMap[r.status] ?? 'active',
+      }));
+      setAssignments(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load salary assignments');
+      setAssignments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        // Backend returns salary structures (templates), not per-employee
-        // assignments; map best-effort to the EmployeeAssignment shape.
-        const raw = (await PayrollService.getSalaryStructures()) as any[];
-        const statusMap: Record<string, EmployeeAssignment['status']> = {
-          Active: 'active',
-          Draft: 'pending',
-          Pending: 'pending',
-          Revised: 'revised',
-          Inactive: 'pending',
-        };
-        const mapped: EmployeeAssignment[] = raw.map((r) => ({
-          id: r.id,
-          employeeId: r.applicableDesignations?.[0] ?? '',
-          employeeName: r.name ?? '',
-          designation: r.applicableDesignations?.[0] ?? '',
-          department: r.applicableDepartments?.[0] ?? '',
-          grade: '',
-          employmentType:
-            (r.applicableEmployeeTypes?.[0]?.toLowerCase() as EmployeeAssignment['employmentType']) ??
-            'permanent',
-          joiningDate: r.effectiveFrom ?? '',
-          templateCode: r.code ?? '',
-          templateName: r.name ?? '',
-          ctcAmount: Number(r.ctcAmount ?? 0),
-          effectiveFrom: r.effectiveFrom ?? '',
-          assignedBy: r.createdBy ?? 'System',
-          assignedOn: r.createdAt ?? '',
-          status: statusMap[r.status] ?? 'active',
-        }));
-        if (!cancelled) setAssignments(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load salary assignments');
-          setAssignments([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadAssignments();
   }, []);
 
   const handleViewBreakdown = (assignment: EmployeeAssignment) => {
@@ -103,14 +100,32 @@ export default function PayrollAssignmentsPage() {
     setShowHistoryModal(true);
   };
 
-  const handleApprove = (assignmentId: string) => {
-    setAssignments(assignments.map(a =>
-      a.id === assignmentId ? { ...a, status: 'active' as const } : a
-    ));
+  const handleApprove = async (assignmentId: string) => {
+    if (busyId) return;
+    setBusyId(assignmentId);
+    setActionError(null);
+    try {
+      await PayrollService.updateSalaryStructure(assignmentId, { status: 'Active' });
+      setAssignments(assignments.map(a =>
+        a.id === assignmentId ? { ...a, status: 'active' as const } : a
+      ));
+    } catch {
+      setActionError('Failed to approve assignment. Please try again.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const handleSaveRevision = (newCTC: number, effectiveFrom: string) => {
-    if (selectedAssignment) {
+  const handleSaveRevision = async (newCTC: number, effectiveFrom: string) => {
+    if (!selectedAssignment || busyId) return;
+    setBusyId(selectedAssignment.id);
+    setActionError(null);
+    try {
+      await PayrollService.updateSalaryStructure(selectedAssignment.id, {
+        ctcAmount: newCTC,
+        effectiveFrom,
+        status: 'Revised',
+      });
       setAssignments(assignments.map(a =>
         a.id === selectedAssignment.id
           ? {
@@ -125,6 +140,10 @@ export default function PayrollAssignmentsPage() {
       ));
       setShowReviseModal(false);
       setSelectedAssignment(null);
+    } catch {
+      setActionError('Failed to save revision. Please try again.');
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -180,6 +199,11 @@ export default function PayrollAssignmentsPage() {
       {loadError && (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm mb-3">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm mb-3">
+          {actionError}
         </div>
       )}
 

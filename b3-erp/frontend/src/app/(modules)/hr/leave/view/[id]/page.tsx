@@ -154,13 +154,23 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
     return isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('en-IN', options);
   };
 
+  const [actionBusy, setActionBusy] = useState<'approve' | 'reject' | 'delete' | null>(null);
+
   const handleEdit = () => {
     router.push(`/hr/leave/edit/${params.id}`);
   };
 
-  const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this leave request?')) {
+  const handleDelete = async () => {
+    if (actionBusy) return;
+    if (!confirm('Are you sure you want to delete this leave request?')) return;
+    setActionBusy('delete');
+    try {
+      await LeaveService.deleteLeaveApplication(params.id);
       router.push('/hr/leave');
+    } catch (err) {
+      console.error('Failed to delete leave application:', err);
+      alert('Failed to delete leave request. Please try again.');
+      setActionBusy(null);
     }
   };
 
@@ -169,27 +179,33 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
   };
 
   const handleApprove = async () => {
+    if (actionBusy) return;
     if (!confirm('Are you sure you want to approve this leave request?')) return;
+    setActionBusy('approve');
     try {
       await LeaveService.approveLeave(params.id, 'default-company-id');
       await loadLeave();
-      alert('Leave request approved!');
     } catch (err) {
       console.error('Failed to approve leave application:', err);
       alert('Failed to approve leave request. Please try again.');
+    } finally {
+      setActionBusy(null);
     }
   };
 
   const handleReject = async () => {
+    if (actionBusy) return;
     const reason = prompt('Please enter rejection reason:');
     if (!reason) return;
+    setActionBusy('reject');
     try {
       await LeaveService.rejectLeave(params.id, reason, 'default-company-id');
       await loadLeave();
-      alert('Leave request rejected!');
     } catch (err) {
       console.error('Failed to reject leave application:', err);
       alert('Failed to reject leave request. Please try again.');
+    } finally {
+      setActionBusy(null);
     }
   };
 
@@ -223,17 +239,19 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
               <>
                 <button
                   onClick={handleReject}
-                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 font-medium transition-all flex items-center gap-2"
+                  disabled={actionBusy !== null}
+                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 font-medium transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   <XCircle className="w-4 h-4" />
-                  Reject
+                  {actionBusy === 'reject' ? 'Rejecting…' : 'Reject'}
                 </button>
                 <button
                   onClick={handleApprove}
-                  className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 font-medium transition-all flex items-center gap-2"
+                  disabled={actionBusy !== null}
+                  className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 font-medium transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Approve
+                  {actionBusy === 'approve' ? 'Approving…' : 'Approve'}
                 </button>
               </>
             )}
@@ -246,10 +264,11 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
             </button>
             <button
               onClick={handleDelete}
-              className="px-6 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 font-medium transition-all flex items-center gap-2"
+              disabled={actionBusy !== null}
+              className="px-6 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 font-medium transition-all flex items-center gap-2 disabled:opacity-50"
             >
               <Trash2 className="w-4 h-4" />
-              Delete
+              {actionBusy === 'delete' ? 'Deleting…' : 'Delete'}
             </button>
           </div>
         </div>

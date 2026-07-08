@@ -37,91 +37,40 @@ export default function Page() {
   const [mockOffers, setMockOffers] = useState<OfferLetter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadOffers = async () => {
+    try {
+      setLoading(true);
+      const records = await OnboardingTasksService.list('offers');
+      const mapped = records.map((r: OnboardingTaskRecord) => ({
+        id: r.id,
+        employeeCode: r.employeeCode || '',
+        employeeName: r.employeeName || '',
+        designation: r.designation || '',
+        department: r.department || '',
+        joiningDate: r.joiningDate || '',
+        status: (r.status as any) || 'pending',
+        ...(r.data || {}),
+      })) as unknown as OfferLetter[];
+      setMockOffers(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const records = await OnboardingTasksService.list('offers');
-        if (!active) return;
-        const mapped = records.map((r: OnboardingTaskRecord) => ({
-          id: r.id,
-          employeeCode: r.employeeCode || '',
-          employeeName: r.employeeName || '',
-          designation: r.designation || '',
-          department: r.department || '',
-          joiningDate: r.joiningDate || '',
-          status: (r.status as any) || 'pending',
-          ...(r.data || {}),
-        })) as unknown as OfferLetter[];
-        setMockOffers(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    loadOffers();
   }, []);
-
-  const _unusedMockOffers: OfferLetter[] = [
-    {
-      id: '1', offerNumber: 'OL-2024-001', candidateName: 'Arun Verma', designation: 'CNC Operator',
-      department: 'Manufacturing', employmentType: 'permanent', ctc: 420000, joiningDate: '2024-12-01',
-      offerDate: '2024-10-15', validTill: '2024-11-15', status: 'sent', sentBy: 'Priya Sharma',
-      sentDate: '2024-10-15', location: 'Pune Factory', reportingTo: 'Rajesh Kumar'
-    },
-    {
-      id: '2', offerNumber: 'OL-2024-002', candidateName: 'Sneha Patil', designation: 'Quality Inspector',
-      department: 'Quality Assurance', employmentType: 'permanent', ctc: 380000, joiningDate: '2024-12-05',
-      offerDate: '2024-10-18', validTill: '2024-11-18', status: 'accepted', sentBy: 'Priya Sharma',
-      sentDate: '2024-10-18', respondedDate: '2024-10-20', location: 'Pune Factory', reportingTo: 'Meena Rao'
-    },
-    {
-      id: '3', offerNumber: 'OL-2024-003', candidateName: 'Karthik Reddy', designation: 'Production Supervisor',
-      department: 'Manufacturing', employmentType: 'permanent', ctc: 550000, joiningDate: '2024-11-25',
-      offerDate: '2024-10-12', validTill: '2024-11-12', status: 'accepted', sentBy: 'Priya Sharma',
-      sentDate: '2024-10-12', respondedDate: '2024-10-14', location: 'Pune Factory', reportingTo: 'Rajesh Kumar'
-    },
-    {
-      id: '4', offerNumber: 'OL-2024-004', candidateName: 'Neha Singh', designation: 'Maintenance Technician',
-      department: 'Maintenance', employmentType: 'permanent', ctc: 400000, joiningDate: '2024-12-10',
-      offerDate: '2024-10-20', validTill: '2024-11-20', status: 'sent', sentBy: 'Priya Sharma',
-      sentDate: '2024-10-20', location: 'Pune Factory', reportingTo: 'Suresh Patel'
-    },
-    {
-      id: '5', offerNumber: 'OL-2024-005', candidateName: 'Ravi Joshi', designation: 'Warehouse Executive',
-      department: 'Warehouse & Logistics', employmentType: 'contract', ctc: 320000, joiningDate: '2024-12-01',
-      offerDate: '2024-10-08', validTill: '2024-11-08', status: 'expired', sentBy: 'Priya Sharma',
-      sentDate: '2024-10-08', location: 'Pune Factory', reportingTo: 'Amit Singh'
-    },
-    {
-      id: '6', offerNumber: 'OL-2024-006', candidateName: 'Divya Nair', designation: 'Safety Officer',
-      department: 'Safety & Compliance', employmentType: 'permanent', ctc: 480000, joiningDate: '2024-12-15',
-      offerDate: '2024-10-22', validTill: '2024-11-22', status: 'sent', sentBy: 'Priya Sharma',
-      sentDate: '2024-10-22', location: 'Pune Factory', reportingTo: 'Suresh Patel'
-    },
-    {
-      id: '7', offerNumber: 'OL-2024-007', candidateName: 'Manoj Kumar', designation: 'Machine Operator',
-      department: 'Manufacturing', employmentType: 'permanent', ctc: 360000, joiningDate: '2024-11-28',
-      offerDate: '2024-10-10', validTill: '2024-11-10', status: 'rejected', sentBy: 'Priya Sharma',
-      sentDate: '2024-10-10', respondedDate: '2024-10-16', location: 'Pune Factory', reportingTo: 'Rajesh Kumar'
-    },
-    {
-      id: '8', offerNumber: 'OL-2024-008', candidateName: 'Priyanka Desai', designation: 'HR Executive',
-      department: 'Human Resources', employmentType: 'permanent', ctc: 450000, joiningDate: '2024-12-01',
-      offerDate: '2024-10-25', validTill: '2024-11-25', status: 'draft', sentBy: 'Priya Sharma',
-      location: 'Pune Factory', reportingTo: 'Priya Sharma'
-    }
-  ];
 
   const filteredOffers = useMemo(() => {
     return mockOffers.filter(offer =>
       selectedStatus === 'all' || offer.status === selectedStatus
     );
-  }, [selectedStatus]);
+  }, [selectedStatus, mockOffers]);
 
   const stats = {
     total: mockOffers.length,
@@ -130,7 +79,12 @@ export default function Page() {
     accepted: mockOffers.filter(o => o.status === 'accepted').length,
     rejected: mockOffers.filter(o => o.status === 'rejected').length,
     expired: mockOffers.filter(o => o.status === 'expired').length,
-    acceptanceRate: Math.round((mockOffers.filter(o => o.status === 'accepted').length / mockOffers.filter(o => ['accepted', 'rejected'].includes(o.status)).length) * 100)
+    acceptanceRate: (() => {
+      const decided = mockOffers.filter(o => ['accepted', 'rejected'].includes(o.status)).length;
+      return decided > 0
+        ? Math.round((mockOffers.filter(o => o.status === 'accepted').length / decided) * 100)
+        : 0;
+    })()
   };
 
   const getStatusColor = (status: string) => {
@@ -173,13 +127,29 @@ export default function Page() {
     setShowSendModal(true);
   };
 
-  const confirmSendOffer = () => {
-    toast({
-      title: "Offer Letter Sent",
-      description: `Offer letter ${selectedOffer?.offerNumber} has been sent to ${selectedOffer?.candidateName}`
-    });
-    setShowSendModal(false);
-    setSelectedOffer(null);
+  const confirmSendOffer = async () => {
+    if (!selectedOffer || submitting) return;
+    setSubmitting(true);
+    try {
+      await OnboardingTasksService.update(selectedOffer.id, {
+        status: 'sent',
+        data: {
+          ...(selectedOffer as any),
+          sentDate: new Date().toISOString().split('T')[0],
+        },
+      });
+      toast({
+        title: 'Offer Letter Sent',
+        description: `Offer letter ${selectedOffer.offerNumber} has been sent to ${selectedOffer.candidateName}`,
+      });
+      setShowSendModal(false);
+      setSelectedOffer(null);
+      await loadOffers();
+    } catch {
+      toast({ title: 'Failed to send offer', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const columns = [
@@ -267,6 +237,12 @@ export default function Page() {
 
   return (
     <div className="p-6">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading offers…</div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
       <div className="mb-3 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
@@ -585,9 +561,10 @@ export default function Page() {
                 </button>
                 <button
                   onClick={confirmSendOffer}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
                 >
-                  Send Offer
+                  {submitting ? 'Sending…' : 'Send Offer'}
                 </button>
               </div>
             </div>

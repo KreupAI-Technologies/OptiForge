@@ -98,11 +98,12 @@ export default function PhotoDocumentationPage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    const newPhotos: SitePhoto[] = Array.from(files).map((file) => ({
+    const fileArr = Array.from(files);
+    const newPhotos: SitePhoto[] = fileArr.map((file) => ({
       id: Math.random().toString(36).substring(7),
       name: file.name,
       url: URL.createObjectURL(file),
@@ -110,12 +111,31 @@ export default function PhotoDocumentationPage() {
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     }));
 
-    setPhotos((prev) => [...newPhotos, ...prev]);
-
-    toast({
-      title: "Photos Uploaded",
-      description: `Successfully added ${files.length} photo(s).`,
-    });
+    if (projectId) {
+      try {
+        await Promise.all(
+          newPhotos.map((p) =>
+            projectManagementService.uploadSitePhoto(projectId, {
+              photoUrl: p.url,
+              description: p.name,
+            })
+          )
+        );
+        setPhotos((prev) => [...newPhotos, ...prev]);
+        toast({
+          title: "Photos Uploaded",
+          description: `Successfully uploaded ${fileArr.length} photo(s).`,
+        });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Upload failed",
+          description: error instanceof Error ? error.message : "Could not upload photos.",
+        });
+      }
+    } else {
+      setPhotos((prev) => [...newPhotos, ...prev]);
+    }
 
     // Reset input
     if (fileInputRef.current) {

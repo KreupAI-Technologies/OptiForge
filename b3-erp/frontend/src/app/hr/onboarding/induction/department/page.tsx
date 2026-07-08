@@ -4,8 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Building, Calendar, Users, CheckCircle, Clock, Search, Filter, Plus, UserPlus, CheckSquare, ChevronRight, X, User } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { OnboardingTasksService } from '@/services/onboarding-tasks.service';
 
 interface NewJoiner {
   id: string;
@@ -37,25 +36,10 @@ export default function Page() {
   const [mentorName, setMentorName] = useState('');
 
   const [joiners, setJoiners] = useState<NewJoiner[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch onboarding tasks / induction records from backend
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/hr/onboarding-tasks?companyId=default-company-id`);
-        if (!res.ok) {
-          if (!cancelled) setJoiners([]);
-          return;
-        }
-        const json = await res.json();
-        const rows = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
-        if (!Array.isArray(rows) || rows.length === 0) {
-          if (!cancelled) setJoiners([]);
-          return;
-        }
-        // Map raw rows defensively into the NewJoiner shape.
-        const mapped: NewJoiner[] = rows.map((r: any, idx: number) => {
+  const mapRows = (rows: any[]): NewJoiner[] =>
+    rows.map((r: any, idx: number) => {
           const rawTasks = Array.isArray(r?.tasks) ? r.tasks : [];
           const tasks = rawTasks.map((t: any, ti: number) => ({
             id: String(t?.id ?? `t${ti + 1}`),
@@ -79,13 +63,18 @@ export default function Page() {
             tasks,
           };
         });
-        if (!cancelled) setJoiners(mapped);
-      } catch {
-        if (!cancelled) setJoiners([]);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+
+  const loadJoiners = async () => {
+    try {
+      const rows = await OnboardingTasksService.list('induction-department', 'default-company-id');
+      setJoiners(mapRows(rows));
+    } catch {
+      setJoiners([]);
+    }
+  };
+
+  useEffect(() => {
+    loadJoiners();
   }, []);
 
   // Derived Stats
@@ -144,44 +133,33 @@ export default function Page() {
       toast({ title: 'Error', description: 'Please fill all fields', variant: 'destructive' });
       return;
     }
-
+    if (submitting) return;
+    setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/hr/onboarding-tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId: 'default-company-id',
-          employeeId: selectedJoiner.id,
-          employeeCode: selectedJoiner.employeeCode,
-          name: selectedJoiner.name,
-          department: selectedJoiner.department,
-          designation: selectedJoiner.designation,
+      await OnboardingTasksService.update(selectedJoiner.id, {
+        status: 'Scheduled',
+        data: {
           mentor: mentorName,
           scheduledDate: scheduleDate,
           inductionStatus: 'Scheduled',
-        }),
+        },
       });
-      if (!res.ok) {
-        alert('Failed to save.');
-        return;
-      }
+      setJoiners(prev => prev.map(j =>
+        j.id === selectedJoiner.id
+          ? { ...j, mentor: mentorName, scheduledDate: scheduleDate, inductionStatus: 'Scheduled' }
+          : j
+      ));
+      toast({ title: 'Induction Scheduled', description: `Scheduled for ${selectedJoiner.name}` });
+      setShowScheduleModal(false);
+      setSelectedJoiner(null);
     } catch {
-      alert('Failed to save.');
-      return;
+      toast({ title: 'Failed to save', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
     }
-
-    setJoiners(prev => prev.map(j =>
-      j.id === selectedJoiner.id
-        ? { ...j, mentor: mentorName, scheduledDate: scheduleDate, inductionStatus: 'Scheduled' }
-        : j
-    ));
-
-    toast({ title: 'Induction Scheduled', description: `Scheduled for ${selectedJoiner.name}` });
-    setShowScheduleModal(false);
-    setSelectedJoiner(null);
   };
 
-  const toggleTask = (taskId: string) => {
+  const toggleTask = async (taskId: string) => {
     if (!selectedJoiner) return;
 
     const updatedTasks = selectedJoiner.tasks.map(t =>
@@ -189,13 +167,26 @@ export default function Page() {
     );
 
     const completedCount = updatedTasks.filter(t => t.completed).length;
-    const progress = Math.round((completedCount / updatedTasks.length) * 100);
+    const progress = updatedTasks.length > 0 ? Math.round((completedCount / updatedTasks.length) * 100) : 0;
     const newStatus = progress === 100 ? 'Completed' : (progress > 0 ? 'In Progress' : selectedJoiner.inductionStatus);
 
     const updatedJoiner = { ...selectedJoiner, tasks: updatedTasks, inductionProgress: progress, inductionStatus: newStatus };
 
     setSelectedJoiner(updatedJoiner);
     setJoiners(prev => prev.map(j => j.id === updatedJoiner.id ? updatedJoiner : j));
+
+    try {
+      await OnboardingTasksService.update(updatedJoiner.id, {
+        status: newStatus,
+        data: {
+          tasks: updatedTasks,
+          inductionProgress: progress,
+          inductionStatus: newStatus,
+        },
+      });
+    } catch {
+      toast({ title: 'Failed to save checklist', description: 'Please try again.', variant: 'destructive' });
+    }
   };
 
   const columns = [
@@ -405,9 +396,10 @@ export default function Page() {
               </button>
               <button
                 onClick={handleScheduleSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm"
+                disabled={submitting}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm disabled:opacity-50"
               >
-                Schedule
+                {submitting ? 'Scheduling…' : 'Schedule'}
               </button>
             </div>
           </div>

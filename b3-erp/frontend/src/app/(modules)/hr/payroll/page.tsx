@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   FileDown,
@@ -94,46 +95,48 @@ export default function PayrollPage() {
     avgSalary: 0
   })
   const itemsPerPage = 10
+  const router = useRouter()
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   // Load payroll data from service
-  useEffect(() => {
-    const loadPayrollData = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  const loadPayrollData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        // Fetch salary slips and statistics
-        const [salarySlips, payrollStats] = await Promise.all([
-          PayrollService.getSalarySlips(),
-          PayrollService.getStatistics()
-        ])
+      // Fetch salary slips and statistics
+      const [salarySlips] = await Promise.all([
+        PayrollService.getSalarySlips(),
+        PayrollService.getStatistics()
+      ])
 
-        const records = salarySlips.map(transformSalarySlip)
-        setPayrollData(records)
+      const records = salarySlips.map(transformSalarySlip)
+      setPayrollData(records)
 
-        const totalPayroll = records.reduce((sum, record) => sum + record.netSalary, 0)
-        const paidAmount = records
-          .filter(r => r.status === 'paid')
-          .reduce((sum, record) => sum + record.netSalary, 0)
-        const pendingAmount = records
-          .filter(r => r.status === 'draft' || r.status === 'processed')
-          .reduce((sum, record) => sum + record.netSalary, 0)
-        const avgSalary = records.length > 0 ? totalPayroll / records.length : 0
+      const totalPayroll = records.reduce((sum, record) => sum + record.netSalary, 0)
+      const paidAmount = records
+        .filter(r => r.status === 'paid')
+        .reduce((sum, record) => sum + record.netSalary, 0)
+      const pendingAmount = records
+        .filter(r => r.status === 'draft' || r.status === 'processed')
+        .reduce((sum, record) => sum + record.netSalary, 0)
+      const avgSalary = records.length > 0 ? totalPayroll / records.length : 0
 
-        setStats({
-          totalPayroll,
-          paidThisMonth: paidAmount,
-          pendingPayments: pendingAmount,
-          avgSalary: Math.round(avgSalary)
-        })
-      } catch (err) {
-        console.error('Error loading payroll data:', err)
-        setError('Failed to load payroll data. Please try again.')
-      } finally {
-        setLoading(false)
-      }
+      setStats({
+        totalPayroll,
+        paidThisMonth: paidAmount,
+        pendingPayments: pendingAmount,
+        avgSalary: Math.round(avgSalary)
+      })
+    } catch (err) {
+      console.error('Error loading payroll data:', err)
+      setError('Failed to load payroll data. Please try again.')
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadPayrollData()
   }, [])
 
@@ -166,15 +169,25 @@ export default function PayrollPage() {
   }
 
   const handleView = (id: string) => {
-    console.log('Viewing payroll:', id)
+    router.push(`/hr/payroll/edit/${id}`)
   }
 
   const handleEdit = (id: string) => {
-    console.log('Editing payroll:', id)
+    router.push(`/hr/payroll/edit/${id}`)
   }
 
-  const handleProcess = (id: string) => {
-    console.log('Processing payroll:', id)
+  const handleProcess = async (id: string) => {
+    if (processingId) return
+    setProcessingId(id)
+    try {
+      await PayrollService.processPayroll(id)
+      await loadPayrollData()
+    } catch (err) {
+      console.error('Error processing payroll:', err)
+      setError('Failed to process payroll. Please try again.')
+    } finally {
+      setProcessingId(null)
+    }
   }
 
   // Show loading state
@@ -402,8 +415,8 @@ export default function PayrollPage() {
                         {record.status === 'draft' && (
                           <button
                             onClick={() => handleProcess(record.id)}
-                            className="text-green-600 hover:text-green-800"
-                           
+                            disabled={processingId === record.id}
+                            className="text-green-600 hover:text-green-800 disabled:opacity-50"
                           >
                             <CheckCircle className="h-5 w-5" />
                           </button>

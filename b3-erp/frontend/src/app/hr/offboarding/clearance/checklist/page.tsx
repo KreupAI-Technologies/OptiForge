@@ -62,43 +62,6 @@ export default function ClearanceChecklistPage() {
     };
   }, []);
 
-  const _unusedMockClearances: ClearanceItem[] = [
-    {
-      id: 'CLR001',
-      employeeId: 'EMP001',
-      employeeName: 'Rahul Sharma',
-      designation: 'Senior Software Engineer',
-      department: 'Engineering',
-      lastWorkingDay: '2025-12-14',
-      clearanceItems: {
-        it: 'completed',
-        hr: 'completed',
-        finance: 'in-progress',
-        assets: 'completed',
-        admin: 'pending'
-      },
-      overallStatus: 'in-progress',
-      completionPercentage: 60
-    },
-    {
-      id: 'CLR002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Singh',
-      designation: 'Marketing Manager',
-      department: 'Marketing',
-      lastWorkingDay: '2025-11-19',
-      clearanceItems: {
-        it: 'pending',
-        hr: 'pending',
-        finance: 'pending',
-        assets: 'pending',
-        admin: 'pending'
-      },
-      overallStatus: 'pending',
-      completionPercentage: 0
-    }
-  ];
-
   const stats = {
     total: mockClearances.length,
     pending: mockClearances.filter(c => c.overallStatus === 'pending').length,
@@ -140,14 +103,31 @@ export default function ClearanceChecklistPage() {
     setShowReminderModal(true);
   };
 
-  const handleSubmitReminder = () => {
-    toast({
-      title: "Reminders Sent",
-      description: `Clearance reminders have been sent to ${reminderDepartments.length} department(s) for ${selectedClearance?.employeeName}.`
-    });
-    setShowReminderModal(false);
-    setSelectedClearance(null);
-    setReminderDepartments([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmitReminder = async () => {
+    if (!selectedClearance || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedClearance.id, {
+        data: {
+          ...(selectedClearance as any),
+          lastReminderSentAt: new Date().toISOString(),
+          lastReminderDepartments: reminderDepartments,
+        },
+      });
+      toast({
+        title: 'Reminders Sent',
+        description: `Clearance reminders have been sent to ${reminderDepartments.length} department(s) for ${selectedClearance.employeeName}.`,
+      });
+      setShowReminderModal(false);
+      setSelectedClearance(null);
+      setReminderDepartments([]);
+    } catch {
+      toast({ title: 'Failed to send reminders', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -156,6 +136,13 @@ export default function ClearanceChecklistPage() {
         <h1 className="text-2xl font-bold text-gray-900">Exit Clearance Checklist</h1>
         <p className="text-sm text-gray-600 mt-1">Track departmental clearance status for exiting employees</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading clearance records…</div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
@@ -446,10 +433,11 @@ export default function ClearanceChecklistPage() {
                 </button>
                 <button
                   onClick={handleSubmitReminder}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
-                  Send Reminders ({reminderDepartments.length})
+                  {submitting ? 'Sending…' : `Send Reminders (${reminderDepartments.length})`}
                 </button>
               </div>
             </div>

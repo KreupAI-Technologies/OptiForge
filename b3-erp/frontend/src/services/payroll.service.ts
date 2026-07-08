@@ -377,6 +377,18 @@ export class PayrollService {
   }
 
   /**
+   * Update a salary structure (PUT /hr/salary-structures/:id). Used by the
+   * assignments page to persist CTC revisions and status changes.
+   */
+  static async updateSalaryStructure(id: string, data: Record<string, any>): Promise<any> {
+    return this.request<any>(`/hr/salary-structures/${id}`, {
+      method: 'PUT',
+      headers: { 'x-company-id': 'test' },
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
    * Get all payroll tax records (raw ORM shape) with company header.
    * Backend returns [] when unseeded.
    */
@@ -450,6 +462,17 @@ export class PayrollService {
    */
   static async getPayrollRecordById(id: string): Promise<any> {
     return this.request<any>(`/hr/payrolls/${id}`);
+  }
+
+  /**
+   * Create a payroll record (POST /hr/payrolls). Accepts a full payload
+   * matching the backend CreatePayrollDto.
+   */
+  static async createPayrollRecord(data: Record<string, any>): Promise<any> {
+    return this.request<any>(`/hr/payrolls`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   /**
@@ -774,6 +797,38 @@ export class PayrollService {
    */
   static async getSalaryTemplates(): Promise<any[]> {
     return this.request<any[]>('/hr/salary-templates', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
+   * Create a salary template (POST /hr/salary-templates).
+   */
+  static async createSalaryTemplate(data: Record<string, any>): Promise<any> {
+    return this.request<any>('/hr/salary-templates', {
+      method: 'POST',
+      headers: { 'x-company-id': 'test' },
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update a salary template (PUT /hr/salary-templates/:id).
+   */
+  static async updateSalaryTemplate(id: string, data: Record<string, any>): Promise<any> {
+    return this.request<any>(`/hr/salary-templates/${id}`, {
+      method: 'PUT',
+      headers: { 'x-company-id': 'test' },
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete a salary template (DELETE /hr/salary-templates/:id).
+   */
+  static async deleteSalaryTemplate(id: string): Promise<void> {
+    await this.request<void>(`/hr/salary-templates/${id}`, {
+      method: 'DELETE',
       headers: { 'x-company-id': 'test' },
     });
   }

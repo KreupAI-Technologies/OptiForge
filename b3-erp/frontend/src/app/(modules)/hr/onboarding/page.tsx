@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { OnboardingService } from '@/services/onboarding.service';
 import { OffboardingService } from '@/services/offboarding.service';
+import { OnboardingTasksService } from '@/services/onboarding-tasks.service';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 // Tab types
@@ -572,25 +573,76 @@ function OrientationSection() {
 }
 
 function OnboardingChecklist() {
-  // TODO: no backend endpoint — OnboardingService has no list-checklist method
-  // (only per-onboarding OnboardingChecklistItem type). Kept as UI template data.
-  const checklistItems = [
-    { id: '1', category: 'Documentation', item: 'Collect ID Proof', assignee: 'HR', status: 'completed' },
-    { id: '2', category: 'Documentation', item: 'Collect Address Proof', assignee: 'HR', status: 'completed' },
-    { id: '3', category: 'IT Setup', item: 'Create Email Account', assignee: 'IT', status: 'completed' },
-    { id: '4', category: 'IT Setup', item: 'Provide Laptop', assignee: 'IT', status: 'in_progress' },
-    { id: '5', category: 'Access', item: 'Building Access Card', assignee: 'Admin', status: 'pending' },
-    { id: '6', category: 'Training', item: 'Complete Safety Training', assignee: 'Safety Officer', status: 'pending' },
-  ];
+  const [checklistItems, setChecklistItems] = useState<
+    { id: string; category: string; item: string; assignee: string; status: string }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  const loadChecklist = async () => {
+    try {
+      setLoading(true);
+      const records = await OnboardingTasksService.list('checklist');
+      setChecklistItems(
+        records.map((r) => ({
+          id: r.id,
+          category: (r.data as any)?.category ?? '-',
+          item: (r.data as any)?.item ?? r.employeeName ?? '-',
+          assignee: (r.data as any)?.assignee ?? '-',
+          status: r.status || 'pending',
+        }))
+      );
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load checklist');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadChecklist();
+  }, []);
+
+  const handleAddItem = async () => {
+    if (adding) return;
+    const item = window.prompt('Checklist item description:');
+    if (!item) return;
+    const category = window.prompt('Category (e.g. Documentation, IT Setup):') || 'General';
+    const assignee = window.prompt('Assignee (e.g. HR, IT):') || 'HR';
+    setAdding(true);
+    try {
+      await OnboardingTasksService.create({
+        feature: 'checklist',
+        status: 'pending',
+        data: { item, category, assignee },
+      });
+      await loadChecklist();
+    } catch {
+      alert('Failed to add checklist item. Please try again.');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="p-4 border-b flex justify-between items-center">
         <h3 className="text-lg font-semibold">Onboarding Checklist</h3>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-          Add Checklist Item
+        <button
+          onClick={handleAddItem}
+          disabled={adding}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+        >
+          {adding ? 'Adding…' : 'Add Checklist Item'}
         </button>
       </div>
+      {loading && <div className="p-4 text-sm text-blue-700">Loading checklist…</div>}
+      {error && !loading && <div className="p-4 text-sm text-red-700">{error}</div>}
+      {!loading && !error && checklistItems.length === 0 && (
+        <div className="p-4 text-sm text-gray-500">No checklist items yet.</div>
+      )}
       <div className="divide-y">
         {checklistItems.map((item) => (
           <div key={item.id} className="p-4 flex items-center justify-between hover:bg-gray-50">

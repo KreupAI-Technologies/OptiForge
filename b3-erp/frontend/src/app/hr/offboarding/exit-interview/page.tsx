@@ -54,81 +54,37 @@ export default function ExitInterviewPage() {
   const [mockInterviews, setMockInterviews] = useState<ExitInterview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadInterviews = async () => {
+    try {
+      setLoading(true);
+      const records = await OffboardingTasksService.list('exit-interview');
+      const mapped = records.map((r: OffboardingTaskRecord) => ({
+        id: r.id,
+        employeeCode: r.employeeCode || '',
+        employeeName: r.employeeName || '',
+        designation: r.designation || '',
+        department: r.department || '',
+        status: (r.status as any) || 'pending',
+        ...(r.data || {}),
+      })) as unknown as ExitInterview[];
+      setMockInterviews(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const records = await OffboardingTasksService.list('exit-interview');
-        if (!active) return;
-        const mapped = records.map((r: OffboardingTaskRecord) => ({
-          id: r.id,
-          employeeCode: r.employeeCode || '',
-          employeeName: r.employeeName || '',
-          designation: r.designation || '',
-          department: r.department || '',
-          status: (r.status as any) || 'pending',
-          ...(r.data || {}),
-        })) as unknown as ExitInterview[];
-        setMockInterviews(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    loadInterviews();
   }, []);
-
-  const _unusedMockInterviews: ExitInterview[] = [
-    {
-      id: 'EXIT001',
-      employeeId: 'EMP001',
-      employeeName: 'Rahul Sharma',
-      designation: 'Senior Software Engineer',
-      department: 'Engineering',
-      lastWorkingDay: '2025-12-14',
-      status: 'scheduled',
-      interviewDate: '2025-12-10',
-      interviewer: 'Priya Singh - HR Manager'
-    },
-    {
-      id: 'EXIT002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Singh',
-      designation: 'Marketing Manager',
-      department: 'Marketing',
-      lastWorkingDay: '2025-11-19',
-      status: 'pending'
-    },
-    {
-      id: 'EXIT003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Kumar',
-      designation: 'Product Manager',
-      department: 'Product',
-      lastWorkingDay: '2025-10-20',
-      status: 'completed',
-      interviewDate: '2025-10-18',
-      interviewer: 'Priya Singh - HR Manager',
-      feedback: {
-        reasonForLeaving: 'Better opportunity with higher compensation and leadership role',
-        workEnvironment: 4,
-        management: 4,
-        compensation: 3,
-        careerGrowth: 3,
-        workLifeBalance: 5,
-        wouldRecommend: true,
-        additionalComments: 'Great team culture and work-life balance. However, limited growth opportunities in current role. Would recommend to others for mid-level positions.'
-      }
-    }
-  ];
 
   const filteredInterviews = useMemo(() => {
     return mockInterviews.filter(interview => interview.status === selectedTab);
-  }, [selectedTab]);
+  }, [selectedTab, mockInterviews]);
 
   const stats = {
     pending: mockInterviews.filter(i => i.status === 'pending').length,
@@ -195,24 +151,60 @@ export default function ExitInterviewPage() {
     setShowViewModal(true);
   };
 
-  const handleSubmitSchedule = (e: React.FormEvent) => {
+  const handleSubmitSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Interview Scheduled",
-      description: `Exit interview for ${selectedInterview?.employeeName} has been scheduled for ${scheduleFormData.interviewDate}.`
-    });
-    setShowScheduleModal(false);
-    setSelectedInterview(null);
+    if (!selectedInterview || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedInterview.id, {
+        status: 'scheduled',
+        data: {
+          ...(selectedInterview as any),
+          interviewDate: scheduleFormData.interviewDate,
+          interviewTime: scheduleFormData.interviewTime,
+          interviewer: scheduleFormData.interviewer,
+          venue: scheduleFormData.venue,
+          notes: scheduleFormData.notes,
+        },
+      });
+      toast({
+        title: 'Interview Scheduled',
+        description: `Exit interview for ${selectedInterview.employeeName} has been scheduled for ${scheduleFormData.interviewDate}.`,
+      });
+      setShowScheduleModal(false);
+      setSelectedInterview(null);
+      await loadInterviews();
+    } catch {
+      toast({ title: 'Failed to schedule interview', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitConduct = (e: React.FormEvent) => {
+  const handleSubmitConduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Interview Completed",
-      description: `Exit interview for ${selectedInterview?.employeeName} has been completed and feedback recorded.`
-    });
-    setShowConductModal(false);
-    setSelectedInterview(null);
+    if (!selectedInterview || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedInterview.id, {
+        status: 'completed',
+        data: {
+          ...(selectedInterview as any),
+          feedback: { ...conductFormData },
+        },
+      });
+      toast({
+        title: 'Interview Completed',
+        description: `Exit interview for ${selectedInterview.employeeName} has been completed and feedback recorded.`,
+      });
+      setShowConductModal(false);
+      setSelectedInterview(null);
+      await loadInterviews();
+    } catch {
+      toast({ title: 'Failed to record feedback', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDownloadReport = (interview: ExitInterview) => {
@@ -228,6 +220,13 @@ export default function ExitInterviewPage() {
         <h1 className="text-2xl font-bold text-gray-900">Exit Interview</h1>
         <p className="text-sm text-gray-600 mt-1">Conduct and track exit interviews with departing employees</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading exit interviews…</div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
         <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-3 border border-yellow-200">
@@ -454,7 +453,7 @@ export default function ExitInterviewPage() {
               </div>
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button type="button" onClick={() => setShowScheduleModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Schedule Interview</button>
+                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">{submitting ? 'Scheduling…' : 'Schedule Interview'}</button>
               </div>
             </form>
           </div>
@@ -519,7 +518,7 @@ export default function ExitInterviewPage() {
 
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button type="button" onClick={() => setShowConductModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">Submit Feedback</button>
+                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50">{submitting ? 'Submitting…' : 'Submit Feedback'}</button>
               </div>
             </form>
           </div>

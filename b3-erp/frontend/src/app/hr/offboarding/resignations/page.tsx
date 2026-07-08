@@ -43,86 +43,44 @@ export default function ResignationsPage() {
   const [mockResignations, setMockResignations] = useState<ResignationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [resignationForm, setResignationForm] = useState({
+    resignationDate: '',
+    lastWorkingDay: '',
+    reason: '',
+    comments: '',
+  });
+
+  const loadResignations = async () => {
+    try {
+      setLoading(true);
+      const records = await OffboardingTasksService.list('resignations');
+      const mapped = records.map((r: OffboardingTaskRecord) => ({
+        id: r.id,
+        employeeCode: r.employeeCode || '',
+        employeeName: r.employeeName || '',
+        designation: r.designation || '',
+        department: r.department || '',
+        status: (r.status as any) || 'pending',
+        ...(r.data || {}),
+      })) as unknown as ResignationRequest[];
+      setMockResignations(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const records = await OffboardingTasksService.list('resignations');
-        if (!active) return;
-        const mapped = records.map((r: OffboardingTaskRecord) => ({
-          id: r.id,
-          employeeCode: r.employeeCode || '',
-          employeeName: r.employeeName || '',
-          designation: r.designation || '',
-          department: r.department || '',
-          status: (r.status as any) || 'pending',
-          ...(r.data || {}),
-        })) as unknown as ResignationRequest[];
-        setMockResignations(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    loadResignations();
   }, []);
-
-  const _unusedMockResignations: ResignationRequest[] = [
-    {
-      id: 'RES001',
-      employeeId: 'EMP001',
-      employeeName: 'Rahul Sharma',
-      designation: 'Senior Software Engineer',
-      department: 'Engineering',
-      joiningDate: '2020-03-15',
-      resignationDate: '2025-10-15',
-      lastWorkingDay: '2025-12-14',
-      noticePeriod: 60,
-      reason: 'Higher Education',
-      status: 'accepted',
-      submittedOn: '2025-10-15',
-      reviewedBy: 'Rajesh Kumar',
-      reviewedOn: '2025-10-18',
-      remarks: 'Best wishes for future endeavors'
-    },
-    {
-      id: 'RES002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Singh',
-      designation: 'Marketing Manager',
-      department: 'Marketing',
-      joiningDate: '2019-06-20',
-      resignationDate: '2025-10-20',
-      lastWorkingDay: '2025-11-19',
-      noticePeriod: 30,
-      reason: 'Better Opportunity',
-      status: 'under-review',
-      submittedOn: '2025-10-20'
-    },
-    {
-      id: 'RES003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      designation: 'Finance Executive',
-      department: 'Finance',
-      joiningDate: '2021-01-10',
-      resignationDate: '2025-10-25',
-      lastWorkingDay: '2025-12-24',
-      noticePeriod: 60,
-      reason: 'Personal Reasons',
-      status: 'submitted',
-      submittedOn: '2025-10-25'
-    }
-  ];
 
   const filteredResignations = useMemo(() => {
     if (selectedStatus === 'all') return mockResignations;
     return mockResignations.filter(r => r.status === selectedStatus);
-  }, [selectedStatus]);
+  }, [selectedStatus, mockResignations]);
 
   const stats = {
     total: mockResignations.length,
@@ -173,33 +131,89 @@ export default function ResignationsPage() {
     setShowRejectModal(true);
   };
 
-  const handleSubmitAccept = (e: React.FormEvent) => {
+  const handleSubmitAccept = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Resignation Accepted",
-      description: `Resignation for ${selectedResignation?.employeeName} has been accepted. Offboarding process initiated.`
-    });
-    setShowAcceptModal(false);
-    setSelectedResignation(null);
+    if (!selectedResignation || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedResignation.id, {
+        status: 'accepted',
+        data: {
+          ...(selectedResignation as any),
+          acceptanceDate: acceptFormData.acceptanceDate,
+          lastWorkingDay: acceptFormData.lastWorkingDate,
+          remarks: acceptFormData.remarks,
+        },
+      });
+      toast({
+        title: 'Resignation Accepted',
+        description: `Resignation for ${selectedResignation.employeeName} has been accepted. Offboarding process initiated.`,
+      });
+      setShowAcceptModal(false);
+      setSelectedResignation(null);
+      await loadResignations();
+    } catch {
+      toast({ title: 'Failed to accept resignation', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitReject = (e: React.FormEvent) => {
+  const handleSubmitReject = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Resignation Rejected",
-      description: `Resignation for ${selectedResignation?.employeeName} has been rejected.`
-    });
-    setShowRejectModal(false);
-    setSelectedResignation(null);
+    if (!selectedResignation || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedResignation.id, {
+        status: 'rejected',
+        data: {
+          ...(selectedResignation as any),
+          rejectionReason: rejectFormData.reason,
+          remarks: rejectFormData.remarks,
+        },
+      });
+      toast({
+        title: 'Resignation Rejected',
+        description: `Resignation for ${selectedResignation.employeeName} has been rejected.`,
+      });
+      setShowRejectModal(false);
+      setSelectedResignation(null);
+      await loadResignations();
+    } catch {
+      toast({ title: 'Failed to reject resignation', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitResignation = (e: React.FormEvent) => {
+  const handleSubmitResignation = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Resignation Submitted",
-      description: "Your resignation has been submitted and is pending review."
-    });
-    setShowSubmitForm(false);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.create({
+        feature: 'resignations',
+        status: 'submitted',
+        data: {
+          resignationDate: resignationForm.resignationDate,
+          lastWorkingDay: resignationForm.lastWorkingDay,
+          reason: resignationForm.reason,
+          remarks: resignationForm.comments,
+          submittedOn: new Date().toISOString().split('T')[0],
+        },
+      });
+      toast({
+        title: 'Resignation Submitted',
+        description: 'Your resignation has been submitted and is pending review.',
+      });
+      setResignationForm({ resignationDate: '', lastWorkingDay: '', reason: '', comments: '' });
+      setShowSubmitForm(false);
+      await loadResignations();
+    } catch {
+      toast({ title: 'Failed to submit resignation', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -217,6 +231,13 @@ export default function ResignationsPage() {
           Submit Resignation
         </button>
       </div>
+
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading resignations…</div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
@@ -276,6 +297,8 @@ export default function ResignationsPage() {
                 <input
                   type="date"
                   required
+                  value={resignationForm.resignationDate}
+                  onChange={(e) => setResignationForm({ ...resignationForm, resignationDate: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -284,12 +307,19 @@ export default function ResignationsPage() {
                 <input
                   type="date"
                   required
+                  value={resignationForm.lastWorkingDay}
+                  onChange={(e) => setResignationForm({ ...resignationForm, lastWorkingDay: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Resignation <span className="text-red-500">*</span></label>
-                <select required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select
+                  required
+                  value={resignationForm.reason}
+                  onChange={(e) => setResignationForm({ ...resignationForm, reason: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
                   <option value="">Select reason</option>
                   <option>Better Opportunity</option>
                   <option>Higher Education</option>
@@ -305,13 +335,15 @@ export default function ResignationsPage() {
                 <textarea
                   rows={4}
                   placeholder="Please provide any additional details..."
+                  value={resignationForm.comments}
+                  onChange={(e) => setResignationForm({ ...resignationForm, comments: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
             <div className="flex gap-2 mt-4">
-              <button type="submit" className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">
-                Submit Resignation
+              <button type="submit" disabled={submitting} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50">
+                {submitting ? 'Submitting…' : 'Submit Resignation'}
               </button>
               <button
                 type="button"
@@ -706,10 +738,11 @@ export default function ResignationsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium inline-flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <CheckCircle className="h-4 w-4" />
-                  Accept Resignation
+                  {submitting ? 'Accepting…' : 'Accept Resignation'}
                 </button>
               </div>
             </form>
@@ -823,10 +856,11 @@ export default function ResignationsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium inline-flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <XCircle className="h-4 w-4" />
-                  Reject Resignation
+                  {submitting ? 'Rejecting…' : 'Reject Resignation'}
                 </button>
               </div>
             </form>

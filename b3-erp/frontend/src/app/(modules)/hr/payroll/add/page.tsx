@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MasterDataService, MDEmployee } from '@/services/master-data.service';
+import { PayrollService } from '@/services/payroll.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -172,6 +173,8 @@ export default function AddPayrollPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     setEmployeesLoading(true);
@@ -323,13 +326,14 @@ export default function AddPayrollPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      alert('Please fix all errors before submitting');
+      setSubmitError('Please fix all errors before submitting');
       return;
     }
+    if (submitting) return;
 
     const payrollData = {
       payrollNumber: generatePayrollNumber(),
@@ -342,9 +346,16 @@ export default function AddPayrollPage() {
       createdDate: new Date().toISOString(),
     };
 
-    console.log('Creating payroll:', payrollData);
-    alert('Payroll created successfully!');
-    router.push('/hr/payroll');
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await PayrollService.createPayrollRecord(payrollData);
+      router.push('/hr/payroll');
+    } catch {
+      setSubmitError('Failed to create payroll. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const grossSalary = calculateGrossSalary();
@@ -884,12 +895,16 @@ export default function AddPayrollPage() {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30"
+              disabled={submitting}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              Generate Payroll
+              {submitting ? 'Generating…' : 'Generate Payroll'}
             </button>
           </div>
+          {submitError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{submitError}</div>
+          )}
         </form>
       </div>
     </div>

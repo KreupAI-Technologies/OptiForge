@@ -60,140 +60,37 @@ export default function FNFSalaryPage() {
   const [mockSettlements, setMockSettlements] = useState<FNFSalarySettlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadSettlements = async () => {
+    try {
+      setLoading(true);
+      const records = await OffboardingTasksService.list('fnf-salary');
+      const mapped = records.map((r: OffboardingTaskRecord) => ({
+        id: r.id,
+        employeeCode: r.employeeCode || '',
+        employeeName: r.employeeName || '',
+        designation: r.designation || '',
+        department: r.department || '',
+        status: (r.status as any) || 'pending',
+        ...(r.data || {}),
+      })) as unknown as FNFSalarySettlement[];
+      setMockSettlements(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const records = await OffboardingTasksService.list('fnf-salary');
-        if (!active) return;
-        const mapped = records.map((r: OffboardingTaskRecord) => ({
-          id: r.id,
-          employeeCode: r.employeeCode || '',
-          employeeName: r.employeeName || '',
-          designation: r.designation || '',
-          department: r.department || '',
-          status: (r.status as any) || 'pending',
-          ...(r.data || {}),
-        })) as unknown as FNFSalarySettlement[];
-        setMockSettlements(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    loadSettlements();
   }, []);
-
-  const _unusedMockSettlements: FNFSalarySettlement[] = [
-    {
-      id: 'FNF-SAL-001', employeeId: 'EMP001', employeeName: 'Rahul Sharma', designation: 'Senior Software Engineer', department: 'Engineering',
-      lastWorkingDay: '2025-12-14', joiningDate: '2020-01-15',
-      basicSalary: 50000, hra: 20000, specialAllowance: 15000, otherAllowances: 5000, grossSalary: 90000,
-      workingDays: 26, daysWorked: 14, salaryForPeriod: 48461,
-      deductions: { noticePeriodBuyout: 180000, loanRecovery: 50000 },
-      additions: { pendingReimbursements: 5000 },
-      netSalaryComponent: -176539,
-      status: 'calculated', calculatedBy: 'Priya Singh - HR Manager', calculatedOn: '2025-12-10'
-    },
-    {
-      id: 'FNF-SAL-002', employeeId: 'EMP002', employeeName: 'Priya Singh', designation: 'Marketing Manager', department: 'Marketing',
-      lastWorkingDay: '2025-11-30', joiningDate: '2016-06-10',
-      basicSalary: 60000, hra: 24000, specialAllowance: 18000, otherAllowances: 8000, grossSalary: 110000,
-      workingDays: 26, daysWorked: 26, salaryForPeriod: 110000,
-      deductions: { advanceRecovery: 15000 },
-      additions: { pendingReimbursements: 8000, bonus: 20000 },
-      netSalaryComponent: 123000,
-      status: 'approved', calculatedBy: 'Amit Kumar - Finance Head', calculatedOn: '2025-11-25', approvedBy: 'Rajesh Patel - CFO'
-    },
-    {
-      id: 'FNF-SAL-003', employeeId: 'EMP003', employeeName: 'Amit Kumar', designation: 'Product Manager', department: 'Product',
-      lastWorkingDay: '2025-10-31', joiningDate: '2010-03-20',
-      basicSalary: 70000, hra: 28000, specialAllowance: 20000, otherAllowances: 12000, grossSalary: 130000,
-      workingDays: 26, daysWorked: 26, salaryForPeriod: 130000,
-      deductions: {},
-      additions: { pendingReimbursements: 12000, bonus: 50000 },
-      netSalaryComponent: 192000,
-      status: 'processed', calculatedBy: 'Priya Singh - HR Manager', calculatedOn: '2025-10-25', approvedBy: 'Rajesh Patel - CFO'
-    },
-    {
-      id: 'FNF-SAL-004', employeeId: 'EMP004', employeeName: 'Neha Gupta', designation: 'Junior Developer', department: 'Engineering',
-      lastWorkingDay: '2025-12-31', joiningDate: '2022-05-15',
-      basicSalary: 35000, hra: 14000, specialAllowance: 10000, otherAllowances: 3000, grossSalary: 62000,
-      workingDays: 26, daysWorked: 26, salaryForPeriod: 62000,
-      deductions: {},
-      additions: { pendingReimbursements: 2000 },
-      netSalaryComponent: 64000,
-      status: 'pending'
-    },
-    {
-      id: 'FNF-SAL-005', employeeId: 'EMP005', employeeName: 'Vikram Malhotra', designation: 'VP of Sales', department: 'Sales',
-      lastWorkingDay: '2025-09-30', joiningDate: '2015-01-01',
-      basicSalary: 120000, hra: 48000, specialAllowance: 40000, otherAllowances: 15000, grossSalary: 223000,
-      workingDays: 26, daysWorked: 26, salaryForPeriod: 223000,
-      deductions: { otherDeductions: 5000 },
-      additions: { incentives: 150000 },
-      netSalaryComponent: 368000,
-      status: 'calculated', calculatedBy: 'Priya Singh', calculatedOn: '2025-09-28'
-    },
-    {
-      id: 'FNF-SAL-006', employeeId: 'EMP006', employeeName: 'Anjali Desai', designation: 'HR Executive', department: 'Human Resources',
-      lastWorkingDay: '2025-10-15', joiningDate: '2021-02-10',
-      basicSalary: 30000, hra: 12000, specialAllowance: 8000, otherAllowances: 2000, grossSalary: 52000,
-      workingDays: 26, daysWorked: 13, salaryForPeriod: 26000,
-      deductions: { noticePeriodBuyout: 30000 },
-      additions: {},
-      netSalaryComponent: -4000,
-      status: 'approved', calculatedBy: 'Priya Singh', calculatedOn: '2025-10-13', approvedBy: 'Rajesh Patel'
-    },
-    {
-      id: 'FNF-SAL-007', employeeId: 'EMP007', employeeName: 'Rohan Mehra', designation: 'Content Strategist', department: 'Marketing',
-      lastWorkingDay: '2025-11-15', joiningDate: '2018-06-01',
-      basicSalary: 55000, hra: 22000, specialAllowance: 15000, otherAllowances: 5000, grossSalary: 97000,
-      workingDays: 26, daysWorked: 13, salaryForPeriod: 48500,
-      deductions: {},
-      additions: { pendingReimbursements: 3000 },
-      netSalaryComponent: 51500,
-      status: 'pending'
-    },
-    {
-      id: 'FNF-SAL-008', employeeId: 'EMP008', employeeName: 'Suresh Raina', designation: 'Operations Manager', department: 'Operations',
-      lastWorkingDay: '2025-08-31', joiningDate: '2005-04-01',
-      basicSalary: 90000, hra: 36000, specialAllowance: 25000, otherAllowances: 10000, grossSalary: 161000,
-      workingDays: 26, daysWorked: 26, salaryForPeriod: 161000,
-      deductions: {},
-      additions: { bonus: 50000 },
-      netSalaryComponent: 211000,
-      status: 'processed', calculatedBy: 'Amit Kumar', calculatedOn: '2025-08-28', approvedBy: 'Rajesh Patel'
-    },
-    {
-      id: 'FNF-SAL-009', employeeId: 'EMP009', employeeName: 'Kavita Krishnan', designation: 'Lead Designer', department: 'Design',
-      lastWorkingDay: '2025-12-05', joiningDate: '2019-11-11',
-      basicSalary: 65000, hra: 26000, specialAllowance: 18000, otherAllowances: 6000, grossSalary: 115000,
-      workingDays: 26, daysWorked: 5, salaryForPeriod: 22115,
-      deductions: { loanRecovery: 10000 },
-      additions: {},
-      netSalaryComponent: 12115,
-      status: 'approved', calculatedBy: 'Priya Singh', calculatedOn: '2025-12-03', approvedBy: 'Rajesh Patel'
-    },
-    {
-      id: 'FNF-SAL-010', employeeId: 'EMP010', employeeName: 'Deepak Verma', designation: 'System Admin', department: 'IT',
-      lastWorkingDay: '2025-11-20', joiningDate: '2023-01-15',
-      basicSalary: 40000, hra: 16000, specialAllowance: 10000, otherAllowances: 4000, grossSalary: 70000,
-      workingDays: 26, daysWorked: 18, salaryForPeriod: 48461,
-      deductions: { advanceRecovery: 5000 },
-      additions: { pendingReimbursements: 1539 },
-      netSalaryComponent: 45000,
-      status: 'calculated', calculatedBy: 'Priya Singh', calculatedOn: '2025-11-18'
-    }
-  ];
 
   const filteredSettlements = useMemo(() => {
     return mockSettlements.filter(settlement => settlement.status === selectedTab);
-  }, [selectedTab]);
+  }, [selectedTab, mockSettlements]);
 
   const stats = {
     pending: mockSettlements.filter(s => s.status === 'pending').length,
@@ -254,31 +151,89 @@ export default function FNFSalaryPage() {
     setShowViewModal(true);
   };
 
-  const handleSubmitCalculation = (e: React.FormEvent) => {
+  const handleSubmitCalculation = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Salary Calculated",
-      description: `FNF salary for ${selectedSettlement?.employeeName} has been calculated successfully.`
-    });
-    setShowCalculateModal(false);
-    setSelectedSettlement(null);
+    if (!selectedSettlement || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedSettlement.id, {
+        status: 'calculated',
+        data: {
+          ...(selectedSettlement as any),
+          daysWorked: calculateFormData.daysWorked,
+          deductions: {
+            noticePeriodBuyout: calculateFormData.noticePeriodBuyout,
+            loanRecovery: calculateFormData.loanRecovery,
+            advanceRecovery: calculateFormData.advanceRecovery,
+            otherDeductions: calculateFormData.otherDeductions,
+          },
+          additions: {
+            pendingReimbursements: calculateFormData.pendingReimbursements,
+            bonus: calculateFormData.bonus,
+            incentives: calculateFormData.incentives,
+          },
+          calculatedOn: new Date().toISOString().split('T')[0],
+        },
+      });
+      toast({
+        title: 'Salary Calculated',
+        description: `FNF salary for ${selectedSettlement.employeeName} has been calculated successfully.`,
+      });
+      setShowCalculateModal(false);
+      setSelectedSettlement(null);
+      await loadSettlements();
+    } catch {
+      toast({ title: 'Failed to calculate salary', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitApproval = (e: React.FormEvent) => {
+  const handleSubmitApproval = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Salary Approved",
-      description: `FNF salary for ${selectedSettlement?.employeeName} has been approved and is ready for processing.`
-    });
-    setShowApproveModal(false);
-    setSelectedSettlement(null);
+    if (!selectedSettlement || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedSettlement.id, {
+        status: 'approved',
+        data: {
+          ...(selectedSettlement as any),
+          approvalRemarks,
+          approvedOn: new Date().toISOString().split('T')[0],
+        },
+      });
+      toast({
+        title: 'Salary Approved',
+        description: `FNF salary for ${selectedSettlement.employeeName} has been approved and is ready for processing.`,
+      });
+      setShowApproveModal(false);
+      setSelectedSettlement(null);
+      await loadSettlements();
+    } catch {
+      toast({ title: 'Failed to approve salary', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleMarkProcessed = (settlement: FNFSalarySettlement) => {
-    toast({
-      title: "Marked as Processed",
-      description: `FNF salary for ${settlement.employeeName} has been marked as processed.`
-    });
+  const handleMarkProcessed = async (settlement: FNFSalarySettlement) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(settlement.id, {
+        status: 'processed',
+        data: { ...(settlement as any), processedOn: new Date().toISOString().split('T')[0] },
+      });
+      toast({
+        title: 'Marked as Processed',
+        description: `FNF salary for ${settlement.employeeName} has been marked as processed.`,
+      });
+      await loadSettlements();
+    } catch {
+      toast({ title: 'Failed to mark as processed', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -287,6 +242,13 @@ export default function FNFSalaryPage() {
         <h1 className="text-2xl font-bold text-gray-900">FNF - Salary Settlement</h1>
         <p className="text-sm text-gray-600 mt-1">Final month salary calculation and settlement</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading settlements…</div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-3 border border-yellow-200">
@@ -599,7 +561,8 @@ export default function FNFSalaryPage() {
                   <>
                     <button
                       onClick={() => handleMarkProcessed(settlement)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm inline-flex items-center gap-2"
+                      disabled={submitting}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm inline-flex items-center gap-2 disabled:opacity-50"
                     >
                       <CheckCircle className="h-4 w-4" />
                       Mark as Processed
@@ -732,7 +695,7 @@ export default function FNFSalaryPage() {
 
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button type="button" onClick={() => setShowCalculateModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center justify-center gap-2">
+                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50">
                   <Calculator className="h-4 w-4" />
                   Save Calculation
                 </button>
@@ -777,7 +740,7 @@ export default function FNFSalaryPage() {
 
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button type="button" onClick={() => setShowApproveModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">Approve & Forward to Payment</button>
+                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50">{submitting ? 'Approving…' : 'Approve & Forward to Payment'}</button>
               </div>
             </form>
           </div>

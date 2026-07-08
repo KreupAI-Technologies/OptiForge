@@ -702,6 +702,15 @@ export class LeaveService {
   }
 
   /**
+   * Delete a leave application (DELETE /hr/leave-applications/:id)
+   */
+  static async deleteLeaveApplication(id: string): Promise<void> {
+    await this.request<void>(`/hr/leave-applications/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
    * Apply for leave
    */
   static async applyLeave(data: ApplyLeaveDto): Promise<LeaveApplication> {

@@ -29,6 +29,22 @@ async function request<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function sendRequest<T>(
+  path: string,
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  body?: Record<string, any>,
+): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    throw new Error(`API Error ${res.status}: ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 /** Coerce any list-ish backend response into a plain array. */
 function toArray<T = any>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
@@ -102,6 +118,22 @@ export const HrPayrollService = {
     return toArray(
       await request(`/hr/payroll-disbursements${withCompany({ category })}`),
     );
+  },
+
+  async updateDisbursement(id: string, data: Record<string, any>): Promise<any> {
+    return sendRequest(`/hr/payroll-disbursements/${id}`, 'PUT', data);
+  },
+
+  async updateStatutoryFiling(id: string, data: Record<string, any>): Promise<any> {
+    return sendRequest(`/hr/statutory-filings/${id}`, 'PUT', data);
+  },
+
+  async updateTaxRecord(id: string, data: Record<string, any>): Promise<any> {
+    return sendRequest(`/hr/tax-records/${id}`, 'PUT', data);
+  },
+
+  async createTaxRecord(data: Record<string, any>): Promise<any> {
+    return sendRequest(`/hr/tax-records`, 'POST', data);
   },
 
   async getReports(category?: string): Promise<any[]> {

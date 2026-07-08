@@ -69,6 +69,38 @@ export default function LeaveStatusPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<LeaveTransaction | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const reload = async () => {
+    try {
+      const raw = (await LeaveService.getAllLeaveApplicationsRaw()) as any[];
+      const mapped: LeaveTransaction[] = raw.map((r) => ({
+        id: r.id,
+        employeeId: r.employeeId ?? '',
+        employeeName: r.employeeName ?? r.employee?.fullName,
+        leaveTypeCode: r.leaveTypeCode ?? r.leaveType?.code ?? '',
+        leaveTypeName: r.leaveTypeName ?? r.leaveType?.name ?? '',
+        leaveTypeIcon: undefined,
+        fromDate: r.startDate ?? r.fromDate ?? '',
+        toDate: r.endDate ?? r.toDate ?? '',
+        days: Number(r.totalDays ?? r.days ?? 0),
+        durationType: 'full-day',
+        reason: r.reason ?? '',
+        status: STATUS_MAP[r.status] ?? 'pending',
+        appliedOn: r.appliedAt ?? r.createdAt ?? '',
+        approvedBy: r.approverName ?? r.approvedBy,
+        approvedOn: r.approvedAt,
+        rejectedBy: r.status === 'REJECTED' ? r.approverName ?? r.approvedBy : undefined,
+        rejectedOn: r.status === 'REJECTED' ? r.approvedAt : undefined,
+        rejectionReason: r.rejectionReason,
+        hasAttachment: !!r.attachmentUrl,
+      }));
+      setTransactions(mapped);
+    } catch {
+      /* keep existing rows on refresh failure */
+    }
+  };
 
   // Get unique leave types
   const leaveTypes = useMemo(() => {
@@ -235,13 +267,14 @@ export default function LeaveStatusPage() {
           </button>
           {row.status === 'pending' && (
             <button
-              className="text-red-600 hover:text-red-800 text-sm font-medium"
+              className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+              disabled={withdrawingId === row.id}
               onClick={(e) => {
                 e.stopPropagation();
                 handleWithdraw(row.id);
               }}
             >
-              Withdraw
+              {withdrawingId === row.id ? 'Withdrawing…' : 'Withdraw'}
             </button>
           )}
         </div>
@@ -261,9 +294,41 @@ export default function LeaveStatusPage() {
     searchTerm !== ''
   ].filter(Boolean).length;
 
-  const handleWithdraw = (id: string) => {
-    console.log('Withdrawing application:', id);
-    alert(`Application ${id} has been withdrawn successfully.`);
+  const handleWithdraw = async (id: string) => {
+    if (withdrawingId) return;
+    setWithdrawingId(id);
+    setActionError(null);
+    try {
+      await LeaveService.withdrawLeave(id);
+      await reload();
+    } catch {
+      setActionError(`Failed to withdraw application ${id}. Please try again.`);
+    } finally {
+      setWithdrawingId(null);
+    }
+  };
+
+  const handleDownloadReport = () => {
+    const header = ['Application ID', 'Leave Type', 'From', 'To', 'Days', 'Status', 'Applied On'];
+    const rows = filteredData.map((t) => [
+      t.id,
+      t.leaveTypeName,
+      t.fromDate,
+      t.toDate,
+      String(t.days),
+      t.status,
+      t.appliedOn,
+    ]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leave-applications-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -279,7 +344,7 @@ export default function LeaveStatusPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => console.log('Download')}
+            onClick={handleDownloadReport}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Download className="w-4 h-4" />
@@ -297,6 +362,11 @@ export default function LeaveStatusPage() {
       {loadError && (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
+          {actionError}
         </div>
       )}
 
@@ -619,13 +689,14 @@ export default function LeaveStatusPage() {
             <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
               {selectedTransaction.status === 'pending' && (
                 <button
-                  onClick={() => {
-                    handleWithdraw(selectedTransaction.id);
+                  disabled={withdrawingId === selectedTransaction.id}
+                  onClick={async () => {
+                    await handleWithdraw(selectedTransaction.id);
                     setShowDetailsModal(false);
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                 >
-                  Withdraw Application
+                  {withdrawingId === selectedTransaction.id ? 'Withdrawing…' : 'Withdraw Application'}
                 </button>
               )}
               <button

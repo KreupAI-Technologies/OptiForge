@@ -88,11 +88,14 @@ export default function TasksListPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
   // Initial Load — fetch projects and their tasks from the live backend, then
   // defensively map the raw ProjectTask/ORM shape onto this page's Task model.
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
+  const loadTasks = async (cancelledRef?: { current: boolean }) => {
+    const cancelled = () => cancelledRef?.current ?? false;
       setLoading(true);
       setLoadError(null);
       try {
@@ -162,23 +165,27 @@ export default function TasksListPage() {
           };
         });
 
-        if (!cancelled) {
+        if (!cancelled()) {
           setProjects(projectList);
           setTasks(mapped);
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled()) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load tasks');
           setTasks([]);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled()) setLoading(false);
       }
-    };
-    load();
+  };
+
+  useEffect(() => {
+    const ref = { current: false };
+    loadTasks(ref);
     return () => {
-      cancelled = true;
+      ref.current = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredTasks = useMemo(() => {
@@ -474,6 +481,12 @@ export default function TasksListPage() {
             {loadError}
           </div>
         )}
+        {actionError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+        )}
+        {actionSuccess && (
+          <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</div>
+        )}
         {viewMode === 'list' ? renderListView() : renderBoardView()}
       </div>
 
@@ -481,9 +494,29 @@ export default function TasksListPage() {
       <CreateTaskModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onCreate={(data: { taskName: string; projectId: string; assignedTo: string; startDate: string; dueDate: string; priority: string; status: string; description: string }) => {
-          console.log('Create:', data);
-          setShowCreateModal(false);
+        onCreate={async (data: { taskName: string; projectId: string; assignedTo: string; startDate: string; dueDate: string; priority: string; status: string; description: string }) => {
+          setSubmitting(true);
+          setActionError(null);
+          setActionSuccess(null);
+          try {
+            await projectManagementService.createTask({
+              projectId: data.projectId,
+              name: data.taskName,
+              description: data.description,
+              assignedTo: data.assignedTo,
+              startDate: data.startDate || undefined,
+              endDate: data.dueDate || undefined,
+              priority: data.priority,
+              status: data.status,
+            });
+            await loadTasks();
+            setActionSuccess('Task created');
+            setShowCreateModal(false);
+          } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Failed to create task');
+          } finally {
+            setSubmitting(false);
+          }
         }}
       />
 
