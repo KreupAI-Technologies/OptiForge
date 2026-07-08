@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, GitBranch, Mail, Users, FileText, DollarSign, CheckCircle2, Clock, TrendingUp, Bot, PlayCircle, Pause } from 'lucide-react';
 import { crmService, asArray } from '@/services/crm.service';
+import CrmDataState from './CrmDataState';
 
 export interface AutomationRule {
   id: string;
@@ -34,6 +35,7 @@ const statusColors: Record<string, string> = {
 export default function SalesAutomation() {
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
   useEffect(() => {
@@ -55,9 +57,9 @@ export default function SalesAutomation() {
           lastRun: r.lastRun ?? r.lastRunAt ?? r.updatedAt ?? '',
           category: (r.category ?? 'follow-up') as AutomationRule['category'],
         }));
-        if (mounted) setRules(mapped);
+        if (mounted) { setRules(mapped); setError(null); }
       } catch (e) {
-        if (mounted) setRules([]);
+        if (mounted) { setRules([]); setError(e instanceof Error ? e.message : 'Failed to load automation rules'); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -101,6 +103,14 @@ export default function SalesAutomation() {
         </h2>
         <p className="text-gray-600 mt-1">Automated lead routing, email sequences, deal progression, and approval workflows</p>
       </div>
+
+      <CrmDataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && rules.length === 0}
+        loadingText="Loading automation rules…"
+        emptyText="No automation rules found."
+      />
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">

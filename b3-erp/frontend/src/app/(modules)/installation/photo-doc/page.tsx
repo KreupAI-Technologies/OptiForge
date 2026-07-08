@@ -45,6 +45,7 @@ function PhotoDocPageContent() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
     const [photos, setPhotos] = useState<Photo[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -103,12 +104,31 @@ function PhotoDocPageContent() {
         setPhotos(photos.filter(p => p.id !== id));
     };
 
-    const handleComplete = () => {
-        toast({
-            title: 'Documentation Complete',
-            description: 'Project photos saved successfully',
-        });
-        setTimeout(() => router.push(`/installation/final-inspection?projectId=${selectedProject?.id}`), 1000);
+    const handleComplete = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Photo documentation captured: ${photos.length} photo(s) (${Array.from(new Set(photos.map(p => p.category))).join(', ') || 'general'}).`,
+                progressPhotos: photos.map(p => p.url),
+                overallProgress: 92,
+            });
+            toast({
+                title: 'Documentation Complete',
+                description: 'Project photos saved successfully.',
+            });
+            router.push(`/installation/final-inspection?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving photo documentation:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not save photo documentation. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (!selectedProject) {
@@ -195,8 +215,9 @@ function PhotoDocPageContent() {
                     </Button>
                     <Button
                         onClick={handleComplete}
-                        disabled={photos.length === 0}
+                        disabled={photos.length === 0 || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Final Inspection <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

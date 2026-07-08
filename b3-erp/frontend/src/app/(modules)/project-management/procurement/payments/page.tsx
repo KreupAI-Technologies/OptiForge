@@ -78,6 +78,8 @@ export default function PaymentProcessingPage() {
     }
   };
 
+  // NEEDS BACKEND: no vendor-payment endpoint exists in the project procurement
+  // module, so this marks the payment paid optimistically in the UI only.
   const handleProcessPayment = (id: string) => {
     setPayments(payments.map(p => p.id === id ? { ...p, status: 'Paid' } : p));
     toast({ title: "Payment Processed", description: `Payment ${id} has been marked as Paid.` });

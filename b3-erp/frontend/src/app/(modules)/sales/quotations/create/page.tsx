@@ -28,6 +28,7 @@ import {
   Info
 } from 'lucide-react';
 import { quotationService } from '@/services/quotation.service';
+import { crmService } from '@/services/crm.service';
 import { useRouter } from 'next/navigation';
 
 interface QuotationItem {
@@ -91,45 +92,54 @@ export default function CreateQuotationPage() {
   const [termsAndConditions, setTermsAndConditions] = useState('');
   const [currency, setCurrency] = useState(CURRENCIES[0]);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   const [items, setItems] = useState<QuotationItem[]>([
     {
       id: '1',
-      productId: 'item-001',
-      productCode: 'PRD-001',
-      productName: 'Industrial Motor',
-      description: 'Standard 5HP industrial motor',
+      productId: '',
+      productCode: '',
+      productName: '',
+      description: '',
       quantity: 1,
       unit: 'nos',
-      unitPrice: 25000,
-      unitCost: 18000,
+      unitPrice: 0,
+      unitCost: 0,
       discount: 0,
       discountType: 'percent',
       tax: 18,
       taxType: 'GST 18%',
-      lineTotal: 29500,
-      margin: 28
+      lineTotal: 0,
+      margin: 0
     }
   ]);
 
-  const customers: Customer[] = [
-    {
-      id: 'CUST-001',
-      name: 'Rajesh Sharma',
-      company: 'Tech Innovations Pvt Ltd',
-      email: 'rajesh@techinnovations.com',
-      phone: '+91 98765 43210',
-      address: '123 Industrial Area, Phase 1, Mumbai, Maharashtra 400001'
-    },
-    {
-      id: 'CUST-002',
-      name: 'Priya Menon',
-      company: 'Manufacturing Solutions Inc',
-      email: 'priya.menon@mansol.com',
-      phone: '+91 98123 45678',
-      address: '456 Tech Park, Whitefield, Bangalore, Karnataka 560066'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    crmService.customers
+      .getAll()
+      .then((res: any[]) => {
+        if (cancelled) return;
+        const list = Array.isArray(res) ? res : [];
+        setCustomers(
+          list.map((c) => ({
+            id: String(c?.id ?? c?.customerId ?? ''),
+            name: c?.contactPerson ?? c?.primaryContact ?? c?.contactName ?? c?.name ?? '',
+            company: c?.name ?? c?.customerName ?? c?.companyName ?? 'Unnamed Customer',
+            email: c?.email ?? c?.contactEmail ?? '',
+            phone: c?.phone ?? c?.contactPhone ?? c?.mobile ?? '',
+            address: c?.address ?? c?.billingAddress ?? c?.city ?? '',
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setCustomers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredCustomers = customers.filter(
     (customer) =>
@@ -245,13 +255,14 @@ export default function CreateQuotationPage() {
 
   const handleSave = async (status: string) => {
     if (!selectedCustomer) {
-      alert('Please select a customer');
+      setSaveError('Please select a customer before saving.');
       return;
     }
 
     setIsSaving(true);
+    setSaveError(null);
     try {
-      await quotationService.createQuotation({
+      const created = await quotationService.createQuotation({
         customerId: selectedCustomer.id,
         customerName: selectedCustomer.company,
         quotationDate,
@@ -274,10 +285,17 @@ export default function CreateQuotationPage() {
           taxRate: item.tax,
         }))
       });
+      // When "Send Quotation" was clicked, dispatch it to the customer.
+      if (status === 'sent' && created?.id) {
+        try {
+          await quotationService.sendQuotation(created.id);
+        } catch {
+          // Quotation saved; sending is best-effort and can be retried from the list.
+        }
+      }
       router.push('/sales/quotations');
     } catch (error) {
-      console.error('Failed to create quotation:', error);
-      alert('Failed to create quotation. Please try again.');
+      setSaveError(error instanceof Error ? error.message : 'Failed to create quotation. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -320,6 +338,15 @@ export default function CreateQuotationPage() {
             </button>
           </div>
         </div>
+
+        {saveError && (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{saveError}</span>
+            <button onClick={() => setSaveError(null)} className="text-red-500 hover:text-red-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
           {/* Main Form - Left Side */}

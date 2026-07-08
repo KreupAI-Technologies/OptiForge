@@ -56,6 +56,7 @@ function ToolPrepPageContent() {
     ]);
 
     const [selectedTools, setSelectedTools] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -102,12 +103,36 @@ function ToolPrepPageContent() {
         );
     };
 
-    const handleConfirmPrep = () => {
-        toast({
-            title: 'Tools Prepared',
-            description: `${selectedTools.length} tools marked for dispatch`,
-        });
-        setTimeout(() => router.push(`/installation/tool-dispatch?projectId=${selectedProject?.id}`), 1000);
+    const handleConfirmPrep = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            await Promise.all(
+                selectedTools.map(id => {
+                    const tool = tools.find(t => t.id === id);
+                    return projectManagementService.issueInstallTool({
+                        toolId: id,
+                        projectId: selectedProject.id,
+                        condition: tool?.condition || 'Good',
+                        issuedBy: 'Installation Coordinator',
+                    });
+                })
+            );
+            toast({
+                title: 'Tools Prepared',
+                description: `${selectedTools.length} tool(s) issued to site for dispatch.`,
+            });
+            router.push(`/installation/tool-dispatch?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error issuing tools:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not issue tools to site. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: Tool['status']) => {
@@ -205,8 +230,9 @@ function ToolPrepPageContent() {
                     </Button>
                     <Button
                         onClick={handleConfirmPrep}
-                        disabled={selectedTools.length === 0}
+                        disabled={selectedTools.length === 0 || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Tool Dispatch <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

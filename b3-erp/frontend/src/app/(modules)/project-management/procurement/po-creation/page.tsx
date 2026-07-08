@@ -85,8 +85,10 @@ export default function POCreationPage() {
   const tax = totalAmount * 0.18;
   const grandTotal = totalAmount + tax;
 
+  // NEEDS BACKEND: the project procurement controller exposes PR + GRN only,
+  // there is no create-PO endpoint yet, so this remains an optimistic transition.
   const handleCreatePO = () => {
-    toast({ title: "Purchase Order Created", description: "PO #PO-2025-090 has been generated and sent to vendor." });
+    toast({ title: "Purchase Order Created", description: "PO has been generated and sent to vendor." });
     setTimeout(() => { router.push('/project-management/procurement/vendor-tracking'); }, 1500);
   };
 

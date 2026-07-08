@@ -108,6 +108,8 @@ const SessionManagementPage = () => {
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsBanner, setSettingsBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadSessions = useCallback(async () => {
     setLoading(true);
@@ -127,6 +129,23 @@ const SessionManagementPage = () => {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await ItAdminService.getConfigValue('it.session.settings');
+        const value = res?.value as Partial<SessionSettings> | undefined;
+        if (!mounted || !value) return;
+        setSettings((prev) => ({ ...prev, ...value }));
+      } catch {
+        // config not set yet — keep defaults
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const stats = {
     totalSessions: sessions.length,
@@ -226,8 +245,17 @@ const SessionManagementPage = () => {
     exportToCsv('active-sessions', filteredSessions as unknown as Record<string, unknown>[]);
   };
 
-  const handleSaveSettings = () => {
-    alert('Session settings saved successfully!');
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    setSettingsBanner(null);
+    try {
+      await ItAdminService.setConfigValue('it.session.settings', settings);
+      setSettingsBanner({ type: 'success', text: 'Session settings saved successfully.' });
+    } catch (e) {
+      setSettingsBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to save session settings.' });
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   const handleSelectSession = (sessionId: string) => {
@@ -694,13 +722,25 @@ const SessionManagementPage = () => {
               </div>
 
               {/* Save Button */}
-              <div>
+              <div className="space-y-2">
+                {settingsBanner && (
+                  <div
+                    className={`rounded-lg border px-4 py-2 text-sm ${
+                      settingsBanner.type === 'success'
+                        ? 'border-green-200 bg-green-50 text-green-700'
+                        : 'border-red-200 bg-red-50 text-red-700'
+                    }`}
+                  >
+                    {settingsBanner.text}
+                  </div>
+                )}
                 <button
                   onClick={handleSaveSettings}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={savingSettings}
+                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
                 >
                   <Settings className="w-4 h-4" />
-                  Save Settings
+                  {savingSettings ? 'Saving...' : 'Save Settings'}
                 </button>
               </div>
             </div>

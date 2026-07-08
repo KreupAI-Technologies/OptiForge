@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -61,44 +61,45 @@ export default function RecommendationsPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const loadRecommendations = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await cpqRecommendationService.findAll();
+      const mapped: Recommendation[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+        id: r.id ?? '',
+        customerId: r.customerId ?? '',
+        customerName: r.customerName ?? '',
+        segment: r.segment ?? '',
+        productCode: r.productCode ?? '',
+        productName: r.productName ?? '',
+        category: r.category ?? '',
+        recommendationType: (r.recommendationType ?? 'best-match') as any,
+        confidenceScore: Number(r.confidenceScore) || 0,
+        estimatedValue: Number(r.estimatedValue) || 0,
+        reason: r.reason ?? '',
+        basedOn: r.basedOn ?? '',
+        priority: (r.priority ?? 'medium') as any,
+        aiGenerated: Boolean(r.aiGenerated),
+        acceptanceRate: Number(r.acceptanceRate) || 0,
+        createdDate: r.createdAt ? String(r.createdAt).split('T')[0] : '',
+        expiresDate: r.expiresDate ? String(r.expiresDate).split('T')[0] : ''
+      }));
+      setRecommendations(mapped);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load recommendations');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const rows = await cpqRecommendationService.findAll();
-        if (!active) return;
-        const mapped: Recommendation[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
-          id: r.id ?? '',
-          customerId: r.customerId ?? '',
-          customerName: r.customerName ?? '',
-          segment: r.segment ?? '',
-          productCode: r.productCode ?? '',
-          productName: r.productName ?? '',
-          category: r.category ?? '',
-          recommendationType: (r.recommendationType ?? 'best-match') as any,
-          confidenceScore: Number(r.confidenceScore) || 0,
-          estimatedValue: Number(r.estimatedValue) || 0,
-          reason: r.reason ?? '',
-          basedOn: r.basedOn ?? '',
-          priority: (r.priority ?? 'medium') as any,
-          aiGenerated: Boolean(r.aiGenerated),
-          acceptanceRate: Number(r.acceptanceRate) || 0,
-          createdDate: r.createdAt ? String(r.createdAt).split('T')[0] : '',
-          expiresDate: r.expiresDate ? String(r.expiresDate).split('T')[0] : ''
-        }));
-        setRecommendations(mapped);
-      } catch (err: any) {
-        if (!active) return;
-        setError(err?.message || 'Failed to load recommendations');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    loadRecommendations();
+  }, [loadRecommendations]);
 
   const types = ['all', 'best-match', 'upgrade', 'alternative', 'frequently-bought', 'trending'];
 
@@ -117,9 +118,36 @@ export default function RecommendationsPage() {
     setIsGenerateModalOpen(true);
   };
 
-  const handleGenerateRecommendation = (recommendation: Recommendation) => {
-    setRecommendations([recommendation, ...recommendations]);
-    setIsGenerateModalOpen(false);
+  const handleGenerateRecommendation = async (recommendation: Recommendation) => {
+    setIsSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await cpqRecommendationService.create({
+        customerId: recommendation.customerId || null,
+        customerName: recommendation.customerName || null,
+        segment: recommendation.segment || null,
+        productCode: recommendation.productCode || null,
+        productName: recommendation.productName || null,
+        category: recommendation.category || null,
+        recommendationType: recommendation.recommendationType as any,
+        confidenceScore: Number(recommendation.confidenceScore) || 0,
+        estimatedValue: Number(recommendation.estimatedValue) || 0,
+        reason: recommendation.reason || null,
+        basedOn: recommendation.basedOn || null,
+        priority: recommendation.priority as any,
+        aiGenerated: Boolean(recommendation.aiGenerated),
+        acceptanceRate: Number(recommendation.acceptanceRate) || 0,
+        expiresDate: recommendation.expiresDate || null,
+      });
+      setActionSuccess('Recommendation generated and saved.');
+      setIsGenerateModalOpen(false);
+      await loadRecommendations();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to save recommendation');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const filteredRecommendations = recommendations.filter(rec => {
@@ -203,6 +231,24 @@ export default function RecommendationsPage() {
       {error && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
+        </div>
+      )}
+
+      {/* Action Feedback */}
+      {actionSuccess && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {actionSuccess}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {actionError}
+        </div>
+      )}
+      {isSaving && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Saving recommendation…
         </div>
       )}
 

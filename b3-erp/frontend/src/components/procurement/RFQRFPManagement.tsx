@@ -135,8 +135,7 @@ export default function RFQRFPManagement() {
   }
 
   const handleRefresh = () => {
-    console.log('Refreshing RFQ/RFP data...');
-    alert('Refreshing RFQ/RFP Management...\n\nUpdating:\n- Active RFQ/RFP status\n- Response counts and submissions\n- Evaluation progress\n- Timeline status and deadlines\n- Metrics and analytics\n- Supplier participation data\n\nSyncing with:\n- Supplier portal responses\n- Evaluation scorecards\n- Approval workflow status\n- Email notification logs\n\nEstimated time: 10 seconds');
+    loadRfqs();
   };
 
   const handleSettings = () => {
@@ -201,45 +200,43 @@ export default function RFQRFPManagement() {
     alert('Create New RFQ/RFP Template\n\nTEMPLATE WIZARD:\n\n1. TEMPLATE INFORMATION:\n   - Template name\n   - Category/industry\n   - Description\n   - Template type (RFQ/RFP/RFI)\n\n2. DOCUMENT STRUCTURE:\n   - Section organization\n   - Standard clauses\n   - Appendices\n   - Formatting\n\n3. REQUIREMENTS SECTIONS:\n   - Technical specifications\n   - Delivery requirements\n   - Quality standards\n   - Compliance needs\n\n4. EVALUATION CRITERIA:\n   - Criteria definition\n   - Default weights\n   - Scoring method\n   - Minimum thresholds\n\n5. RESPONSE FORMAT:\n   - Supplier response template\n   - Price sheet format\n   - Document requirements\n   - Submission process\n\n6. TERMS & CONDITIONS:\n   - Standard T&Cs\n   - Payment terms\n   - Delivery terms\n   - Warranties\n   - Confidentiality\n\n7. ATTACHMENTS:\n   - Standard forms\n   - Compliance checklists\n   - Sample agreements\n\nTEMPLATE FEATURES:\n\n□ Placeholders for custom content\n□ Variable sections (optional)\n□ Standard boilerplate\n□ Approval workflows\n□ Document version control\n\nTEMPLATE SHARING:\n- Save to personal library\n- Share with team\n- Set as department default\n- Publish to template library\n\nBEST PRACTICES:\n✓ Use clear, unambiguous language\n✓ Include all necessary information\n✓ Define evaluation criteria clearly\n✓ Specify submission requirements\n✓ Set realistic timelines\n✓ Include contact information\n\nCREATION OPTIONS:\n1. Start from scratch\n2. Clone existing template\n3. Import from document\n4. Use wizard\n\nProceed with template creation?');
   };
 
-  // Mock data
   const [rfqList, setRfqList] = useState<RFQ[]>([])
 
-  useEffect(() => {
-    let cancelled = false
+  const loadRfqs = async () => {
     const statusMap: Record<string, RFQ['status']> = {
       DRAFT: 'draft', PUBLISHED: 'published', SENT: 'published', BIDDING: 'bidding',
-      EVALUATION: 'evaluation', AWARDED: 'awarded', CANCELLED: 'cancelled',
+      'RESPONSES RECEIVED': 'bidding', 'UNDER EVALUATION': 'evaluation',
+      EVALUATION: 'evaluation', AWARDED: 'awarded', CANCELLED: 'cancelled', EXPIRED: 'cancelled',
     }
     const priorityMap: Record<string, RFQ['priority']> = {
       LOW: 'low', MEDIUM: 'medium', HIGH: 'high', URGENT: 'urgent',
     }
-    const load = async () => {
-      try {
-        const res = await procurementRFQService.getAllRFQs()
-        const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
-        if (!cancelled && list.length) {
-          setRfqList(list.map((r: any, idx: number): RFQ => ({
-            id: r.rfqNumber ?? r.id ?? `RFQ-${idx + 1}`,
-            title: r.title ?? '—',
-            type: (String(r.type ?? 'RFQ').toUpperCase() as RFQ['type']),
-            status: statusMap[String(r.status ?? '').toUpperCase()] ?? 'draft',
-            category: r.category ?? '—',
-            estimatedValue: Number(r.estimatedValue ?? r.totalValue ?? 0),
-            responseDeadline: (r.dueDate ?? r.responseDeadline ?? '').toString().slice(0, 10),
-            publishDate: (r.sentDate ?? r.publishDate ?? r.createdAt ?? '').toString().slice(0, 10),
-            bidders: Number(r.vendorCount ?? (Array.isArray(r.vendors) ? r.vendors.length : 0)),
-            responsesReceived: Number(r.responsesReceived ?? r.quotationCount ?? 0),
-            owner: r.owner ?? r.createdBy ?? '—',
-            priority: priorityMap[String(r.priority ?? '').toUpperCase()] ?? 'medium',
-            items: Array.isArray(r.items) ? r.items.length : Number(r.itemCount ?? 0),
-          })))
-        }
-      } catch {
-        // keep sample data on error
-      }
+    try {
+      const res = await procurementRFQService.getAllRFQs()
+      const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
+      setRfqList(list.map((r: any, idx: number): RFQ => ({
+        id: r.id ?? r.rfqNumber ?? `RFQ-${idx + 1}`,
+        title: r.title ?? '—',
+        type: (String(r.type ?? 'RFQ').toUpperCase() as RFQ['type']),
+        status: statusMap[String(r.status ?? '').toUpperCase()] ?? 'draft',
+        category: r.category ?? r.department ?? '—',
+        estimatedValue: Number(r.estimatedBudget ?? r.estimatedValue ?? r.totalValue ?? 0),
+        responseDeadline: (r.responseDeadline ?? r.dueDate ?? '').toString().slice(0, 10),
+        publishDate: (r.createdDate ?? r.sentDate ?? r.publishDate ?? r.createdAt ?? '').toString().slice(0, 10),
+        bidders: Number(r.vendorCount ?? (Array.isArray(r.invitedVendors) ? r.invitedVendors.length : (Array.isArray(r.vendors) ? r.vendors.length : 0))),
+        responsesReceived: Number(r.responsesReceived ?? (Array.isArray(r.quotes) ? r.quotes.length : 0) ?? r.quotationCount ?? 0),
+        owner: r.requestedByName ?? r.owner ?? r.createdBy ?? '—',
+        priority: priorityMap[String(r.priority ?? '').toUpperCase()] ?? 'medium',
+        items: Array.isArray(r.items) ? r.items.length : Number(r.itemCount ?? 0),
+      })))
+    } catch {
+      // leave list empty on error
     }
-    load()
-    return () => { cancelled = true }
+  }
+
+  useEffect(() => {
+    loadRfqs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const bidResponses: BidResponse[] = [
@@ -1107,9 +1104,31 @@ export default function RFQRFPManagement() {
       <CreateRFQModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Creating RFQ:', data)
-          setIsCreateModalOpen(false)
+        onSubmit={async (data) => {
+          try {
+            await procurementRFQService.createRFQ({
+              title: data.title,
+              description: data.description || undefined,
+              department: data.category || 'General',
+              responseDeadline: data.responseDeadline,
+              requiredDeliveryDate: data.awardTargetDate || data.responseDeadline,
+              currency: data.currency || 'USD',
+              estimatedBudget: data.estimatedValue || undefined,
+              notes: data.termsAndConditions || undefined,
+              items: (data.items || []).map((it) => ({
+                itemId: it.itemId || it.itemCode,
+                quantity: Number(it.quantity ?? 0),
+                specifications: it.specifications || undefined,
+                targetPrice: it.estimatedPrice,
+                requiredDate: it.deliveryDate || data.responseDeadline,
+              })),
+              vendorIds: data.invitedSuppliers || [],
+            })
+            setIsCreateModalOpen(false)
+            await loadRfqs()
+          } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to create RFQ')
+          }
         }}
       />
 

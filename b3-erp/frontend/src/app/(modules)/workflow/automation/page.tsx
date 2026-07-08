@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { workflowAutomationService } from '@/services/workflow-automation.service';
 import {
@@ -67,6 +67,10 @@ export default function WorkflowAutomationPage() {
   const [automations, setAutomations] = useState<AutomationRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<
+    { kind: 'success' | 'error'; message: string } | null
+  >(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -75,47 +79,43 @@ export default function WorkflowAutomationPage() {
   const [showFilters, setShowFilters] = useState(false);
   const itemsPerPage = 8;
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setIsLoading(true);
-        setLoadError(null);
-        const rows = await workflowAutomationService.findAll(COMPANY_ID);
-        if (!active) return;
-        const mapped: AutomationRule[] = rows.map((r) => ({
-          id: r.id,
-          name: r.name ?? '',
-          description: r.description ?? '',
-          trigger: (r.trigger ?? 'manual') as AutomationRule['trigger'],
-          triggerDetails: r.triggerDetails ?? '',
-          action: r.action ?? '',
-          status: (r.status ?? 'draft') as AutomationRule['status'],
-          frequency: r.frequency ?? '',
-          lastRun: r.lastRun ?? '',
-          nextRun: r.nextRun ?? '',
-          executionCount: Number(r.executionCount ?? 0),
-          successRate: Number(r.successRate ?? 0),
-          avgExecutionTime: r.avgExecutionTime ?? '',
-          category: (r.category ?? 'production') as AutomationRule['category'],
-          priority: (r.priority ?? 'medium') as AutomationRule['priority'],
-          createdBy: r.createdByName ?? '',
-          createdAt: r.createdAt ?? '',
-        }));
-        setAutomations(mapped);
-      } catch (err) {
-        if (!active) return;
-        setLoadError(
-          err instanceof Error ? err.message : 'Failed to load automations',
-        );
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+  const loadAutomations = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await workflowAutomationService.findAll(COMPANY_ID);
+      const mapped: AutomationRule[] = rows.map((r) => ({
+        id: r.id,
+        name: r.name ?? '',
+        description: r.description ?? '',
+        trigger: (r.trigger ?? 'manual') as AutomationRule['trigger'],
+        triggerDetails: r.triggerDetails ?? '',
+        action: r.action ?? '',
+        status: (r.status ?? 'draft') as AutomationRule['status'],
+        frequency: r.frequency ?? '',
+        lastRun: r.lastRun ?? '',
+        nextRun: r.nextRun ?? '',
+        executionCount: Number(r.executionCount ?? 0),
+        successRate: Number(r.successRate ?? 0),
+        avgExecutionTime: r.avgExecutionTime ?? '',
+        category: (r.category ?? 'production') as AutomationRule['category'],
+        priority: (r.priority ?? 'medium') as AutomationRule['priority'],
+        createdBy: r.createdByName ?? '',
+        createdAt: r.createdAt ?? '',
+      }));
+      setAutomations(mapped);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to load automations',
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadAutomations();
+  }, [loadAutomations]);
 
   const filteredAutomations = automations.filter((automation) => {
     const matchesSearch =
@@ -144,32 +144,86 @@ export default function WorkflowAutomationPage() {
       : '0.0',
   };
 
-  const handleToggleAutomation = (id: string) => {
-    setAutomations(automations.map(a =>
-      a.id === id
-        ? { ...a, status: a.status === 'active' ? 'paused' as const : 'active' as const }
-        : a
-    ));
-  };
-
-  const handleDeleteAutomation = (id: string) => {
-    if (confirm('Are you sure you want to delete this automation rule?')) {
-      setAutomations(automations.filter((a) => a.id !== id));
+  const handleToggleAutomation = async (automation: AutomationRule) => {
+    if (busyId) return;
+    const nextStatus = automation.status === 'active' ? 'paused' : 'active';
+    setBusyId(automation.id);
+    setActionFeedback(null);
+    try {
+      await workflowAutomationService.update(COMPANY_ID, automation.id, {
+        status: nextStatus,
+      });
+      await loadAutomations();
+      setActionFeedback({
+        kind: 'success',
+        message: `"${automation.name}" ${nextStatus === 'active' ? 'activated' : 'paused'}.`,
+      });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message:
+          err instanceof Error
+            ? `Failed to update automation: ${err.message}`
+            : 'Failed to update automation.',
+      });
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const handleRunNow = (automation: AutomationRule) => {
-    alert(`Running automation: ${automation.name}`);
-    const updatedAutomations = automations.map(a =>
-      a.id === automation.id
-        ? {
-          ...a,
-          lastRun: new Date().toISOString().split('T').join(' ').substring(0, 16),
-          executionCount: a.executionCount + 1,
-        }
-        : a
-    );
-    setAutomations(updatedAutomations);
+  const handleDeleteAutomation = async (automation: AutomationRule) => {
+    if (busyId) return;
+    if (!confirm('Are you sure you want to delete this automation rule?')) return;
+    setBusyId(automation.id);
+    setActionFeedback(null);
+    try {
+      await workflowAutomationService.delete(COMPANY_ID, automation.id);
+      await loadAutomations();
+      setActionFeedback({
+        kind: 'success',
+        message: `"${automation.name}" deleted.`,
+      });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message:
+          err instanceof Error
+            ? `Failed to delete automation: ${err.message}`
+            : 'Failed to delete automation.',
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // "Run now" records an execution by bumping the run counters on the rule via
+  // the update endpoint (there is no dedicated execute endpoint), then re-fetches
+  // so the displayed run stats reflect the server's authoritative state.
+  const handleRunNow = async (automation: AutomationRule) => {
+    if (busyId) return;
+    setBusyId(automation.id);
+    setActionFeedback(null);
+    try {
+      await workflowAutomationService.update(COMPANY_ID, automation.id, {
+        lastRun: new Date().toISOString(),
+        executionCount: automation.executionCount + 1,
+      });
+      await loadAutomations();
+      setActionFeedback({
+        kind: 'success',
+        message: `"${automation.name}" run triggered.`,
+      });
+    } catch (err) {
+      setActionFeedback({
+        kind: 'error',
+        message:
+          err instanceof Error
+            ? `Failed to run automation: ${err.message}`
+            : 'Failed to run automation.',
+      });
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const getSuccessRateColor = (rate: number) => {
@@ -219,6 +273,31 @@ export default function WorkflowAutomationPage() {
         {loadError && !isLoading && (
           <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-sm text-red-700">
             {loadError}
+          </div>
+        )}
+        {actionFeedback && (
+          <div
+            className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-sm ${
+              actionFeedback.kind === 'success'
+                ? 'border-green-100 bg-green-50 text-green-700'
+                : 'border-red-100 bg-red-50 text-red-700'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              {actionFeedback.kind === 'success' ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              {actionFeedback.message}
+            </span>
+            <button
+              onClick={() => setActionFeedback(null)}
+              className="opacity-60 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              <XCircle className="h-4 w-4" />
+            </button>
           </div>
         )}
         {/* Stats Cards */}
@@ -452,8 +531,9 @@ export default function WorkflowAutomationPage() {
               {/* Action Buttons */}
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => handleToggleAutomation(automation.id)}
-                  className={`flex-1 flex items-center justify-center space-x-1 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${automation.status === 'active'
+                  onClick={() => handleToggleAutomation(automation)}
+                  disabled={busyId === automation.id}
+                  className={`flex-1 flex items-center justify-center space-x-1 px-3 py-2 rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${automation.status === 'active'
                     ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
                     : 'text-green-600 bg-green-50 hover:bg-green-100'
                     }`}
@@ -472,7 +552,8 @@ export default function WorkflowAutomationPage() {
                 </button>
                 <button
                   onClick={() => handleRunNow(automation)}
-                  className="flex items-center justify-center px-3 py-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                  disabled={busyId === automation.id}
+                  className="flex items-center justify-center px-3 py-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -492,8 +573,9 @@ export default function WorkflowAutomationPage() {
                   <Eye className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => handleDeleteAutomation(automation.id)}
-                  className="flex items-center justify-center px-3 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                  onClick={() => handleDeleteAutomation(automation)}
+                  disabled={busyId === automation.id}
+                  className="flex items-center justify-center px-3 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 
                 >
                   <Trash2 className="h-4 w-4" />

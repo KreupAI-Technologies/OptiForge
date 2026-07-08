@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Settings, User, Bell, Shield, Database, Globe, Palette, Zap, ChevronRight } from 'lucide-react';
+import { Settings, User, Bell, Shield, Database, Globe, Palette, Zap, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { dashboardOverviewService, type DashboardOverviewMetrics } from '@/services/dashboard-overview.service';
 
 const settingsCategories = [
   {
@@ -79,6 +80,32 @@ const quickSettings = [
 ];
 
 export default function SettingsPage() {
+  const [metrics, setMetrics] = useState<DashboardOverviewMetrics | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await dashboardOverviewService.getOverview();
+        if (cancelled) return;
+        setMetrics(res.metrics);
+        setGeneratedAt(res.generatedAt);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load system status');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 p-3">
       <div className="w-full">
@@ -143,23 +170,47 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* System Info */}
+        {/* System Status (live) */}
         <div className="mt-12 bg-white rounded-lg shadow border border-gray-200 p-3">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">System Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Version</p>
-              <p className="font-semibold text-gray-900">ManufacturingOS v2.5.0</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Environment</p>
-              <p className="font-semibold text-gray-900">Production</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Last Updated</p>
-              <p className="font-semibold text-gray-900">October 27, 2025</p>
-            </div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold text-gray-900">System Status</h2>
+            {generatedAt && !loading && !error && (
+              <span className="text-xs text-gray-500">
+                As of {new Date(generatedAt).toLocaleString()}
+              </span>
+            )}
           </div>
+
+          {loading ? (
+            <div className="flex items-center gap-2 text-gray-500 py-4">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading system status…</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-center gap-2 text-red-700 py-4">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">{error}</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Employees</p>
+                <p className="font-semibold text-gray-900">{metrics?.employees ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Customers</p>
+                <p className="font-semibold text-gray-900">{metrics?.customers ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Inventory Items</p>
+                <p className="font-semibold text-gray-900">{metrics?.inventoryItems ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Open Tickets</p>
+                <p className="font-semibold text-gray-900">{metrics?.openTickets ?? 0}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

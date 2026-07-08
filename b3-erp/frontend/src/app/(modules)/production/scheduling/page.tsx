@@ -35,44 +35,42 @@ const ProductionSchedulingPage = () => {
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [startingId, setStartingId] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  useEffect(() => {
-    let active = true
-    const load = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const rows = await ProductionOrphanService.getScheduleLines()
-        if (!active) return
-        const mapped: ProductionSchedule[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
-          id: String(r.id ?? ''),
-          schedule_id: r.scheduleCode ?? r.schedule_code ?? '',
-          work_order_id: r.workOrderId ?? r.work_order_id ?? '',
-          product_name: r.productName ?? r.product_name ?? '',
-          product_code: r.productCode ?? r.product_code ?? '',
-          work_center: r.workCenter ?? r.work_center ?? '',
-          planned_start: r.plannedStart ?? r.planned_start ?? '',
-          planned_end: r.plannedEnd ?? r.planned_end ?? '',
-          actual_start: r.actualStart ?? r.actual_start ?? null,
-          actual_end: r.actualEnd ?? r.actual_end ?? null,
-          quantity: Number(r.quantity ?? 0),
-          unit: r.unit ?? 'units',
-          status: (r.status ?? 'scheduled') as ProductionSchedule['status'],
-          priority: (r.priority ?? 'medium') as ProductionSchedule['priority'],
-          assigned_to: r.assignedTo ?? r.assigned_to ?? '',
-        }))
-        setSchedules(mapped)
-      } catch (e: any) {
-        if (active) setError(e?.message || 'Failed to load production schedules')
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      active = false
+  const load = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const rows = await ProductionOrphanService.getScheduleLines()
+      const mapped: ProductionSchedule[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+        id: String(r.id ?? ''),
+        schedule_id: r.scheduleCode ?? r.schedule_code ?? '',
+        work_order_id: r.workOrderId ?? r.work_order_id ?? '',
+        product_name: r.productName ?? r.product_name ?? '',
+        product_code: r.productCode ?? r.product_code ?? '',
+        work_center: r.workCenter ?? r.work_center ?? '',
+        planned_start: r.plannedStart ?? r.planned_start ?? '',
+        planned_end: r.plannedEnd ?? r.planned_end ?? '',
+        actual_start: r.actualStart ?? r.actual_start ?? null,
+        actual_end: r.actualEnd ?? r.actual_end ?? null,
+        quantity: Number(r.quantity ?? 0),
+        unit: r.unit ?? 'units',
+        status: (r.status ?? 'scheduled') as ProductionSchedule['status'],
+        priority: (r.priority ?? 'medium') as ProductionSchedule['priority'],
+        assigned_to: r.assignedTo ?? r.assigned_to ?? '',
+      }))
+      setSchedules(mapped)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load production schedules')
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -140,12 +138,22 @@ const ProductionSchedulingPage = () => {
     router.push(`/production/scheduling/edit/${id}`)
   }
 
-  const handleStart = (id: string) => {
+  const handleStart = async (id: string) => {
     const schedule = schedules.find(s => s.id === id)
-    if (schedule && confirm(`Start production for Schedule ${schedule.schedule_id}?\n\nWork Order: ${schedule.work_order_id}\nProduct: ${schedule.product_name}\nQuantity: ${schedule.quantity} ${schedule.unit}`)) {
-      console.log('Starting production for:', schedule)
-      alert(`Production started for ${schedule.schedule_id}!`)
-      // Could navigate to work orders in progress page
+    if (!schedule) return
+    if (!confirm(`Start production for Schedule ${schedule.schedule_id}?\n\nWork Order: ${schedule.work_order_id}\nProduct: ${schedule.product_name}\nQuantity: ${schedule.quantity} ${schedule.unit}`)) {
+      return
+    }
+    try {
+      setStartingId(id)
+      setActionMessage(null)
+      await ProductionOrphanService.updateScheduleLine(id, { status: 'in_progress' })
+      setActionMessage({ type: 'success', text: `Production started for ${schedule.schedule_id}.` })
+      await load()
+    } catch (e: any) {
+      setActionMessage({ type: 'error', text: e?.message || 'Failed to start production.' })
+    } finally {
+      setStartingId(null)
     }
   }
 
@@ -159,6 +167,17 @@ const ProductionSchedulingPage = () => {
       {error && !loading && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+      {actionMessage && (
+        <div
+          className={`mb-3 rounded-lg border px-4 py-3 text-sm ${
+            actionMessage.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {actionMessage.text}
         </div>
       )}
       {/* Stats Cards */}
@@ -367,8 +386,9 @@ const ProductionSchedulingPage = () => {
                       {schedule.status === 'scheduled' && (
                         <button
                           onClick={() => handleStart(schedule.id)}
-                          className="text-green-600 hover:text-green-900"
-                         
+                          disabled={startingId === schedule.id}
+                          className="text-green-600 hover:text-green-900 disabled:opacity-40"
+
                         >
                           <Play className="w-5 h-5" />
                         </button>

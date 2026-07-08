@@ -8,16 +8,30 @@ import { ItAdminService } from '@/services/it-admin.service';
 export default function SSOPage() {
     const [enabled, setEnabled] = useState(false);
     const [provider, setProvider] = useState('google');
+    const [clientId, setClientId] = useState('');
+    const [clientSecret, setClientSecret] = useState('');
+    const [metadataUrl, setMetadataUrl] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
         let mounted = true;
         (async () => {
             try {
                 const res = await ItAdminService.getConfigValue('it.sso.config');
-                const value = res?.value as { enabled?: boolean; provider?: string } | undefined;
+                const value = res?.value as {
+                    enabled?: boolean;
+                    provider?: string;
+                    clientId?: string;
+                    clientSecret?: string;
+                    metadataUrl?: string;
+                } | undefined;
                 if (!mounted || !value) return;
                 if (typeof value.enabled === 'boolean') setEnabled(value.enabled);
                 if (typeof value.provider === 'string') setProvider(value.provider);
+                if (typeof value.clientId === 'string') setClientId(value.clientId);
+                if (typeof value.clientSecret === 'string') setClientSecret(value.clientSecret);
+                if (typeof value.metadataUrl === 'string') setMetadataUrl(value.metadataUrl);
             } catch {
                 // config not set yet — keep defaults
             }
@@ -28,11 +42,21 @@ export default function SSOPage() {
     }, []);
 
     const handleSave = async () => {
+        setSaving(true);
+        setBanner(null);
         try {
-            await ItAdminService.setConfigValue('it.sso.config', { enabled, provider });
-            alert('SSO configuration saved successfully!');
-        } catch {
-            alert('Failed to save SSO configuration. Please try again.');
+            await ItAdminService.setConfigValue('it.sso.config', {
+                enabled,
+                provider,
+                clientId,
+                clientSecret,
+                metadataUrl,
+            });
+            setBanner({ type: 'success', text: 'SSO configuration saved successfully.' });
+        } catch (e) {
+            setBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to save SSO configuration.' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -98,6 +122,8 @@ export default function SSOPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Client ID / App ID</label>
                                     <input
                                         type="text"
+                                        value={clientId}
+                                        onChange={(e) => setClientId(e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="Enter Client ID"
                                     />
@@ -106,6 +132,8 @@ export default function SSOPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Client Secret</label>
                                     <input
                                         type="password"
+                                        value={clientSecret}
+                                        onChange={(e) => setClientSecret(e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="Enter Client Secret"
                                     />
@@ -114,19 +142,34 @@ export default function SSOPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Metadata URL / Issuer URI</label>
                                     <input
                                         type="text"
+                                        value={metadataUrl}
+                                        onChange={(e) => setMetadataUrl(e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="https://accounts.google.com/.well-known/openid-configuration"
                                     />
                                 </div>
                             </div>
 
+                            {banner && (
+                                <div
+                                    className={`rounded-lg border px-4 py-2 text-sm ${
+                                        banner.type === 'success'
+                                            ? 'border-green-200 bg-green-50 text-green-700'
+                                            : 'border-red-200 bg-red-50 text-red-700'
+                                    }`}
+                                >
+                                    {banner.text}
+                                </div>
+                            )}
+
                             <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                    Test Connection
-                                </button>
-                                <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
+                                >
                                     <Save className="w-4 h-4" />
-                                    Save Changes
+                                    {saving ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         </div>

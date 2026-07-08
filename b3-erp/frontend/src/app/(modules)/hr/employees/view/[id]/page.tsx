@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AttendanceService } from '@/services/attendance.service';
 import { LeaveService } from '@/services/leave.service';
+import { EmployeeService } from '@/services/employee.service';
 import {
   ArrowLeft,
   Edit2,
@@ -139,66 +140,12 @@ export default function ViewEmployeePage({ params }: { params: { id: string } })
     e.stopPropagation();
   };
 
-  // Mock employee data
-  const employee: Employee = {
-    id: params.id,
-    employeeId: 'B3-001',
-    firstName: 'Rajesh',
-    lastName: 'Kumar',
-    fullName: 'Rajesh Kumar',
-    email: 'rajesh.kumar@b3macbis.com',
-    phone: '+91 98765 43210',
-    alternatePhone: '+91 98765 43211',
-    dateOfBirth: '1990-05-15',
-    gender: 'Male',
-    bloodGroup: 'B+',
-
-    address: 'Plot No. 123, MIDC Area, Phase 2',
-    city: 'Pune',
-    state: 'Maharashtra',
-    pincode: '411019',
-    country: 'India',
-
-    department: 'Production',
-    position: 'Production Manager',
-    employmentType: 'full_time',
-    status: 'active',
-    joinDate: '2020-03-15',
-    confirmationDate: '2020-09-15',
-    manager: 'Sarah Johnson',
-    reportingTo: 'Sarah Johnson - VP Operations',
-    location: 'Factory - Building A',
-
-    salary: 75000,
-    bankName: 'HDFC Bank',
-    accountNumber: '12345678901234',
-    ifscCode: 'HDFC0001234',
-    panNumber: 'ABCDE1234F',
-    aadhaarNumber: '1234 5678 9012',
-    uanNumber: 'UAN123456789012',
-    esiNumber: 'ESI1234567890',
-
-    performanceRating: 4.5,
-    leaveBalance: 18,
-    totalLeave: 24,
-    usedLeave: 6,
-
-    emergencyContactName: 'Priya Kumar',
-    emergencyContactPhone: '+91 98765 43212',
-    emergencyContactRelation: 'Spouse',
-
-    education: 'B.Tech in Mechanical Engineering',
-    previousExperience: 5,
-    skills: ['Production Planning', 'Quality Control', 'Lean Manufacturing', 'Team Management'],
-
-    createdDate: '2020-03-15',
-    lastUpdated: '2024-01-20',
-  };
-
+  const [employee, setEmployee] = useState<Employee | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,10 +153,68 @@ export default function ViewEmployeePage({ params }: { params: { id: string } })
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [attRaw, leaveRaw] = await Promise.all([
+        const [empRaw, attRaw, leaveRaw] = await Promise.all([
+          EmployeeService.getEmployeeById(params.id),
           AttendanceService.getAttendance({ employeeId: params.id }),
           LeaveService.getAllLeaveApplicationsRaw(),
         ]);
+        const e: any = empRaw;
+        const empStatusMap: Record<string, Employee['status']> = {
+          ACTIVE: 'active', ON_LEAVE: 'on_leave', INACTIVE: 'inactive',
+          TERMINATED: 'terminated', PROBATION: 'active',
+        };
+        const empTypeMap: Record<string, Employee['employmentType']> = {
+          FULL_TIME: 'full_time', PART_TIME: 'part_time', CONTRACT: 'contract',
+          INTERN: 'intern', TEMPORARY: 'contract',
+        };
+        const fullName = e.fullName || `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim();
+        const mappedEmployee: Employee = {
+          id: String(e.id ?? params.id),
+          employeeId: e.employeeCode ?? '',
+          firstName: e.firstName ?? '',
+          lastName: e.lastName ?? '',
+          fullName,
+          email: e.email ?? e.companyEmail ?? e.personalEmail ?? '',
+          phone: e.phone ?? e.mobileNumber ?? '',
+          alternatePhone: e.alternatePhone ?? '',
+          dateOfBirth: e.dateOfBirth ? new Date(e.dateOfBirth).toISOString().slice(0, 10) : '',
+          gender: e.gender ?? '',
+          bloodGroup: e.bloodGroup ?? '',
+          address: e.address ?? e.currentAddress ?? '',
+          city: e.city ?? '',
+          state: e.state ?? '',
+          pincode: e.postalCode ?? e.pincode ?? '',
+          country: e.country ?? '',
+          department: e.departmentName ?? (e.departmentId ? String(e.departmentId) : ''),
+          position: e.designation ?? (e.designationId ? String(e.designationId) : ''),
+          employmentType: empTypeMap[String(e.employmentType ?? '')] ?? 'full_time',
+          status: empStatusMap[String(e.status ?? '')] ?? 'active',
+          joinDate: e.dateOfJoining ? new Date(e.dateOfJoining).toISOString().slice(0, 10) : (e.joiningDate ?? ''),
+          confirmationDate: e.confirmationDate ?? '',
+          manager: e.reportingManagerName ?? '',
+          reportingTo: e.reportingManagerName ?? '',
+          location: [e.city, e.state].filter(Boolean).join(', '),
+          salary: Number(e.salary ?? 0),
+          bankName: e.bankName ?? '',
+          accountNumber: e.bankAccountNumber ?? '',
+          ifscCode: e.ifscCode ?? '',
+          panNumber: e.panNumber ?? '',
+          aadhaarNumber: e.aadharNumber ?? '',
+          uanNumber: e.uanNumber ?? '',
+          esiNumber: e.esiNumber ?? '',
+          performanceRating: Number(e.performanceRating ?? 0),
+          leaveBalance: Number(e.leaveBalance ?? 0),
+          totalLeave: Number(e.totalLeave ?? 0),
+          usedLeave: Number(e.usedLeave ?? 0),
+          emergencyContactName: e.emergencyContactName ?? '',
+          emergencyContactPhone: e.emergencyContactPhone ?? '',
+          emergencyContactRelation: e.emergencyContactRelation ?? '',
+          education: e.education ?? '',
+          previousExperience: Number(e.previousExperience ?? 0),
+          skills: Array.isArray(e.skills) ? e.skills : [],
+          createdDate: e.createdAt ? new Date(e.createdAt).toISOString().slice(0, 10) : '',
+          lastUpdated: e.updatedAt ? new Date(e.updatedAt).toISOString().slice(0, 10) : '',
+        };
         const fmtTime = (v: any) =>
           v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
         const attMapped: AttendanceRecord[] = (attRaw as any[]).map((a) => ({
@@ -229,12 +234,14 @@ export default function ViewEmployeePage({ params }: { params: { id: string } })
           reason: l?.reason ?? '',
         }));
         if (!cancelled) {
+          setEmployee(mappedEmployee);
           setAttendanceRecords(attMapped);
           setLeaveRecords(leaveMapped);
         }
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setEmployee(null);
           setAttendanceRecords([]);
           setLeaveRecords([]);
         }
@@ -315,18 +322,49 @@ export default function ViewEmployeePage({ params }: { params: { id: string } })
     }
   };
 
-  const statusConfig = getStatusConfig(employee.status);
-  const employmentTypeConfig = getEmploymentTypeConfig(employee.employmentType);
-
   const handleEdit = () => {
     router.push(`/hr/employees/edit/${params.id}`);
   };
 
-  const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this employee? This action cannot be undone.')) {
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this employee? This action cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await EmployeeService.deleteEmployee(params.id);
       router.push('/hr/employees');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete employee. Please try again.');
+      setDeleting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-full px-3 py-2 flex items-center justify-center">
+        <div className="flex items-center gap-2 text-gray-600">
+          <Clock className="h-5 w-5 animate-spin" />
+          Loading employee…
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError || !employee) {
+    return (
+      <div className="w-full h-full px-3 py-2 flex flex-col items-center justify-center gap-3 text-center">
+        <div className="text-red-600 font-medium">{loadError || 'Employee not found.'}</div>
+        <button
+          onClick={() => router.push('/hr/employees')}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Back to Employees
+        </button>
+      </div>
+    );
+  }
+
+  const statusConfig = getStatusConfig(employee.status);
+  const employmentTypeConfig = getEmploymentTypeConfig(employee.employmentType);
 
   const handleBack = () => {
     router.push('/hr/employees');
@@ -386,10 +424,11 @@ export default function ViewEmployeePage({ params }: { params: { id: string } })
             </button>
             <button
               onClick={handleDelete}
-              className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 font-medium transition-all flex items-center gap-2"
+              disabled={deleting}
+              className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 font-medium transition-all flex items-center gap-2 disabled:opacity-60"
             >
               <Trash2 className="w-4 h-4" />
-              Delete
+              {deleting ? 'Deleting…' : 'Delete'}
             </button>
           </div>
         </div>

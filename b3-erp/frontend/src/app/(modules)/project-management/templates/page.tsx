@@ -90,6 +90,9 @@ export default function ProjectTemplatesPage() {
  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
  const [isLoading, setIsLoading] = useState(true);
  const [loadError, setLoadError] = useState<string | null>(null);
+ const [submitting, setSubmitting] = useState(false);
+ const [actionError, setActionError] = useState<string | null>(null);
+ const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
  // Defensive transform: coerce backend rows into the ProjectTemplate shape.
  const normalizeTemplate = (t: PmTemplate): ProjectTemplate => ({
@@ -123,14 +126,18 @@ export default function ProjectTemplatesPage() {
   tags: Array.isArray(t.tags) ? t.tags : [],
  });
 
+ const refreshTemplates = async () => {
+  const rows = await projectManagementService.listPmTemplates();
+  setTemplates(rows.map(normalizeTemplate));
+ };
+
  useEffect(() => {
   let mounted = true;
   const load = async () => {
    setIsLoading(true);
    setLoadError(null);
    try {
-    const rows = await projectManagementService.listPmTemplates();
-    if (mounted) setTemplates(rows.map(normalizeTemplate));
+    await refreshTemplates();
    } catch (err) {
     console.error('Error loading templates:', err);
     if (mounted) setLoadError('Failed to load templates');
@@ -143,6 +150,22 @@ export default function ProjectTemplatesPage() {
    mounted = false;
   };
  }, []);
+
+ const runAction = async (fn: () => Promise<void>, success: string, close: () => void) => {
+  setSubmitting(true);
+  setActionError(null);
+  setActionSuccess(null);
+  try {
+   await fn();
+   await refreshTemplates();
+   setActionSuccess(success);
+   close();
+  } catch (err) {
+   setActionError(err instanceof Error ? err.message : 'Action failed');
+  } finally {
+   setSubmitting(false);
+  }
+ };
 
  // Modal states for new modals
  const [showEditModal, setShowEditModal] = useState(false);
@@ -197,45 +220,78 @@ export default function ProjectTemplatesPage() {
  };
 
  const handleCreate = (data: any) => {
-  console.log('Create template:', data);
-  setShowCreateModal(false);
+  runAction(
+   () => projectManagementService.createPmTemplate({ ...(data ?? {}) }).then(() => undefined),
+   'Template created',
+   () => setShowCreateModal(false)
+  );
  };
 
  const handleEditSave = (data: any) => {
-  console.log('Edit template:', data);
-  setShowEditModal(false);
-  setSelectedTemplate(null);
+  if (!selectedTemplate) { setShowEditModal(false); return; }
+  runAction(
+   () => projectManagementService.updatePmTemplate(selectedTemplate.id, { ...(data ?? {}) }).then(() => undefined),
+   'Template updated',
+   () => { setShowEditModal(false); setSelectedTemplate(null); }
+  );
  };
 
  const handleDuplicateSave = (data: any) => {
-  console.log('Duplicate template:', data);
-  setShowDuplicateModal(false);
-  setSelectedTemplate(null);
+  if (!selectedTemplate) { setShowDuplicateModal(false); return; }
+  const src = selectedTemplate;
+  runAction(
+   () => projectManagementService.createPmTemplate({
+    templateName: String(data?.newName ?? `${src.templateName} (Copy)`),
+    projectType: src.projectType,
+    category: src.category,
+    complexity: src.complexity,
+    description: src.description,
+    estimatedDuration: src.estimatedDuration,
+    estimatedBudget: src.estimatedBudget,
+    phases: src.phases,
+    milestones: src.milestones,
+    tasks: src.tasks,
+    resources: src.resources,
+    deliverables: src.deliverables,
+    defaultSettings: src.defaultSettings,
+    tags: src.tags,
+   }).then(() => undefined),
+   'Template duplicated',
+   () => { setShowDuplicateModal(false); setSelectedTemplate(null); }
+  );
  };
 
  const handleDeleteConfirm = async () => {
-  if (selectedTemplate) {
-   try {
-    await projectManagementService.deletePmTemplate(selectedTemplate.id);
-    setTemplates((prev) => prev.filter((t) => t.id !== selectedTemplate.id));
-   } catch (err) {
-    alert(err instanceof Error ? err.message : 'Failed to delete template');
-   }
-  }
-  setShowDeleteModal(false);
-  setSelectedTemplate(null);
+  if (!selectedTemplate) { setShowDeleteModal(false); return; }
+  await runAction(
+   () => projectManagementService.deletePmTemplate(selectedTemplate.id),
+   'Template deleted',
+   () => { setShowDeleteModal(false); setSelectedTemplate(null); }
+  );
  };
 
  const handleSettingsSave = (data: any) => {
-  console.log('Settings saved:', data);
-  setShowSettingsModal(false);
-  setSelectedTemplate(null);
+  if (!selectedTemplate) { setShowSettingsModal(false); return; }
+  runAction(
+   () => projectManagementService.updatePmTemplate(selectedTemplate.id, {
+    defaultSettings: { ...selectedTemplate.defaultSettings, ...(data ?? {}) },
+   }).then(() => undefined),
+   'Settings saved',
+   () => { setShowSettingsModal(false); setSelectedTemplate(null); }
+  );
  };
 
  const handleShareSave = (data: any) => {
-  console.log('Share template:', data);
-  setShowShareModal(false);
-  setSelectedTemplate(null);
+  // Sharing has no dedicated backend endpoint; persist the share scope as a tag.
+  if (!selectedTemplate) { setShowShareModal(false); return; }
+  const scope = String(data?.shareWith ?? data ?? 'team');
+  runAction(
+   () => projectManagementService.updatePmTemplate(selectedTemplate.id, {
+    tags: Array.from(new Set([...(selectedTemplate.tags ?? []), `shared:${scope}`])),
+   }).then(() => undefined),
+   'Template shared',
+   () => { setShowShareModal(false); setSelectedTemplate(null); }
+  );
  };
 
  const handleExportSave = (data: any) => {
@@ -245,389 +301,32 @@ export default function ProjectTemplatesPage() {
  };
 
  const handleImportSave = (data: any) => {
-  console.log('Import template:', data);
+  // Client-side import: no bulk-import endpoint; leave file handling to future backend.
   setShowImportModal(false);
  };
 
  const handleArchiveSave = () => {
-  console.log('Archive template:', selectedTemplate?.id);
-  setShowArchiveModal(false);
-  setSelectedTemplate(null);
+  if (!selectedTemplate) { setShowArchiveModal(false); return; }
+  runAction(
+   () => projectManagementService.updatePmTemplate(selectedTemplate.id, { isActive: false }).then(() => undefined),
+   'Template archived',
+   () => { setShowArchiveModal(false); setSelectedTemplate(null); }
+  );
  };
 
  const handleFavoriteSave = () => {
-  console.log('Toggle favorite:', selectedTemplate?.id);
-  setShowFavoriteModal(false);
-  setSelectedTemplate(null);
+  if (!selectedTemplate) { setShowFavoriteModal(false); return; }
+  runAction(
+   () => projectManagementService.updatePmTemplate(selectedTemplate.id, {
+    isFavorite: !selectedTemplate.isFavorite,
+   }).then(() => undefined),
+   selectedTemplate.isFavorite ? 'Removed from favorites' : 'Added to favorites',
+   () => { setShowFavoriteModal(false); setSelectedTemplate(null); }
+  );
  };
 
- // Seed fallback data used only when the API returns no rows (keeps the
- // page useful for demos before the templates table is populated).
- const seedTemplates: ProjectTemplate[] = [
-  {
-   id: '1',
-   templateName: 'Commercial Kitchen - Full Installation',
-   projectType: 'Commercial Kitchen',
-   description: 'Complete commercial kitchen installation with design, procurement, installation, and commissioning',
-   category: 'Standard',
-   complexity: 'Complex',
-   estimatedDuration: '5-6 months',
-   estimatedBudget: '₹75L - ₹1.2Cr',
-   phases: [
-    { phaseName: 'Planning & Design', duration: '4 weeks', milestones: 2, tasks: 15, description: 'Site survey, design, and approval' },
-    { phaseName: 'Procurement', duration: '6 weeks', milestones: 3, tasks: 20, description: 'Material procurement and vendor management' },
-    { phaseName: 'Installation', duration: '8 weeks', milestones: 4, tasks: 35, description: 'On-site installation and integration' },
-    { phaseName: 'Testing & Commissioning', duration: '3 weeks', milestones: 2, tasks: 18, description: 'Testing, commissioning, and handover' },
-    { phaseName: 'Training & Handover', duration: '1 week', milestones: 1, tasks: 8, description: 'Staff training and final handover' },
-   ],
-   milestones: 12,
-   tasks: 96,
-   resources: ['Project Manager', 'Design Engineer', 'Installation Supervisor', 'Commissioning Engineer', 'Quality Inspector', 'Safety Officer'],
-   deliverables: ['Design Drawings', 'BOQ', 'Installation Plan', 'Test Reports', 'Commissioning Certificates', 'O&M Manuals', 'Training Materials'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: true,
-    changeOrderApprovalLevels: 2,
-    documentationMandatory: true,
-   },
-   usageCount: 28,
-   lastUsed: '2024-05-15',
-   createdBy: 'Rajesh Kumar',
-   createdDate: '2023-08-10',
-   isActive: true,
-   isFavorite: true,
-   tags: ['Kitchen', 'Installation', 'Full Service', 'Hotels', 'Restaurants'],
-  },
-  {
-   id: '2',
-   templateName: 'Cold Room - Standard Installation',
-   projectType: 'Cold Room',
-   description: 'Standard cold room installation for warehousing and food processing facilities',
-   category: 'Standard',
-   complexity: 'Complex',
-   estimatedDuration: '4-5 months',
-   estimatedBudget: '₹90L - ₹1.5Cr',
-   phases: [
-    { phaseName: 'Site Assessment & Design', duration: '3 weeks', milestones: 2, tasks: 12, description: 'Site evaluation and technical design' },
-    { phaseName: 'Structural Preparation', duration: '4 weeks', milestones: 2, tasks: 18, description: 'Civil works and structural modifications' },
-    { phaseName: 'Equipment Installation', duration: '6 weeks', milestones: 3, tasks: 28, description: 'Panel installation and refrigeration setup' },
-    { phaseName: 'Testing & Commissioning', duration: '3 weeks', milestones: 2, tasks: 15, description: 'Performance testing and validation' },
-    { phaseName: 'Handover & Training', duration: '1 week', milestones: 1, tasks: 6, description: 'Documentation and operator training' },
-   ],
-   milestones: 10,
-   tasks: 79,
-   resources: ['Project Manager', 'Refrigeration Engineer', 'Electrical Engineer', 'Installation Team', 'Commissioning Specialist', 'Quality Inspector'],
-   deliverables: ['Technical Drawings', 'Load Calculations', 'Installation Manual', 'Test Certificates', 'Performance Reports', 'Maintenance Schedule'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: true,
-    changeOrderApprovalLevels: 2,
-    documentationMandatory: true,
-   },
-   usageCount: 22,
-   lastUsed: '2024-05-20',
-   createdBy: 'Priya Sharma',
-   createdDate: '2023-09-15',
-   isActive: true,
-   isFavorite: true,
-   tags: ['Cold Room', 'Refrigeration', 'Warehousing', 'Food Processing'],
-  },
-  {
-   id: '3',
-   templateName: 'Switchgear Installation - Industrial',
-   projectType: 'Switchgear',
-   description: 'Industrial switchgear installation with testing and commissioning',
-   category: 'Standard',
-   complexity: 'Complex',
-   estimatedDuration: '5-7 months',
-   estimatedBudget: '₹1.5Cr - ₹3Cr',
-   phases: [
-    { phaseName: 'Engineering & Design', duration: '5 weeks', milestones: 3, tasks: 22, description: 'Electrical design and engineering' },
-    { phaseName: 'Panel Manufacturing', duration: '8 weeks', milestones: 4, tasks: 35, description: 'Switchgear panel fabrication' },
-    { phaseName: 'Site Installation', duration: '6 weeks', milestones: 3, tasks: 28, description: 'On-site installation and wiring' },
-    { phaseName: 'Testing & Commissioning', duration: '4 weeks', milestones: 3, tasks: 25, description: 'Comprehensive testing and commissioning' },
-    { phaseName: 'Documentation & Handover', duration: '1 week', milestones: 1, tasks: 10, description: 'Final documentation and handover' },
-   ],
-   milestones: 14,
-   tasks: 120,
-   resources: ['Project Manager', 'Electrical Engineer', 'Panel Designer', 'Installation Supervisor', 'Testing Engineer', 'Commissioning Engineer', 'Safety Officer'],
-   deliverables: ['SLD Drawings', 'Panel Drawings', 'Test Reports', 'Commissioning Certificates', 'As-Built Drawings', 'O&M Manuals'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: true,
-    changeOrderApprovalLevels: 3,
-    documentationMandatory: true,
-   },
-   usageCount: 15,
-   lastUsed: '2024-05-10',
-   createdBy: 'Sandeep Yadav',
-   createdDate: '2023-10-20',
-   isActive: true,
-   isFavorite: false,
-   tags: ['Switchgear', 'Electrical', 'Industrial', 'Power Distribution'],
-  },
-  {
-   id: '4',
-   templateName: 'Kitchen Upgrade - Quick Renovation',
-   projectType: 'Commercial Kitchen',
-   description: 'Quick kitchen upgrade and equipment replacement for existing facilities',
-   category: 'Standard',
-   complexity: 'Medium',
-   estimatedDuration: '2-3 months',
-   estimatedBudget: '₹30L - ₹60L',
-   phases: [
-    { phaseName: 'Assessment & Planning', duration: '2 weeks', milestones: 1, tasks: 8, description: 'Current state assessment and planning' },
-    { phaseName: 'Equipment Procurement', duration: '4 weeks', milestones: 2, tasks: 12, description: 'Equipment selection and procurement' },
-    { phaseName: 'Installation & Upgrade', duration: '4 weeks', milestones: 2, tasks: 20, description: 'Equipment installation and integration' },
-    { phaseName: 'Testing & Handover', duration: '2 weeks', milestones: 1, tasks: 10, description: 'Testing and final handover' },
-   ],
-   milestones: 6,
-   tasks: 50,
-   resources: ['Project Manager', 'Installation Supervisor', 'Technician Team', 'Quality Inspector'],
-   deliverables: ['Upgrade Plan', 'Equipment List', 'Installation Report', 'Test Certificates', 'Training Summary'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: false,
-    changeOrderApprovalLevels: 1,
-    documentationMandatory: true,
-   },
-   usageCount: 35,
-   lastUsed: '2024-05-28',
-   createdBy: 'Amit Patel',
-   createdDate: '2023-11-05',
-   isActive: true,
-   isFavorite: true,
-   tags: ['Kitchen', 'Upgrade', 'Renovation', 'Quick Turnaround'],
-  },
-  {
-   id: '5',
-   templateName: 'Cold Room - Modular Small Scale',
-   projectType: 'Cold Room',
-   description: 'Small-scale modular cold room for restaurants and small businesses',
-   category: 'Standard',
-   complexity: 'Simple',
-   estimatedDuration: '1-2 months',
-   estimatedBudget: '₹15L - ₹35L',
-   phases: [
-    { phaseName: 'Site Survey & Design', duration: '1 week', milestones: 1, tasks: 5, description: 'Site evaluation and modular design' },
-    { phaseName: 'Procurement', duration: '3 weeks', milestones: 1, tasks: 8, description: 'Modular panel procurement' },
-    { phaseName: 'Installation', duration: '2 weeks', milestones: 2, tasks: 12, description: 'Quick installation of modular units' },
-    { phaseName: 'Testing & Handover', duration: '1 week', milestones: 1, tasks: 5, description: 'Performance testing and handover' },
-   ],
-   milestones: 5,
-   tasks: 30,
-   resources: ['Project Coordinator', 'Installation Team', 'Refrigeration Technician'],
-   deliverables: ['Layout Drawing', 'Installation Report', 'Test Certificate', 'User Manual'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: false,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: false,
-    changeOrderApprovalLevels: 1,
-    documentationMandatory: false,
-   },
-   usageCount: 42,
-   lastUsed: '2024-05-30',
-   createdBy: 'Deepak Mehta',
-   createdDate: '2023-12-01',
-   isActive: true,
-   isFavorite: false,
-   tags: ['Cold Room', 'Modular', 'Small Scale', 'Quick Install'],
-  },
-  {
-   id: '6',
-   templateName: 'Central Kitchen - Large Scale',
-   projectType: 'Commercial Kitchen',
-   description: 'Large-scale central kitchen for cloud kitchens and institutional catering',
-   category: 'Custom',
-   complexity: 'Complex',
-   estimatedDuration: '8-10 months',
-   estimatedBudget: '₹2Cr - ₹5Cr',
-   phases: [
-    { phaseName: 'Concept & Design', duration: '6 weeks', milestones: 3, tasks: 25, description: 'Detailed design and workflow planning' },
-    { phaseName: 'Regulatory Approvals', duration: '4 weeks', milestones: 2, tasks: 15, description: 'FSSAI and statutory approvals' },
-    { phaseName: 'Procurement & Fabrication', duration: '12 weeks', milestones: 5, tasks: 40, description: 'Equipment procurement and custom fabrication' },
-    { phaseName: 'Civil & MEP Works', duration: '8 weeks', milestones: 4, tasks: 35, description: 'Civil modifications and MEP installation' },
-    { phaseName: 'Equipment Installation', duration: '6 weeks', milestones: 3, tasks: 30, description: 'Kitchen equipment installation' },
-    { phaseName: 'Testing & Commissioning', duration: '4 weeks', milestones: 3, tasks: 22, description: 'Complete testing and commissioning' },
-    { phaseName: 'Training & Handover', duration: '2 weeks', milestones: 1, tasks: 12, description: 'Staff training and handover' },
-   ],
-   milestones: 21,
-   tasks: 179,
-   resources: ['Project Manager', 'Design Team', 'MEP Consultant', 'Installation Manager', 'Commissioning Team', 'Quality Manager', 'Safety Officer', 'Training Coordinator'],
-   deliverables: ['Master Design', 'Workflow Layout', 'BOQ', 'MEP Drawings', 'Installation Plan', 'Test Reports', 'FSSAI Documents', 'Training Materials', 'O&M Manuals'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: true,
-    changeOrderApprovalLevels: 3,
-    documentationMandatory: true,
-   },
-   usageCount: 8,
-   lastUsed: '2024-04-20',
-   createdBy: 'Rajesh Kumar',
-   createdDate: '2024-01-10',
-   isActive: true,
-   isFavorite: false,
-   tags: ['Central Kitchen', 'Large Scale', 'Cloud Kitchen', 'Institutional'],
-  },
-  {
-   id: '7',
-   templateName: 'Switchgear - Maintenance & Upgrade',
-   projectType: 'Switchgear',
-   description: 'Switchgear maintenance, testing, and selective upgrades',
-   category: 'Standard',
-   complexity: 'Medium',
-   estimatedDuration: '2-3 months',
-   estimatedBudget: '₹40L - ₹80L',
-   phases: [
-    { phaseName: 'Assessment & Planning', duration: '2 weeks', milestones: 1, tasks: 10, description: 'Current state assessment and upgrade planning' },
-    { phaseName: 'Equipment Procurement', duration: '4 weeks', milestones: 2, tasks: 12, description: 'Replacement parts procurement' },
-    { phaseName: 'Upgrade & Maintenance', duration: '4 weeks', milestones: 2, tasks: 18, description: 'Component replacement and maintenance' },
-    { phaseName: 'Testing & Certification', duration: '2 weeks', milestones: 1, tasks: 12, description: 'Comprehensive testing and certification' },
-   ],
-   milestones: 6,
-   tasks: 52,
-   resources: ['Project Manager', 'Electrical Engineer', 'Testing Technicians', 'Installation Team'],
-   deliverables: ['Assessment Report', 'Upgrade Plan', 'Test Reports', 'Compliance Certificates', 'Maintenance Schedule'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: true,
-    changeOrderApprovalLevels: 2,
-    documentationMandatory: true,
-   },
-   usageCount: 18,
-   lastUsed: '2024-05-05',
-   createdBy: 'Sandeep Yadav',
-   createdDate: '2024-02-15',
-   isActive: true,
-   isFavorite: false,
-   tags: ['Switchgear', 'Maintenance', 'Upgrade', 'Testing'],
-  },
-  {
-   id: '8',
-   templateName: 'Blast Freezer Installation',
-   projectType: 'Cold Room',
-   description: 'Blast freezer installation for seafood processing and quick freezing',
-   category: 'Custom',
-   complexity: 'Complex',
-   estimatedDuration: '4-5 months',
-   estimatedBudget: '₹1Cr - ₹2Cr',
-   phases: [
-    { phaseName: 'Technical Design', duration: '3 weeks', milestones: 2, tasks: 15, description: 'Thermal design and engineering' },
-    { phaseName: 'Equipment Procurement', duration: '8 weeks', milestones: 3, tasks: 20, description: 'Specialized equipment procurement' },
-    { phaseName: 'Civil & Insulation Works', duration: '4 weeks', milestones: 2, tasks: 15, description: 'Structural works and insulation' },
-    { phaseName: 'Equipment Installation', duration: '4 weeks', milestones: 2, tasks: 18, description: 'Freezer and refrigeration installation' },
-    { phaseName: 'Testing & Commissioning', duration: '2 weeks', milestones: 2, tasks: 15, description: 'Performance testing and validation' },
-   ],
-   milestones: 11,
-   tasks: 83,
-   resources: ['Project Manager', 'Thermal Engineer', 'Refrigeration Specialist', 'Installation Team', 'Commissioning Engineer'],
-   deliverables: ['Thermal Calculations', 'Equipment Specifications', 'Installation Report', 'Performance Test Reports', 'O&M Manual'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: true,
-    changeOrderApprovalLevels: 2,
-    documentationMandatory: true,
-   },
-   usageCount: 6,
-   lastUsed: '2024-03-15',
-   createdBy: 'Priya Sharma',
-   createdDate: '2024-01-20',
-   isActive: true,
-   isFavorite: false,
-   tags: ['Blast Freezer', 'Cold Room', 'Seafood', 'Quick Freeze'],
-  },
-  {
-   id: '9',
-   templateName: 'Display Kitchen Installation',
-   projectType: 'Commercial Kitchen',
-   description: 'Open/display kitchen installation for modern restaurants and hotels',
-   category: 'Custom',
-   complexity: 'Medium',
-   estimatedDuration: '3-4 months',
-   estimatedBudget: '₹50L - ₹1Cr',
-   phases: [
-    { phaseName: 'Design & Aesthetics', duration: '3 weeks', milestones: 2, tasks: 12, description: 'Aesthetic design with functional layout' },
-    { phaseName: 'Custom Fabrication', duration: '6 weeks', milestones: 3, tasks: 20, description: 'Custom equipment fabrication' },
-    { phaseName: 'Installation & Integration', duration: '4 weeks', milestones: 2, tasks: 18, description: 'Installation with aesthetic finishing' },
-    { phaseName: 'Testing & Training', duration: '2 weeks', milestones: 1, tasks: 10, description: 'Testing and chef training' },
-   ],
-   milestones: 8,
-   tasks: 60,
-   resources: ['Project Manager', 'Kitchen Designer', 'Fabrication Team', 'Installation Team', 'Chef Trainer'],
-   deliverables: ['Design Renders', 'Fabrication Drawings', 'Installation Report', 'Training Summary'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: false,
-    changeOrderApprovalLevels: 2,
-    documentationMandatory: true,
-   },
-   usageCount: 12,
-   lastUsed: '2024-04-10',
-   createdBy: 'Amit Patel',
-   createdDate: '2023-11-25',
-   isActive: true,
-   isFavorite: false,
-   tags: ['Display Kitchen', 'Open Kitchen', 'Custom', 'Aesthetic'],
-  },
-  {
-   id: '10',
-   templateName: 'Emergency Power Distribution - Switchgear',
-   projectType: 'Switchgear',
-   description: 'Emergency backup power distribution system with UPS and DG integration',
-   category: 'Custom',
-   complexity: 'Complex',
-   estimatedDuration: '4-6 months',
-   estimatedBudget: '₹1.2Cr - ₹2.5Cr',
-   phases: [
-    { phaseName: 'System Design', duration: '4 weeks', milestones: 2, tasks: 18, description: 'Complete electrical system design' },
-    { phaseName: 'Equipment Procurement', duration: '8 weeks', milestones: 3, tasks: 22, description: 'UPS, DG, and switchgear procurement' },
-    { phaseName: 'Installation', duration: '6 weeks', milestones: 3, tasks: 28, description: 'Complete system installation' },
-    { phaseName: 'Integration & Testing', duration: '4 weeks', milestones: 3, tasks: 25, description: 'System integration and testing' },
-    { phaseName: 'Commissioning & Training', duration: '2 weeks', milestones: 1, tasks: 12, description: 'Final commissioning and training' },
-   ],
-   milestones: 12,
-   tasks: 105,
-   resources: ['Project Manager', 'Electrical Consultant', 'Installation Manager', 'Testing Engineer', 'Commissioning Engineer'],
-   deliverables: ['SLD', 'Equipment Specifications', 'Installation Manual', 'Test Reports', 'Commissioning Certificate', 'Training Materials'],
-   defaultSettings: {
-    defaultCurrency: 'INR',
-    budgetApprovalRequired: true,
-    qualityChecksRequired: true,
-    riskAssessmentRequired: true,
-    changeOrderApprovalLevels: 3,
-    documentationMandatory: true,
-   },
-   usageCount: 5,
-   lastUsed: '2024-02-28',
-   createdBy: 'Sandeep Yadav',
-   createdDate: '2024-01-05',
-   isActive: true,
-   isFavorite: false,
-   tags: ['Emergency Power', 'Backup', 'UPS', 'DG', 'Switchgear'],
-  },
- ];
 
- // Use API data when available; fall back to seed data only when the table is empty.
- const effectiveTemplates: ProjectTemplate[] = templates.length > 0 ? templates : seedTemplates;
-
- const filteredTemplates = effectiveTemplates.filter((template) => {
+ const filteredTemplates = templates.filter((template) => {
   const matchesSearch =
    template.templateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
    template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -667,6 +366,18 @@ export default function ProjectTemplatesPage() {
   <div className="h-screen flex flex-col overflow-hidden">
    <div className="flex-1 overflow-y-auto overflow-x-hidden">
     <div className="px-3 py-2">
+     {isLoading && (
+      <div className="mb-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading templates…</div>
+     )}
+     {loadError && !isLoading && (
+      <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>
+     )}
+     {actionError && (
+      <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{actionError}</div>
+     )}
+     {actionSuccess && (
+      <div className="mb-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">{actionSuccess}</div>
+     )}
      {/* Action Bar */}
      <div className="mb-3">
       <div className="flex items-center justify-end gap-3 mb-2">
@@ -679,10 +390,11 @@ export default function ProjectTemplatesPage() {
        </button>
        <button
         onClick={() => setShowCreateModal(true)}
-        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+        disabled={submitting}
+        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-60"
        >
         <Plus className="w-4 h-4" />
-        Create Template
+        {submitting ? 'Saving…' : 'Create Template'}
        </button>
       </div>
 
@@ -692,8 +404,8 @@ export default function ProjectTemplatesPage() {
       <div className="flex items-center justify-between">
        <div>
         <p className="text-sm text-gray-600">Total Templates</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{effectiveTemplates.length}</p>
-        <p className="text-xs text-green-600 mt-1">{effectiveTemplates.filter(t => t.isActive).length} active</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{templates.length}</p>
+        <p className="text-xs text-green-600 mt-1">{templates.filter(t => t.isActive).length} active</p>
        </div>
        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
         <Layers className="w-6 h-6 text-blue-600" />
@@ -706,10 +418,10 @@ export default function ProjectTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Most Used</p>
         <p className="text-lg font-bold text-gray-900 mt-1 truncate">
-         {[...effectiveTemplates].sort((a, b) => b.usageCount - a.usageCount)[0]?.templateName.split('-')[0]}
+         {[...templates].sort((a, b) => b.usageCount - a.usageCount)[0]?.templateName.split('-')[0]}
         </p>
         <p className="text-xs text-gray-500 mt-1">
-         {[...effectiveTemplates].sort((a, b) => b.usageCount - a.usageCount)[0]?.usageCount} times
+         {[...templates].sort((a, b) => b.usageCount - a.usageCount)[0]?.usageCount} times
         </p>
        </div>
        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -723,7 +435,7 @@ export default function ProjectTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Favorites</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         {effectiveTemplates.filter(t => t.isFavorite).length}
+         {templates.filter(t => t.isFavorite).length}
         </p>
         <p className="text-xs text-yellow-600 mt-1">Marked as favorite</p>
        </div>
@@ -738,7 +450,7 @@ export default function ProjectTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Total Usage</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         {effectiveTemplates.reduce((sum, t) => sum + t.usageCount, 0)}
+         {templates.reduce((sum, t) => sum + t.usageCount, 0)}
         </p>
         <p className="text-xs text-gray-500 mt-1">Projects created</p>
        </div>

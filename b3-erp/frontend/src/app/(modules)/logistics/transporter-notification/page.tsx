@@ -22,12 +22,30 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { LogisticsService, DeliveryCoordinationDto } from '@/services/logistics.service';
 
 interface ProjectInfo {
     id: string;
     name: string;
     clientName: string;
     status: string;
+    projectCode?: string;
+}
+
+/** Resolve (or create) the DeliveryCoordination record for a project. */
+async function resolveCoordination(
+    project: ProjectInfo,
+    seed?: Partial<DeliveryCoordinationDto>,
+): Promise<DeliveryCoordinationDto> {
+    const woNumber = project.projectCode || project.id;
+    const existing = await LogisticsService.getDeliveryCoordinations();
+    const match = existing.find((c) => c.woNumber === woNumber);
+    if (match) return match;
+    return LogisticsService.createDeliveryCoordination({
+        woNumber,
+        customerName: project.clientName,
+        ...seed,
+    });
 }
 
 interface NotificationRecipient {
@@ -58,6 +76,8 @@ export default function TransporterNotificationPage() {
     ]);
 
     const [notificationSent, setNotificationSent] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -65,12 +85,14 @@ export default function TransporterNotificationPage() {
 
     const loadProjects = async () => {
         try {
+            setError(null);
             const allProjects = await projectManagementService.getProjects();
             const projectInfos: ProjectInfo[] = allProjects.map((p: Project) => ({
                 id: p.id,
                 name: p.name || `Project ${p.id}`,
                 clientName: p.clientName || 'Unknown Client',
                 status: p.status || 'active',
+                projectCode: p.projectCode,
             }));
             setProjects(projectInfos);
 
@@ -81,8 +103,9 @@ export default function TransporterNotificationPage() {
                     setSelectedProject(found);
                 }
             }
-        } catch (error) {
-            console.error('Error loading projects:', error);
+        } catch (err) {
+            console.error('Error loading projects:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load projects');
         } finally {
             setIsLoadingProjects(false);
         }
@@ -108,13 +131,36 @@ export default function TransporterNotificationPage() {
         ));
     };
 
-    const handleSendNotification = () => {
+    const handleSendNotification = async () => {
+        if (!selectedProject || submitting) return;
         const selectedCount = recipients.filter(r => r.selected).length;
-        setNotificationSent(true);
-        toast({
-            title: 'Notifications Sent',
-            description: `Pickup details sent to ${selectedCount} recipient(s) via SMS and Email`,
-        });
+        const transporter = recipients.find(r => r.role === 'Transporter')?.name;
+        setSubmitting(true);
+        try {
+            const coordination = await resolveCoordination(selectedProject, {
+                transporter,
+            });
+            await LogisticsService.updateDeliveryCoordination(coordination.id, {
+                transporterNotified: true,
+                ...(transporter ? { transporter } : {}),
+                status: 'Transporter Notified',
+            });
+            setNotificationSent(true);
+            toast({
+                title: 'Transporter Notified',
+                description: `Pickup coordination marked as notified for ${selectedCount} recipient(s)`,
+                variant: 'success',
+            });
+        } catch (err) {
+            console.error('Error notifying transporter:', err);
+            toast({
+                title: 'Failed to Notify',
+                description: err instanceof Error ? err.message : 'Could not update transporter notification',
+                variant: 'destructive',
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // Project Selection View
@@ -145,10 +191,20 @@ export default function TransporterNotificationPage() {
                         />
                     </div>
 
-                    {isLoadingProjects ? (
+                    {error ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+                            <p className="text-red-700 font-medium">Failed to load projects</p>
+                            <p className="text-sm text-red-600 mt-1">{error}</p>
+                            <Button className="mt-4" variant="outline" onClick={loadProjects}>Retry</Button>
+                        </div>
+                    ) : isLoadingProjects ? (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
                             <span className="ml-2 text-gray-600">Loading projects...</span>
+                        </div>
+                    ) : filteredProjects.length === 0 ? (
+                        <div className="rounded-lg border bg-white p-12 text-center text-gray-500">
+                            No projects found.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -313,10 +369,10 @@ Logistics Team - B3 MACBIS`}
                 {!notificationSent ? (
                     <Button
                         onClick={handleSendNotification}
-                        disabled={recipients.filter(r => r.selected).length === 0}
+                        disabled={recipients.filter(r => r.selected).length === 0 || submitting}
                         size="lg"
                     >
-                        <Send className="mr-2 h-4 w-4" />
+                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                         Send Notification ({recipients.filter(r => r.selected).length} recipient{recipients.filter(r => r.selected).length !== 1 ? 's' : ''})
                     </Button>
                 ) : (

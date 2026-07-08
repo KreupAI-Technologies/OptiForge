@@ -488,6 +488,7 @@ export interface ProjectTask {
     assignedTo?: string[];
     parentTaskId?: string;
     subtasks?: ProjectTask[];
+    dependencies?: string[];
 }
 
 export interface ProjectResource {
@@ -2001,13 +2002,29 @@ class ProjectManagementService {
         }
     }
 
-    async checkIn(): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 600));
-        // In a real app, this would verify location, etc.
+    // Field engineer attendance — NestJS mobile-api (api/v1 prefix).
+    //   POST /mobile-api/check-in   { engineerId, projectId, location }
+    //   POST /mobile-api/check-out  { engineerId, projectId, location, workSummary }
+    async checkIn(payload?: { engineerId?: string; projectId?: string; location?: { lat: number; lng: number } }): Promise<void> {
+        await this.pmModulePost<any>('/mobile-api/check-in', {
+            engineerId: payload?.engineerId ?? 'current-user',
+            projectId: payload?.projectId ?? '',
+            location: payload?.location ?? { lat: 0, lng: 0 },
+        });
     }
 
-    async checkOut(): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 600));
+    async checkOut(payload?: { engineerId?: string; projectId?: string; location?: { lat: number; lng: number }; workSummary?: string }): Promise<void> {
+        await this.pmModulePost<any>('/mobile-api/check-out', {
+            engineerId: payload?.engineerId ?? 'current-user',
+            projectId: payload?.projectId ?? '',
+            location: payload?.location ?? { lat: 0, lng: 0 },
+            workSummary: payload?.workSummary ?? '',
+        });
+    }
+
+    /** Upload a geo-tagged site photo against a project (mobile-api). */
+    uploadSitePhoto(projectId: string, data: { photoUrl: string; description: string }): Promise<any> {
+        return this.pmModulePost<any>(`/mobile-api/upload-photo/${projectId}`, data);
     }
 
     async getSiteMeasurements(projectId: string): Promise<RoomMeasurements[]> {
@@ -2341,6 +2358,21 @@ class ProjectManagementService {
         }
     }
 
+    async updatePmTemplate(id: string, data: Partial<PmTemplate>): Promise<PmTemplate | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/templates/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT template failed: ${res.status}`);
+            return (await res.json()) as PmTemplate;
+        } catch (error) {
+            console.error('Error updating PM template:', error);
+            return null;
+        }
+    }
+
     async deletePmTemplate(id: string): Promise<void> {
         try {
             await fetch(`${API_BASE_URL}/project-management/templates/${id}`, { method: 'DELETE' });
@@ -2373,6 +2405,21 @@ class ProjectManagementService {
             return (await res.json()) as PmMilestoneTemplate;
         } catch (error) {
             console.error('Error creating milestone template:', error);
+            return null;
+        }
+    }
+
+    async updateMilestoneTemplate(id: string, data: Partial<PmMilestoneTemplate>): Promise<PmMilestoneTemplate | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/milestone-templates/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT milestone template failed: ${res.status}`);
+            return (await res.json()) as PmMilestoneTemplate;
+        } catch (error) {
+            console.error('Error updating milestone template:', error);
             return null;
         }
     }
@@ -2445,6 +2492,21 @@ class ProjectManagementService {
             return (await res.json()) as PmDeliverable;
         } catch (error) {
             console.error('Error creating deliverable:', error);
+            return null;
+        }
+    }
+
+    async updateDeliverable(id: string, data: Partial<PmDeliverable>): Promise<PmDeliverable | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/deliverables/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT deliverable failed: ${res.status}`);
+            return (await res.json()) as PmDeliverable;
+        } catch (error) {
+            console.error('Error updating deliverable:', error);
             return null;
         }
     }
@@ -2909,6 +2971,59 @@ class ProjectManagementService {
         return this.pmModulePost<any>('/api/procurement/grn', data);
     }
 
+    // ---------------------------------------------------------------------
+    // PROJECT-SCOPED PROCUREMENT + PRODUCTION writes (NestJS).
+    // Backs the (modules)/project-management/procurement/* and production/*
+    // shop-flow pages. Endpoints (b3-erp/backend, prefixed api/v1):
+    //   POST  /api/procurement/reserve/:projectId/:bomHeaderId
+    //   POST  /api/procurement/pr        { projectId, bomHeaderId, requestedBy }
+    //   POST  /api/procurement/grn       { purchaseOrderId, receivedBy, deliveryNoteRef }
+    //   PATCH /api/procurement/grn/:id/qc { passed, notes }
+    //   POST  /api/production/log        (ProductionLog partial)
+    //   POST  /api/production/trial/:projectId  { inspectedBy }
+    //   PATCH /api/production/trial/:id  { result, notes }
+    // ---------------------------------------------------------------------
+
+    /** Reserve on-hand stock against a project BOM. */
+    reserveProjectStock(projectId: string, bomHeaderId: string): Promise<any> {
+        return this.pmModulePost<any>(`/api/procurement/reserve/${projectId}/${bomHeaderId}`, {});
+    }
+
+    /** Generate a Purchase Requisition from a released project BOM. */
+    createProcurementPR(data: { projectId: string; bomHeaderId: string; requestedBy: string }): Promise<any> {
+        return this.pmModulePost<any>('/api/procurement/pr', data);
+    }
+
+    /** Record a GRN quality-check result (pass/fail + notes). */
+    updateGrnQc(grnId: string, data: { passed: boolean; notes: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/procurement/grn/${grnId}/qc`, data);
+    }
+
+    /** Log a shop-floor production operation (laser/bending/welding/etc.). */
+    logProductionOperation(data: {
+        projectId: string;
+        operationType: 'laser' | 'bending' | 'etching' | 'welding' | 'powder_coating' | 'assembly';
+        machineId?: string;
+        operatorId?: string;
+        startTime?: string;
+        endTime?: string;
+        yieldCount?: number;
+        rejectCount?: number;
+        idleReason?: string;
+    }): Promise<any> {
+        return this.pmModulePost<any>('/api/production/log', data);
+    }
+
+    /** Create a trial-wall / trial-assembly inspection report for a project. */
+    createProductionTrial(projectId: string, inspectedBy: string): Promise<any> {
+        return this.pmModulePost<any>(`/api/production/trial/${projectId}`, { inspectedBy });
+    }
+
+    /** Record the outcome of a trial report (result + notes). */
+    updateProductionTrial(id: string, data: { result: string; notes: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/production/trial/${id}`, data);
+    }
+
     // (modules)/project-management page wiring — list endpoints
     getEmergencySpares() { return this.pmModuleGet<any>('/api/project-management/emergency-spares'); }
     getTaSettlementClaims() { return this.pmModuleGet<any>('/api/project-management/ta-settlement/claims'); }
@@ -2963,6 +3078,93 @@ class ProjectManagementService {
         } catch {
             return [];
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // INSTALLATION WORKFLOW writes (NestJS logistics-installation + closure).
+    // Backs the (modules)/installation/* step-completion pages. Each step
+    // records a project-scoped DailyInstallReport so progress is persisted.
+    // Endpoints (b3-erp/backend):
+    //   POST  /api/logistics-installation/daily-report
+    //   POST  /api/logistics-installation/dispatch
+    //   GET   /api/logistics-installation/daily-reports/:projectId
+    //   POST  /api/project-closure/initiate/:projectId
+    //   PATCH /api/project-closure/sign/:id
+    // ---------------------------------------------------------------------
+    private async pmModulePatch<T>(path: string, body: any): Promise<T | null> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetch(`${API_BASE_URL}${path}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return (data && (data as any).data !== undefined && !Array.isArray((data as any).data))
+                ? ((data as any).data as T)
+                : (data as T);
+        } catch (error) {
+            console.error(`Error patching ${path}:`, error);
+            throw error;
+        }
+    }
+
+    /** Fetch the daily install progress reports for a project (empty-safe). */
+    async getInstallDailyReports(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/api/logistics-installation/daily-reports/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /** Fetch tools deployed to a project site (empty-safe). */
+    async getDeployedTools(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/project-management/tools/project/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * Record an installation step as complete against a project by creating a
+     * DailyInstallReport. Used by the installation/* checklist pages.
+     */
+    createInstallDailyReport(data: {
+        projectId: string;
+        workDone?: string;
+        overallProgress?: number;
+        plannedForTomorrow?: string;
+        issuesEncountered?: string;
+        isSiteCleaned?: boolean;
+        manpowerCount?: number;
+        progressPhotos?: string[];
+        cleaningPhotos?: string[];
+        isClientNotified?: boolean;
+    }): Promise<any> {
+        return this.pmModulePost<any>('/api/logistics-installation/daily-report', data);
+    }
+
+    /** Create a site dispatch record (tools/materials to site). */
+    createInstallDispatch(data: { projectId: string; [key: string]: any }): Promise<any> {
+        return this.pmModulePost<any>('/api/logistics-installation/dispatch', data);
+    }
+
+    /** Issue a single tool to a project site (tool-management). */
+    issueInstallTool(data: { toolId: string; projectId: string; condition: string; issuedBy?: string }): Promise<any> {
+        return this.pmModulePost<any>('/project-management/tools/issue', data);
+    }
+
+    /** Initiate project handover / closure and get a handover certificate. */
+    initiateProjectClosure(projectId: string): Promise<any> {
+        return this.pmModulePost<any>(`/api/project-closure/initiate/${projectId}`, {});
+    }
+
+    /** Sign an existing handover certificate. */
+    signProjectClosure(id: string, data: { signatory: string; title: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/project-closure/sign/${id}`, data);
     }
 }
 

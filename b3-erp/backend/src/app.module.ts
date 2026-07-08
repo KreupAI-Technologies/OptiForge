@@ -22,6 +22,7 @@ import { HealthModule } from './modules/health/health.module';
 import { CommonMastersModule } from './modules/common-masters/common-masters.module';
 import { CollaborationModule } from './modules/collaboration/collaboration.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { DocumentationModule } from './modules/documentation/documentation.module';
 import { PortalModule } from './modules/portal/portal.module';
 import { CoreModule } from './modules/core/core.module';
 import { CPQModule } from './modules/cpq/cpq.module';
@@ -42,6 +43,7 @@ import { ProjectManagementModule } from './modules/project-management/project-ma
 import { QualityModule } from './modules/quality/quality.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { AdvancedFeaturesModule } from './modules/advanced-features/advanced-features.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { SupportModule } from './modules/support/support.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
@@ -127,6 +129,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     ApprovalsModule,
     ReportsModule,
     DashboardModule,
+    AdvancedFeaturesModule,
     LogisticsModule,
     PackagingModule,
     NotificationsModule,
@@ -137,6 +140,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     PrismaModule,
     CommonMastersModule,
     ComplianceModule,
+    DocumentationModule,
     CollaborationModule,
     PortalModule,
     IotModule,

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import { Building, Plus, Calendar, IndianRupee, User, MapPin, Edit2, Trash2, X, Save, AlertCircle, Download, Star, Bed } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -39,25 +39,62 @@ export default function HotelBookingPage() {
   const [bookings, setBookings] = useState<HotelBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrExpensesService.getBookings('hotel');
+      setBookings(Array.isArray(rows) ? (rows as any) : []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      setBookings([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrPagesService.travelRequests<any[]>();
-        if (!cancelled) setBookings(Array.isArray(rows) ? (rows as any) : []);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
-          setBookings([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSaveBooking = async () => {
+    const fd = formRef.current ? new FormData(formRef.current) : null;
+    const val = (k: string) => (fd?.get(k)?.toString() ?? '');
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await HrExpensesService.createBooking('hotel', {
+        employeeCode: val('employeeCode'),
+        cardHolder: val('employeeName'),
+        merchantName: val('hotelName'),
+        transactionId: val('confirmationNumber'),
+        location: val('location'),
+        transactionDate: val('checkInDate'),
+        amount: Number(val('totalAmount') || 0),
+        status: val('bookingStatus') === 'cancelled' ? 'cancelled' : 'pending',
+        notes: [
+          `${val('roomType')} room, ${val('mealPlan')}`,
+          val('checkInDate') && val('checkOutDate') ? `${val('checkInDate')} → ${val('checkOutDate')}` : '',
+          val('nights') ? `${val('nights')} night(s)` : '',
+          val('specialRequests'),
+          val('remarks'),
+        ].filter(Boolean).join(' | '),
+      });
+      toast({ title: 'Booking Added', description: 'Hotel booking has been recorded successfully' });
+      setShowAddModal(false);
+      formRef.current?.reset();
+      await load();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save booking.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -359,20 +396,23 @@ export default function HotelBookingPage() {
             </div>
 
             <div className="p-6">
-              <form className="space-y-3">
+              {saveError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>
+              )}
+              <form ref={formRef} className="space-y-3" onSubmit={(e) => { e.preventDefault(); handleSaveBooking(); }}>
                 {/* Employee & Travel Request */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Travel Request ID</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="TR-2025-XXX" />
+                    <input name="travelRequestId" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="TR-2025-XXX" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Code</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="EMPXXX" />
+                    <input name="employeeCode" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="EMPXXX" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Name</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="employeeName" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
 
@@ -380,15 +420,15 @@ export default function HotelBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Hotel Name</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ITC Grand Central" />
+                    <input name="hotelName" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ITC Grand Central" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Hotel Chain (Optional)</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ITC Hotels" />
+                    <input name="hotelChain" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ITC Hotels" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Confirmation Number</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ITC123456" />
+                    <input name="confirmationNumber" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ITC123456" />
                   </div>
                 </div>
 
@@ -396,11 +436,11 @@ export default function HotelBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Location (City)</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Bangalore" />
+                    <input name="location" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Bangalore" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Full Address</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="MG Road, Bangalore 560001" />
+                    <input name="address" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="MG Road, Bangalore 560001" />
                   </div>
                 </div>
 
@@ -408,19 +448,19 @@ export default function HotelBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Check-in Date</label>
-                    <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="checkInDate" type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Check-out Date</label>
-                    <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="checkOutDate" type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Nights</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="1" />
+                    <input name="nights" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="1" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Guests</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="1" />
+                    <input name="guests" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="1" />
                   </div>
                 </div>
 
@@ -428,15 +468,15 @@ export default function HotelBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Rate Per Night (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input name="ratePerNight" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Taxes & Fees (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input name="taxes" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Total Amount (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input name="totalAmount" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                 </div>
 
@@ -444,7 +484,7 @@ export default function HotelBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Room Type</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select name="roomType" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="standard">Standard</option>
                       <option value="deluxe">Deluxe</option>
                       <option value="executive">Executive</option>
@@ -453,7 +493,7 @@ export default function HotelBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Meal Plan</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select name="mealPlan" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="room-only">Room Only</option>
                       <option value="breakfast">Breakfast Included</option>
                       <option value="half-board">Half Board</option>
@@ -462,7 +502,7 @@ export default function HotelBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Source</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select name="bookingSource" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="corporate-agent">Corporate Agent</option>
                       <option value="hotel-direct">Hotel Direct</option>
                       <option value="online-portal">Online Portal</option>
@@ -471,7 +511,7 @@ export default function HotelBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Status</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select name="bookingStatus" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="confirmed">Confirmed</option>
                       <option value="pending">Pending</option>
                       <option value="cancelled">Cancelled</option>
@@ -483,39 +523,37 @@ export default function HotelBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Agency Name (Optional)</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="MakeMyTrip Corporate" />
+                    <input name="agencyName" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="MakeMyTrip Corporate" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Cancellation Policy</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Free cancellation up to 24 hours" />
+                    <input name="cancellationPolicy" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Free cancellation up to 24 hours" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Special Requests</label>
-                  <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={2} placeholder="High floor, non-smoking room, etc."></textarea>
+                  <textarea name="specialRequests" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={2} placeholder="High floor, non-smoking room, etc."></textarea>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Remarks</label>
-                  <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={2} placeholder="Any additional notes..."></textarea>
+                  <textarea name="remarks" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={2} placeholder="Any additional notes..."></textarea>
                 </div>
               </form>
             </div>
 
             <div className="p-6 border-t border-gray-200 flex justify-end gap-3 sticky bottom-0 bg-white">
-              <button onClick={() => setShowAddModal(false)} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium">
+              <button onClick={() => setShowAddModal(false)} disabled={saving} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium disabled:opacity-50">
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  toast({ title: "Booking Added", description: "Hotel booking has been recorded successfully" });
-                  setShowAddModal(false);
-                }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+                onClick={handleSaveBooking}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                Save Booking
+                {saving ? 'Saving…' : 'Save Booking'}
               </button>
             </div>
           </div>

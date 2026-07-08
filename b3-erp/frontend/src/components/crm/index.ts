@@ -5,6 +5,7 @@ export { default as ActivityManagementTracking } from './ActivityManagementTrack
 export { default as SalesAutomation } from './SalesAutomation';
 export { default as CollaborationIntelligence } from './CollaborationIntelligence';
 export { default as Customer360View } from './Customer360View';
+export { default as CrmDataState } from './CrmDataState';
 
 // Advanced features exports
 export { AILeadScoreCard } from './AILeadScoreCard';

@@ -1,142 +1,111 @@
 'use client';
 
-import React from 'react';
-import { ArrowLeft, Edit, Copy, Download, Trash2, Calendar, User, Hash, TrendingUp } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, Edit, Copy, Download, Trash2, Calendar, User, Hash, TrendingUp, AlertCircle } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
 import { estimationTemplateService } from '@/services/estimation-template.service';
 
-// Mock data - would come from API
-const templateData = {
-  id: '1',
-  name: 'Standard Commercial Building',
-  templateCode: 'BOQ-TEMP-001',
-  category: 'Construction',
-  description: 'Comprehensive BOQ template for standard commercial building projects including civil, electrical, and plumbing works.',
-  createdBy: 'John Smith',
-  createdAt: '2024-01-15',
-  lastModified: '2024-03-10',
-  usageCount: 24,
-  totalItems: 45,
-  estimatedValue: 2500000,
-  items: [
-    {
-      id: '1',
-      itemCode: 'CIVIL-001',
-      description: 'Excavation for foundation',
-      category: 'Civil Works',
-      unit: 'cu.m',
-      quantity: 150,
-      rate: 450,
-      amount: 67500,
-      specifications: 'As per IS 1200 standards',
-    },
-    {
-      id: '2',
-      itemCode: 'CIVIL-002',
-      description: 'RCC M25 grade concrete for foundation',
-      category: 'Civil Works',
-      unit: 'cu.m',
-      quantity: 120,
-      rate: 6500,
-      amount: 780000,
-      specifications: 'As per IS 456:2000',
-    },
-    {
-      id: '3',
-      itemCode: 'CIVIL-003',
-      description: 'Brick masonry in cement mortar 1:6',
-      category: 'Civil Works',
-      unit: 'sq.m',
-      quantity: 450,
-      rate: 850,
-      amount: 382500,
-      specifications: 'Class A bricks as per IS 1077',
-    },
-    {
-      id: '4',
-      itemCode: 'ELEC-001',
-      description: 'Main electrical panel 400A',
-      category: 'Electrical Works',
-      unit: 'nos',
-      quantity: 1,
-      rate: 85000,
-      amount: 85000,
-      specifications: 'As per IE rules',
-    },
-    {
-      id: '5',
-      itemCode: 'ELEC-002',
-      description: 'PVC conduit 25mm dia',
-      category: 'Electrical Works',
-      unit: 'm',
-      quantity: 500,
-      rate: 120,
-      amount: 60000,
-      specifications: 'Heavy duty ISI marked',
-    },
-    {
-      id: '6',
-      itemCode: 'PLUMB-001',
-      description: 'CPVC pipes 20mm dia',
-      category: 'Plumbing Works',
-      unit: 'm',
-      quantity: 300,
-      rate: 180,
-      amount: 54000,
-      specifications: 'Astral/Supreme make',
-    },
-    {
-      id: '7',
-      itemCode: 'PLUMB-002',
-      description: 'Water storage tank 1000L',
-      category: 'Plumbing Works',
-      unit: 'nos',
-      quantity: 2,
-      rate: 15000,
-      amount: 30000,
-      specifications: 'Sintex/Penguin make',
-    },
-    {
-      id: '8',
-      itemCode: 'FINISH-001',
-      description: 'Internal wall plastering 12mm thick',
-      category: 'Finishing Works',
-      unit: 'sq.m',
-      quantity: 1200,
-      rate: 320,
-      amount: 384000,
-      specifications: 'Cement mortar 1:4',
-    },
-    {
-      id: '9',
-      itemCode: 'FINISH-002',
-      description: 'Premium emulsion paint',
-      category: 'Finishing Works',
-      unit: 'sq.m',
-      quantity: 1200,
-      rate: 85,
-      amount: 102000,
-      specifications: 'Asian Paints/Berger',
-    },
-    {
-      id: '10',
-      itemCode: 'FINISH-003',
-      description: 'Vitrified tiles 600x600mm',
-      category: 'Finishing Works',
-      unit: 'sq.m',
-      quantity: 400,
-      rate: 650,
-      amount: 260000,
-      specifications: 'Johnson/Kajaria make',
-    },
-  ],
+interface TemplateItem {
+  id: string;
+  itemCode: string;
+  description: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  specifications: string;
+}
+
+interface TemplateView {
+  id: string;
+  name: string;
+  templateCode: string;
+  category: string;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  lastModified: string;
+  usageCount: number;
+  totalItems: number;
+  estimatedValue: number;
+  items: TemplateItem[];
+}
+
+const mapTemplate = (raw: any): TemplateView => {
+  const items: TemplateItem[] = Array.isArray(raw?.items)
+    ? raw.items.map((it: any, idx: number) => ({
+        id: it?.id ?? String(idx + 1),
+        itemCode: it?.itemCode ?? it?.itemNo ?? '',
+        description: it?.description ?? '',
+        category: it?.category ?? 'Other',
+        unit: it?.unit ?? '',
+        quantity: Number(it?.quantity ?? 0),
+        rate: Number(it?.rate ?? it?.unitRate ?? 0),
+        amount: Number(it?.amount ?? it?.totalAmount ?? 0),
+        specifications: it?.specifications ?? '',
+      }))
+    : [];
+  const estimatedValue = raw?.estimatedValue != null
+    ? Number(raw.estimatedValue)
+    : items.reduce((sum, i) => sum + i.amount, 0);
+  return {
+    id: raw?.id ?? '',
+    name: raw?.name ?? '',
+    templateCode: raw?.templateCode ?? raw?.code ?? raw?.id ?? '',
+    category: raw?.category ?? raw?.templateType ?? 'Other',
+    description: raw?.description ?? '',
+    createdBy: raw?.createdBy ?? '',
+    createdAt: raw?.createdAt ?? raw?.createdDate ?? '',
+    lastModified: raw?.updatedAt ?? raw?.lastModified ?? raw?.createdAt ?? '',
+    usageCount: Number(raw?.usageCount ?? 0),
+    totalItems: raw?.totalItems != null ? Number(raw.totalItems) : items.length,
+    estimatedValue,
+    items,
+  };
+};
+
+const formatDate = (value: string) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
 export default function ViewBOQTemplate() {
   const router = useRouter();
   const params = useParams();
   const templateId = params?.id as string;
+
+  const [templateData, setTemplateData] = useState<TemplateView | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const raw = await estimationTemplateService.findTemplateById(templateId);
+        if (cancelled) return;
+        if (!raw) {
+          setTemplateData(null);
+        } else {
+          setTemplateData(mapTemplate(raw));
+        }
+      } catch (err) {
+        console.error('Error loading template:', err);
+        if (!cancelled) setError('Failed to load template. Please try again.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [templateId]);
 
   const handleEdit = () => {
     router.push(`/estimation/boq/templates/edit/${templateId}`);
@@ -147,6 +116,7 @@ export default function ViewBOQTemplate() {
   };
 
   const handleExport = () => {
+    if (!templateData) return;
     exportToCsv(`boq-template-${templateData.templateCode}`, templateData.items);
   };
 
@@ -154,17 +124,57 @@ export default function ViewBOQTemplate() {
     if (!confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
       return;
     }
+    setDeleting(true);
     try {
       await estimationTemplateService.deleteBoqTemplate(templateId);
       router.push('/estimation/boq/templates');
     } catch (err) {
+      console.error('Error deleting template:', err);
       alert('Failed to delete template. Please try again.');
+      setDeleting(false);
     }
   };
 
   const handleBack = () => {
     router.push('/estimation/boq/templates');
   };
+
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Loading template...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 gap-3">
+        <AlertCircle className="h-10 w-10 text-red-500" />
+        <p className="text-red-600">{error}</p>
+        <button
+          onClick={handleBack}
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+        >
+          Back to Templates
+        </button>
+      </div>
+    );
+  }
+
+  if (!templateData) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 gap-3">
+        <p className="text-gray-600">Template not found.</p>
+        <button
+          onClick={handleBack}
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+        >
+          Back to Templates
+        </button>
+      </div>
+    );
+  }
 
   // Group items by category
   const itemsByCategory = templateData.items.reduce((acc, item) => {
@@ -173,7 +183,7 @@ export default function ViewBOQTemplate() {
     }
     acc[item.category].push(item);
     return acc;
-  }, {} as Record<string, typeof templateData.items>);
+  }, {} as Record<string, TemplateItem[]>);
 
   return (
     <div className="w-full h-full flex flex-col bg-gray-50">
@@ -216,10 +226,11 @@ export default function ViewBOQTemplate() {
             </button>
             <button
               onClick={handleDelete}
-              className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center gap-2"
+              disabled={deleting}
+              className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center gap-2 disabled:opacity-60"
             >
               <Trash2 className="w-4 h-4" />
-              Delete
+              {deleting ? 'Deleting...' : 'Delete'}
             </button>
           </div>
         </div>
@@ -266,7 +277,7 @@ export default function ViewBOQTemplate() {
                   <User className="w-4 h-4" />
                   Created By
                 </p>
-                <p className="text-base font-medium text-gray-900">{templateData.createdBy}</p>
+                <p className="text-base font-medium text-gray-900">{templateData.createdBy || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 mb-1 flex items-center gap-2">
@@ -274,11 +285,7 @@ export default function ViewBOQTemplate() {
                   Created At
                 </p>
                 <p className="text-base font-medium text-gray-900">
-                  {new Date(templateData.createdAt).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  {formatDate(templateData.createdAt)}
                 </p>
               </div>
               <div>
@@ -287,11 +294,7 @@ export default function ViewBOQTemplate() {
                   Last Modified
                 </p>
                 <p className="text-base font-medium text-gray-900">
-                  {new Date(templateData.lastModified).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  {formatDate(templateData.lastModified)}
                 </p>
               </div>
             </div>
@@ -300,6 +303,12 @@ export default function ViewBOQTemplate() {
           {/* BOQ Items by Category */}
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">BOQ Items</h2>
+
+            {templateData.items.length === 0 && (
+              <p className="text-sm text-gray-500 py-6 text-center">
+                No items defined for this template.
+              </p>
+            )}
 
             {Object.entries(itemsByCategory).map(([category, items]) => (
               <div key={category} className="mb-8 last:mb-0">

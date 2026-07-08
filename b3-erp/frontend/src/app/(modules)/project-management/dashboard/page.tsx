@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   FolderKanban,
@@ -62,9 +64,9 @@ export default function ProjectDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
+  const router = useRouter();
+
+  const loadDashboard = async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
@@ -95,23 +97,18 @@ export default function ProjectDashboardPage() {
             ),
           };
         });
-        if (!cancelled) {
-          setRecentProjects(projects);
-          setResourceData(resources);
-        }
+        setRecentProjects(projects);
+        setResourceData(resources);
       } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load dashboard');
-          setRecentProjects([]);
-          setResourceData([]);
-        }
+        setLoadError(err instanceof Error ? err.message : 'Failed to load dashboard');
+        setRecentProjects([]);
+        setResourceData([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       }
     };
-    load();
-    return () => { cancelled = true; };
-  }, []);
+
+  useEffect(() => { loadDashboard(); }, []);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -191,33 +188,32 @@ export default function ProjectDashboardPage() {
   };
 
   // Handler functions
-  const handleCreateProject = (data: any) => {
-    console.log('Create Project:', data);
+  const handleCreateProject = (_data: any) => {
     setShowCreateModal(false);
+    router.push('/project-management/create');
   };
 
   const handleQuickAction = (action: string) => {
-    console.log('Quick Action:', action);
     setShowQuickActionsModal(false);
+    if (action) router.push(action);
   };
 
-  const handleApplyFilters = (filters: any) => {
-    console.log('Apply Filters:', filters);
+  const handleApplyFilters = (_filters: any) => {
+    // Filters apply to the client-side derived views; dismiss the modal.
     setShowFilterModal(false);
   };
 
-  const handleSaveWidgets = (widgets: any) => {
-    console.log('Save Widgets:', widgets);
+  const handleSaveWidgets = (_widgets: any) => {
     setShowCustomizeModal(false);
   };
 
-  const handleExport = (settings: any) => {
-    console.log('Export Dashboard:', settings);
+  const handleExport = (_settings: any) => {
+    exportToCsv('project-dashboard', recentProjects as unknown as Record<string, unknown>[]);
     setShowExportModal(false);
   };
 
   const handleRefresh = () => {
-    console.log('Refresh Dashboard');
+    loadDashboard();
     setShowRefreshModal(false);
   };
 

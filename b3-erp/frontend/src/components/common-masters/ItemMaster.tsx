@@ -9,6 +9,7 @@ import {
   Grid, List, Package2, Layers, Boxes, Calendar
 } from 'lucide-react';
 import { CoreService } from '@/services/core.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 
 interface Item {
@@ -94,146 +95,86 @@ const ItemMaster: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Mock data
-  const mockItems: Item[] = [
-    {
-      id: 'ITEM001',
-      itemCode: 'WOOD-OAK-001',
-      itemName: 'Oak Wood Panel - Premium Grade',
-      shortName: 'Oak Panel Premium',
-      description: 'High-quality oak wood panel suitable for kitchen cabinet doors and frames',
-      category: 'Raw Materials',
-      subCategory: 'Wood Panels',
-      brand: 'Premium Woods Inc',
-      type: 'raw_material',
-      status: 'active',
-      hsn_sac_code: '4412.31',
-      barcode: '1234567890123',
-      internalCode: 'OAK-P-001',
-      manufacturer: 'Premium Woods Inc',
-      model: 'OAK-PREMIUM-18MM',
-      primaryUOM: 'SQM',
-      secondaryUOM: 'PCS',
-      conversionFactor: 2.88,
-      weight: 12.5,
-      weightUOM: 'KG',
-      dimensions: {
-        length: 2440,
-        width: 1220,
-        height: 18,
-        unit: 'MM'
-      },
-      inventoryManaged: true,
-      serialized: false,
-      batchTracked: true,
-      expiryTracked: false,
-      minStock: 50,
-      maxStock: 500,
-      reorderLevel: 100,
-      safetyStock: 25,
-      standardCost: 85.50,
-      averageCost: 82.30,
-      lastPurchasePrice: 80.00,
-      standardSellingPrice: 120.00,
-      qualityInspectionRequired: true,
-      specifications: '18mm thick, Grade A oak veneer, moisture content <12%',
-      grade: 'Grade A',
-      tolerance: '±0.5mm',
-      materialType: 'wood',
-      finish: 'Natural',
-      color: 'Natural Oak',
-      size: '2440x1220x18mm',
-      createdBy: 'admin',
-      createdAt: '2024-01-15T10:00:00Z',
-      images: ['/images/oak-panel-001.jpg']
-    },
-    {
-      id: 'ITEM002',
-      itemCode: 'HARD-HNG-001',
-      itemName: 'Soft Close Cabinet Hinge',
-      shortName: 'Soft Close Hinge',
-      description: 'European style soft close cabinet hinge with 35mm bore',
-      category: 'Hardware',
-      subCategory: 'Hinges',
-      brand: 'Blum',
-      type: 'raw_material',
-      status: 'active',
-      hsn_sac_code: '8302.41',
-      barcode: '9876543210987',
-      internalCode: 'HNG-SC-001',
-      manufacturer: 'Blum GmbH',
-      model: 'BLUMOTION-35',
-      primaryUOM: 'PCS',
-      weight: 0.15,
-      weightUOM: 'KG',
-      dimensions: {
-        length: 95,
-        width: 35,
-        height: 12,
-        unit: 'MM'
-      },
-      inventoryManaged: true,
-      serialized: true,
-      batchTracked: false,
-      expiryTracked: false,
-      minStock: 100,
-      maxStock: 1000,
-      reorderLevel: 200,
-      safetyStock: 50,
-      standardCost: 12.50,
-      averageCost: 11.80,
-      lastPurchasePrice: 11.25,
-      standardSellingPrice: 18.00,
-      qualityInspectionRequired: true,
-      specifications: '35mm bore, 110° opening angle, soft close mechanism',
-      grade: 'Premium',
-      materialType: 'metal',
-      finish: 'Nickel Plated',
-      color: 'Silver',
-      createdBy: 'admin',
-      createdAt: '2024-02-10T10:00:00Z'
-    },
-    {
-      id: 'ITEM003',
-      itemCode: 'FG-KIT-001',
-      itemName: 'Premium Kitchen Cabinet Set',
-      shortName: 'Premium Cabinet Set',
-      description: 'Complete kitchen cabinet set with soft close doors and drawers',
-      category: 'Finished Goods',
-      subCategory: 'Kitchen Sets',
-      brand: 'ManufacturingOS',
-      type: 'finished_good',
-      status: 'active',
-      hsn_sac_code: '9403.40',
-      internalCode: 'KIT-PREM-001',
-      primaryUOM: 'SET',
-      weight: 250,
-      weightUOM: 'KG',
-      inventoryManaged: true,
-      serialized: true,
-      batchTracked: false,
-      expiryTracked: false,
-      minStock: 5,
-      maxStock: 25,
-      reorderLevel: 10,
-      safetyStock: 3,
-      standardCost: 2500.00,
-      standardSellingPrice: 4500.00,
-      qualityInspectionRequired: true,
-      specifications: 'Modular design, soft close, premium finish',
-      grade: 'Premium',
-      materialType: 'wood',
-      finish: 'High Gloss',
-      color: 'White',
-      createdBy: 'admin',
-      createdAt: '2024-03-05T10:00:00Z'
-    }
-  ];
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [uomOptions, setUomOptions] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [categoryOptions, setCategoryOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const companyId = 'default-company-id';
 
   useEffect(() => {
     loadItems();
   }, [searchTerm, filterCategory, filterType, filterStatus]);
+
+  useEffect(() => {
+    // Load reference data used to resolve UOM/category ids when saving items.
+    (async () => {
+      try {
+        const [uoms, cats] = await Promise.all([
+          commonMastersService.getAllUoms(companyId),
+          commonMastersService.getAllItemCategories(companyId),
+        ]);
+        setUomOptions((uoms ?? []).map((u: any) => ({ id: String(u.id), code: u.code ?? '', name: u.name ?? '' })));
+        setCategoryOptions((cats ?? []).map((c: any) => ({ id: String(c.id), name: c.name ?? '' })));
+      } catch (err) {
+        console.error('Failed to load item reference data:', err);
+      }
+    })();
+  }, []);
+
+  const handleDeleteItem = async (item: Item) => {
+    if (!confirm(`Are you sure you want to delete ${item.itemName}?`)) return;
+    try {
+      await commonMastersService.deleteItem(item.id);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      alert('Failed to delete item.');
+    }
+  };
+
+  const handleSaveItem = async (formData: Partial<Item>): Promise<boolean> => {
+    setSaveError(null);
+    // Resolve the required uomId from the selected primary UOM code.
+    const uomId = uomOptions.find(u => u.code === formData.primaryUOM)?.id;
+    if (!uomId) {
+      setSaveError('Please select a valid Primary UOM that exists in the UOM master.');
+      return false;
+    }
+    const categoryId = categoryOptions.find(c => c.name === formData.category)?.id;
+    const itemTypeMap: Record<string, string> = {
+      raw_material: 'RAW_MATERIAL',
+      finished_good: 'FINISHED_GOOD',
+      semi_finished: 'SEMI_FINISHED',
+      service: 'SERVICE',
+      asset: 'ASSET',
+    };
+    const payload: any = {
+      code: formData.itemCode,
+      name: formData.itemName,
+      itemType: itemTypeMap[formData.type ?? 'raw_material'] ?? 'RAW_MATERIAL',
+      uomId,
+      companyId,
+      categoryId: categoryId || undefined,
+      description: formData.description || undefined,
+    };
+    try {
+      setIsSaving(true);
+      if (modalMode === 'edit' && selectedItem) {
+        await commonMastersService.updateItem(selectedItem.id, payload);
+      } else {
+        await commonMastersService.createItem(payload);
+      }
+      setIsModalOpen(false);
+      await loadItems();
+      return true;
+    } catch (error) {
+      console.error('Failed to save item:', error);
+      setSaveError('Failed to save item. Please try again.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const loadItems = async () => {
     try {
@@ -353,10 +294,9 @@ const ItemMaster: React.FC = () => {
       }
     );
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      console.log('Submitting:', formData);
-      setIsModalOpen(false);
+      await handleSaveItem(formData);
     };
 
     const isViewMode = modalMode === 'view';
@@ -523,12 +463,20 @@ const ItemMaster: React.FC = () => {
                     required
                   >
                     <option value="">Select UOM</option>
-                    <option value="PCS">Pieces</option>
-                    <option value="KG">Kilograms</option>
-                    <option value="M">Meters</option>
-                    <option value="SQM">Square Meters</option>
-                    <option value="SET">Set</option>
-                    <option value="LTR">Liters</option>
+                    {uomOptions.length > 0 ? (
+                      uomOptions.map(u => (
+                        <option key={u.id} value={u.code}>{u.name} ({u.code})</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="PCS">Pieces</option>
+                        <option value="KG">Kilograms</option>
+                        <option value="M">Meters</option>
+                        <option value="SQM">Square Meters</option>
+                        <option value="SET">Set</option>
+                        <option value="LTR">Liters</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -623,6 +571,14 @@ const ItemMaster: React.FC = () => {
               </div>
             </div>
 
+            {/* Save error */}
+            {!isViewMode && saveError && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                {saveError}
+              </div>
+            )}
+
             {/* Modal Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t">
               <button
@@ -635,10 +591,11 @@ const ItemMaster: React.FC = () => {
               {!isViewMode && (
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
-                  {modalMode === 'create' ? 'Create Item' : 'Update Item'}
+                  {isSaving ? 'Saving…' : modalMode === 'create' ? 'Create Item' : 'Update Item'}
                 </button>
               )}
             </div>
@@ -800,7 +757,11 @@ const ItemMaster: React.FC = () => {
                     >
                       <Edit3 className="h-4 w-4" />
                     </button>
-                    <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded" title="Delete Item">
+                    <button
+                      onClick={() => handleDeleteItem(item)}
+                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                      title="Delete Item"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -864,7 +825,11 @@ const ItemMaster: React.FC = () => {
                         >
                           <Edit3 className="h-4 w-4" />
                         </button>
-                        <button className="p-1 text-gray-600 hover:text-red-600" title="Delete">
+                        <button
+                          onClick={() => handleDeleteItem(item)}
+                          className="p-1 text-gray-600 hover:text-red-600"
+                          title="Delete"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>

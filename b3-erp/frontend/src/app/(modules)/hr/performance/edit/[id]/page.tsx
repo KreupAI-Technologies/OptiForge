@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PerformanceManagementService } from '@/services/performance-management.service';
+import { toast } from '@/hooks/use-toast';
 import {
   ArrowLeft,
   Save,
@@ -274,7 +275,10 @@ export default function EditPerformancePage({ params }: { params: { id: string }
     e.preventDefault();
 
     if (!validateForm()) {
-      alert('Please fix all errors before submitting');
+      toast({
+        title: 'Please fix all errors before submitting',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -290,11 +294,14 @@ export default function EditPerformancePage({ params }: { params: { id: string }
     setSaving(true);
     try {
       await PerformanceManagementService.updateHrPerformanceReview(params.id, reviewData);
-      alert('Performance review updated successfully!');
+      toast({ title: 'Performance review updated successfully!' });
       router.push(`/hr/performance/view/${params.id}`);
     } catch (err) {
-      console.error('Failed to update performance review', err);
-      alert('Failed to update performance review. Please try again.');
+      toast({
+        title: 'Failed to update performance review',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }

@@ -579,6 +579,15 @@ const GeneralLedger: React.FC = () => {
         </button>
       </div>
 
+      {isLoading && (
+        <p className="text-center text-gray-500 py-4">Loading chart of accounts...</p>
+      )}
+      {loadError && !isLoading && (
+        <p className="text-center text-red-600 py-4">{loadError}</p>
+      )}
+      {!isLoading && !loadError && chartOfAccounts.length === 0 && (
+        <p className="text-center text-gray-500 py-4">No accounts found.</p>
+      )}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">

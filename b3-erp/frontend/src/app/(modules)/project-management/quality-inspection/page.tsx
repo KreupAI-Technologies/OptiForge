@@ -85,11 +85,15 @@ export default function QualityInspectionPage() {
  const [showNextInspectionModal, setShowNextInspectionModal] = useState(false);
 
  const [mockInspections, setMockInspections] = useState<QualityInspection[]>([]);
+ const [savingInspection, setSavingInspection] = useState(false);
+
+ const reloadInspections = async () => {
+  const rows = await projectManagementService.listQualityInspections();
+  setMockInspections(Array.isArray(rows) ? (rows as unknown as QualityInspection[]) : []);
+ };
 
  useEffect(() => {
-  projectManagementService.listQualityInspections()
-   .then((rows) => { setMockInspections(Array.isArray(rows) ? (rows as unknown as QualityInspection[]) : []); })
-   .catch(() => { setMockInspections([]); });
+  reloadInspections().catch(() => setMockInspections([]));
  }, []);
 
  const stats = {
@@ -159,19 +163,42 @@ export default function QualityInspectionPage() {
   }
  };
 
+ // Persist a create/update against the quality-inspection backend, then refresh.
+ const saveInspection = async (data: any, close: () => void, mode: 'create' | 'update') => {
+  setSavingInspection(true);
+  try {
+   if (mode === 'create') {
+    const created = await projectManagementService.createQualityInspection(data);
+    if (!created) throw new Error('Create failed');
+   } else {
+    if (!selectedInspection) { close(); return; }
+    const updated = await projectManagementService.updateQualityInspection(String((selectedInspection as any).id), data);
+    if (!updated) throw new Error('Update failed');
+   }
+   await reloadInspections();
+   close();
+   setSelectedInspection(null);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to save inspection');
+  } finally {
+   setSavingInspection(false);
+  }
+ };
+
  // Handler functions for all modals
- const handleSchedule = (data: any) => { console.log('Schedule:', data); setShowScheduleModal(false); };
- const handleEdit = (data: any) => { console.log('Edit:', data); setShowEditModal(false); setSelectedInspection(null); };
- const handleUpdateChecklist = (data: any) => { console.log('Update Checklist:', data); setShowChecklistModal(false); setSelectedInspection(null); };
- const handleAddDefect = (data: any) => { console.log('Add Defect:', data); setShowDefectModal(false); setSelectedInspection(null); };
- const handleUploadPhotos = (data: any) => { console.log('Upload Photos:', data); setShowPhotosModal(false); setSelectedInspection(null); };
- const handleSignOff = (data: any) => { console.log('Sign Off:', data); setShowSignOffModal(false); setSelectedInspection(null); };
- const handleUpdateStatus = (data: any) => { console.log('Update Status:', data); setShowStatusModal(false); setSelectedInspection(null); };
- const handleAssignInspector = (data: any) => { console.log('Assign:', data); setShowAssignModal(false); setSelectedInspection(null); };
- const handleAddItem = (data: any) => { console.log('Add Item:', data); setShowAddItemModal(false); setSelectedInspection(null); };
- const handleGenerateReport = (data: any) => { console.log('Report:', data); setShowReportModal(false); setSelectedInspection(null); };
- const handleExport = (data: any) => { exportToCsv('quality-inspections', filteredInspections as unknown as Record<string, unknown>[]); setShowExportModal(false); };
- const handleScheduleReInspection = (data: any) => { console.log('Re-Inspection:', data); setShowReInspectionModal(false); setSelectedInspection(null); };
+ const handleSchedule = (data: any) => saveInspection(data, () => setShowScheduleModal(false), 'create');
+ const handleEdit = (data: any) => saveInspection(data, () => setShowEditModal(false), 'update');
+ const handleUpdateChecklist = (data: any) => saveInspection({ checklist: data?.checklist ?? data }, () => setShowChecklistModal(false), 'update');
+ const handleAddDefect = (data: any) => saveInspection(data, () => setShowDefectModal(false), 'update');
+ const handleSignOff = (data: any) => saveInspection({ ...data, overallStatus: data?.overallStatus ?? 'Passed' }, () => setShowSignOffModal(false), 'update');
+ const handleUpdateStatus = (data: any) => saveInspection(data, () => setShowStatusModal(false), 'update');
+ const handleAssignInspector = (data: any) => saveInspection(data, () => setShowAssignModal(false), 'update');
+ const handleAddItem = (data: any) => saveInspection(data, () => setShowAddItemModal(false), 'update');
+ const handleScheduleReInspection = (data: any) => saveInspection(data, () => setShowReInspectionModal(false), 'create');
+ // NEEDS BACKEND: no photo-upload or PDF report endpoint yet — these remain client-only.
+ const handleUploadPhotos = (_data: any) => { setShowPhotosModal(false); setSelectedInspection(null); };
+ const handleGenerateReport = (_data: any) => { setShowReportModal(false); setSelectedInspection(null); };
+ const handleExport = (_data: any) => { exportToCsv('quality-inspections', filteredInspections as unknown as Record<string, unknown>[]); setShowExportModal(false); };
  const handleAddCorrective = (data: any) => { console.log('Corrective:', data); setShowCorrectiveModal(false); setSelectedInspection(null); };
  const handleScheduleNext = (data: any) => { console.log('Next:', data); setShowNextInspectionModal(false); setSelectedInspection(null); };
 

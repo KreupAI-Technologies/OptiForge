@@ -56,120 +56,37 @@ export default function FNFLeavePage() {
   const [mockEncashments, setMockEncashments] = useState<FNFLeaveEncashment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadEncashments = async () => {
+    try {
+      setLoading(true);
+      const records = await OffboardingTasksService.list('fnf-leave');
+      const mapped = records.map((r: OffboardingTaskRecord) => ({
+        id: r.id,
+        employeeCode: r.employeeCode || '',
+        employeeName: r.employeeName || '',
+        designation: r.designation || '',
+        department: r.department || '',
+        status: (r.status as any) || 'pending',
+        ...(r.data || {}),
+      })) as unknown as FNFLeaveEncashment[];
+      setMockEncashments(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const records = await OffboardingTasksService.list('fnf-leave');
-        if (!active) return;
-        const mapped = records.map((r: OffboardingTaskRecord) => ({
-          id: r.id,
-          employeeCode: r.employeeCode || '',
-          employeeName: r.employeeName || '',
-          designation: r.designation || '',
-          department: r.department || '',
-          status: (r.status as any) || 'pending',
-          ...(r.data || {}),
-        })) as unknown as FNFLeaveEncashment[];
-        setMockEncashments(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    loadEncashments();
   }, []);
-
-  const _unusedMockEncashments: FNFLeaveEncashment[] = [
-    {
-      id: 'FNF-LV-001', employeeId: 'EMP001', employeeName: 'Rahul Sharma', designation: 'Senior Software Engineer', department: 'Engineering',
-      lastWorkingDay: '2025-12-14', joiningDate: '2020-01-15',
-      leaveBalance: { earnedLeave: 15, casualLeave: 3, sickLeave: 2, privilegeLeave: 8 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true, maxEncashableDays: 30 },
-      encashableDays: 23, dailyRate: 3461, encashmentAmount: 79603,
-      status: 'calculated', calculatedBy: 'Priya Singh - HR Manager', calculatedOn: '2025-12-10'
-    },
-    {
-      id: 'FNF-LV-002', employeeId: 'EMP002', employeeName: 'Priya Singh', designation: 'Marketing Manager', department: 'Marketing',
-      lastWorkingDay: '2025-11-30', joiningDate: '2016-06-10',
-      leaveBalance: { earnedLeave: 20, casualLeave: 5, sickLeave: 4, privilegeLeave: 12 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true, maxEncashableDays: 30 },
-      encashableDays: 30, dailyRate: 4230, encashmentAmount: 126900,
-      status: 'approved', calculatedBy: 'Amit Kumar - Finance Head', calculatedOn: '2025-11-25', approvedBy: 'Rajesh Patel - CFO'
-    },
-    {
-      id: 'FNF-LV-003', employeeId: 'EMP003', employeeName: 'Amit Kumar', designation: 'Product Manager', department: 'Product',
-      lastWorkingDay: '2025-10-31', joiningDate: '2010-03-20',
-      leaveBalance: { earnedLeave: 25, casualLeave: 2, sickLeave: 1, privilegeLeave: 15 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true, maxEncashableDays: 30 },
-      encashableDays: 30, dailyRate: 5000, encashmentAmount: 150000,
-      status: 'processed', calculatedBy: 'Priya Singh - HR Manager', calculatedOn: '2025-10-25', approvedBy: 'Rajesh Patel - CFO'
-    },
-    {
-      id: 'FNF-LV-004', employeeId: 'EMP004', employeeName: 'Neha Gupta', designation: 'Junior Developer', department: 'Engineering',
-      lastWorkingDay: '2025-12-31', joiningDate: '2022-05-15',
-      leaveBalance: { earnedLeave: 10, casualLeave: 0, sickLeave: 0, privilegeLeave: 5 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true, maxEncashableDays: 30 },
-      encashableDays: 15, dailyRate: 2000, encashmentAmount: 30000,
-      status: 'pending'
-    },
-    {
-      id: 'FNF-LV-005', employeeId: 'EMP005', employeeName: 'Vikram Malhotra', designation: 'VP of Sales', department: 'Sales',
-      lastWorkingDay: '2025-09-30', joiningDate: '2015-01-01',
-      leaveBalance: { earnedLeave: 40, casualLeave: 5, sickLeave: 5, privilegeLeave: 20 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true, maxEncashableDays: 45 },
-      encashableDays: 45, dailyRate: 6000, encashmentAmount: 270000,
-      status: 'calculated', calculatedBy: 'Priya Singh', calculatedOn: '2025-09-25'
-    },
-    {
-      id: 'FNF-LV-006', employeeId: 'EMP006', employeeName: 'Anjali Desai', designation: 'HR Executive', department: 'Human Resources',
-      lastWorkingDay: '2025-10-15', joiningDate: '2021-02-10',
-      leaveBalance: { earnedLeave: 5, casualLeave: 1, sickLeave: 0, privilegeLeave: 0 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: false },
-      encashableDays: 5, dailyRate: 1500, encashmentAmount: 7500,
-      status: 'approved', calculatedBy: 'Priya Singh', calculatedOn: '2025-10-12', approvedBy: 'Rajesh Patel'
-    },
-    {
-      id: 'FNF-LV-007', employeeId: 'EMP007', employeeName: 'Rohan Mehra', designation: 'Content Strategist', department: 'Marketing',
-      lastWorkingDay: '2025-11-15', joiningDate: '2018-06-01',
-      leaveBalance: { earnedLeave: 12, casualLeave: 2, sickLeave: 2, privilegeLeave: 6 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true, maxEncashableDays: 30 },
-      encashableDays: 18, dailyRate: 2500, encashmentAmount: 45000,
-      status: 'pending'
-    },
-    {
-      id: 'FNF-LV-008', employeeId: 'EMP008', employeeName: 'Suresh Raina', designation: 'Operations Manager', department: 'Operations',
-      lastWorkingDay: '2025-08-31', joiningDate: '2005-04-01',
-      leaveBalance: { earnedLeave: 35, casualLeave: 5, sickLeave: 10, privilegeLeave: 15 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: true, sickLeaveEncashable: false, privilegeLeaveEncashable: true, maxEncashableDays: 60 },
-      encashableDays: 55, dailyRate: 4000, encashmentAmount: 220000,
-      status: 'processed', calculatedBy: 'Amit Kumar', calculatedOn: '2025-08-28', approvedBy: 'Rajesh Patel'
-    },
-    {
-      id: 'FNF-LV-009', employeeId: 'EMP009', employeeName: 'Kavita Krishnan', designation: 'Lead Designer', department: 'Design',
-      lastWorkingDay: '2025-12-05', joiningDate: '2019-11-11',
-      leaveBalance: { earnedLeave: 18, casualLeave: 4, sickLeave: 1, privilegeLeave: 4 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true },
-      encashableDays: 22, dailyRate: 3000, encashmentAmount: 66000,
-      status: 'approved', calculatedBy: 'Priya Singh', calculatedOn: '2025-12-02', approvedBy: 'Rajesh Patel'
-    },
-    {
-      id: 'FNF-LV-010', employeeId: 'EMP010', employeeName: 'Deepak Verma', designation: 'System Admin', department: 'IT',
-      lastWorkingDay: '2025-11-20', joiningDate: '2023-01-15',
-      leaveBalance: { earnedLeave: 0, casualLeave: 0, sickLeave: 0, privilegeLeave: 0 },
-      leavePolicy: { earnedLeaveEncashable: true, casualLeaveEncashable: false, sickLeaveEncashable: false, privilegeLeaveEncashable: true },
-      encashableDays: 0, dailyRate: 1800, encashmentAmount: 0,
-      status: 'calculated', calculatedBy: 'Priya Singh', calculatedOn: '2025-11-18'
-    }
-  ];
 
   const filteredEncashments = useMemo(() => {
     return mockEncashments.filter(encashment => encashment.status === selectedTab);
-  }, [selectedTab]);
+  }, [selectedTab, mockEncashments]);
 
   const stats = {
     pending: mockEncashments.filter(e => e.status === 'pending').length,
@@ -231,31 +148,81 @@ export default function FNFLeavePage() {
     setShowViewModal(true);
   };
 
-  const handleMarkProcessed = (encashment: FNFLeaveEncashment) => {
-    toast({
-      title: "Marked as Processed",
-      description: `Leave encashment for ${encashment.employeeName} has been marked as processed and added to FNF settlement.`
-    });
+  const handleMarkProcessed = async (encashment: FNFLeaveEncashment) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(encashment.id, {
+        status: 'processed',
+        data: { ...(encashment as any), processedOn: new Date().toISOString().split('T')[0] },
+      });
+      toast({
+        title: 'Marked as Processed',
+        description: `Leave encashment for ${encashment.employeeName} has been marked as processed and added to FNF settlement.`,
+      });
+      await loadEncashments();
+    } catch {
+      toast({ title: 'Failed to mark as processed', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitCalculation = (e: React.FormEvent) => {
+  const handleSubmitCalculation = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEncashment || submitting) return;
+    setSubmitting(true);
     const totalDays = calculateFormData.encashableEL + calculateFormData.encashablePL;
     const amount = totalDays * calculateFormData.dailyRate;
-    toast({
-      title: "Encashment Calculated",
-      description: `Leave encashment of ${formatCurrency(amount)} (${totalDays} days) calculated for ${selectedEncashment?.employeeName}.`
-    });
-    setShowCalculateModal(false);
+    try {
+      await OffboardingTasksService.update(selectedEncashment.id, {
+        status: 'calculated',
+        data: {
+          ...(selectedEncashment as any),
+          encashableDays: totalDays,
+          dailyRate: calculateFormData.dailyRate,
+          encashmentAmount: amount,
+          calculatedOn: new Date().toISOString().split('T')[0],
+          remarks: calculateFormData.remarks,
+        },
+      });
+      toast({
+        title: 'Encashment Calculated',
+        description: `Leave encashment of ${formatCurrency(amount)} (${totalDays} days) calculated for ${selectedEncashment.employeeName}.`,
+      });
+      setShowCalculateModal(false);
+      await loadEncashments();
+    } catch {
+      toast({ title: 'Failed to calculate encashment', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitApproval = (e: React.FormEvent) => {
+  const handleSubmitApproval = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Encashment Approved",
-      description: `Leave encashment for ${selectedEncashment?.employeeName} has been approved and will be added to FNF settlement.`
-    });
-    setShowApproveModal(false);
+    if (!selectedEncashment || submitting) return;
+    setSubmitting(true);
+    try {
+      await OffboardingTasksService.update(selectedEncashment.id, {
+        status: 'approved',
+        data: {
+          ...(selectedEncashment as any),
+          approvedOn: new Date().toISOString().split('T')[0],
+          remarks: approveFormData.remarks,
+        },
+      });
+      toast({
+        title: 'Encashment Approved',
+        description: `Leave encashment for ${selectedEncashment.employeeName} has been approved and will be added to FNF settlement.`,
+      });
+      setShowApproveModal(false);
+      await loadEncashments();
+    } catch {
+      toast({ title: 'Failed to approve encashment', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -264,6 +231,13 @@ export default function FNFLeavePage() {
         <h1 className="text-2xl font-bold text-gray-900">FNF - Leave Encashment</h1>
         <p className="text-sm text-gray-600 mt-1">Calculate and process leave encashment for exiting employees</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading encashments…</div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-3 border border-yellow-200">
@@ -525,7 +499,8 @@ export default function FNFLeavePage() {
                   <>
                     <button
                       onClick={() => handleMarkProcessed(encashment)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                      disabled={submitting}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50"
                     >
                       <CheckCircle className="inline h-4 w-4 mr-2" />
                       Mark as Processed
@@ -788,9 +763,10 @@ export default function FNFLeavePage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50"
                   >
-                    Calculate & Save
+                    {submitting ? 'Saving…' : 'Calculate & Save'}
                   </button>
                   <button
                     type="button"
@@ -929,7 +905,8 @@ export default function FNFLeavePage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50"
                   >
                     Approve Encashment
                   </button>

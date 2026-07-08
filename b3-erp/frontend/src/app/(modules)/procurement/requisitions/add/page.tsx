@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MasterDataService, mdLabel, MDEmployee, MDWarehouse } from '@/services/master-data.service'
+import { purchaseRequisitionService, CreatePurchaseRequisitionDto, PRPriority } from '@/services/purchase-requisition.service'
 import {
   ArrowLeft,
   ArrowRight,
@@ -175,6 +176,7 @@ export default function AddRequisitionPage() {
   const [searchingItems, setSearchingItems] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [isLoadingMasterData, setIsLoadingMasterData] = useState(false)
 
   // Live master-data state — seeds are the fallback until API responds
@@ -346,18 +348,47 @@ export default function AddRequisitionPage() {
     })
   }
 
+  const priorityToDto: Record<RequisitionForm['priority'], PRPriority> = {
+    low: 'Low', medium: 'Medium', high: 'High', urgent: 'Urgent',
+  }
+
+  const buildRequisitionDto = (): CreatePurchaseRequisitionDto => ({
+    title: form.purpose || form.prNumber,
+    description: form.notes,
+    department: form.department,
+    priority: priorityToDto[form.priority],
+    requiredDate: form.deliveryDate,
+    currency: form.currencyCode,
+    justification: form.justification,
+    projectId: form.projectCode || undefined,
+    budgetCode: form.budgetCode || undefined,
+    items: form.items.map(i => ({
+      itemId: i.itemCode,
+      quantity: i.quantity,
+      estimatedUnitPrice: i.estimatedPrice,
+      requiredDate: form.deliveryDate,
+      suggestedVendorId: i.vendor || undefined,
+      notes: i.notes,
+    })),
+  })
+
   const handleSubmit = async (isDraft: boolean = false) => {
     if (!isDraft && !validateStep(5)) {
       return
     }
 
     setIsSaving(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Submitting requisition:', { ...form, status: isDraft ? 'draft' : 'pending_approval' })
+    setSubmitError(null)
+    try {
+      const created = await purchaseRequisitionService.createRequisition(buildRequisitionDto())
+      if (!isDraft) {
+        await purchaseRequisitionService.submitRequisition((created as any).id)
+      }
       router.push('/procurement/requisitions')
-    }, 1500)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save requisition. Please try again.')
+      setIsSaving(false)
+    }
   }
 
   const renderStepContent = () => {
@@ -1327,6 +1358,13 @@ export default function AddRequisitionPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-8">
           {renderStepContent()}
         </div>
+
+        {submitError && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {submitError}
+          </div>
+        )}
 
         {/* Navigation */}
         <div className="mt-6 flex items-center justify-between">

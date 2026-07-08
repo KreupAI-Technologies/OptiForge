@@ -104,6 +104,8 @@ const FinancialPeriodManagement = () => {
 
   // Financial periods loaded from the API
   const [financialPeriods, setFinancialPeriods] = useState<FinancialPeriod[]>([]);
+  const [periodsLoading, setPeriodsLoading] = useState(true);
+  const [periodsError, setPeriodsError] = useState<string | null>(null);
 
   const mapPeriodStatus = (s: any): FinancialPeriod['status'] => {
     const v = String(s || '').toLowerCase().replace(/[_\s]/g, '-');
@@ -125,6 +127,8 @@ const FinancialPeriodManagement = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setPeriodsLoading(true);
+      setPeriodsError(null);
       try {
         const raw = await FinanceService.getFinancialPeriods();
         if (cancelled) return;
@@ -147,8 +151,13 @@ const FinancialPeriodManagement = () => {
           };
         });
         setFinancialPeriods(mapped);
-      } catch {
-        if (!cancelled) setFinancialPeriods([]);
+      } catch (err) {
+        if (!cancelled) {
+          setPeriodsError(err instanceof Error ? err.message : 'Failed to load financial periods');
+          setFinancialPeriods([]);
+        }
+      } finally {
+        if (!cancelled) setPeriodsLoading(false);
       }
     })();
     return () => {
@@ -269,6 +278,15 @@ const FinancialPeriodManagement = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="bg-white rounded-lg shadow p-3">
           <h3 className="text-lg font-semibold mb-2">Period Status Timeline</h3>
+          {periodsLoading && (
+            <p className="text-center text-gray-500 py-4">Loading financial periods...</p>
+          )}
+          {periodsError && !periodsLoading && (
+            <p className="text-center text-red-600 py-4">{periodsError}</p>
+          )}
+          {!periodsLoading && !periodsError && financialPeriods.length === 0 && (
+            <p className="text-center text-gray-500 py-4">No financial periods found.</p>
+          )}
           <div className="space-y-3">
             {financialPeriods.slice(0, 6).map((period, index) => (
               <div key={period.id} className="flex items-center">

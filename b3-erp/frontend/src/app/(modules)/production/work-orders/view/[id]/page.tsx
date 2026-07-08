@@ -265,6 +265,9 @@ export default function ViewWorkOrderPage() {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'materials' | 'progress' | 'quality'>('overview');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -359,23 +362,61 @@ export default function ViewWorkOrderPage() {
     router.push(`/production/work-orders/progress`);
   };
 
-  const handleMoreAction = (action: string) => {
+  const handleMoreAction = async (action: string) => {
     setShowMoreMenu(false);
+    setActionError(null);
+    setActionNotice(null);
     switch (action) {
       case 'print':
-        alert('Printing work order...');
-        break;
       case 'download':
-        alert('Downloading work order PDF...');
+        // Client-side print / save-as-PDF (no export endpoint available)
+        window.print();
         break;
       case 'share':
-        alert('Share work order via email or link...');
+        try {
+          const url = typeof window !== 'undefined' ? window.location.href : '';
+          if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url);
+            setActionNotice('Work order link copied to clipboard.');
+          } else {
+            setActionNotice(url);
+          }
+        } catch (e) {
+          setActionError(e instanceof Error ? e.message : 'Failed to copy link');
+        }
         break;
       case 'duplicate':
-        alert('Creating duplicate work order...');
+        setActionBusy('duplicate');
+        try {
+          const { id, woNumber, ...rest } = workOrder;
+          const created = await ProductionOrphanService.createWorkOrder({
+            ...rest,
+            status: 'draft',
+          });
+          const newId = created?.id ?? created?.data?.id;
+          if (newId) {
+            router.push(`/production/work-orders/view/${newId}`);
+          } else {
+            router.push('/production/work-orders');
+          }
+        } catch (e) {
+          setActionError(e instanceof Error ? e.message : 'Failed to duplicate work order');
+        } finally {
+          setActionBusy(null);
+        }
         break;
       case 'archive':
-        alert('Archiving work order...');
+        if (!confirm(`Archive work order ${workOrder.woNumber}? This will close the work order.`)) break;
+        setActionBusy('archive');
+        try {
+          await ProductionOrphanService.closeWorkOrder(workOrderId);
+          setWorkOrder((prev) => ({ ...prev, status: 'closed' }));
+          setActionNotice('Work order archived (closed).');
+        } catch (e) {
+          setActionError(e instanceof Error ? e.message : 'Failed to archive work order');
+        } finally {
+          setActionBusy(null);
+        }
         break;
       default:
         break;
@@ -392,6 +433,21 @@ export default function ViewWorkOrderPage() {
       {error && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+      {actionNotice && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+          {actionNotice}
+        </div>
+      )}
+      {actionBusy && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          {actionBusy === 'duplicate' ? 'Duplicating work order…' : 'Archiving work order…'}
         </div>
       )}
       {/* Header */}

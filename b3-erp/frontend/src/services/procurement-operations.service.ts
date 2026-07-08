@@ -123,6 +123,39 @@ class ProcurementOperationsService {
     return Array.isArray(data) ? data : [];
   }
 
+  async createBudget(
+    payload: Partial<ProcurementBudget> & { name: string; budget: number },
+  ): Promise<ProcurementBudget> {
+    const res = await fetch(`${API_BASE_URL}/procurement/budgets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    return res.json();
+  }
+
+  async updateBudget(
+    id: string,
+    payload: Partial<ProcurementBudget>,
+  ): Promise<ProcurementBudget> {
+    const res = await fetch(`${API_BASE_URL}/procurement/budgets/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    return res.json();
+  }
+
+  async deleteBudget(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/procurement/budgets/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  }
+
   async getBudgetSummary(
     companyId = 'default',
     fiscalYear?: string,

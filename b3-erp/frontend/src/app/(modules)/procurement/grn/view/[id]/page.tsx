@@ -223,406 +223,143 @@ const GRNViewPage = () => {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [selectedQCItem, setSelectedQCItem] = useState<string | null>(null);
 
-  // Load GRN data from backend, falling back to sample data.
+  // Map service status → view status
+  const mapStatus = (s?: string): GRNData['status'] => {
+    const key = String(s ?? '').toLowerCase();
+    if (key.includes('quality')) return 'under_inspection';
+    if (key === 'passed') return 'accepted';
+    if (key.includes('partial')) return 'partially_accepted';
+    if (key === 'failed' || key === 'returned') return 'rejected';
+    if (key.includes('posted')) return 'accepted';
+    const allowed: GRNData['status'][] = ['draft', 'under_inspection', 'partially_accepted', 'accepted', 'rejected', 'invoice_matched'];
+    return (allowed as string[]).includes(key) ? (key as GRNData['status']) : 'draft';
+  };
+
+  // Load GRN data from backend (no fabricated fallback).
   useEffect(() => {
     let cancelled = false;
     const fetchGRNData = async () => {
       setLoading(true);
-      const buildMock = (): GRNData => {
-        const mockData: GRNData = {
-          id: grnId,
-          grn_number: 'GRN-2025-00123',
-          grn_date: '2025-01-15',
-          grn_time: '10:30 AM',
-          po_id: 'PO-2025-00089',
-          po_number: 'PO-2025-00089',
-          po_date: '2025-01-10',
-          vendor_id: 'V001',
-          vendor: {
-            id: 'V001',
-            vendor_code: 'V001',
-            vendor_name: 'Tata Steel Limited',
-            contact_person: 'Rajesh Kumar',
-            email: 'rajesh.kumar@tatasteel.com',
-            phone: '+91 98765 43210',
-            address: 'Steel Plant Road, Industrial Area',
-            city: 'Jamshedpur',
-            state: 'Jharkhand',
-            gstin: '20AAACT2727Q1ZV',
-            pan: 'AAACT2727Q',
-            rating: 4.5,
-            performance_score: 92
-          },
-          status: 'under_inspection',
-          receipt_date: '2025-01-15',
-          receipt_time: '10:30 AM',
-          received_by: 'Suresh Patil',
-          received_by_id: 'EMP-234',
-          gate_entry_no: 'GE-2025-00456',
-          invoice_number: 'TSL/2025/00789',
-          invoice_date: '2025-01-14',
-          invoice_value: 545000,
-          currency: 'INR',
-          transporter: {
-            name: 'Blue Dart Logistics',
-            vehicle_number: 'MH-12-AB-1234',
-            driver_name: 'Ramesh Singh',
-            driver_mobile: '+91 98765 12345',
-            lr_number: 'BD/LR/2025/12345',
-            lr_date: '2025-01-14',
-            freight_charges: 5000,
-            freight_paid_by: 'vendor'
-          },
-          line_items: [
-            {
-              id: 'LI-001',
-              item_code: 'RM-STEEL-001',
-              item_name: 'Cold Rolled Steel Sheet',
-              description: 'Cold Rolled Steel Sheet, Grade: CR4, Thickness: 1.5mm',
-              unit: 'KG',
-              po_quantity: 5000,
-              received_quantity: 4850,
-              accepted_quantity: 4700,
-              rejected_quantity: 150,
-              rejection_reason: 'Surface defects and rust marks',
-              variance: -150,
-              variance_percentage: -3.0,
-              batch_number: 'BATCH-CR4-2025-01',
-              lot_number: 'LOT-TS-00123',
-              storage_location: 'WH-A-RACK-12-BIN-05',
-              expiry_date: undefined,
-              unit_price: 95,
-              total_value: 460750,
-              qc_required: true,
-              qc_status: 'pass',
-              qc_inspector: 'Amit Deshmukh'
-            },
-            {
-              id: 'LI-002',
-              item_code: 'RM-STEEL-002',
-              item_name: 'Galvanized Steel Coil',
-              description: 'Galvanized Steel Coil, Grade: GI, Width: 1200mm',
-              unit: 'KG',
-              po_quantity: 3000,
-              received_quantity: 3000,
-              accepted_quantity: 0,
-              rejected_quantity: 0,
-              variance: 0,
-              variance_percentage: 0,
-              batch_number: 'BATCH-GI-2025-01',
-              lot_number: 'LOT-TS-00124',
-              storage_location: 'WH-A-RACK-13-BIN-02',
-              unit_price: 110,
-              total_value: 330000,
-              qc_required: true,
-              qc_status: 'pending',
-              qc_inspector: 'Amit Deshmukh'
-            },
-            {
-              id: 'LI-003',
-              item_code: 'RM-STEEL-003',
-              item_name: 'Stainless Steel Rod',
-              description: 'Stainless Steel Rod, Grade: SS304, Diameter: 12mm',
-              unit: 'MTR',
-              po_quantity: 1000,
-              received_quantity: 1000,
-              accepted_quantity: 1000,
-              rejected_quantity: 0,
-              variance: 0,
-              variance_percentage: 0,
-              batch_number: 'BATCH-SS-2025-01',
-              lot_number: 'LOT-TS-00125',
-              storage_location: 'WH-A-RACK-14-BIN-01',
-              unit_price: 250,
-              total_value: 250000,
-              qc_required: true,
-              qc_status: 'pass',
-              qc_inspector: 'Priya Sharma'
-            }
-          ],
-          quality_inspections: [
-            {
-              id: 'QC-001',
-              grn_line_item_id: 'LI-001',
-              item_code: 'RM-STEEL-001',
-              item_name: 'Cold Rolled Steel Sheet',
-              inspector_name: 'Amit Deshmukh',
-              inspector_id: 'EMP-QC-045',
-              inspection_date: '2025-01-15',
-              sample_size: 50,
-              lot_number: 'LOT-TS-00123',
-              batch_number: 'BATCH-CR4-2025-01',
-              overall_status: 'pass',
-              parameters: [
-                {
-                  id: 'QP-001',
-                  parameter_name: 'Thickness',
-                  test_method: 'Micrometer Measurement',
-                  acceptance_criteria: '1.5mm ± 0.05mm',
-                  actual_value: '1.48',
-                  unit: 'mm',
-                  status: 'pass',
-                  tested_at: '2025-01-15 11:00 AM'
-                },
-                {
-                  id: 'QP-002',
-                  parameter_name: 'Surface Finish',
-                  test_method: 'Visual Inspection',
-                  acceptance_criteria: 'No scratches, rust, or defects',
-                  actual_value: 'Minor scratches on 3% samples',
-                  unit: '-',
-                  status: 'fail',
-                  tested_at: '2025-01-15 11:15 AM',
-                  remarks: '150 kg rejected due to surface defects'
-                },
-                {
-                  id: 'QP-003',
-                  parameter_name: 'Hardness',
-                  test_method: 'Rockwell Hardness Test',
-                  acceptance_criteria: '60-70 HRB',
-                  actual_value: '65',
-                  unit: 'HRB',
-                  status: 'pass',
-                  tested_at: '2025-01-15 11:30 AM'
-                },
-                {
-                  id: 'QP-004',
-                  parameter_name: 'Tensile Strength',
-                  test_method: 'Universal Testing Machine',
-                  acceptance_criteria: '≥ 350 MPa',
-                  actual_value: '385',
-                  unit: 'MPa',
-                  status: 'pass',
-                  tested_at: '2025-01-15 12:00 PM'
-                },
-                {
-                  id: 'QP-005',
-                  parameter_name: 'Width',
-                  test_method: 'Measuring Tape',
-                  acceptance_criteria: '1200mm ± 2mm',
-                  actual_value: '1201',
-                  unit: 'mm',
-                  status: 'pass',
-                  tested_at: '2025-01-15 12:15 PM'
-                }
-              ],
-              defect_details: 'Surface defects found: Scratches (2%), Rust marks (1%), Total affected: 150 kg',
-              defect_category: 'minor',
-              defect_count: 3,
-              qc_report_url: '/uploads/qc-reports/QC-001.pdf',
-              sign_off_status: true,
-              sign_off_date: '2025-01-15 14:30 PM',
-              remarks: 'Partially accepted. 4700 kg accepted, 150 kg rejected due to surface quality issues.',
-              disposition: 'accept'
-            },
-            {
-              id: 'QC-002',
-              grn_line_item_id: 'LI-002',
-              item_code: 'RM-STEEL-002',
-              item_name: 'Galvanized Steel Coil',
-              inspector_name: 'Amit Deshmukh',
-              inspector_id: 'EMP-QC-045',
-              inspection_date: '2025-01-15',
-              sample_size: 30,
-              lot_number: 'LOT-TS-00124',
-              batch_number: 'BATCH-GI-2025-01',
-              overall_status: 'pending',
-              parameters: [
-                {
-                  id: 'QP-006',
-                  parameter_name: 'Zinc Coating Thickness',
-                  test_method: 'Magnetic Thickness Gauge',
-                  acceptance_criteria: '≥ 80 μm',
-                  actual_value: 'Pending',
-                  unit: 'μm',
-                  status: 'pending',
-                  tested_at: '2025-01-15 02:00 PM'
-                },
-                {
-                  id: 'QP-007',
-                  parameter_name: 'Coating Adhesion',
-                  test_method: 'Bend Test',
-                  acceptance_criteria: 'No flaking or cracking',
-                  actual_value: 'Pending',
-                  unit: '-',
-                  status: 'pending',
-                  tested_at: '2025-01-15 02:30 PM'
-                },
-                {
-                  id: 'QP-008',
-                  parameter_name: 'Surface Appearance',
-                  test_method: 'Visual Inspection',
-                  acceptance_criteria: 'Uniform, smooth finish',
-                  actual_value: 'Pending',
-                  unit: '-',
-                  status: 'pending',
-                  tested_at: '2025-01-15 02:45 PM'
-                }
-              ],
-              sign_off_status: false,
-              remarks: 'Inspection in progress. Expected completion by EOD.',
-              disposition: 'pending'
-            },
-            {
-              id: 'QC-003',
-              grn_line_item_id: 'LI-003',
-              item_code: 'RM-STEEL-003',
-              item_name: 'Stainless Steel Rod',
-              inspector_name: 'Priya Sharma',
-              inspector_id: 'EMP-QC-067',
-              inspection_date: '2025-01-15',
-              sample_size: 20,
-              lot_number: 'LOT-TS-00125',
-              batch_number: 'BATCH-SS-2025-01',
-              overall_status: 'pass',
-              parameters: [
-                {
-                  id: 'QP-009',
-                  parameter_name: 'Diameter',
-                  test_method: 'Vernier Caliper',
-                  acceptance_criteria: '12mm ± 0.1mm',
-                  actual_value: '12.05',
-                  unit: 'mm',
-                  status: 'pass',
-                  tested_at: '2025-01-15 03:00 PM'
-                },
-                {
-                  id: 'QP-010',
-                  parameter_name: 'Surface Finish',
-                  test_method: 'Visual Inspection',
-                  acceptance_criteria: 'Smooth, no pits or scratches',
-                  actual_value: 'Excellent',
-                  unit: '-',
-                  status: 'pass',
-                  tested_at: '2025-01-15 03:15 PM'
-                },
-                {
-                  id: 'QP-011',
-                  parameter_name: 'Chemical Composition',
-                  test_method: 'XRF Analysis',
-                  acceptance_criteria: 'SS304 Grade (18% Cr, 8% Ni)',
-                  actual_value: 'Cr: 18.2%, Ni: 8.1%',
-                  unit: '%',
-                  status: 'pass',
-                  tested_at: '2025-01-15 03:45 PM'
-                },
-                {
-                  id: 'QP-012',
-                  parameter_name: 'Straightness',
-                  test_method: 'Straight Edge Method',
-                  acceptance_criteria: '≤ 1mm per meter',
-                  actual_value: '0.5',
-                  unit: 'mm/m',
-                  status: 'pass',
-                  tested_at: '2025-01-15 04:00 PM'
-                }
-              ],
-              sign_off_status: true,
-              sign_off_date: '2025-01-15 04:30 PM',
-              remarks: 'All parameters within specification. Material approved for production use.',
-              disposition: 'accept'
-            }
-          ],
-          documents: [
-            {
-              id: 'DOC-001',
-              document_type: 'invoice',
-              document_name: 'Invoice_TSL_2025_00789.pdf',
-              document_url: '/uploads/grn/GRN-2025-00123/invoice.pdf',
-              uploaded_by: 'Suresh Patil',
-              uploaded_at: '2025-01-15 10:45 AM',
-              file_size: 245000
-            },
-            {
-              id: 'DOC-002',
-              document_type: 'packing_list',
-              document_name: 'Packing_List_TSL.pdf',
-              document_url: '/uploads/grn/GRN-2025-00123/packing_list.pdf',
-              uploaded_by: 'Suresh Patil',
-              uploaded_at: '2025-01-15 10:47 AM',
-              file_size: 189000
-            },
-            {
-              id: 'DOC-003',
-              document_type: 'test_certificate',
-              document_name: 'Mill_Test_Certificate.pdf',
-              document_url: '/uploads/grn/GRN-2025-00123/mtc.pdf',
-              uploaded_by: 'Amit Deshmukh',
-              uploaded_at: '2025-01-15 11:30 AM',
-              file_size: 512000
-            },
-            {
-              id: 'DOC-004',
-              document_type: 'photo',
-              document_name: 'Material_Photo_1.jpg',
-              document_url: '/uploads/grn/GRN-2025-00123/photo1.jpg',
-              uploaded_by: 'Suresh Patil',
-              uploaded_at: '2025-01-15 10:35 AM',
-              file_size: 1024000
-            },
-            {
-              id: 'DOC-005',
-              document_type: 'photo',
-              document_name: 'Material_Photo_2.jpg',
-              document_url: '/uploads/grn/GRN-2025-00123/photo2.jpg',
-              uploaded_by: 'Suresh Patil',
-              uploaded_at: '2025-01-15 10:36 AM',
-              file_size: 987000
-            },
-            {
-              id: 'DOC-006',
-              document_type: 'lr_copy',
-              document_name: 'LR_Copy_BD_2025_12345.pdf',
-              document_url: '/uploads/grn/GRN-2025-00123/lr_copy.pdf',
-              uploaded_by: 'Suresh Patil',
-              uploaded_at: '2025-01-15 10:50 AM',
-              file_size: 156000
-            }
-          ],
-          total_ordered_qty: 9000,
-          total_received_qty: 8850,
-          total_accepted_qty: 5700,
-          total_rejected_qty: 150,
-          total_value: 1040750,
-          tax_amount: 187335,
-          grand_total: 1228085,
-          price_variance: 5000,
-          qty_variance: -150,
-          discrepancy_notes: 'Quantity shortage: 150 kg of Cold Rolled Steel Sheet. Surface quality issues noted.',
-          posted_to_inventory: false,
-          invoice_matched: false,
-          created_by: 'Suresh Patil',
-          created_at: '2025-01-15 10:30 AM',
-          updated_by: 'Amit Deshmukh',
-          updated_at: '2025-01-15 04:30 PM',
-          notes: 'First GRN for this vendor this month. Partial rejection due to surface quality issues.'
-        };
-        return mockData;
-      };
-
       try {
         const raw = (await goodsReceiptService.getGoodsReceiptById(grnId)) as any;
         if (cancelled) return;
-        const base = buildMock();
-        if (raw && (raw.id || raw.grnNumber)) {
-          setGrnData({
-            ...base,
-            id: raw.id ?? base.id,
-            grn_number: raw.grnNumber ?? base.grn_number,
-            grn_date: (raw.receiptDate ?? raw.grnDate ?? base.grn_date)?.toString().slice(0, 10),
-            po_number: raw.poNumber ?? base.po_number,
-            status: ((): GRNData['status'] => {
-              const s = String(raw.status ?? '').toLowerCase();
-              const allowed: GRNData['status'][] = ['draft', 'under_inspection', 'partially_accepted', 'accepted', 'rejected', 'invoice_matched'];
-              return (allowed as string[]).includes(s) ? (s as GRNData['status']) : base.status;
-            })(),
-            notes: raw.notes ?? base.notes,
-          });
-        } else {
-          setGrnData(base);
+        if (!raw || !(raw.id || raw.grnNumber)) {
+          setGrnData(null);
+          return;
         }
+
+        const items: GRNLineItem[] = Array.isArray(raw.items)
+          ? raw.items.map((it: any) => {
+              const po = Number(it.orderedQuantity ?? 0);
+              const received = Number(it.receivedQuantity ?? 0);
+              const variance = received - po;
+              return {
+                id: it.id ?? '',
+                item_code: it.itemCode ?? '',
+                item_name: it.itemName ?? '',
+                description: it.description ?? '',
+                unit: it.unit ?? '',
+                po_quantity: po,
+                received_quantity: received,
+                accepted_quantity: Number(it.acceptedQuantity ?? 0),
+                rejected_quantity: Number(it.rejectedQuantity ?? 0),
+                variance,
+                variance_percentage: po > 0 ? (variance / po) * 100 : 0,
+                batch_number: it.batchNumber ?? undefined,
+                lot_number: undefined,
+                storage_location: it.locationName ?? it.locationId ?? '',
+                expiry_date: it.expiryDate ?? undefined,
+                unit_price: Number(it.unitPrice ?? 0),
+                total_value: Number(it.totalAmount ?? 0),
+                qc_required: Boolean(it.qualityCheckStatus),
+                qc_status: it.qualityCheckStatus === 'Passed' ? 'pass' : it.qualityCheckStatus === 'Failed' ? 'fail' : 'pending',
+                qc_inspector: it.qualityCheckBy ?? undefined,
+              };
+            })
+          : [];
+
+        const status = mapStatus(raw.status);
+        const totalOrdered = Number(raw.totalQuantityOrdered ?? 0);
+        const totalReceived = Number(raw.totalQuantityReceived ?? 0);
+
+        const mapped: GRNData = {
+          id: raw.id ?? grnId,
+          grn_number: raw.grnNumber ?? '',
+          grn_date: (raw.receiptDate ?? '')?.toString().slice(0, 10),
+          grn_time: '',
+          po_id: raw.poId ?? '',
+          po_number: raw.poNumber ?? '',
+          po_date: '',
+          vendor_id: raw.vendorId ?? '',
+          vendor: {
+            id: raw.vendorId ?? '',
+            vendor_code: raw.vendorCode ?? '',
+            vendor_name: raw.vendorName ?? '',
+            contact_person: '',
+            email: '',
+            phone: '',
+            address: '',
+            city: '',
+            state: '',
+            gstin: '',
+            pan: '',
+            rating: 0,
+            performance_score: 0,
+          },
+          status,
+          receipt_date: (raw.receiptDate ?? '')?.toString().slice(0, 10),
+          receipt_time: '',
+          received_by: raw.receivedByName ?? '',
+          received_by_id: raw.receivedBy ?? '',
+          gate_entry_no: undefined,
+          invoice_number: raw.deliveryNoteNumber ?? '',
+          invoice_date: (raw.deliveryDate ?? '')?.toString().slice(0, 10),
+          invoice_value: Number(raw.totalAmount ?? 0),
+          currency: 'INR',
+          transporter: {
+            name: '',
+            vehicle_number: '',
+            driver_name: '',
+            driver_mobile: '',
+            lr_number: '',
+            lr_date: '',
+          },
+          line_items: items,
+          quality_inspections: [],
+          documents: Array.isArray(raw.attachments)
+            ? raw.attachments.map((a: any) => ({
+                id: a.id ?? '',
+                document_type: 'other' as const,
+                document_name: a.fileName ?? '',
+                document_url: a.fileUrl ?? '',
+                uploaded_by: '',
+                uploaded_at: (a.uploadedAt ?? '')?.toString(),
+                file_size: 0,
+              }))
+            : [],
+          total_ordered_qty: totalOrdered,
+          total_received_qty: totalReceived,
+          total_accepted_qty: Number(raw.totalQuantityAccepted ?? 0),
+          total_rejected_qty: Number(raw.totalQuantityRejected ?? 0),
+          total_value: Number(raw.totalAmount ?? 0),
+          tax_amount: 0,
+          grand_total: Number(raw.totalAmount ?? 0),
+          price_variance: 0,
+          qty_variance: totalReceived - totalOrdered,
+          discrepancy_notes: raw.notes ?? undefined,
+          posted_to_inventory: status === 'accepted' && String(raw.status ?? '').toLowerCase().includes('posted'),
+          inventory_posting_date: raw.postedToInventoryAt ?? undefined,
+          invoice_matched: false,
+          created_by: raw.receivedByName ?? '',
+          created_at: (raw.createdAt ?? '')?.toString(),
+          updated_by: undefined,
+          updated_at: (raw.updatedAt ?? '')?.toString(),
+          notes: raw.notes ?? undefined,
+        };
+
+        setGrnData(mapped);
       } catch {
-        if (!cancelled) setGrnData(buildMock());
+        if (!cancelled) setGrnData(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -756,7 +493,8 @@ const GRNViewPage = () => {
   };
 
   const handleMatchWithInvoice = () => {
-    alert('Match with Invoice functionality will be implemented');
+    // NEEDS BACKEND: no invoice-matching endpoint exists for goods-receipts.
+    alert('Invoice matching is not yet available — no backend endpoint exists for this action.');
   };
 
   const handlePrint = () => {

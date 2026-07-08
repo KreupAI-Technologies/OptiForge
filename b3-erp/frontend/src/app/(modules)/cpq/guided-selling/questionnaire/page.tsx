@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -66,54 +66,61 @@ export default function QuestionnairePage() {
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const loadQuestionnaires = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Backend returns the SalesQuestionnaire ORM shape (name/description/
+      // industry/productCategory/questions[]/isActive/createdAt); map it to this
+      // page's analytics-oriented Questionnaire model. Lead/completion metrics are
+      // not part of the questionnaire record and default to 0.
+      const raw = (await cpqGuidedSellingService.findAllQuestionnaires()) as any[];
+      const toDate = (v: unknown): string =>
+        v ? new Date(v as string).toISOString().split('T')[0] : '';
+      const mapped: Questionnaire[] = (raw ?? []).map((q) => ({
+        id: q.id ?? '',
+        questionnaireCode: q.questionnaireCode ?? q.id ?? '',
+        questionnaireName: q.name ?? '',
+        category: q.productCategory ?? q.industry ?? '',
+        targetSegment: q.industry ?? '',
+        questions: Array.isArray(q.questions) ? q.questions.length : Number(q.questions ?? 0),
+        avgCompletionTime: Number(q.avgCompletionTime ?? 0),
+        completionRate: Number(q.completionRate ?? 0),
+        usageCount: Number(q.usageCount ?? 0),
+        qualifiedLeads: Number(q.qualifiedLeads ?? 0),
+        qualificationRate: Number(q.qualificationRate ?? 0),
+        avgDealSize: Number(q.avgDealSize ?? 0),
+        status: q.isActive === false ? 'archived' : 'active',
+        createdBy: q.createdBy ?? '',
+        createdDate: toDate(q.createdAt),
+        lastUpdated: toDate(q.updatedAt ?? q.createdAt),
+        description: q.description ?? '',
+      }));
+      setQuestionnaires(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load questionnaires');
+      setQuestionnaires([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        // Backend returns the SalesQuestionnaire ORM shape (name/description/
-        // industry/productCategory/questions[]/isActive/createdAt); map it to this
-        // page's analytics-oriented Questionnaire model. Lead/completion metrics are
-        // not part of the questionnaire record and default to 0.
-        const raw = (await cpqGuidedSellingService.findAllQuestionnaires()) as any[];
-        const toDate = (v: unknown): string =>
-          v ? new Date(v as string).toISOString().split('T')[0] : '';
-        const mapped: Questionnaire[] = (raw ?? []).map((q) => ({
-          id: q.id ?? '',
-          questionnaireCode: q.questionnaireCode ?? q.id ?? '',
-          questionnaireName: q.name ?? '',
-          category: q.productCategory ?? q.industry ?? '',
-          targetSegment: q.industry ?? '',
-          questions: Array.isArray(q.questions) ? q.questions.length : Number(q.questions ?? 0),
-          avgCompletionTime: Number(q.avgCompletionTime ?? 0),
-          completionRate: Number(q.completionRate ?? 0),
-          usageCount: Number(q.usageCount ?? 0),
-          qualifiedLeads: Number(q.qualifiedLeads ?? 0),
-          qualificationRate: Number(q.qualificationRate ?? 0),
-          avgDealSize: Number(q.avgDealSize ?? 0),
-          status: q.isActive === false ? 'archived' : 'active',
-          createdBy: q.createdBy ?? '',
-          createdDate: toDate(q.createdAt),
-          lastUpdated: toDate(q.updatedAt ?? q.createdAt),
-          description: q.description ?? '',
-        }));
-        if (!cancelled) setQuestionnaires(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load questionnaires');
-          setQuestionnaires([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadQuestionnaires();
+  }, [loadQuestionnaires]);
+
+  // Map this page's analytics-oriented model to the backend SalesQuestionnaire shape.
+  const toQuestionnairePayload = (q: Questionnaire) => ({
+    name: q.questionnaireName,
+    description: q.description,
+    productCategory: q.category,
+    industry: q.targetSegment,
+    isActive: q.status !== 'archived',
+  });
 
   const categories = ['all', ...Array.from(new Set(questionnaires.map(q => q.category)))];
 
@@ -148,27 +155,50 @@ export default function QuestionnairePage() {
     setIsAnalyticsOpen(true);
   };
 
-  const handleCopy = (questionnaire: Questionnaire) => {
-    const copy: Questionnaire = {
-      ...questionnaire,
-      id: `Q${Date.now()}`,
-      questionnaireCode: `${questionnaire.questionnaireCode}-COPY`,
-      questionnaireName: `${questionnaire.questionnaireName} (Copy)`,
-      status: 'draft',
-      createdDate: new Date().toISOString().split('T')[0],
-      lastUpdated: new Date().toISOString().split('T')[0]
-    };
-    setQuestionnaires([copy, ...questionnaires]);
+  const handleCopy = async (questionnaire: Questionnaire) => {
+    setIsSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await cpqGuidedSellingService.createQuestionnaire({
+        ...toQuestionnairePayload(questionnaire),
+        name: `${questionnaire.questionnaireName} (Copy)`,
+        isActive: false,
+      });
+      setActionSuccess(`Questionnaire "${questionnaire.questionnaireName}" duplicated.`);
+      await loadQuestionnaires();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to duplicate questionnaire');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSave = (questionnaire: Questionnaire) => {
-    if (selectedQuestionnaire) {
-      setQuestionnaires(questionnaires.map(q => q.id === questionnaire.id ? questionnaire : q));
-    } else {
-      setQuestionnaires([questionnaire, ...questionnaires]);
+  const handleSave = async (questionnaire: Questionnaire) => {
+    setIsSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      if (selectedQuestionnaire?.id) {
+        await cpqGuidedSellingService.updateQuestionnaire(
+          selectedQuestionnaire.id,
+          toQuestionnairePayload(questionnaire),
+        );
+        setActionSuccess(`Questionnaire "${questionnaire.questionnaireName}" updated.`);
+      } else {
+        await cpqGuidedSellingService.createQuestionnaire(
+          toQuestionnairePayload(questionnaire),
+        );
+        setActionSuccess(`Questionnaire "${questionnaire.questionnaireName}" created.`);
+      }
+      setIsModalOpen(false);
+      setSelectedQuestionnaire(null);
+      await loadQuestionnaires();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to save questionnaire');
+    } finally {
+      setIsSaving(false);
     }
-    setIsModalOpen(false);
-    setSelectedQuestionnaire(null);
   };
 
   const filteredQuestionnaires = questionnaires.filter(q => {
@@ -215,6 +245,24 @@ export default function QuestionnairePage() {
       {!isLoading && !loadError && questionnaires.length === 0 && (
         <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
           No questionnaires found.
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <CheckCircle2 className="h-4 w-4" />
+          {actionSuccess}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
+      {isSaving && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Saving…
         </div>
       )}
       {/* Inline Header */}

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Star, Award, Target, Users, Activity, Brain, Zap, Filter, ChevronRight, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { crmService, asArray } from '@/services/crm.service';
+import CrmDataState from './CrmDataState';
 
 export interface Lead {
   id: string;
@@ -47,6 +48,7 @@ function gradeFromScore(score: number): Lead['grade'] {
 export default function LeadScoringQualification() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterGrade, setFilterGrade] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -87,9 +89,11 @@ export default function LeadScoringQualification() {
             probability: Number(l.probability ?? 0),
           };
         });
-        if (mounted) setLeads(mapped);
+        // Rank leads by score (highest first) for prioritisation.
+        mapped.sort((a, b) => b.totalScore - a.totalScore);
+        if (mounted) { setLeads(mapped); setError(null); }
       } catch (e) {
-        if (mounted) setLeads([]);
+        if (mounted) { setLeads([]); setError(e instanceof Error ? e.message : 'Failed to load leads'); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -128,6 +132,14 @@ export default function LeadScoringQualification() {
           <span className="text-sm text-gray-600">Live scoring active</span>
         </div>
       </div>
+
+      <CrmDataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && leads.length === 0}
+        loadingText="Loading scored leads…"
+        emptyText="No leads found to score."
+      />
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">

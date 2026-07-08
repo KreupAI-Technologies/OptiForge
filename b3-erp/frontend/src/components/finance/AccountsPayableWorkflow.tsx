@@ -388,6 +388,21 @@ export default function AccountsPayableWorkflow() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-3">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Failed to load payables from the server: {loadError}. Showing available data only.
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <RefreshCw className="h-4 w-4 animate-spin" /> Loading payables…
+        </div>
+      )}
+      {!isLoading && !loadError && pendingInvoices.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">
+          No payable invoices found.
+        </div>
+      )}
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">

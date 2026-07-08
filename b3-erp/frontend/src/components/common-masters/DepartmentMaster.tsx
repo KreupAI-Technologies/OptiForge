@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Building2, Users, Phone, Mail, ChevronRight, ChevronDown, Download, Upload, Grid, List, UserCheck } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
-import { DepartmentService } from '@/services/department.service';
+import { DepartmentService, DepartmentStatus } from '@/services/department.service';
 import { pickAndParseCsv } from '@/lib/import';
 
 interface Department {
@@ -63,14 +63,11 @@ export default function DepartmentMaster() {
   const [activeTab, setActiveTab] = useState('basic');
   const companyId = 'MAIN_COMPANY_ID';
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
+  const loadDepartments = async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
         const rows = await DepartmentService.getAllDepartments();
-        if (cancelled) return;
         const mapped: Department[] = (rows ?? []).map((d: any) => ({
           id: String(d.id),
           departmentCode: d.code ?? d.departmentCode ?? '',
@@ -108,18 +105,15 @@ export default function DepartmentMaster() {
         }));
         setDepartments(mapped);
       } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load departments');
-          setDepartments([]);
-        }
+        setLoadError(err instanceof Error ? err.message : 'Failed to load departments');
+        setDepartments([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  };
+
+  useEffect(() => {
+    loadDepartments();
   }, []);
 
   const handleImport = async () => {
@@ -214,34 +208,54 @@ export default function DepartmentMaster() {
     setActiveTab('basic');
   };
 
-  const handleDeleteDepartment = (id: string) => {
+  const handleDeleteDepartment = async (id: string) => {
     const hasChildren = departments.some(dept => dept.parentId === id);
     if (hasChildren) {
       alert('Cannot delete department with sub-departments. Please delete sub-departments first.');
       return;
     }
-    if (confirm('Are you sure you want to delete this department?')) {
-      setDepartments(departments.filter(department => department.id !== id));
+    if (!confirm('Are you sure you want to delete this department?')) return;
+    try {
+      await DepartmentService.deleteDepartment(id);
+      await loadDepartments();
+    } catch (error) {
+      console.error('Failed to delete department:', error);
+      alert('Failed to delete department.');
     }
   };
 
-  const handleSaveDepartment = (departmentData: any) => {
-    if (editingDepartment?.id) {
-      setDepartments(departments.map(department =>
-        department.id === editingDepartment.id
-          ? { ...department, ...departmentData, updatedAt: new Date().toISOString().split('T')[0] }
-          : department
-      ));
-    } else {
-      const newDepartment: Department = {
-        id: Date.now().toString(),
-        ...departmentData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setDepartments([...departments, newDepartment]);
+  const handleSaveDepartment = async (departmentData: any) => {
+    try {
+      const status = departmentData.status === 'inactive'
+        ? DepartmentStatus.INACTIVE
+        : DepartmentStatus.ACTIVE;
+      if (editingDepartment?.id) {
+        await DepartmentService.updateDepartment(editingDepartment.id, {
+          code: departmentData.departmentCode,
+          name: departmentData.departmentName,
+          description: departmentData.description || '',
+          location: departmentData.location || '',
+          parentDepartmentId: departmentData.parentId || undefined,
+          budget: departmentData.budgetAllocated ?? undefined,
+          status,
+        });
+      } else {
+        await DepartmentService.createDepartment({
+          code: departmentData.departmentCode,
+          name: departmentData.departmentName,
+          description: departmentData.description || '',
+          location: departmentData.location || '',
+          parentDepartmentId: departmentData.parentId || undefined,
+          budget: departmentData.budgetAllocated ?? undefined,
+          status,
+        });
+      }
+      setShowModal(false);
+      await loadDepartments();
+    } catch (error) {
+      console.error('Failed to save department:', error);
+      alert('Failed to save department.');
     }
-    setShowModal(false);
   };
 
   const getStatusBadge = (status: string) => {

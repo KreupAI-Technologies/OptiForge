@@ -89,6 +89,7 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,6 +222,25 @@ export default function InvoicesPage() {
     return diffDays;
   };
 
+  const handleExport = async () => {
+    setIsExporting(true);
+    setLoadError(null);
+    try {
+      const res = await FinanceService.exportFinancialReport({
+        reportType: 'sales-invoices',
+        format: 'excel',
+        filters: { invoiceType: 'Sales Invoice', status: statusFilter, search: searchTerm, dateFilter },
+      });
+      if (res?.downloadUrl) {
+        window.open(res.downloadUrl, '_blank');
+      }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to export invoices');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-gray-900 p-3">
       <div className="space-y-3">
@@ -238,19 +258,19 @@ export default function InvoicesPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => {
-                console.log('Create Invoice button clicked');
-                setIsCreateModalOpen(true);
-                console.log('Modal state set to true');
-              }}
+              onClick={() => setIsCreateModalOpen(true)}
               className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg"
             >
               <Plus className="w-5 h-5" />
               Create Invoice
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download className="w-4 h-4" />
-              Export
+              {isExporting ? 'Exporting…' : 'Export'}
             </button>
           </div>
         </div>
@@ -423,7 +443,14 @@ export default function InvoicesPage() {
                             <Eye className="w-4 h-4 text-blue-400" />
                           </button>
                           {invoice.status === 'Draft' && (
-                            <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors" title="Edit Invoice">
+                            <button
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setIsViewModalOpen(true);
+                              }}
+                              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                              title="Edit Invoice"
+                            >
                               <Edit className="w-4 h-4 text-green-400" />
                             </button>
                           )}

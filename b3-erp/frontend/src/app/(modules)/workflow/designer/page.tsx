@@ -1,30 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Workflow,
   ArrowLeft,
-  Plus,
   Save,
   Play,
   GitBranch,
   Circle,
   Square,
   Diamond,
-  Zap,
   Users,
   Mail,
   Clock,
   CheckCircle,
-  XCircle,
   Settings,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
+import {
+  workflowRepositoryService,
+  WorkflowDefinitionDTO,
+} from '@/services/workflow-repository.service';
 
 export default function WorkflowDesignerPage() {
-  const [workflowName, setWorkflowName] = useState('');
-  const [description, setDescription] = useState('');
-  const [triggerType, setTriggerType] = useState('manual');
+  const [definitions, setDefinitions] = useState<WorkflowDefinitionDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    workflowRepositoryService
+      .getDefinitions()
+      .then((data) => {
+        if (!active) return;
+        setDefinitions(data);
+        if (data.length > 0) setSelectedId(data[0].id);
+      })
+      .catch((e) => {
+        if (active) setError(e?.message ?? 'Failed to load workflow definitions');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selected = definitions.find((d) => d.id === selectedId) ?? null;
 
   const nodeTypes = [
     { id: 'start', name: 'Start', icon: Circle, color: 'bg-green-500' },
@@ -35,6 +64,13 @@ export default function WorkflowDesignerPage() {
     { id: 'delay', name: 'Delay', icon: Clock, color: 'bg-gray-500' },
     { id: 'end', name: 'End', icon: CheckCircle, color: 'bg-red-500' },
   ];
+
+  // No drag-drop persistence yet; the visual editor is read-only over real
+  // definitions. Save is a labeled no-op until an authoring endpoint is wired.
+  const handleSave = () => {
+    setSaveMsg('Visual editing is read-only for now — changes are not saved.');
+    setTimeout(() => setSaveMsg(null), 4000);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,16 +93,28 @@ export default function WorkflowDesignerPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
                 <Save className="w-4 h-4" />
                 Save as Draft
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700">
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+              >
                 <Play className="w-4 h-4" />
                 Publish
               </button>
             </div>
           </div>
+          {saveMsg && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-amber-700">
+              <AlertCircle className="w-4 h-4" />
+              {saveMsg}
+            </div>
+          )}
         </div>
       </div>
 
@@ -74,50 +122,70 @@ export default function WorkflowDesignerPage() {
         <div className="grid grid-cols-12 gap-3">
           {/* Left Sidebar - Workflow Details */}
           <div className="col-span-3 space-y-3">
-            {/* Workflow Info */}
+            {/* Definition Picker */}
             <div className="bg-white rounded-lg shadow border border-gray-200 p-3">
               <h3 className="font-semibold text-gray-900 mb-2">Workflow Details</h3>
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Workflow Name
-                  </label>
-                  <input
-                    type="text"
-                    value={workflowName}
-                    onChange={(e) => setWorkflowName(e.target.value)}
-                    placeholder="Enter workflow name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
+              {loading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading definitions…
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe this workflow"
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
+              ) : error ? (
+                <div className="flex items-center gap-2 text-sm text-red-600 py-4">
+                  <AlertCircle className="w-4 h-4" /> {error}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Trigger Type
-                  </label>
-                  <select
-                    value={triggerType}
-                    onChange={(e) => setTriggerType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  >
-                    <option value="manual">Manual Trigger</option>
-                    <option value="automatic">Automatic</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="webhook">Webhook</option>
-                  </select>
+              ) : definitions.length === 0 ? (
+                <p className="text-sm text-gray-400 py-4">
+                  No workflow definitions found.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Workflow Definition
+                    </label>
+                    <select
+                      value={selectedId}
+                      onChange={(e) => setSelectedId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    >
+                      {definitions.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} (v{d.version})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {selected && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </label>
+                        <p className="text-sm text-gray-600">
+                          {selected.description || '—'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-cyan-100 text-cyan-700">
+                          {selected.type}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs ${
+                            selected.status === 'active'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {selected.status}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">
+                          {selected.steps?.length ?? 0} steps
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Node Palette */}
@@ -142,11 +210,13 @@ export default function WorkflowDesignerPage() {
             </div>
           </div>
 
-          {/* Center - Canvas */}
+          {/* Center - Canvas (renders real steps of the selected definition) */}
           <div className="col-span-6">
             <div className="bg-white rounded-lg shadow border border-gray-200 h-[calc(100vh-200px)]">
               <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Workflow Canvas</h3>
+                <h3 className="font-semibold text-gray-900">
+                  {selected ? `${selected.name} — Steps` : 'Workflow Canvas'}
+                </h3>
                 <div className="flex gap-2">
                   <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
                     <Settings className="w-4 h-4" />
@@ -154,96 +224,119 @@ export default function WorkflowDesignerPage() {
                 </div>
               </div>
 
-              {/* Canvas Area */}
               <div className="p-6 h-full overflow-auto">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg h-full flex items-center justify-center bg-gray-50">
-                  <div className="text-center">
-                    <GitBranch className="w-16 h-16 text-gray-400 mb-2" />
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                      Design Your Workflow
-                    </h4>
-                    <p className="text-gray-600 mb-2">
-                      Drag and drop elements from the left panel to create your workflow
-                    </p>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700">
-                      <Plus className="w-4 h-4" />
-                      Add Start Node
-                    </button>
+                {loading ? (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading workflow…
                   </div>
-                </div>
+                ) : error ? (
+                  <div className="h-full flex items-center justify-center text-red-600">
+                    <AlertCircle className="w-6 h-6 mr-2" /> {error}
+                  </div>
+                ) : !selected || !selected.steps || selected.steps.length === 0 ? (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg h-full flex items-center justify-center bg-gray-50">
+                    <div className="text-center">
+                      <GitBranch className="w-16 h-16 text-gray-400 mb-2 mx-auto" />
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                        No steps defined
+                      </h4>
+                      <p className="text-gray-600">
+                        This workflow definition has no steps to visualize yet.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selected.steps.map((step, idx) => (
+                      <div key={step.id ?? idx}>
+                        <div className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg bg-white">
+                          <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{step.name}</p>
+                            {step.description && (
+                              <p className="text-sm text-gray-600 mt-0.5">
+                                {step.description}
+                              </p>
+                            )}
+                            {step.actions && step.actions.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {step.actions.map((a, ai) => (
+                                  <span
+                                    key={ai}
+                                    className="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-100"
+                                  >
+                                    {a.type}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {idx < selected.steps!.length - 1 && (
+                          <div className="flex justify-center py-1">
+                            <div className="w-px h-4 bg-gray-300" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Right Sidebar - Properties */}
+          {/* Right Sidebar - Triggers / Metadata */}
           <div className="col-span-3">
             <div className="bg-white rounded-lg shadow border border-gray-200 p-3">
-              <h3 className="font-semibold text-gray-900 mb-2">Node Properties</h3>
-              <div className="text-center py-8">
-                <Settings className="w-12 h-12 text-gray-400 mb-3" />
-                <p className="text-sm text-gray-600">
-                  Select a node to view and edit its properties
-                </p>
-              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Triggers</h3>
+              {selected && selected.triggers && selected.triggers.length > 0 ? (
+                <div className="space-y-2">
+                  {selected.triggers.map((t, i) => (
+                    <div
+                      key={i}
+                      className="p-2 border border-gray-200 rounded-lg text-sm text-gray-700"
+                    >
+                      {t.event}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Settings className="w-10 h-10 text-gray-400 mb-2 mx-auto" />
+                  <p className="text-sm text-gray-600">
+                    {selected ? 'No triggers defined for this workflow.' : 'Select a workflow to view its triggers.'}
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Templates */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-3 mt-6">
-              <h3 className="font-semibold text-gray-900 mb-2">Quick Templates</h3>
-              <div className="space-y-2">
-                <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-cyan-500 hover:bg-cyan-50 transition-colors">
-                  <p className="font-medium text-gray-900 text-sm">Approval Workflow</p>
-                  <p className="text-xs text-gray-600 mt-1">Simple approval process</p>
-                </button>
-                <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-cyan-500 hover:bg-cyan-50 transition-colors">
-                  <p className="font-medium text-gray-900 text-sm">Document Review</p>
-                  <p className="text-xs text-gray-600 mt-1">Multi-stage review</p>
-                </button>
-                <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-cyan-500 hover:bg-cyan-50 transition-colors">
-                  <p className="font-medium text-gray-900 text-sm">Escalation Flow</p>
-                  <p className="text-xs text-gray-600 mt-1">Auto-escalation rules</p>
-                </button>
+            {/* Version info */}
+            {selected && (
+              <div className="bg-white rounded-lg shadow border border-gray-200 p-3 mt-6">
+                <h3 className="font-semibold text-gray-900 mb-2">Version Info</h3>
+                <dl className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Version</dt>
+                    <dd className="text-gray-900 font-medium">v{selected.version}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Status</dt>
+                    <dd className="text-gray-900 font-medium">{selected.status}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Updated</dt>
+                    <dd className="text-gray-900 font-medium">
+                      {selected.updatedAt
+                        ? new Date(selected.updatedAt).toLocaleDateString()
+                        : '—'}
+                    </dd>
+                  </div>
+                </dl>
               </div>
-            </div>
+            )}
           </div>
-        </div>
-      </div>
-
-      {/* Coming Soon Overlay */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md text-center">
-          <div className="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center mb-2">
-            <Workflow className="w-8 h-8 text-cyan-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Workflow Designer</h2>
-          <p className="text-gray-600 mb-3">
-            The visual workflow designer is coming soon! You'll be able to create complex automated workflows with a drag-and-drop interface.
-          </p>
-          <div className="space-y-2 mb-3 text-left">
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Drag-and-drop workflow builder</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Pre-built templates</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Real-time testing</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Version control</span>
-            </div>
-          </div>
-          <Link
-            href="/workflow"
-            className="inline-flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Workflows
-          </Link>
         </div>
       </div>
     </div>

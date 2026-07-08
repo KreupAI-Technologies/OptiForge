@@ -22,12 +22,30 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { LogisticsService, DeliveryCoordinationDto } from '@/services/logistics.service';
 
 interface ProjectInfo {
     id: string;
     name: string;
     clientName: string;
     status: string;
+    projectCode?: string;
+}
+
+/** Resolve (or create) the DeliveryCoordination record for a project. */
+async function resolveCoordination(
+    project: ProjectInfo,
+    seed?: Partial<DeliveryCoordinationDto>,
+): Promise<DeliveryCoordinationDto> {
+    const woNumber = project.projectCode || project.id;
+    const existing = await LogisticsService.getDeliveryCoordinations();
+    const match = existing.find((c) => c.woNumber === woNumber);
+    if (match) return match;
+    return LogisticsService.createDeliveryCoordination({
+        woNumber,
+        customerName: project.clientName,
+        ...seed,
+    });
 }
 
 interface TeamMember {
@@ -58,6 +76,8 @@ export default function SiteNotificationPage() {
 
     const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
     const [notificationSent, setNotificationSent] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -65,12 +85,14 @@ export default function SiteNotificationPage() {
 
     const loadProjects = async () => {
         try {
+            setError(null);
             const allProjects = await projectManagementService.getProjects();
             const projectInfos: ProjectInfo[] = allProjects.map((p: Project) => ({
                 id: p.id,
                 name: p.name || `Project ${p.id}`,
                 clientName: p.clientName || 'Unknown Client',
                 status: p.status || 'active',
+                projectCode: p.projectCode,
             }));
             setProjects(projectInfos);
 
@@ -81,8 +103,9 @@ export default function SiteNotificationPage() {
                     setSelectedProject(found);
                 }
             }
-        } catch (error) {
-            console.error('Error loading projects:', error);
+        } catch (err) {
+            console.error('Error loading projects:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load projects');
         } finally {
             setIsLoadingProjects(false);
         }
@@ -108,15 +131,34 @@ export default function SiteNotificationPage() {
         );
     };
 
-    const handleSendNotification = () => {
-        setTeamMembers(teamMembers.map(member =>
-            selectedTeam.includes(member.id) ? { ...member, status: 'Assigned' as const } : member
-        ));
-        setNotificationSent(true);
-        toast({
-            title: 'Installation Team Notified',
-            description: `${selectedTeam.length} team member(s) have been notified about the delivery`,
-        });
+    const handleSendNotification = async () => {
+        if (!selectedProject || submitting) return;
+        setSubmitting(true);
+        try {
+            const coordination = await resolveCoordination(selectedProject);
+            await LogisticsService.updateDeliveryCoordination(coordination.id, {
+                siteContactNotified: true,
+                status: 'Site Informed',
+            });
+            setTeamMembers(teamMembers.map(member =>
+                selectedTeam.includes(member.id) ? { ...member, status: 'Assigned' as const } : member
+            ));
+            setNotificationSent(true);
+            toast({
+                title: 'Installation Team Notified',
+                description: `${selectedTeam.length} team member(s) have been notified about the delivery`,
+                variant: 'success',
+            });
+        } catch (err) {
+            console.error('Error notifying site contact:', err);
+            toast({
+                title: 'Failed to Notify',
+                description: err instanceof Error ? err.message : 'Could not update site contact notification',
+                variant: 'destructive',
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: TeamMember['status']) => {
@@ -156,10 +198,20 @@ export default function SiteNotificationPage() {
                         />
                     </div>
 
-                    {isLoadingProjects ? (
+                    {error ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+                            <p className="text-red-700 font-medium">Failed to load projects</p>
+                            <p className="text-sm text-red-600 mt-1">{error}</p>
+                            <Button className="mt-4" variant="outline" onClick={loadProjects}>Retry</Button>
+                        </div>
+                    ) : isLoadingProjects ? (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
                             <span className="ml-2 text-gray-600">Loading projects...</span>
+                        </div>
+                    ) : filteredProjects.length === 0 ? (
+                        <div className="rounded-lg border bg-white p-12 text-center text-gray-500">
+                            No projects found.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -348,10 +400,10 @@ Logistics Team - B3 MACBIS`}
                 {!notificationSent ? (
                     <Button
                         onClick={handleSendNotification}
-                        disabled={selectedTeam.length === 0}
+                        disabled={selectedTeam.length === 0 || submitting}
                         size="lg"
                     >
-                        <Send className="mr-2 h-4 w-4" />
+                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                         Send Notification & Schedule ({selectedTeam.length} selected)
                     </Button>
                 ) : (

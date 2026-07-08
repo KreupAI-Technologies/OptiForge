@@ -1477,6 +1477,29 @@ export const ITILService = {
     });
   },
 
+  async updateIncident(id: string, data: Partial<ITILIncident>): Promise<ITILIncident> {
+    if (USE_MOCK_DATA) {
+      return Promise.resolve({
+        id,
+        incidentNumber: data.incidentNumber || 'INC-00000',
+        title: data.title || '',
+        description: data.description || '',
+        impact: data.impact || 'medium',
+        urgency: data.urgency || 'medium',
+        priority: data.priority || 'medium',
+        status: data.status || 'open',
+        reopenedCount: data.reopenedCount ?? 0,
+        companyId: data.companyId || 'comp-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    return apiRequest<ITILIncident>(`/support/itil/incidents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
   // Problems
   async getProblems(companyId: string, options?: {
     status?: string;

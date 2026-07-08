@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { costEstimateService } from '@/services/estimation-cost-estimate.service'
-import { estimationPricingService } from '@/services/estimation-pricing.service'
 import { ArrowLeft, Send, Mail, Phone, FileText, CheckCircle, AlertCircle } from 'lucide-react'
 
 const companyId = 'default-company-id'
@@ -72,8 +71,10 @@ Estimation Team`)
     if (sending) return
     setSending(true)
     try {
-      await estimationPricingService.sendToCustomer(companyId, draftId)
-      router.push('/estimation/workflow/drafts')
+      // The draftId is a cost-estimate id; "sending" a draft submits it into
+      // the approval workflow (there is no cost-estimate send-to-customer endpoint).
+      await costEstimateService.submitForApproval(companyId, draftId, 'Current User')
+      router.push('/estimation/workflow/pending')
     } catch (err) {
       console.error('Failed to send estimate:', err)
       alert('Failed to send estimate. Please try again.')

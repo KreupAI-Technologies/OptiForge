@@ -9,6 +9,8 @@ import { ProductionOrphanService } from '@/services/production/production-orphan
 export default function DowntimeLogPage() {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     equipment: '',
     category: 'breakdown',
@@ -38,12 +40,17 @@ export default function DowntimeLogPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
+    setSubmitError(null);
     try {
       await ProductionOrphanService.createDowntimeRecord(formData);
       router.push('/production/downtime');
     } catch (error) {
       console.error('Failed to log downtime event:', error);
-      alert('Failed to log downtime event. Please try again.');
+      setSubmitError(
+        error instanceof Error ? error.message : 'Failed to log downtime event. Please try again.',
+      );
+      setSubmitting(false);
     }
   };
 
@@ -55,13 +62,18 @@ export default function DowntimeLogPage() {
   };
 
   const handleModalSubmit = async (data: LogDowntimeData) => {
+    setSubmitting(true);
+    setSubmitError(null);
     try {
       await ProductionOrphanService.createDowntimeRecord(data);
       setIsModalOpen(false);
       router.push('/production/downtime');
     } catch (error) {
       console.error('Failed to log downtime event:', error);
-      alert('Failed to log downtime event. Please try again.');
+      setSubmitError(
+        error instanceof Error ? error.message : 'Failed to log downtime event. Please try again.',
+      );
+      setSubmitting(false);
     }
   };
 
@@ -110,6 +122,13 @@ export default function DowntimeLogPage() {
               Please log downtime events as soon as they occur for accurate tracking and analysis.
             </p>
           </div>
+
+          {submitError && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4" />
+              {submitError}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
             {/* Equipment Selection */}
@@ -257,10 +276,11 @@ export default function DowntimeLogPage() {
             <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
               <button
                 type="submit"
-                className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                disabled={submitting}
+                className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-5 h-5" />
-                <span>Log Downtime Event</span>
+                <span>{submitting ? 'Logging…' : 'Log Downtime Event'}</span>
               </button>
               <button
                 type="button"

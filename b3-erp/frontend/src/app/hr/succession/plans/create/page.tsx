@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, User, Briefcase, Target, Calendar, Save, AlertCircle } from 'lucide-react';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface SuccessionPlanForm {
   positionTitle: string;
@@ -53,6 +52,7 @@ export default function Page() {
 
   const [newDevelopmentNeed, setNewDevelopmentNeed] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const addSuccessor = () => {
     if (!newSuccessor.employeeName || !newSuccessor.employeeCode) {
@@ -108,19 +108,18 @@ export default function Page() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+    setSubmitting(true);
+    setErrors([]);
     try {
-      const res = await fetch(`${API_BASE_URL}/hr/succession-plans`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          companyId: 'default-company-id'
-        })
+      await HrTalentService.createSuccession(formData, {
+        recordType: 'plan',
+        title: formData.positionTitle,
+        status: 'active',
       });
-      if (!res.ok) throw new Error('Request failed');
       router.push('/hr/succession/plans/tracking');
-    } catch {
-      alert('Failed to save. Please try again.');
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : 'Failed to save. Please try again.']);
+      setSubmitting(false);
     }
   };
 
@@ -460,14 +459,17 @@ export default function Page() {
         <div className="flex gap-3">
           <button
             type="submit"
-            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium flex items-center gap-2"
+            disabled={submitting}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="h-4 w-4" />
-            Create Succession Plan
+            {submitting ? 'Saving…' : 'Create Succession Plan'}
           </button>
           <button
             type="button"
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+            disabled={submitting}
+            onClick={() => router.push('/hr/succession/plans/tracking')}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50"
           >
             Cancel
           </button>

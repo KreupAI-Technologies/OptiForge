@@ -31,6 +31,8 @@ export default function CreateKnowledgeArticle() {
   const [currentTag, setCurrentTag] = useState('')
   const [currentArticle, setCurrentArticle] = useState('')
   const [currentReviewer, setCurrentReviewer] = useState('')
+  const [submittingStatus, setSubmittingStatus] = useState<null | 'draft' | 'review' | 'published'>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const categories = [
     { id: 'faq', name: 'FAQ', subcategories: ['General', 'Account', 'Billing', 'Technical', 'Security'] },
@@ -95,8 +97,15 @@ export default function CreateKnowledgeArticle() {
   }
 
   const handleSubmit = async (status: 'draft' | 'review' | 'published') => {
+    if (submittingStatus) return
+    if (!formData.title.trim()) {
+      setSubmitError('Article title is required.')
+      return
+    }
+    setSubmittingStatus(status)
+    setSubmitError(null)
     try {
-      await KnowledgeBaseService.createArticle({
+      const created = await KnowledgeBaseService.createArticle({
         companyId: COMPANY_ID,
         title: formData.title,
         content: formData.content,
@@ -106,11 +115,15 @@ export default function CreateKnowledgeArticle() {
         tags: formData.tags,
         isPublic: status === 'published' && formData.visibility === 'public',
         isInternal: formData.visibility === 'internal',
+        relatedArticles: formData.relatedArticles,
       } as any)
+      if (status === 'published' && created?.id) {
+        await KnowledgeBaseService.publishArticle(created.id)
+      }
       router.push('/support/knowledge')
     } catch (err) {
-      console.error('Failed to create article:', err)
-      alert('Failed to create article. Please try again.')
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create article. Please try again.')
+      setSubmittingStatus(null)
     }
   }
 
@@ -129,13 +142,21 @@ export default function CreateKnowledgeArticle() {
           </button>
           <button
             onClick={() => handleSubmit('draft')}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            disabled={submittingStatus !== null}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-4 w-4 inline mr-2" />
-            Save Draft
+            {submittingStatus === 'draft' ? 'Saving…' : 'Save Draft'}
           </button>
         </div>
       </div>
+
+      {submitError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {submitError}
+        </div>
+      )}
 
       {/* Guidelines */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -377,15 +398,17 @@ export default function CreateKnowledgeArticle() {
               <div className="pt-4 border-t border-gray-200 space-y-3">
                 <button
                   onClick={() => handleSubmit('review')}
-                  className="w-full px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700"
+                  disabled={submittingStatus !== null}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Submit for Review
+                  {submittingStatus === 'review' ? 'Submitting…' : 'Submit for Review'}
                 </button>
                 <button
                   onClick={() => handleSubmit('published')}
-                  className="w-full px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg hover:from-green-700 hover:to-emerald-700"
+                  disabled={submittingStatus !== null}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Publish Now
+                  {submittingStatus === 'published' ? 'Publishing…' : 'Publish Now'}
                 </button>
               </div>
             </div>

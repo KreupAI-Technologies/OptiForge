@@ -679,3 +679,45 @@ CREATE TABLE IF NOT EXISTS "support_custom_reports" (
 
 CREATE INDEX IF NOT EXISTS "IDX_support_custom_reports_company"
   ON "support_custom_reports" ("companyId");
+
+-- ============================================================================
+-- Onboarding Tasks  (entity: SupportOnboardingTask)
+-- Backs the /support/onboarding checklist page. Idempotent/additive.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "support_onboarding_tasks" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "title" varchar NOT NULL,
+  "description" text,
+  "status" varchar NOT NULL DEFAULT 'pending',
+  "category" varchar NOT NULL DEFAULT 'setup',
+  "estimatedTime" varchar,
+  "sortOrder" integer NOT NULL DEFAULT 0,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_onboarding_tasks" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_support_onboarding_tasks_company"
+  ON "support_onboarding_tasks" ("companyId");
+
+INSERT INTO "support_onboarding_tasks"
+  ("id", "companyId", "title", "description", "status", "category", "estimatedTime", "sortOrder")
+VALUES
+  ('a1b2c3d4-0001-4000-8000-000000000001', 'company-1', 'Company Profile Setup', 'Configure basic company details, logo, and branding settings.', 'completed', 'setup', '15 mins', 1),
+  ('a1b2c3d4-0001-4000-8000-000000000002', 'company-1', 'User Roles & Permissions', 'Define user roles and assign access permissions for your team.', 'completed', 'security', '30 mins', 2),
+  ('a1b2c3d4-0001-4000-8000-000000000003', 'company-1', 'Import Customer Data', 'Upload your existing customer database via CSV or API.', 'in_progress', 'data', '1 hour', 3),
+  ('a1b2c3d4-0001-4000-8000-000000000004', 'company-1', 'Configure Email Settings', 'Set up SMTP server and email templates for notifications.', 'pending', 'setup', '20 mins', 4),
+  ('a1b2c3d4-0001-4000-8000-000000000005', 'company-1', 'Team Training Session', 'Schedule and complete the initial product training webinar.', 'pending', 'training', '2 hours', 5),
+  ('a1b2c3d4-0001-4000-8000-000000000006', 'company-1', 'Setup Backup Policy', 'Configure automated data backup frequency and retention.', 'pending', 'security', '15 mins', 6)
+ON CONFLICT ("id") DO NOTHING;
+
+-- Seed FAQs for the help center (/help reuses /support/knowledge/faqs).
+INSERT INTO "support_faqs" ("id", "companyId", "faqId", "question", "answer", "category", "featured", "views") VALUES
+  ('b2c3d4e5-0002-4000-8000-000000000001', 'company-1', 'FAQ-001', 'How do I reset my password?', 'Go to Profile > Security and click "Change Password". You will receive a confirmation email once the change is saved.', 'Account', true, 152),
+  ('b2c3d4e5-0002-4000-8000-000000000002', 'company-1', 'FAQ-002', 'Can I export reports to Excel?', 'Yes. Use the Export button on any report page and choose the Excel (.xlsx) format. Large reports are generated in the background and emailed to you.', 'Reports', true, 98),
+  ('b2c3d4e5-0002-4000-8000-000000000003', 'company-1', 'FAQ-003', 'How do I track order status?', 'Navigate to Sales > Orders and use the status filters. Each order shows its current stage from enquiry through production to delivery.', 'Sales', true, 87),
+  ('b2c3d4e5-0002-4000-8000-000000000004', 'company-1', 'FAQ-004', 'Who do I contact for technical support?', 'Use the in-app Support widget to raise a ticket, or email support@kreupai.com. Priority tickets are answered within 4 business hours.', 'Support', true, 64),
+  ('b2c3d4e5-0002-4000-8000-000000000005', 'company-1', 'FAQ-005', 'How do I add a new user?', 'Under IT Admin > Users, click New User, enter their details, assign a role, and send the invitation. The user sets their own password on first login.', 'Administration', false, 41),
+  ('b2c3d4e5-0002-4000-8000-000000000006', 'company-1', 'FAQ-006', 'How do I create a work order?', 'Open a confirmed sales order, then go to Production > Work Orders and click New. Inventory is reserved and operations are scheduled automatically.', 'Production', false, 55)
+ON CONFLICT ("id") DO NOTHING;

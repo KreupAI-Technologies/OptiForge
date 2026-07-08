@@ -353,14 +353,27 @@ export default function InstallationTrackingEnhancedPage() {
         }
     };
 
-    const handleSubmit = () => {
-        if (validateStep(currentStep)) {
+    const [submitting, setSubmitting] = useState(false);
+    const handleSubmit = async () => {
+        if (!validateStep(currentStep)) return;
+        setSubmitting(true);
+        try {
+            const created = await projectManagementService.createInstallationActivity(formData as any);
+            if (created === null) throw new Error('Request failed');
             clearDraft();
             toast({
                 title: 'Installation Activity Created',
                 description: `Activity ${formData.activityNumber} has been successfully created.`,
             });
             router.push('/project-management/installation-tracking');
+        } catch (err) {
+            toast({
+                title: 'Failed to Create Activity',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            });
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -1024,9 +1037,9 @@ export default function InstallationTrackingEnhancedPage() {
                         <CheckCircle className="w-4 h-4 ml-2" />
                     </Button>
                 ) : (
-                    <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700">
+                    <Button onClick={handleSubmit} disabled={submitting} className="bg-green-600 hover:bg-green-700">
                         <Wrench className="w-4 h-4 mr-2" />
-                        Create Installation Activity
+                        {submitting ? 'Creating...' : 'Create Installation Activity'}
                     </Button>
                 )}
             </div>

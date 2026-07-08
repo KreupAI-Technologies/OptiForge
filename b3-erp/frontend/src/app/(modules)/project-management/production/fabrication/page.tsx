@@ -36,6 +36,7 @@ export default function FabricationPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<AssemblyJob[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
@@ -88,7 +89,10 @@ export default function FabricationPage() {
     }
   };
 
-  const handleStatusUpdate = (id: string) => {
+  const handleStatusUpdate = async (id: string) => {
+    const current = jobs.find(j => j.id === id);
+    const willComplete = current?.status === 'In Progress';
+    const prev = jobs;
     setJobs(jobs.map(job => {
       if (job.id === id) {
         if (job.status === 'Pending') return { ...job, status: 'In Progress' as const, progress: 25 };
@@ -97,7 +101,27 @@ export default function FabricationPage() {
       }
       return job;
     }));
-    toast({ title: 'Assembly Updated', description: 'Job status advanced.' });
+    // Persist an assembly production log when the job reaches QC Ready.
+    if (!willComplete || !projectId) {
+      toast({ title: 'Assembly Updated', description: 'Job status advanced.' });
+      return;
+    }
+    setSavingId(id);
+    try {
+      await projectManagementService.logProductionOperation({
+        projectId,
+        operationType: 'assembly',
+        startTime: new Date().toISOString(),
+        endTime: new Date().toISOString(),
+        yieldCount: 1,
+      });
+      toast({ title: 'Assembly Logged', description: `Job ${id} ready for QC and logged to production.` });
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Could not log operation', description: error instanceof Error ? error.message : 'Failed to log assembly operation.' });
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // View 1: Project Selection
@@ -230,8 +254,8 @@ export default function FabricationPage() {
                     </div>
                     <div className="flex justify-end">
                       {job.status !== 'QC Ready' && job.status !== 'Completed' && (
-                        <Button onClick={() => handleStatusUpdate(job.id)} className="bg-blue-600 hover:bg-blue-700 font-bold">
-                          {job.status === 'Pending' ? 'Start Assembly' : 'Mark Ready for QC'}
+                        <Button onClick={() => handleStatusUpdate(job.id)} disabled={savingId === job.id} className="bg-blue-600 hover:bg-blue-700 font-bold">
+                          {savingId === job.id ? 'Saving…' : job.status === 'Pending' ? 'Start Assembly' : 'Mark Ready for QC'}
                         </Button>
                       )}
                       {job.status === 'QC Ready' && (

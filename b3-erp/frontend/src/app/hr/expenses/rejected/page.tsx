@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { HrPagesService } from '@/services/hr-pages.service';
 import { XCircle, Search, Eye, RefreshCw, AlertCircle, Receipt, Calendar, User, Building2, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
@@ -31,6 +32,7 @@ interface RejectedExpense {
 }
 
 export default function RejectedExpensesPage() {
+  const router = useRouter();
   const [expenses, setExpenses] = useState<RejectedExpense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -102,22 +104,14 @@ export default function RejectedExpensesPage() {
     setIsResubmitting(true);
 
     try {
-      // Simulate API call to create new expense from rejected one
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      toast({
-        title: "Resubmission Prepared",
-        description: `Expense ${expense.id} is ready for resubmission. Please update the required information and resubmit.`,
-      });
-
-      // In real implementation, navigate to submit page with pre-filled data
-      // router.push(`/hr/expenses/submit?resubmit=${expense.id}`);
-
+      // Navigate to the submit page pre-seeded with the rejected claim so the
+      // employee can correct and resubmit it.
       setShowDetailsModal(false);
+      router.push(`/hr/expenses/submit?resubmit=${encodeURIComponent(expense.id)}`);
     } catch (error) {
       toast({
         title: "Resubmission Failed",
-        description: "Failed to prepare resubmission. Please try again.",
+        description: "Failed to open the resubmission form. Please try again.",
         variant: "destructive"
       });
     } finally {

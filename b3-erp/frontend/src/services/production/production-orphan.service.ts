@@ -162,6 +162,12 @@ export const ProductionOrphanService = {
   // GET production/work-order (backs work-orders/completed|progress|pending|tracking)
   getWorkOrders: () => request<any[]>('/production/work-order'),
 
+  // GET production/work-center (backs settings — work-center counts)
+  getWorkCenters: () => request<any[]>('/production/work-center'),
+
+  // GET production/routing (backs settings — routing/template counts)
+  getRoutings: () => request<any[]>('/production/routing'),
+
   // GET production/bom (backs bom/versions|comparison|multi-level)
   getBoms: () => request<any[]>('/production/bom'),
 
@@ -303,4 +309,49 @@ export const ProductionOrphanService = {
   // Capacity plans (backs /production/capacity-planning)
   getCapacityPlans: () => request<any[]>('/production/capacity-plans'),
   createCapacityPlan: (body: any) => post<any>('/production/capacity-plans', body),
+
+  // ---- Work orders (backs /production/work-orders/*) ----
+  createWorkOrder: (body: any) => post<any>('/production/work-order', body),
+  updateWorkOrder: (id: string, body: any) => put<any>(`/production/work-order/${id}`, body),
+  deleteWorkOrder: (id: string) => del(`/production/work-order/${id}`),
+  submitWorkOrder: (id: string, body: any = {}) => post<any>(`/production/work-order/${id}/submit`, body),
+  releaseWorkOrder: (id: string, body: any = {}) => post<any>(`/production/work-order/${id}/release`, body),
+  startWorkOrder: (id: string, body: any = {}) => post<any>(`/production/work-order/${id}/start`, body),
+  completeWorkOrder: (id: string, body: any = {}) => post<any>(`/production/work-order/${id}/complete`, body),
+  closeWorkOrder: (id: string, body: any = {}) => post<any>(`/production/work-order/${id}/close`, body),
+  cancelWorkOrder: (id: string, body: any = {}) => post<any>(`/production/work-order/${id}/cancel`, body),
+  updateWorkOrderProgress: (id: string, body: any) => put<any>(`/production/work-order/${id}/progress`, body),
+
+  // ---- Shop floor control operations (backs /production/shopfloor) ----
+  startShopFloorOperation: (id: string, body: any) => post<any>(`/production/shop-floor-control/${id}/start-operation`, body),
+  completeShopFloorOperation: (id: string, body: any) => post<any>(`/production/shop-floor-control/${id}/complete-operation`, body),
+
+  // ---- Maintenance requests write (approve/reject via PUT status) ----
+  updateMaintenanceRequest: (id: string, body: any) => put<any>(`/production/maintenance-requests/${id}`, body),
+
+  // ---- Preventive maintenance write ----
+  updatePreventiveMaintenance: (id: string, body: any) => put<any>(`/production/preventive-maintenance/${id}`, body),
+  deletePreventiveMaintenance: (id: string) => del(`/production/preventive-maintenance/${id}`),
+
+  // ---- Spare parts write ----
+  updateSparePart: (id: string, body: any) => put<any>(`/production/spare-parts/${id}`, body),
+
+  // ---- Schedule lines write (backs /production/scheduling) ----
+  updateScheduleLine: (id: string, body: any) => put<any>(`/production/schedule-lines/${id}`, body),
+  getScheduleLine: (id: string) => request<any>(`/production/schedule-lines/${id}`),
+
+  // ---- Production schedules write (backs /production/scheduling optimize/publish) ----
+  publishProductionSchedule: (id: string) => post<any>(`/production/production-schedules/${id}/publish`, {}),
+  optimizeProductionSchedule: (id: string, body: any = {}) => post<any>(`/production/production-schedules/${id}/optimize`, body),
+  createProductionSchedule: (body: any) => post<any>('/production/production-schedules', body),
+  updateProductionSchedule: (id: string, body: any) => put<any>(`/production/production-schedules/${id}`, body),
+
+  // ---- MRP runs write (backs /production/mrp) ----
+  createMrpRun: (body: any) => post<any>('/production/mrp-runs', body),
+  executeMrpRun: (id: string, body: any = {}) => post<any>(`/production/mrp-runs/${id}/execute`, body),
+
+  // ---- Master schedules write (backs /production/planning) ----
+  createMasterSchedule: (body: any) => post<any>('/production/master-schedules', body),
+  updateMasterSchedule: (id: string, body: any) => put<any>(`/production/master-schedules/${id}`, body),
+  freezeMasterSchedule: (id: string, body: any = {}) => post<any>(`/production/master-schedules/${id}/freeze`, body),
 };

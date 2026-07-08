@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FinanceService } from '@/services/finance.service';
 import {
   Building,
@@ -14,6 +14,8 @@ import {
   Download,
   Edit,
   Eye,
+  Trash2,
+  X,
   BarChart3,
   Target,
   AlertCircle,
@@ -50,54 +52,72 @@ export default function CostCentersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await FinanceService.getCostCenters()) as any[];
-        const mapped: CostCenter[] = (Array.isArray(raw) ? raw : []).map((r: any) => {
-          const budgetAllocated = Number(r.budgetAllocated ?? r.budget ?? 0);
-          const actualCost = Number(r.actualCost ?? 0);
-          const variance = Number(r.variance ?? (budgetAllocated - actualCost));
-          const variancePercent = budgetAllocated
-            ? Number(((variance / budgetAllocated) * 100).toFixed(1))
-            : 0;
-          const typeVal = r.isProfitCenter ? 'Production' : (r.type ?? 'Service');
-          return {
-            id: r.id ?? r.costCenterCode ?? '',
-            code: r.costCenterCode ?? r.code ?? '',
-            name: r.costCenterName ?? r.name ?? '',
-            department: r.department ?? '',
-            manager: r.managerName ?? r.manager ?? '',
-            type: (['Production', 'Service', 'Administrative', 'Sales', 'R&D'].includes(typeVal)
-              ? typeVal
-              : 'Service') as CostCenter['type'],
-            status: (r.isActive ?? true) ? 'Active' : 'Inactive',
-            budgetAllocated,
-            actualCost,
-            variance,
-            variancePercent,
-            employeeCount: Number(r.employeeCount ?? 0),
-            openingDate: r.openingDate ?? (r.createdAt ? String(r.createdAt).slice(0, 10) : ''),
-            description: r.description ?? '',
-          };
-        });
-        if (!cancelled) setCostCenters(mapped);
-      } catch (e) {
-        if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : 'Failed to load cost centers');
-          setCostCenters([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
+  // Create / edit modal state
+  const emptyForm = {
+    code: '',
+    name: '',
+    department: '',
+    manager: '',
+    type: 'Service' as CostCenter['type'],
+    status: 'Active' as CostCenter['status'],
+    budgetAllocated: '',
+    actualCost: '',
+    employeeCount: '',
+    openingDate: '',
+    description: '',
+  };
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...emptyForm });
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const mapCostCenter = (r: any): CostCenter => {
+    const budgetAllocated = Number(r.budgetAllocated ?? r.budget ?? 0);
+    const actualCost = Number(r.actualCost ?? 0);
+    const variance = Number(r.variance ?? (budgetAllocated - actualCost));
+    const variancePercent = budgetAllocated
+      ? Number(((variance / budgetAllocated) * 100).toFixed(1))
+      : 0;
+    const typeVal = r.isProfitCenter ? 'Production' : (r.type ?? 'Service');
+    return {
+      id: r.id ?? r.costCenterCode ?? '',
+      code: r.costCenterCode ?? r.code ?? '',
+      name: r.costCenterName ?? r.name ?? '',
+      department: r.department ?? '',
+      manager: r.managerName ?? r.manager ?? '',
+      type: (['Production', 'Service', 'Administrative', 'Sales', 'R&D'].includes(typeVal)
+        ? typeVal
+        : 'Service') as CostCenter['type'],
+      status: (r.isActive ?? true) ? 'Active' : 'Inactive',
+      budgetAllocated,
+      actualCost,
+      variance,
+      variancePercent,
+      employeeCount: Number(r.employeeCount ?? 0),
+      openingDate: r.openingDate ?? (r.createdAt ? String(r.createdAt).slice(0, 10) : ''),
+      description: r.description ?? '',
     };
+  };
+
+  const loadCostCenters = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await FinanceService.getCostCenters()) as any[];
+      const mapped = (Array.isArray(raw) ? raw : []).map(mapCostCenter);
+      setCostCenters(mapped);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load cost centers');
+      setCostCenters([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCostCenters();
+  }, [loadCostCenters]);
 
 
   const filteredCostCenters = costCenters.filter(cc => {
@@ -179,27 +199,79 @@ export default function CostCentersPage() {
   };
 
   // Handler Functions
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm({ ...emptyForm });
+    setFormError(null);
+    setShowModal(true);
+  };
+
   const handleAddCostCenter = () => {
-    alert(
-      '🏢 Add Cost Center\n\n' +
-      'This will open a dialog to create a new cost center with the following fields:\n\n' +
-      '• Cost Center Code (auto-generated or manual)\n' +
-      '• Cost Center Name\n' +
-      '• Type (Production/Service/Administrative/Sales/R&D)\n' +
-      '• Department\n' +
-      '• Manager Assignment\n' +
-      '• Budget Allocation\n' +
-      '• Number of Employees\n' +
-      '• Opening Date\n' +
-      '• Description\n' +
-      '• Status (Active/Inactive)\n\n' +
-      'In production, this would:\n' +
-      '1. Open a modal/dialog form\n' +
-      '2. Validate all required fields\n' +
-      '3. Submit to API endpoint: POST /api/finance/cost-centers\n' +
-      '4. Refresh the cost centers list\n' +
-      '5. Show success notification'
-    );
+    openCreateModal();
+  };
+
+  const closeModal = () => {
+    if (submitting) return;
+    setShowModal(false);
+    setEditingId(null);
+    setFormError(null);
+  };
+
+  const handleFormChange = (field: keyof typeof emptyForm, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmitModal = async () => {
+    if (!form.name.trim()) {
+      setFormError('Cost center name is required');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const payload: any = {
+        code: form.code.trim(),
+        costCenterCode: form.code.trim(),
+        name: form.name.trim(),
+        costCenterName: form.name.trim(),
+        department: form.department.trim(),
+        manager: form.manager.trim(),
+        managerName: form.manager.trim(),
+        type: form.type,
+        status: form.status,
+        isActive: form.status === 'Active',
+        budgetAllocated: form.budgetAllocated === '' ? 0 : Number(form.budgetAllocated),
+        budget: form.budgetAllocated === '' ? 0 : Number(form.budgetAllocated),
+        actualCost: form.actualCost === '' ? 0 : Number(form.actualCost),
+        employeeCount: form.employeeCount === '' ? 0 : Number(form.employeeCount),
+        openingDate: form.openingDate || undefined,
+        description: form.description.trim(),
+      };
+      if (editingId) {
+        await FinanceService.updateCostCenter(editingId, payload);
+      } else {
+        await FinanceService.createCostCenter(payload);
+      }
+      setShowModal(false);
+      setEditingId(null);
+      await loadCostCenters();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Failed to save cost center');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteCostCenter = async (center: CostCenter) => {
+    if (!window.confirm(`Delete cost center "${center.name}" (${center.code})? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await FinanceService.deleteCostCenter(center.id);
+      await loadCostCenters();
+    } catch (e) {
+      alert('Failed to delete cost center: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    }
   };
 
   const handleExportCostCenters = () => {
@@ -332,43 +404,22 @@ export default function CostCentersPage() {
   };
 
   const handleEditCostCenter = (center: CostCenter) => {
-    alert(
-      `✏️ Edit Cost Center: ${center.name}\n\n` +
-      `This will open an edit dialog pre-populated with:\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `CURRENT VALUES\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Code: ${center.code}\n` +
-      `Name: ${center.name}\n` +
-      `Type: ${center.type}\n` +
-      `Department: ${center.department}\n` +
-      `Manager: ${center.manager}\n` +
-      `Status: ${center.status}\n` +
-      `Budget: ${formatCurrency(center.budgetAllocated)}\n` +
-      `Employees: ${center.employeeCount}\n` +
-      `Opening Date: ${center.openingDate}\n` +
-      `Description: ${center.description}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `EDITABLE FIELDS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `• Cost Center Name\n` +
-      `• Type & Department\n` +
-      `• Manager Assignment\n` +
-      `• Budget Allocation (requires approval)\n` +
-      `• Employee Count\n` +
-      `• Status (Active/Inactive)\n` +
-      `• Description\n\n` +
-      `In production, this would:\n` +
-      `1. Open a modal/dialog with edit form\n` +
-      `2. Load current data from: GET /api/finance/cost-centers/${center.id}\n` +
-      `3. Validate changes and permissions\n` +
-      `4. Submit updates to: PUT /api/finance/cost-centers/${center.id}\n` +
-      `5. Log audit trail of changes\n` +
-      `6. Send notifications to affected users\n` +
-      `7. Refresh the cost centers list\n` +
-      `8. Show success notification\n\n` +
-      `Note: Budget changes may require approval workflow`
-    );
+    setEditingId(center.id);
+    setForm({
+      code: center.code,
+      name: center.name,
+      department: center.department,
+      manager: center.manager,
+      type: center.type,
+      status: center.status,
+      budgetAllocated: String(center.budgetAllocated ?? ''),
+      actualCost: String(center.actualCost ?? ''),
+      employeeCount: String(center.employeeCount ?? ''),
+      openingDate: center.openingDate ?? '',
+      description: center.description ?? '',
+    });
+    setFormError(null);
+    setShowModal(true);
   };
 
   const handleViewAnalytics = (center: CostCenter) => {
@@ -740,6 +791,13 @@ export default function CostCentersPage() {
                           >
                             <BarChart3 className="w-4 h-4 text-purple-400" />
                           </button>
+                          <button
+                            onClick={() => handleDeleteCostCenter(cc)}
+                            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                            title="Delete Cost Center"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-400" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -792,6 +850,170 @@ export default function CostCentersPage() {
           </div>
         )}
       </div>
+
+      {/* Create / Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h2 className="text-lg font-semibold text-white">
+                {editingId ? 'Edit Cost Center' : 'Add Cost Center'}
+              </h2>
+              <button
+                onClick={closeModal}
+                disabled={submitting}
+                className="p-1 rounded-lg hover:bg-gray-700 text-gray-400 disabled:opacity-50"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              {formError && (
+                <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  {formError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Code</label>
+                  <input
+                    type="text"
+                    value={form.code}
+                    onChange={(e) => handleFormChange('code', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g. CC-001"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => handleFormChange('name', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Cost center name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={form.department}
+                    onChange={(e) => handleFormChange('department', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g. Operations"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Manager</label>
+                  <input
+                    type="text"
+                    value={form.manager}
+                    onChange={(e) => handleFormChange('manager', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Manager name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Type</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => handleFormChange('type', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Production">Production</option>
+                    <option value="Service">Service</option>
+                    <option value="Administrative">Administrative</option>
+                    <option value="Sales">Sales</option>
+                    <option value="R&D">R&D</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => handleFormChange('status', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Budget Allocated</label>
+                  <input
+                    type="number"
+                    value={form.budgetAllocated}
+                    onChange={(e) => handleFormChange('budgetAllocated', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Actual Cost</label>
+                  <input
+                    type="number"
+                    value={form.actualCost}
+                    onChange={(e) => handleFormChange('actualCost', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Employee Count</label>
+                  <input
+                    type="number"
+                    value={form.employeeCount}
+                    onChange={(e) => handleFormChange('employeeCount', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Opening Date</label>
+                  <input
+                    type="date"
+                    value={form.openingDate}
+                    onChange={(e) => handleFormChange('openingDate', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Optional description"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-700 px-5 py-3">
+              <button
+                onClick={closeModal}
+                disabled={submitting}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitModal}
+                disabled={submitting}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Saving…' : editingId ? 'Save Changes' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

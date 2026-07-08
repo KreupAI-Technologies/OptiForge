@@ -1,11 +1,64 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageToolbar } from '@/components/ui';
-import { Brain, Network, TrendingUp, Clock, Zap, CheckCircle, Target, Building2, Activity, User, ArrowRight } from 'lucide-react';
+import { Brain, Network, TrendingUp, Clock, Zap, CheckCircle, Target, Building2, Activity, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
+
+interface CrmSummary {
+  leads: number;
+  opportunities: number;
+  accounts: number;
+  activities: number;
+}
 
 export default function CRMAdvancedFeaturesPage() {
   const router = useRouter();
+
+  const [summary, setSummary] = useState<CrmSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setSummaryLoading(true);
+      setSummaryError(null);
+      try {
+        // Fetch the primary CRM lists in parallel and count them. Each call is
+        // wrapped so one failing endpoint does not blank the whole summary.
+        const [leads, opportunities, accounts, activities] = await Promise.all([
+          crmService.leads.getAll().then(asArray).catch(() => []),
+          crmService.opportunities.getAll().then(asArray).catch(() => []),
+          crmService.customers.getAll().then(asArray).catch(() => []),
+          crmService.activities.getAll().then(asArray).catch(() => []),
+        ]);
+        if (mounted) {
+          setSummary({
+            leads: leads.length,
+            opportunities: opportunities.length,
+            accounts: accounts.length,
+            activities: activities.length,
+          });
+        }
+      } catch (e) {
+        if (mounted) setSummaryError(e instanceof Error ? e.message : 'Failed to load CRM summary');
+      } finally {
+        if (mounted) setSummaryLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const kpis = [
+    { label: 'Leads', value: summary?.leads ?? 0, icon: Target, color: 'text-blue-600', bg: 'from-blue-50 to-blue-100 border-blue-200' },
+    { label: 'Opportunities', value: summary?.opportunities ?? 0, icon: TrendingUp, color: 'text-purple-600', bg: 'from-purple-50 to-purple-100 border-purple-200' },
+    { label: 'Accounts', value: summary?.accounts ?? 0, icon: Building2, color: 'text-emerald-600', bg: 'from-emerald-50 to-emerald-100 border-emerald-200' },
+    { label: 'Activities', value: summary?.activities ?? 0, icon: Activity, color: 'text-orange-600', bg: 'from-orange-50 to-orange-100 border-orange-200' },
+  ];
 
   const features = [
     {
@@ -134,6 +187,41 @@ export default function CRMAdvancedFeaturesPage() {
             Comprehensive suite of enterprise-grade features combining AI-powered insights, advanced automation, and intelligent collaboration tools to supercharge your sales process.
           </p>
         </div>
+
+        {/* Live CRM summary KPIs (real data) */}
+        {summaryLoading && (
+          <div className="mb-8 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading CRM summary…
+          </div>
+        )}
+        {summaryError && !summaryLoading && (
+          <div className="mb-8 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {summaryError}
+          </div>
+        )}
+        {!summaryLoading && !summaryError && (
+          <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+            {kpis.map((kpi) => {
+              const Icon = kpi.icon;
+              return (
+                <div
+                  key={kpi.label}
+                  className={`bg-gradient-to-br ${kpi.bg} rounded-lg border p-3`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${kpi.color}`}>{kpi.label}</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">{kpi.value}</p>
+                    </div>
+                    <Icon className={`h-8 w-8 ${kpi.color}`} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {categories.map((category) => (
           <div key={category} className="mb-8">

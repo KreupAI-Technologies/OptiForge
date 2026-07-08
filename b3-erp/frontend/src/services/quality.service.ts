@@ -55,6 +55,16 @@ export class QualityService {
       `/quality/rework-items${qs ? `?${qs}` : ''}`,
     );
   }
+
+  static async updateReworkItem(
+    id: string,
+    data: Partial<ReworkItemDto>,
+  ): Promise<ReworkItemDto> {
+    return request<ReworkItemDto>(`/quality/rework-items/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const qualityService = QualityService;

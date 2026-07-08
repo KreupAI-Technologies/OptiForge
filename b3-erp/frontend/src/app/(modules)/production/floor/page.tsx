@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, Filter, Download, Eye, Edit2, Pause, Users, Activity, Package, TrendingUp } from 'lucide-react'
 import { exportToCsv } from '@/lib/export'
 import { ProductionOrphanService } from '@/services/production/production-orphan.service'
@@ -25,6 +26,7 @@ interface FloorActivity {
 }
 
 const ProductionFloorPage = () => {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [workCenterFilter, setWorkCenterFilter] = useState('all')
   const [shiftFilter, setShiftFilter] = useState('all')
@@ -35,44 +37,40 @@ const ProductionFloorPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let active = true
-    const load = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const rows = await ProductionOrphanService.getFloorActivities()
-        if (!active) return
-        const mapped: FloorActivity[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
-          id: String(r.id ?? ''),
-          activity_id: r.activityId ?? r.activity_id ?? '',
-          work_center: r.workCenter ?? r.work_center ?? '',
-          operator_name: r.operatorName ?? r.operator_name ?? '',
-          employee_id: r.employeeId ?? r.employee_id ?? '',
-          work_order_id: r.workOrderId ?? r.work_order_id ?? '',
-          product_name: r.productName ?? r.product_name ?? '',
-          product_code: r.productCode ?? r.product_code ?? '',
-          operation: r.operation ?? '',
-          start_time: r.startTime ?? r.start_time ?? '',
-          duration_minutes: Number(r.durationMinutes ?? r.duration_minutes ?? 0),
-          output_qty: Number(r.outputQty ?? r.output_qty ?? 0),
-          target_qty: Number(r.targetQty ?? r.target_qty ?? 0),
-          efficiency_percent: Number(r.efficiencyPercent ?? r.efficiency_percent ?? 0),
-          status: (r.status ?? 'active') as FloorActivity['status'],
-          shift: (r.shift ?? 'Morning') as FloorActivity['shift'],
-        }))
-        setActivities(mapped)
-      } catch (e: any) {
-        if (active) setError(e?.message || 'Failed to load floor activities')
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      active = false
+  const load = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const rows = await ProductionOrphanService.getFloorActivities()
+      const mapped: FloorActivity[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+        id: String(r.id ?? ''),
+        activity_id: r.activityId ?? r.activity_id ?? '',
+        work_center: r.workCenter ?? r.work_center ?? '',
+        operator_name: r.operatorName ?? r.operator_name ?? '',
+        employee_id: r.employeeId ?? r.employee_id ?? '',
+        work_order_id: r.workOrderId ?? r.work_order_id ?? '',
+        product_name: r.productName ?? r.product_name ?? '',
+        product_code: r.productCode ?? r.product_code ?? '',
+        operation: r.operation ?? '',
+        start_time: r.startTime ?? r.start_time ?? '',
+        duration_minutes: Number(r.durationMinutes ?? r.duration_minutes ?? 0),
+        output_qty: Number(r.outputQty ?? r.output_qty ?? 0),
+        target_qty: Number(r.targetQty ?? r.target_qty ?? 0),
+        efficiency_percent: Number(r.efficiencyPercent ?? r.efficiency_percent ?? 0),
+        status: (r.status ?? 'active') as FloorActivity['status'],
+        shift: (r.shift ?? 'Morning') as FloorActivity['shift'],
+      }))
+      setActivities(mapped)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load floor activities')
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -129,15 +127,21 @@ const ProductionFloorPage = () => {
   }
 
   const handleView = (id: string) => {
-    console.log('View floor activity:', id)
+    router.push(`/production/floor/edit/${id}`)
   }
 
   const handleEdit = (id: string) => {
-    console.log('Edit floor activity:', id)
+    router.push(`/production/floor/edit/${id}`)
   }
 
-  const handlePause = (id: string) => {
-    console.log('Pause floor activity:', id)
+  const handlePause = async (id: string) => {
+    try {
+      setError(null)
+      await ProductionOrphanService.updateFloorActivity(id, { status: 'paused' })
+      await load()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to pause floor activity')
+    }
   }
 
   const formatDuration = (minutes: number) => {

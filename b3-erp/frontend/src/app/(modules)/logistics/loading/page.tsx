@@ -62,6 +62,7 @@ export default function LoadingDispatchPage() {
     // Page data state
     const [jobs, setJobs] = useState<LoadingJob[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [dispatchingId, setDispatchingId] = useState<string | null>(null);
 
     useEffect(() => {
         loadProjects();
@@ -110,6 +111,20 @@ export default function LoadingDispatchPage() {
 
     const handleChangeProject = () => {
         setSelectedProject(null);
+    };
+
+    const handleDispatch = async (job: LoadingJob) => {
+        setDispatchingId(job.id);
+        try {
+            await LogisticsService.updateShipment(job.id, { status: 'Dispatched' });
+            toast({ title: 'Dispatched', description: `${job.woNumber} has been dispatched.`, variant: 'success' });
+            await loadJobs();
+        } catch (error) {
+            console.error('Error dispatching job:', error);
+            toast({ title: 'Error', description: 'Failed to dispatch this job. Please try again.', variant: 'destructive' });
+        } finally {
+            setDispatchingId(null);
+        }
     };
 
     const filteredProjects = projects.filter(p =>
@@ -351,6 +366,21 @@ export default function LoadingDispatchPage() {
                                                 ))}
                                             </div>
                                         </div>
+
+                                        {/* Actions */}
+                                        {job.status !== 'Dispatched' && (
+                                            <div className="mt-3 flex justify-end">
+                                                <Button
+                                                    onClick={() => handleDispatch(job)}
+                                                    disabled={dispatchingId === job.id || checkedCount < totalChecks}
+                                                    className="bg-purple-600 hover:bg-purple-700"
+                                                    title={checkedCount < totalChecks ? 'Complete the loading checklist before dispatching' : 'Dispatch this job'}
+                                                >
+                                                    <Truck className="w-4 h-4 mr-2" />
+                                                    {dispatchingId === job.id ? 'Dispatching...' : 'Dispatch'}
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

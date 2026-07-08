@@ -449,23 +449,33 @@ export class WarrantyService {
 
   /**
    * Approve a warranty claim.
-   * Backed by PUT /after-sales/warranties/claims/:id.
+   * Backed by PATCH /after-sales/warranties/claims/:claimId/approve.
    */
-  static async approveClaim(id: string, approvedAmount?: number): Promise<WarrantyClaimRecord> {
-    return this.request<WarrantyClaimRecord>(`/after-sales/warranties/claims/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status: 'approved', approvedAmount }),
+  static async approveClaim(
+    id: string,
+    approvedAmount?: number,
+    approvedBy = 'system',
+  ): Promise<WarrantyClaimRecord> {
+    const approvalNotes =
+      approvedAmount !== undefined ? `Approved amount: ${approvedAmount}` : undefined;
+    return this.request<WarrantyClaimRecord>(`/after-sales/warranties/claims/${id}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ approvedBy, approvalNotes }),
     });
   }
 
   /**
    * Reject a warranty claim.
-   * Backed by PUT /after-sales/warranties/claims/:id.
+   * Backed by PATCH /after-sales/warranties/claims/:claimId/reject.
    */
-  static async rejectClaim(id: string, rejectionReason?: string): Promise<WarrantyClaimRecord> {
-    return this.request<WarrantyClaimRecord>(`/after-sales/warranties/claims/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status: 'rejected', rejectionReason }),
+  static async rejectClaim(
+    id: string,
+    rejectionReason = 'Not covered',
+    rejectedBy = 'system',
+  ): Promise<WarrantyClaimRecord> {
+    return this.request<WarrantyClaimRecord>(`/after-sales/warranties/claims/${id}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rejectedBy, rejectionReason }),
     });
   }
 }

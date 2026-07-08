@@ -16,6 +16,7 @@ import {
   TrendingDown
 } from 'lucide-react';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { exportToCsv } from '@/lib/export';
 
 interface MaintenanceHistory {
   id: string;
@@ -167,7 +168,25 @@ export default function MaintenanceHistoryPage() {
   };
 
   const handleExport = () => {
-    alert('Exporting maintenance history to Excel...');
+    exportToCsv(
+      `maintenance-history-${new Date().toISOString().slice(0, 10)}`,
+      filteredHistory,
+      [
+        { key: 'maintenanceId', label: 'ID' },
+        { key: 'equipmentCode', label: 'Equipment Code' },
+        { key: 'equipmentName', label: 'Equipment Name' },
+        { key: 'maintenanceType', label: 'Type' },
+        { key: 'startDate', label: 'Start Date' },
+        { key: 'completionDate', label: 'Completion Date' },
+        { key: 'duration', label: 'Duration (h)' },
+        { key: 'technician', label: 'Technician' },
+        { key: 'status', label: 'Status' },
+        { key: 'cost', label: 'Cost' },
+        { key: 'downtime', label: 'Downtime (h)' },
+        { key: 'workDescription', label: 'Work Description' },
+        { key: 'remarks', label: 'Remarks' },
+      ],
+    );
   };
 
   return (

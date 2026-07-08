@@ -82,11 +82,21 @@ export default function CreateAutomationPage() {
     };
 
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (saving) return;
+        if (!formData.name.trim()) {
+            setError('Rule name is required.');
+            return;
+        }
+        if (!formData.action) {
+            setError('An action type is required.');
+            return;
+        }
         setSaving(true);
+        setError(null);
         try {
             await workflowAutomationService.create('default-company-id', {
                 name: formData.name,
@@ -100,12 +110,17 @@ export default function CreateAutomationPage() {
                 conditions: conditions
                     .filter((c) => c.field)
                     .map((c) => ({ field: c.field, operator: c.operator, value: c.value })),
+                actions: formData.actionDetails
+                    ? [{ type: formData.action, details: formData.actionDetails }]
+                    : [{ type: formData.action }],
             });
-            alert('Automation rule created successfully!');
             router.push('/workflow/automation');
         } catch (err) {
-            console.error('Error creating automation rule:', err);
-            alert('Failed to create automation rule');
+            setError(
+                err instanceof Error
+                    ? `Failed to create automation rule: ${err.message}`
+                    : 'Failed to create automation rule.',
+            );
         } finally {
             setSaving(false);
         }
@@ -138,16 +153,18 @@ export default function CreateAutomationPage() {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => router.back()}
-                            className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50"
+                            disabled={saving}
+                            className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSubmit}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest"
+                            disabled={saving}
+                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Save className="w-4 h-4" />
-                            Save Automation
+                            {saving ? 'Saving…' : 'Save Automation'}
                         </button>
                     </div>
                 </div>
@@ -156,6 +173,12 @@ export default function CreateAutomationPage() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3">
                 <form onSubmit={handleSubmit} className="w-full space-y-3">
+                    {error && (
+                        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <AlertCircle className="h-4 w-4" />
+                            {error}
+                        </div>
+                    )}
                     {/* Basic Info */}
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
                         <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-2 flex items-center gap-2">

@@ -50,6 +50,7 @@ function KitchenCleaningPageContent() {
         { id: '4', area: 'Remove Debris & Packaging', status: 'Pending' },
         { id: '5', area: 'Wipe Down Appliances', status: 'Pending' },
     ]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -96,12 +97,31 @@ function KitchenCleaningPageContent() {
         ));
     };
 
-    const handleComplete = () => {
-        toast({
-            title: 'Cleaning Completed',
-            description: 'Site is ready for client handover',
-        });
-        setTimeout(() => router.push(`/installation/handover?projectId=${selectedProject?.id}`), 1000);
+    const handleComplete = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Kitchen cleaning completed: ${tasks.map(t => t.area).join(', ')}.`,
+                isSiteCleaned: true,
+                overallProgress: 98,
+            });
+            toast({
+                title: 'Cleaning Completed',
+                description: 'Site is ready for client handover. Progress saved.',
+            });
+            router.push(`/installation/handover?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving cleaning progress:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not record cleaning completion. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: CleaningTask['status']) => {
@@ -196,8 +216,9 @@ function KitchenCleaningPageContent() {
                     </Button>
                     <Button
                         onClick={handleComplete}
-                        disabled={tasks.some(t => t.status === 'Pending')}
+                        disabled={tasks.some(t => t.status === 'Pending') || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Client Handover <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

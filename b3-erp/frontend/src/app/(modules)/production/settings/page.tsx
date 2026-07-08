@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -14,8 +14,11 @@ import {
   Shield,
   Bell,
   FileText,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { productionSettingsService } from '@/services/production/production-settings.service';
 
 interface SettingsCategory {
   id: string;
@@ -28,8 +31,50 @@ interface SettingsCategory {
   hoverColor: string;
 }
 
+interface SettingsCounts {
+  workCenters: number | null
+  productionLines: number | null
+  activeShifts: number | null
+  routings: number | null
+}
+
 export default function ProductionSettingsPage() {
   const router = useRouter();
+  const [counts, setCounts] = useState<SettingsCounts>({
+    workCenters: null,
+    productionLines: null,
+    activeShifts: null,
+    routings: null,
+  });
+  const [countsLoading, setCountsLoading] = useState(true);
+
+  // Live configuration counts from the production module
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCountsLoading(true);
+      const [wc, lines, shifts, routings] = await Promise.all([
+        ProductionOrphanService.getWorkCenters().catch(() => null),
+        productionSettingsService.findAllProductionLines().catch(() => null),
+        productionSettingsService.findAllShifts().catch(() => null),
+        ProductionOrphanService.getRoutings().catch(() => null),
+      ]);
+      if (cancelled) return;
+      const activeShifts = Array.isArray(shifts)
+        ? shifts.filter((s: any) => String(s?.status ?? 'active').toLowerCase() === 'active').length
+        : null;
+      setCounts({
+        workCenters: Array.isArray(wc) ? wc.length : null,
+        productionLines: Array.isArray(lines) ? lines.length : null,
+        activeShifts,
+        routings: Array.isArray(routings) ? routings.length : null,
+      });
+      setCountsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const fmt = (n: number | null) => (countsLoading ? '…' : n == null ? '—' : String(n));
 
   const settingsCategories: SettingsCategory[] = [
     {
@@ -178,13 +223,16 @@ export default function ProductionSettingsPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards — live counts from the production module */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-6">
         <div className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Work Centers</p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
+              <p className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                {countsLoading && <Loader2 className="w-5 h-5 animate-spin text-gray-400" />}
+                {fmt(counts.workCenters)}
+              </p>
             </div>
             <Factory className="w-8 h-8 text-blue-600" />
           </div>
@@ -194,7 +242,10 @@ export default function ProductionSettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Production Lines</p>
-              <p className="text-2xl font-bold text-gray-900">5</p>
+              <p className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                {countsLoading && <Loader2 className="w-5 h-5 animate-spin text-gray-400" />}
+                {fmt(counts.productionLines)}
+              </p>
             </div>
             <GitBranch className="w-8 h-8 text-green-600" />
           </div>
@@ -204,7 +255,10 @@ export default function ProductionSettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Active Shifts</p>
-              <p className="text-2xl font-bold text-gray-900">3</p>
+              <p className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                {countsLoading && <Loader2 className="w-5 h-5 animate-spin text-gray-400" />}
+                {fmt(counts.activeShifts)}
+              </p>
             </div>
             <Clock className="w-8 h-8 text-purple-600" />
           </div>
@@ -213,8 +267,11 @@ export default function ProductionSettingsPage() {
         <div className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Routing Templates</p>
-              <p className="text-2xl font-bold text-gray-900">28</p>
+              <p className="text-sm text-gray-600">Routings</p>
+              <p className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                {countsLoading && <Loader2 className="w-5 h-5 animate-spin text-gray-400" />}
+                {fmt(counts.routings)}
+              </p>
             </div>
             <Cog className="w-8 h-8 text-orange-600" />
           </div>

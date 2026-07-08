@@ -724,7 +724,9 @@ export default function ApprovalsPage() {
                   </div>
                 )}
 
-                {/* Document Link */}
+                {/* Document Link — reference metadata. A document-viewer route/
+                    endpoint is not yet available on the workflow backend, so we
+                    surface the reference identifier rather than a dead action. */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -732,101 +734,31 @@ export default function ApprovalsPage() {
                         <FileText className="h-5 w-5" />
                         <span>Original Document</span>
                       </h4>
-                      <p className="text-sm text-blue-700">View the complete {approval.type.replace('_', ' ')} document</p>
+                      <p className="text-sm text-blue-700">
+                        {approval.type.replace('_', ' ')} — {approval.referenceId || 'no reference'}
+                      </p>
                     </div>
-                    <button
-                      onClick={() => {
-                        // TODO: Navigate to actual document when routes are set up
-                        alert(`Opening ${approval.referenceId}...`);
-                      }}
-                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span>View Document</span>
-                    </button>
                   </div>
                 </div>
 
-                {/* Attachments Section */}
-                {approval.attachments > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                      <Package className="h-4 w-4" />
-                      <span>Attachments ({approval.attachments})</span>
-                    </h4>
-                    <div className="grid grid-cols-1 gap-2">
-                      {/* Mock attachments - replace with real data */}
-                      {Array.from({ length: approval.attachments }).map((_, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center space-x-3">
-                            <FileText className="h-5 w-5 text-blue-600" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {idx === 0 ? 'Purchase_Order_Details.pdf' :
-                                  idx === 1 ? 'Vendor_Quotation.pdf' :
-                                    'Material_Specifications.xlsx'}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {idx === 0 ? '245 KB' : idx === 1 ? '189 KB' : '78 KB'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => alert('Preview coming soon...')}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Preview"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => alert('Download starting...')}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
-                              title="Download"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Comments Section */}
-                {approval.comments > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
-                      <MessageSquare className="h-4 w-4" />
-                      <span>Comments ({approval.comments})</span>
-                    </h4>
-                    <div className="space-y-3">
-                      {/* Mock comments - replace with real data */}
-                      {Array.from({ length: approval.comments }).map((_, idx) => (
-                        <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold">
-                              {idx === 0 ? 'PM' : 'FD'}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {idx === 0 ? 'Procurement Manager' : 'Finance Director'}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {idx === 0 ? '2025-10-15 10:30 AM' : '2025-10-16 02:15 PM'}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-700">
-                            {idx === 0
-                              ? 'Checked with supplier - delivery confirmed within 2 weeks. Prices are competitive.'
-                              : 'Please verify if budget allocation is available for Q4.'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                {/* Attachment / comment counts are provided by the approval
+                    record; the individual file and comment payloads are not yet
+                    exposed by the workflow backend, so we show the counts only
+                    rather than fabricated rows. */}
+                {(approval.attachments > 0 || approval.comments > 0) && (
+                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                    {approval.attachments > 0 && (
+                      <span className="flex items-center space-x-1">
+                        <Package className="h-4 w-4" />
+                        <span>{approval.attachments} attachment(s)</span>
+                      </span>
+                    )}
+                    {approval.comments > 0 && (
+                      <span className="flex items-center space-x-1">
+                        <MessageSquare className="h-4 w-4" />
+                        <span>{approval.comments} comment(s)</span>
+                      </span>
+                    )}
                   </div>
                 )}
 

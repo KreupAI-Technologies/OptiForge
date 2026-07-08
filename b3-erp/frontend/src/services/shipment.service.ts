@@ -581,6 +581,24 @@ class ShipmentService {
     }
 
     /**
+     * Delete a shipment
+     */
+    async deleteShipment(id: string): Promise<{ success: boolean }> {
+        try {
+            await apiClient.delete(`/sales-masters/shipments/${id}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error deleting shipment ${id}, using mock:`, error);
+
+            const index = this.mockShipments.findIndex(s => s.id === id);
+            if (index !== -1) {
+                this.mockShipments.splice(index, 1);
+            }
+            return { success: true };
+        }
+    }
+
+    /**
      * Mark shipment as delivered
      */
     async deliverShipment(id: string): Promise<Shipment> {

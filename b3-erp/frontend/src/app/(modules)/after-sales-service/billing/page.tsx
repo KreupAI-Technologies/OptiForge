@@ -62,53 +62,52 @@ export default function ServiceBillingPage() {
   const [invoices, setInvoices] = useState<ServiceInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+
+  const loadInvoices = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await ServiceBillingService.getAllInvoices();
+      const mapped: ServiceInvoice[] = (Array.isArray(raw) ? raw : []).map((i: any) => {
+        const total = Number(i.totalAmount ?? i.total_amount ?? 0);
+        const paid = Number(i.paidAmount ?? i.paid_amount ?? 0);
+        const balance = Number(i.balanceAmount ?? i.balance_amount ?? (total - paid));
+        const paymentStatus: ServiceInvoice['paymentStatus'] =
+          paid <= 0 ? 'unpaid' : balance > 0 ? 'partial' : 'paid';
+        return {
+          id: String(i.id ?? ''),
+          invoiceNumber: i.invoiceNumber ?? i.invoice_number ?? '',
+          invoiceType: (i.invoiceType ?? i.invoice_type ?? 'Service') as ServiceInvoice['invoiceType'],
+          customerId: String(i.customerId ?? i.customer_id ?? ''),
+          customerName: i.customerName ?? i.customer_name ?? '',
+          status: (i.status ?? 'draft') as ServiceInvoice['status'],
+          invoiceDate: i.invoiceDate ?? i.invoice_date ?? i.createdAt ?? '',
+          dueDate: i.dueDate ?? i.due_date ?? '',
+          subtotal: Number(i.subtotal ?? 0),
+          totalTax: Number(i.totalTax ?? i.total_tax ?? 0),
+          totalAmount: total,
+          paidAmount: paid,
+          balanceAmount: balance,
+          paymentStatus: (i.paymentStatus as ServiceInvoice['paymentStatus']) ?? paymentStatus,
+          paymentTerms: i.paymentTerms ?? i.payment_terms ?? '',
+          serviceJobId: i.serviceJobId ?? i.service_job_id ?? undefined,
+          contractId: i.contractId ?? i.contract_id ?? undefined,
+          overdueDays: i.overdueDays != null ? Number(i.overdueDays) : undefined,
+        };
+      });
+      setInvoices(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load invoices');
+      setInvoices([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await ServiceBillingService.getAllInvoices();
-        const mapped: ServiceInvoice[] = (Array.isArray(raw) ? raw : []).map((i: any) => {
-          const total = Number(i.totalAmount ?? i.total_amount ?? 0);
-          const paid = Number(i.paidAmount ?? i.paid_amount ?? 0);
-          const balance = Number(i.balanceAmount ?? i.balance_amount ?? (total - paid));
-          const paymentStatus: ServiceInvoice['paymentStatus'] =
-            paid <= 0 ? 'unpaid' : balance > 0 ? 'partial' : 'paid';
-          return {
-            id: String(i.id ?? ''),
-            invoiceNumber: i.invoiceNumber ?? i.invoice_number ?? '',
-            invoiceType: (i.invoiceType ?? i.invoice_type ?? 'Service') as ServiceInvoice['invoiceType'],
-            customerId: String(i.customerId ?? i.customer_id ?? ''),
-            customerName: i.customerName ?? i.customer_name ?? '',
-            status: (i.status ?? 'draft') as ServiceInvoice['status'],
-            invoiceDate: i.invoiceDate ?? i.invoice_date ?? i.createdAt ?? '',
-            dueDate: i.dueDate ?? i.due_date ?? '',
-            subtotal: Number(i.subtotal ?? 0),
-            totalTax: Number(i.totalTax ?? i.total_tax ?? 0),
-            totalAmount: total,
-            paidAmount: paid,
-            balanceAmount: balance,
-            paymentStatus: (i.paymentStatus as ServiceInvoice['paymentStatus']) ?? paymentStatus,
-            paymentTerms: i.paymentTerms ?? i.payment_terms ?? '',
-            serviceJobId: i.serviceJobId ?? i.service_job_id ?? undefined,
-            contractId: i.contractId ?? i.contract_id ?? undefined,
-            overdueDays: i.overdueDays != null ? Number(i.overdueDays) : undefined,
-          };
-        });
-        if (!cancelled) setInvoices(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load invoices');
-          setInvoices([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+    loadInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -165,13 +164,28 @@ export default function ServiceBillingPage() {
     setShowSendModal(true);
   };
 
-  const handleConfirmSend = () => {
-    toast({
-      title: "Invoice Sent",
-      description: `Invoice ${selectedInvoice?.invoiceNumber} has been sent to the customer.`,
-    });
-    setShowSendModal(false);
-    setSelectedInvoice(null);
+  const handleConfirmSend = async () => {
+    if (!selectedInvoice) return;
+    try {
+      setIsSending(true);
+      await ServiceBillingService.sendInvoice(selectedInvoice.id);
+      toast({
+        title: "Invoice Sent",
+        description: `Invoice ${selectedInvoice.invoiceNumber} has been sent to the customer.`,
+      });
+      setShowSendModal(false);
+      setSelectedInvoice(null);
+      await loadInvoices();
+    } catch (err) {
+      console.error('Error sending invoice:', err);
+      toast({
+        title: "Send Failed",
+        description: err instanceof Error ? err.message : "Could not send the invoice. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleExport = () => {
@@ -757,10 +771,11 @@ export default function ServiceBillingPage() {
               </button>
               <button
                 onClick={handleConfirmSend}
-                className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                disabled={isSending}
+                className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="h-4 w-4" />
-                Confirm & Send
+                {isSending ? 'Sending…' : 'Confirm & Send'}
               </button>
             </div>
           </div>

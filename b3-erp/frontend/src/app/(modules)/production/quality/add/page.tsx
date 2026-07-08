@@ -318,10 +318,17 @@ const QualityInspectionAddPage = () => {
     }
 
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Inspection completed successfully!");
-    router.push("/production/quality");
+    try {
+      await ProductionOrphanService.createNcr({
+        ...buildPayload(),
+        status: "closed",
+      });
+      router.push("/production/quality");
+    } catch (err) {
+      alert("Failed to complete inspection. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const calculatePassRate = () => {
@@ -708,8 +715,12 @@ const QualityInspectionAddPage = () => {
               <div className="flex gap-2">
                 {workOrderId && (
                   <button
-                    onClick={() => alert("Loading quality specs from product master...")}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    type="button"
+                    disabled
+                    // TODO(NEEDS BACKEND): no product-master quality-specs endpoint yet.
+                    // When available, fetch specs for the selected WO/product and setTestParameters(...).
+                    title="Loading specs from product master is not yet available (backend endpoint pending)"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed text-sm"
                   >
                     <Download className="w-4 h-4" />
                     Load from Product Master

@@ -628,6 +628,22 @@ export class PaymentService {
     });
   }
 
+  // Approve / verify a payment (verification-queue gate)
+  static async approvePayment(id: string, notes?: string): Promise<Payment> {
+    return this.request<Payment>(`/finance/payments/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  // Mark a payment as bounced / rejected
+  static async markBounced(id: string, reason?: string): Promise<Payment> {
+    return this.request<Payment>(`/finance/payments/${id}/mark-bounced`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
   // Cancel Payment
   static async cancelPayment(id: string, reason?: string): Promise<Payment> {
     if (USE_MOCK_DATA) {

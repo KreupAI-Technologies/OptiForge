@@ -1,14 +1,30 @@
 ﻿'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, BarChart3 } from 'lucide-react'
+import { ArrowLeft, BarChart3, Loader2, AlertCircle } from 'lucide-react'
 import { SelfServiceBI, DrillThroughAnalysis, GovernedDataModels, MLForecasting, ExportScheduling, RoleBasedInsights, KPIAlerts } from '@/components/reports'
+import { reportsManagementService, ReportsOverview } from '@/services/reports-management.service'
 
 type TabId = 'self-service' | 'drill-through' | 'data-models' | 'ml-forecasting' | 'export' | 'role-based' | 'kpi-alerts';
 
 export default function ReportsAdvancedFeaturesPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>('self-service');
+  const [kpis, setKpis] = useState<ReportsOverview | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [kpiError, setKpiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setKpiLoading(true);
+    setKpiError(null);
+    reportsManagementService
+      .getReportsOverview()
+      .then((data) => { if (active) setKpis(data); })
+      .catch((e) => { if (active) setKpiError(e?.message ?? 'Failed to load reporting metrics'); })
+      .finally(() => { if (active) setKpiLoading(false); });
+    return () => { active = false; };
+  }, []);
   const tabs = [
     { id: 'self-service' as TabId, label: 'Self-Service BI' },
     { id: 'drill-through' as TabId, label: 'Drill-Through' },
@@ -42,6 +58,33 @@ export default function ReportsAdvancedFeaturesPage() {
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
             <BarChart3 className="h-10 w-10 text-blue-600" />Reports & Analytics - Advanced Features
           </h1>
+
+          {/* Live Reporting KPIs */}
+          {kpiLoading ? (
+            <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading live reporting metrics…
+            </div>
+          ) : kpiError ? (
+            <div className="mt-3 flex items-center gap-2 text-sm text-red-600">
+              <AlertCircle className="h-4 w-4" /> {kpiError}
+            </div>
+          ) : kpis ? (
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+              {[
+                { label: 'Report Templates', value: kpis.totalReports },
+                { label: 'Favorites', value: kpis.favoriteReports },
+                { label: 'Scheduled Reports', value: kpis.scheduledReports },
+                { label: 'Dashboards', value: kpis.dashboards },
+              ].map((k) => (
+                <div key={k.label} className="rounded-lg border border-gray-100 bg-gradient-to-br from-slate-50 to-blue-50 px-3 py-2">
+                  <p className="text-xs text-gray-500">{k.label}</p>
+                  <p className="text-xl font-bold text-gray-900">{k.value}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 text-sm text-gray-400">No reporting metrics available yet.</div>
+          )}
         </div>
         <div className="bg-white shadow-lg">
           <nav className="flex overflow-x-auto border-b">

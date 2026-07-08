@@ -35,6 +35,7 @@ export default function TrialWallPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<TrialJob[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
@@ -74,9 +75,30 @@ export default function TrialWallPage() {
     }
   };
 
-  const handleStatusChange = (id: string, newStatus: TrialJob['status']) => {
+  const handleStatusChange = async (id: string, newStatus: TrialJob['status']) => {
+    const prev = jobs;
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
-    toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+    // Persist a trial-report result once the unit is Verified.
+    if (newStatus !== 'Verified' || !projectId) {
+      toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+      return;
+    }
+    setSavingId(id);
+    try {
+      const report = await projectManagementService.createProductionTrial(projectId, 'Trial Wall Inspector');
+      if (report?.id) {
+        await projectManagementService.updateProductionTrial(report.id, {
+          result: 'PASS',
+          notes: `Trial wall ${id} verified for fit and alignment.`,
+        });
+      }
+      toast({ title: 'Trial Verified', description: `${id} verification recorded to production.` });
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Could not record trial', description: error instanceof Error ? error.message : 'Failed to record trial result.' });
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handlePhotoUpload = (id: string) => {
@@ -233,9 +255,9 @@ export default function TrialWallPage() {
                           </Button>
                         )}
                         {job.status !== 'Verified' && (
-                          <Button size="sm" variant="outline" className="h-8 text-xs font-bold"
+                          <Button size="sm" variant="outline" className="h-8 text-xs font-bold" disabled={savingId === job.id}
                             onClick={() => handleStatusChange(job.id, job.status === 'Pending' ? 'Assembled' : 'Verified')}>
-                            {job.status === 'Pending' ? 'Assemble' : 'Verify'}
+                            {savingId === job.id ? 'Saving…' : job.status === 'Pending' ? 'Assemble' : 'Verify'}
                           </Button>
                         )}
                       </div>

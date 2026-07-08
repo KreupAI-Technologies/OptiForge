@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, MessageSquare, Brain, Target, TrendingUp, AlertTriangle, Lightbulb, Award, FileText, Calendar, Zap } from 'lucide-react';
 import { crmService, asArray } from '@/services/crm.service';
+import CrmDataState from './CrmDataState';
 
 export interface Recommendation {
   id: string;
@@ -41,6 +42,7 @@ const priorityColors: Record<string, string> = {
 export default function CollaborationIntelligence() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
 
@@ -61,9 +63,9 @@ export default function CollaborationIntelligence() {
           suggestedAction: t.suggestedAction ?? t.nextSteps ?? '',
           impact: t.impact ?? '',
         }));
-        if (mounted) setRecommendations(mapped);
+        if (mounted) { setRecommendations(mapped); setError(null); }
       } catch (e) {
-        if (mounted) setRecommendations([]);
+        if (mounted) { setRecommendations([]); setError(e instanceof Error ? e.message : 'Failed to load recommendations'); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -96,6 +98,14 @@ export default function CollaborationIntelligence() {
         </h2>
         <p className="text-gray-600 mt-1">Next best action recommendations, win probability predictions, and churn risk alerts</p>
       </div>
+
+      <CrmDataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && recommendations.length === 0}
+        loadingText="Loading collaboration insights…"
+        emptyText="No shared tasks or recommendations found."
+      />
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">

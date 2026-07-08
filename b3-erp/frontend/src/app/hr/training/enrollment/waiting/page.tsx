@@ -17,35 +17,49 @@ export default function WaitingListPage() {
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrPagesService.trainingEnrollments<any[]>();
-        if (!cancelled) setWaitlist(Array.isArray(rows) ? (rows as any) : []);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
-          setWaitlist([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  const handlePromote = (id: string, name: string) => {
-    if (confirm(`Promote ${name} to enrolled status? A notification will be sent.`)) {
-      setWaitlist(waitlist.filter(w => w.id !== id));
-      alert(`${name} has been promoted to the main list.`);
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrPagesService.trainingEnrollments<any[]>();
+      setWaitlist(Array.isArray(rows) ? (rows as any) : []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      setWaitlist([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePromote = async (id: string, name: string) => {
+    if (!confirm(`Promote ${name} to enrolled status?`)) return;
+    setActionId(id);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await HrPagesService.updateTrainingEnrollment(id, { status: 'enrolled' });
+      setActionSuccess(`${name} has been promoted to the main list.`);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to promote ${name}.`);
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  // No dedicated waitlist-notification endpoint exists yet (NEEDS BACKEND).
   const handleNotify = (name: string) => {
-    alert(`Notification sent to ${name} regarding next available slot.`);
+    setActionError(null);
+    setActionSuccess(`Notification queued for ${name}. (Delivery pending backend support.)`);
   };
 
   return (
@@ -58,11 +72,19 @@ export default function WaitingListPage() {
           </h1>
           <p className="text-gray-500 mt-1">Manage employees waiting for training spots.</p>
         </div>
-        <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100 text-amber-800 text-sm">
-          <AlertCircle className="h-4 w-4" />
-          <span>3 Spots opened up in "Advanced React Patterns"</span>
-        </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" />{loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+      )}
+      {actionSuccess && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -112,10 +134,11 @@ export default function WaitingListPage() {
                         </button>
                         <button
                           onClick={() => handlePromote(entry.id, entry.name)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-medium transition-colors"
+                          disabled={actionId === entry.id}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                         >
                           <ArrowUpCircle className="h-3 w-3" />
-                          Promote
+                          {actionId === entry.id ? 'Promoting…' : 'Promote'}
                         </button>
                       </div>
                     </td>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Plus,
   Search,
@@ -62,6 +63,7 @@ interface RFQ {
 }
 
 export default function ProcurementRFQPage() {
+  const router = useRouter()
   const [rfqs, setRfqs] = useState<RFQ[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -179,15 +181,15 @@ export default function ProcurementRFQPage() {
   }
 
   const handleView = (id: string) => {
-    console.log('Viewing RFQ:', id)
+    router.push(`/procurement/rfq/${id}`)
   }
 
   const handleEdit = (id: string) => {
-    console.log('Editing RFQ:', id)
+    router.push(`/procurement/rfq/${id}/edit`)
   }
 
   const handleCompareQuotes = (id: string) => {
-    console.log('Comparing quotes for RFQ:', id)
+    router.push(`/procurement/rfq/${id}/compare`)
   }
 
   if (isLoading) {

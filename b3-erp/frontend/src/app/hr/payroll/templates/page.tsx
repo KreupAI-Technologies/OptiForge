@@ -36,41 +36,38 @@ export default function PayrollTemplatesPage() {
   const [templates, setTemplates] = useState<SalaryTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const loadTemplates = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await PayrollService.getSalaryTemplates()) as any[];
+      const mapped: SalaryTemplate[] = raw.map((r) => ({
+        id: String(r.id),
+        templateCode: r.templateCode ?? '',
+        templateName: r.templateName ?? '',
+        grade: r.grade ?? '',
+        employmentType: (r.employmentType ?? 'permanent') as SalaryTemplate['employmentType'],
+        ctcRange: r.ctcRange ?? '',
+        components: Array.isArray(r.components) ? (r.components as SalaryComponent[]) : [],
+        assignedCount: Number(r.assignedCount ?? 0),
+        status: (r.status ?? 'active') as SalaryTemplate['status'],
+        createdBy: r.createdBy ?? '',
+        createdOn: r.createdOn ?? '',
+      }));
+      setTemplates(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load salary templates');
+      setTemplates([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await PayrollService.getSalaryTemplates()) as any[];
-        const mapped: SalaryTemplate[] = raw.map((r) => ({
-          id: String(r.id),
-          templateCode: r.templateCode ?? '',
-          templateName: r.templateName ?? '',
-          grade: r.grade ?? '',
-          employmentType: (r.employmentType ?? 'permanent') as SalaryTemplate['employmentType'],
-          ctcRange: r.ctcRange ?? '',
-          components: Array.isArray(r.components) ? (r.components as SalaryComponent[]) : [],
-          assignedCount: Number(r.assignedCount ?? 0),
-          status: (r.status ?? 'active') as SalaryTemplate['status'],
-          createdBy: r.createdBy ?? '',
-          createdOn: r.createdOn ?? '',
-        }));
-        if (!cancelled) setTemplates(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load salary templates');
-          setTemplates([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadTemplates();
   }, []);
 
   const handleAdd = () => {
@@ -83,45 +80,75 @@ export default function PayrollTemplatesPage() {
     setShowModal(true);
   };
 
-  const handleCopy = (template: SalaryTemplate) => {
-    const newTemplate = {
-      ...template,
-      id: String(templates.length + 1),
-      templateCode: template.templateCode + '-COPY',
-      templateName: template.templateName + ' (Copy)',
-      assignedCount: 0,
-      createdBy: 'HR Admin',
-      createdOn: new Date().toISOString().split('T')[0]
-    };
-    setTemplates([...templates, newTemplate]);
+  const handleCopy = async (template: SalaryTemplate) => {
+    if (saving) return;
+    setSaving(true);
+    setActionError(null);
+    try {
+      await PayrollService.createSalaryTemplate({
+        templateCode: template.templateCode + '-COPY',
+        templateName: template.templateName + ' (Copy)',
+        grade: template.grade,
+        employmentType: template.employmentType,
+        ctcRange: template.ctcRange,
+        components: template.components,
+        status: template.status,
+      });
+      await loadTemplates();
+    } catch {
+      setActionError('Failed to copy template. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const template = templates.find(t => t.id === id);
     if (template && template.assignedCount > 0) {
-      alert(`Cannot delete template "${template.templateName}" as it is assigned to ${template.assignedCount} employees.`);
+      setActionError(`Cannot delete template "${template.templateName}" as it is assigned to ${template.assignedCount} employees.`);
       return;
     }
-    if (confirm('Are you sure you want to delete this template?')) {
-      setTemplates(templates.filter(t => t.id !== id));
+    if (!confirm('Are you sure you want to delete this template?')) return;
+    if (saving) return;
+    setSaving(true);
+    setActionError(null);
+    try {
+      await PayrollService.deleteSalaryTemplate(id);
+      await loadTemplates();
+    } catch {
+      setActionError('Failed to delete template. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleSave = (template: SalaryTemplate) => {
-    if (editingTemplate) {
-      setTemplates(templates.map(t => t.id === template.id ? template : t));
-    } else {
-      const newTemplate = {
-        ...template,
-        id: String(templates.length + 1),
-        assignedCount: 0,
-        createdBy: 'HR Admin',
-        createdOn: new Date().toISOString().split('T')[0]
-      };
-      setTemplates([...templates, newTemplate]);
+  const handleSave = async (template: SalaryTemplate) => {
+    if (saving) return;
+    setSaving(true);
+    setActionError(null);
+    const payload = {
+      templateCode: template.templateCode,
+      templateName: template.templateName,
+      grade: template.grade,
+      employmentType: template.employmentType,
+      ctcRange: template.ctcRange,
+      components: template.components,
+      status: template.status,
+    };
+    try {
+      if (editingTemplate) {
+        await PayrollService.updateSalaryTemplate(template.id, payload);
+      } else {
+        await PayrollService.createSalaryTemplate(payload);
+      }
+      await loadTemplates();
+      setShowModal(false);
+      setEditingTemplate(null);
+    } catch {
+      setActionError('Failed to save template. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setShowModal(false);
-    setEditingTemplate(null);
   };
 
   const filteredTemplates = useMemo(() => {
@@ -156,6 +183,12 @@ export default function PayrollTemplatesPage() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
         </div>
       )}
 

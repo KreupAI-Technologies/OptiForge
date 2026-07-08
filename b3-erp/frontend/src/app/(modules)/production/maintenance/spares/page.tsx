@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { exportToCsv } from '@/lib/export';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -48,28 +49,43 @@ export default function SparePartsPage() {
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [editingPart, setEditingPart] = useState<SparePart | null>(null);
+  const emptyForm = {
+    partNumber: '',
+    partName: '',
+    category: 'mechanical',
+    quantityInStock: 0,
+    minimumStock: 0,
+    reorderPoint: 0,
+    unit: 'pcs',
+    unitCost: 0,
+    location: '',
+    supplier: '',
+    leadTime: 0,
+    status: 'adequate',
+  };
+  const [form, setForm] = useState<Record<string, any>>(emptyForm);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await ProductionOrphanService.getSpareParts()) as any[];
-        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
-          ...d,
-          id: String(d?.id ?? i),
-        })) as unknown as SparePart[];
-        if (!cancelled) setSpareParts(mapped);
-      } catch (err: any) {
-        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await ProductionOrphanService.getSpareParts()) as any[];
+      const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+        ...d,
+        id: String(d?.id ?? i),
+      })) as unknown as SparePart[];
+      setSpareParts(mapped);
+    } catch (err: any) {
+      setLoadError(err?.message ?? 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const filteredParts = spareParts.filter(part => {
     const matchesSearch =
@@ -116,26 +132,114 @@ export default function SparePartsPage() {
   };
 
   const handleEditPart = (part: SparePart) => {
-    alert(`Edit spare part ${part.partNumber} - Feature coming soon!`);
+    setEditingPart(part);
+    setForm({
+      partNumber: part.partNumber ?? '',
+      partName: part.partName ?? '',
+      category: part.category ?? 'mechanical',
+      quantityInStock: part.quantityInStock ?? 0,
+      minimumStock: part.minimumStock ?? 0,
+      reorderPoint: part.reorderPoint ?? 0,
+      unit: part.unit ?? 'pcs',
+      unitCost: part.unitCost ?? 0,
+      location: part.location ?? '',
+      supplier: part.supplier ?? '',
+      leadTime: part.leadTime ?? 0,
+      status: part.status ?? 'adequate',
+    });
+    setActionError(null);
+    setShowAddModal(true);
   };
 
+  // NEEDS BACKEND: purchase-order creation belongs to the Procurement module and has
+  // no endpoint reachable from ProductionOrphanService. TODO wire to procurement PO API.
   const handleOrderPart = (part: SparePart) => {
     const reorderQty = part.minimumStock - part.quantityInStock + 5;
     if (confirm(`Create purchase order for ${reorderQty} ${part.unit} of ${part.partName}?\n\nEstimated Cost: ₹${(reorderQty * part.unitCost).toLocaleString()}\nSupplier: ${part.supplier}\nLead Time: ${part.leadTime} days`)) {
-      alert(`Purchase order created for ${part.partNumber}!`);
+      setActionError('Purchase-order creation is not yet available (requires Procurement backend).');
     }
   };
 
   const handleExport = () => {
-    alert('Exporting spare parts inventory to Excel...');
+    exportToCsv(
+      `spare-parts-${new Date().toISOString().slice(0, 10)}`,
+      filteredParts,
+      [
+        { key: 'partNumber', label: 'Part Number' },
+        { key: 'partName', label: 'Part Name' },
+        { key: 'category', label: 'Category' },
+        { key: 'quantityInStock', label: 'Stock' },
+        { key: 'minimumStock', label: 'Min Stock' },
+        { key: 'reorderPoint', label: 'Reorder Point' },
+        { key: 'unit', label: 'Unit' },
+        { key: 'unitCost', label: 'Unit Cost' },
+        { key: 'location', label: 'Location' },
+        { key: 'supplier', label: 'Supplier' },
+        { key: 'leadTime', label: 'Lead Time (days)' },
+        { key: 'status', label: 'Status' },
+      ],
+    );
   };
 
   const handleAddNew = () => {
+    setEditingPart(null);
+    setForm(emptyForm);
+    setActionError(null);
     setShowAddModal(true);
+  };
+
+  const handleSubmitPart = async () => {
+    if (!form.partNumber?.trim() || !form.partName?.trim()) {
+      setActionError('Please fill part number and name.');
+      return;
+    }
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      const payload = {
+        ...form,
+        quantityInStock: Number(form.quantityInStock) || 0,
+        minimumStock: Number(form.minimumStock) || 0,
+        reorderPoint: Number(form.reorderPoint) || 0,
+        unitCost: Number(form.unitCost) || 0,
+        leadTime: Number(form.leadTime) || 0,
+      };
+      if (editingPart) {
+        await ProductionOrphanService.updateSparePart(editingPart.id, payload);
+      } else {
+        await ProductionOrphanService.createSparePart(payload);
+      }
+      setShowAddModal(false);
+      setEditingPart(null);
+      setForm(emptyForm);
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to save spare part');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading spare parts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {actionError && !showAddModal && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -466,27 +570,118 @@ export default function SparePartsPage() {
         </div>
       )}
 
-      {/* Add Modal Placeholder */}
+      {/* Add / Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
-          <div className="bg-white rounded-lg p-3 w-full max-w-2xl">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Add New Spare Part</h2>
-            <p className="text-gray-600 mb-2">Form fields will be added here...</p>
+          <div className="bg-white rounded-lg p-3 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {editingPart ? `Edit Spare Part ${editingPart.partNumber}` : 'Add New Spare Part'}
+            </h2>
+            {actionError && (
+              <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {actionError}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Part Number</label>
+                <input type="text" value={form.partNumber}
+                  onChange={(e) => setForm({ ...form, partNumber: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Part Name</label>
+                <input type="text" value={form.partName}
+                  onChange={(e) => setForm({ ...form, partName: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Category</label>
+                <select value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg">
+                  <option value="electrical">Electrical</option>
+                  <option value="mechanical">Mechanical</option>
+                  <option value="hydraulic">Hydraulic</option>
+                  <option value="pneumatic">Pneumatic</option>
+                  <option value="electronics">Electronics</option>
+                  <option value="consumables">Consumables</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Unit</label>
+                <input type="text" value={form.unit}
+                  onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Quantity in Stock</label>
+                <input type="number" min={0} value={form.quantityInStock}
+                  onChange={(e) => setForm({ ...form, quantityInStock: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Minimum Stock</label>
+                <input type="number" min={0} value={form.minimumStock}
+                  onChange={(e) => setForm({ ...form, minimumStock: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Reorder Point</label>
+                <input type="number" min={0} value={form.reorderPoint}
+                  onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Unit Cost</label>
+                <input type="number" min={0} value={form.unitCost}
+                  onChange={(e) => setForm({ ...form, unitCost: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Location</label>
+                <input type="text" value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Supplier</label>
+                <input type="text" value={form.supplier}
+                  onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Lead Time (days)</label>
+                <input type="number" min={0} value={form.leadTime}
+                  onChange={(e) => setForm({ ...form, leadTime: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Status</label>
+                <select value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg">
+                  <option value="adequate">Adequate</option>
+                  <option value="low">Low</option>
+                  <option value="critical">Critical</option>
+                  <option value="out-of-stock">Out of Stock</option>
+                </select>
+              </div>
+            </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                onClick={() => { setShowAddModal(false); setEditingPart(null); setActionError(null); }}
+                disabled={submitting}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('New spare part added to inventory!');
-                  setShowAddModal(false);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={handleSubmitPart}
+                disabled={submitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                Add Part
+                {submitting ? 'Saving…' : editingPart ? 'Save Changes' : 'Add Part'}
               </button>
             </div>
           </div>

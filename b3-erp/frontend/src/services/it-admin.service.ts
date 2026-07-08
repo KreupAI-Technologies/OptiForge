@@ -73,6 +73,67 @@ export interface SecurityAlertDto {
   updatedAt: string;
 }
 
+export interface IpWhitelistEntryDto {
+  id: string;
+  companyId?: string;
+  ipAddress: string;
+  type?: string;
+  description?: string;
+  category?: string;
+  addedBy?: string;
+  addedDate?: string;
+  lastAccess?: string;
+  accessCount?: number;
+  status: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ItUserDto {
+  id: string;
+  employeeId?: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  phone?: string;
+  department?: string;
+  jobTitle?: string;
+  roleId?: string;
+  roleName?: string;
+  status: string;
+  lastLogin?: string;
+  passwordChangedAt?: string;
+  twoFactorEnabled?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItUserDto {
+  employeeId?: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  department?: string;
+  jobTitle?: string;
+  roleId?: string;
+  password?: string;
+  twoFactorEnabled?: boolean;
+}
+
+export interface UpdateItUserDto {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  department?: string;
+  jobTitle?: string;
+  roleId?: string;
+  status?: string;
+  twoFactorEnabled?: boolean;
+}
+
 export interface PasswordPolicyDto {
   id: string;
   companyId?: string;
@@ -416,6 +477,91 @@ class ItAdminServiceClass {
     return request<SecurityAlertDto[]>(
       `/it-admin/security-alerts${qs(params)}`,
     );
+  }
+
+  async updateSecurityAlert(
+    id: string,
+    data: Partial<SecurityAlertDto>,
+  ): Promise<SecurityAlertDto> {
+    return request<SecurityAlertDto>(`/it-admin/security-alerts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSecurityAlert(id: string): Promise<void> {
+    return request<void>(`/it-admin/security-alerts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- IP Whitelist ---
+  async getIpWhitelist(params?: {
+    companyId?: string;
+    category?: string;
+    status?: string;
+  }): Promise<IpWhitelistEntryDto[]> {
+    return request<IpWhitelistEntryDto[]>(
+      `/it-admin/ip-whitelist${qs(params)}`,
+    );
+  }
+
+  async createIpWhitelistEntry(
+    data: Partial<IpWhitelistEntryDto>,
+  ): Promise<IpWhitelistEntryDto> {
+    return request<IpWhitelistEntryDto>('/it-admin/ip-whitelist', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteIpWhitelistEntry(id: string): Promise<void> {
+    return request<void>(`/it-admin/ip-whitelist/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- Users ---
+  async getUsers(params?: {
+    status?: string;
+    userType?: string;
+    department?: string;
+    search?: string;
+  }): Promise<ItUserDto[]> {
+    return request<ItUserDto[]>(`/it-admin/users${qs(params)}`);
+  }
+
+  async createUser(data: CreateItUserDto): Promise<ItUserDto> {
+    return request<ItUserDto>('/it-admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateUser(id: string, data: UpdateItUserDto): Promise<ItUserDto> {
+    return request<ItUserDto>(`/it-admin/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deactivateUser(id: string, reason?: string): Promise<ItUserDto> {
+    return request<ItUserDto>(`/it-admin/users/${id}/deactivate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason: reason ?? 'Deactivated from console' }),
+    });
+  }
+
+  async activateUser(id: string): Promise<ItUserDto> {
+    return request<ItUserDto>(`/it-admin/users/${id}/activate`, {
+      method: 'PATCH',
+    });
+  }
+
+  async unlockUser(id: string): Promise<ItUserDto> {
+    return request<ItUserDto>(`/it-admin/users/${id}/unlock`, {
+      method: 'PATCH',
+    });
   }
 
   // --- Password Policy ---

@@ -23,6 +23,7 @@ export default function AssignSupervisorPage() {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [assignedSupervisor, setAssignedSupervisor] = useState<Supervisor | null>(null);
   const [loading, setLoading] = useState(true);
+  const [assigning, setAssigning] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -70,12 +71,40 @@ export default function AssignSupervisorPage() {
     }
   };
 
-  const handleAssign = (supervisor: Supervisor) => {
-    setAssignedSupervisor(supervisor);
-    toast({
-      title: "Supervisor Assigned",
-      description: `${supervisor.name} has been assigned to ${selectedProject?.name}.`,
-    });
+  const handleAssign = async (supervisor: Supervisor) => {
+    if (!projectId) return;
+    setAssigning(true);
+    try {
+      // Persist the assignment as a project-resource with a Supervisor role,
+      // and record the supervisor on the project record itself.
+      await projectManagementService.createResource({
+        projectId,
+        userId: String(supervisor.id),
+        role: 'Supervisor',
+        allocationPercentage: 100,
+      });
+      try {
+        await projectManagementService.updateProject(projectId, {
+          supervisorId: String(supervisor.id),
+          supervisorName: supervisor.name,
+        });
+      } catch {
+        /* project may not expose a supervisor field; resource assignment already persisted */
+      }
+      setAssignedSupervisor(supervisor);
+      toast({
+        title: "Supervisor Assigned",
+        description: `${supervisor.name} has been assigned to ${selectedProject?.name}.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Assignment failed",
+        description: error instanceof Error ? error.message : "Could not assign supervisor.",
+      });
+    } finally {
+      setAssigning(false);
+    }
   };
 
   const filteredSupervisors = supervisors.filter(s =>
@@ -207,14 +236,14 @@ export default function AssignSupervisorPage() {
                       </div>
                       <Button
                         size="sm"
-                        disabled={person.status === 'Busy' || assignedSupervisor?.id === person.id}
+                        disabled={person.status === 'Busy' || assignedSupervisor?.id === person.id || assigning}
                         variant={person.status === 'Busy' ? 'ghost' : assignedSupervisor?.id === person.id ? 'outline' : 'default'}
                         onClick={() => handleAssign(person)}
                         className="min-w-[100px]"
                       >
                         {assignedSupervisor?.id === person.id ? (
                           <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Assigned</span>
-                        ) : person.status === 'Busy' ? 'Unavailable' : 'Assign'}
+                        ) : person.status === 'Busy' ? 'Unavailable' : assigning ? 'Assigning…' : 'Assign'}
                       </Button>
                     </div>
                   </div>

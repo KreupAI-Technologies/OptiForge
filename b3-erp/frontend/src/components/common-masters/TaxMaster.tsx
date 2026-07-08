@@ -77,29 +77,30 @@ export default function TaxMaster() {
     setActiveTab('basic');
   };
 
-  const handleDeleteTax = (id: string) => {
-    if (confirm('Are you sure you want to delete this tax?')) {
-      setTaxes(taxes.filter(tax => tax.id !== id));
+  const handleDeleteTax = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this tax?')) return;
+    try {
+      await commonMastersService.deleteTax(id);
+      await fetchTaxes();
+    } catch (error) {
+      console.error('Failed to delete tax:', error);
+      alert('Failed to delete tax.');
     }
   };
 
-  const handleSaveTax = (taxData: any) => {
-    if (editingTax) {
-      setTaxes(taxes.map(tax =>
-        tax.id === editingTax.id
-          ? { ...tax, ...taxData, updatedAt: new Date().toISOString().split('T')[0] }
-          : tax
-      ));
-    } else {
-      const newTax: Tax = {
-        id: Date.now().toString(),
-        ...taxData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setTaxes([...taxes, newTax]);
+  const handleSaveTax = async (taxData: any) => {
+    try {
+      if (editingTax) {
+        await commonMastersService.updateTax(editingTax.id, taxData);
+      } else {
+        await commonMastersService.createTax({ ...taxData, companyId });
+      }
+      setShowModal(false);
+      await fetchTaxes();
+    } catch (error) {
+      console.error('Failed to save tax:', error);
+      alert('Failed to save tax.');
     }
-    setShowModal(false);
   };
 
   const getStatusBadge = (status: string) => {

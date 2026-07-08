@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { exportToCsv, printCurrentView } from '@/lib/export';
 import { FinanceService } from '@/services/finance.service';
+import { JournalService } from '@/services/journal.service';
 
 // TypeScript Interfaces
 interface JournalLine {
@@ -64,111 +65,25 @@ interface GLEntry {
   approvedDate?: string;
 }
 
-// Mock Data
-const mockGLEntry: GLEntry = {
-  id: 'JE-001',
-  entryNumber: 'JE-2025-001',
-  entryDate: '2025-10-01',
-  postingDate: '2025-10-01',
-  description: 'Customer payment received from Hotel Paradise Ltd',
-  referenceNumber: 'INV-2025-001',
-  sourceDocument: 'Sales Invoice',
+// Empty entry shell; hydrated from the backend on mount.
+const emptyGLEntry: GLEntry = {
+  id: '',
+  entryNumber: '',
+  entryDate: '',
+  postingDate: '',
+  description: '',
+  referenceNumber: '',
+  sourceDocument: '',
   entryType: 'Manual',
-  status: 'Posted',
-  totalDebit: 172500,
-  totalCredit: 172500,
+  status: 'Draft',
+  totalDebit: 0,
+  totalCredit: 0,
   isBalanced: true,
   difference: 0,
-  createdBy: 'John Accountant',
-  createdDate: '2025-10-01 09:30:00',
-  postedBy: 'Finance Manager',
-  postedDate: '2025-10-01 10:15:00',
-  notes: 'Payment received via bank transfer. Reference number: TXN-2025-10-001',
-  approvalStatus: 'Approved',
-  approvedBy: 'Finance Manager',
-  approvedDate: '2025-10-01 10:10:00',
-  journalLines: [
-    {
-      id: 'JL-001',
-      lineNumber: 1,
-      accountCode: '1000',
-      accountName: 'Cash - Operating Account',
-      description: 'Customer payment received',
-      debitAmount: 172500,
-      creditAmount: 0,
-      costCenter: 'CC-001',
-      dimension1: 'North Region',
-      dimension2: 'Hotel Sales',
-    },
-    {
-      id: 'JL-002',
-      lineNumber: 2,
-      accountCode: '1100',
-      accountName: 'Accounts Receivable - Trade',
-      description: 'Clear receivable from Hotel Paradise Ltd',
-      debitAmount: 0,
-      creditAmount: 172500,
-      costCenter: 'CC-001',
-      dimension1: 'North Region',
-      dimension2: 'Hotel Sales',
-    },
-  ],
-  auditTrail: [
-    {
-      id: 'AUDIT-001',
-      timestamp: '2025-10-01 09:30:00',
-      action: 'Entry Created',
-      performedBy: 'John Accountant',
-      details: 'Journal entry JE-2025-001 created as draft',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    },
-    {
-      id: 'AUDIT-002',
-      timestamp: '2025-10-01 09:45:00',
-      action: 'Lines Added',
-      performedBy: 'John Accountant',
-      details: 'Added 2 journal lines with total debit ₹172,500 and credit ₹172,500',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    },
-    {
-      id: 'AUDIT-003',
-      timestamp: '2025-10-01 10:10:00',
-      action: 'Approval Requested',
-      performedBy: 'John Accountant',
-      details: 'Submitted entry for approval',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    },
-    {
-      id: 'AUDIT-004',
-      timestamp: '2025-10-01 10:10:00',
-      action: 'Entry Approved',
-      performedBy: 'Finance Manager',
-      details: 'Entry approved for posting',
-      ipAddress: '192.168.1.50',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    },
-    {
-      id: 'AUDIT-005',
-      timestamp: '2025-10-01 10:15:00',
-      action: 'Entry Posted',
-      performedBy: 'Finance Manager',
-      details: 'Journal entry posted to General Ledger',
-      ipAddress: '192.168.1.50',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    },
-    {
-      id: 'AUDIT-006',
-      timestamp: '2025-10-01 14:30:00',
-      action: 'Entry Viewed',
-      performedBy: 'Auditor',
-      details: 'Entry details accessed for review',
-      ipAddress: '192.168.1.200',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    },
-  ],
+  createdBy: '',
+  createdDate: '',
+  journalLines: [],
+  auditTrail: [],
 };
 
 export default function GLEntryViewPage() {
@@ -176,12 +91,14 @@ export default function GLEntryViewPage() {
   const params = useParams();
   const entryId = params.id as string;
 
-  const [entry, setEntry] = useState<GLEntry>(mockGLEntry);
+  const [entry, setEntry] = useState<GLEntry>(emptyGLEntry);
   const [activeTab, setActiveTab] = useState<'details' | 'lines' | 'audit'>('details');
   const [showReverseModal, setShowReverseModal] = useState(false);
   const [reversalReason, setReversalReason] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reversing, setReversing] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,20 +111,57 @@ export default function GLEntryViewPage() {
         const raw = await FinanceService.getJournalEntry(entryId);
         if (cancelled) return;
         const m: any = raw || {};
+        // Backend returns lines[] with debit/credit; normalise to the page's
+        // debitAmount/creditAmount JournalLine shape.
+        const rawLines: any[] = Array.isArray(m.journalLines)
+          ? m.journalLines
+          : Array.isArray(m.lines)
+            ? m.lines
+            : [];
+        const lines: JournalLine[] = rawLines.map((l: any, i: number) => ({
+          id: String(l.id ?? `JL-${i + 1}`),
+          lineNumber: Number(l.lineNumber ?? i + 1),
+          accountCode: String(l.accountCode ?? ''),
+          accountName: String(l.accountName ?? ''),
+          description: String(l.description ?? ''),
+          debitAmount: Number(l.debitAmount ?? l.debit ?? 0),
+          creditAmount: Number(l.creditAmount ?? l.credit ?? 0),
+          costCenter: l.costCenter ?? l.costCenterName ?? undefined,
+          dimension1: l.dimension1 ?? undefined,
+          dimension2: l.dimension2 ?? undefined,
+        }));
+        const totalDebit = m.totalDebit != null
+          ? Number(m.totalDebit)
+          : lines.reduce((s, l) => s + l.debitAmount, 0);
+        const totalCredit = m.totalCredit != null
+          ? Number(m.totalCredit)
+          : lines.reduce((s, l) => s + l.creditAmount, 0);
+        const difference = totalDebit - totalCredit;
+        const postVal = m.postedAt ?? m.postingDate ?? m.postedDate;
         setEntry((prev) => ({
           ...prev,
           ...(m.id != null ? { id: String(m.id) } : {}),
           ...(m.entryNumber != null ? { entryNumber: String(m.entryNumber) } : {}),
-          ...(m.entryDate != null ? { entryDate: String(m.entryDate) } : {}),
-          ...(m.postingDate != null ? { postingDate: String(m.postingDate) } : {}),
+          ...(m.entryDate != null ? { entryDate: String(m.entryDate).split('T')[0] } : {}),
+          ...(postVal != null ? { postingDate: String(postVal).split('T')[0] } : {}),
           ...(m.description != null ? { description: String(m.description) } : {}),
-          ...(m.referenceNumber != null ? { referenceNumber: String(m.referenceNumber) } : {}),
-          ...(m.sourceDocument != null ? { sourceDocument: String(m.sourceDocument) } : {}),
-          ...(m.status != null ? { status: m.status } : {}),
-          ...(m.totalDebit != null ? { totalDebit: Number(m.totalDebit) } : {}),
-          ...(m.totalCredit != null ? { totalCredit: Number(m.totalCredit) } : {}),
-          ...(m.createdBy != null ? { createdBy: String(m.createdBy) } : {}),
-          ...(Array.isArray(m.journalLines) ? { journalLines: m.journalLines } : {}),
+          ...(m.reference != null || m.referenceNumber != null
+            ? { referenceNumber: String(m.reference ?? m.referenceNumber) }
+            : {}),
+          ...(m.sourceDocumentType != null || m.sourceDocument != null
+            ? { sourceDocument: String(m.sourceDocumentType ?? m.sourceDocument) }
+            : {}),
+          ...(m.status != null ? { status: String(m.status).charAt(0) + String(m.status).slice(1).toLowerCase() as GLEntry['status'] } : {}),
+          totalDebit,
+          totalCredit,
+          difference,
+          isBalanced: Math.abs(difference) < 0.01,
+          ...(m.postedBy != null ? { postedBy: String(m.postedBy) } : {}),
+          ...(m.submittedBy != null || m.createdBy != null
+            ? { createdBy: String(m.submittedBy ?? m.createdBy) }
+            : {}),
+          ...(m.notes != null ? { notes: String(m.notes) } : {}),
+          journalLines: lines,
         }));
       } catch (err: any) {
         if (!cancelled) setLoadError(err?.message || 'Failed to load journal entry');
@@ -235,14 +189,27 @@ export default function GLEntryViewPage() {
     Reversal: { color: 'bg-pink-100 text-pink-700', icon: RotateCcw },
   };
 
-  const handleReverseEntry = () => {
+  const handleReverseEntry = async () => {
     if (!reversalReason.trim()) {
-      alert('Please provide a reason for reversal');
+      setActionMessage({ type: 'error', text: 'Please provide a reason for reversal.' });
       return;
     }
-    console.log('Reversing entry:', entryId, 'Reason:', reversalReason);
-    alert('Entry reversed successfully!');
-    setShowReverseModal(false);
+    setReversing(true);
+    setActionMessage(null);
+    try {
+      await JournalService.reverseJournalEntry(entryId, new Date(), reversalReason.trim());
+      setEntry((prev) => ({ ...prev, status: 'Reversed' }));
+      setShowReverseModal(false);
+      setReversalReason('');
+      setActionMessage({ type: 'success', text: 'Entry reversed successfully.' });
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to reverse entry.',
+      });
+    } finally {
+      setReversing(false);
+    }
   };
 
   const handleExport = (_format: 'pdf' | 'excel') => {
@@ -254,7 +221,12 @@ export default function GLEntryViewPage() {
   };
 
   const handleEmail = () => {
-    alert('Email functionality will open email client');
+    // Open the user's mail client with the entry reference pre-filled.
+    const subject = encodeURIComponent(`Journal Entry ${entry.entryNumber}`);
+    const body = encodeURIComponent(
+      `Journal Entry: ${entry.entryNumber}\nDescription: ${entry.description}\nStatus: ${entry.status}`,
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
   const StatusIcon = statusConfig[entry.status].icon;
@@ -271,6 +243,22 @@ export default function GLEntryViewPage() {
         <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
           <AlertCircle className="h-4 w-4 mr-1" />
           {loadError}
+        </div>
+      )}
+      {actionMessage && (
+        <div
+          className={`mb-3 flex items-center rounded-lg border p-2 text-sm ${
+            actionMessage.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {actionMessage.type === 'success' ? (
+            <CheckCircle className="h-4 w-4 mr-1" />
+          ) : (
+            <AlertCircle className="h-4 w-4 mr-1" />
+          )}
+          {actionMessage.text}
         </div>
       )}
       {/* Header */}
@@ -793,9 +781,10 @@ export default function GLEntryViewPage() {
                 </button>
                 <button
                   onClick={handleReverseEntry}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  disabled={reversing}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirm Reversal
+                  {reversing ? 'Reversing...' : 'Confirm Reversal'}
                 </button>
               </div>
             </div>

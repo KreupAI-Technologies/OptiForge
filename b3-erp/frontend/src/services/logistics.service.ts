@@ -100,6 +100,28 @@ export class LogisticsService {
     );
   }
 
+  static async createDeliveryCoordination(
+    data: Partial<DeliveryCoordinationDto>,
+  ): Promise<DeliveryCoordinationDto> {
+    return request<DeliveryCoordinationDto>(`/logistics/delivery-coordinations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateDeliveryCoordination(
+    id: string,
+    data: Partial<DeliveryCoordinationDto>,
+  ): Promise<DeliveryCoordinationDto> {
+    return request<DeliveryCoordinationDto>(
+      `/logistics/delivery-coordinations/${id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
   static async getFuelRecords(filters?: {
     status?: string;
     fuelType?: string;

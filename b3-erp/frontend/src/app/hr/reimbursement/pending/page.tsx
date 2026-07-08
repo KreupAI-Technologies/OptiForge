@@ -35,6 +35,7 @@ export default function Page() {
   const [rows, setRows] = useState<PendingReimbursement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,16 +119,34 @@ export default function Page() {
     setShowRejectModal(true);
   };
 
-  const confirmApprove = () => {
-    toast({
-      title: "Claim Approved",
-      description: `Claim ${selectedClaim?.claimNumber} has been approved and moved to processing`
-    });
-    setShowApproveModal(false);
-    setSelectedClaim(null);
+  const confirmApprove = async () => {
+    if (!selectedClaim) return;
+    setIsSubmitting(true);
+    try {
+      await HrSelfServiceService.updateExpenseClaim(selectedClaim.id, {
+        status: 'processing',
+        approvedDate: new Date().toISOString(),
+      });
+      toast({
+        title: "Claim Approved",
+        description: `Claim ${selectedClaim.claimNumber} has been approved and moved to processing`
+      });
+      setRows((prev) => prev.filter((r) => r.id !== selectedClaim.id));
+      setShowApproveModal(false);
+      setSelectedClaim(null);
+    } catch (err) {
+      toast({
+        title: "Approval Failed",
+        description: err instanceof Error ? err.message : 'Could not approve the claim',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const confirmReject = () => {
+  const confirmReject = async () => {
+    if (!selectedClaim) return;
     if (!rejectionReason.trim()) {
       toast({
         title: "Rejection Reason Required",
@@ -136,13 +155,29 @@ export default function Page() {
       });
       return;
     }
-    toast({
-      title: "Claim Rejected",
-      description: `Claim ${selectedClaim?.claimNumber} has been rejected`
-    });
-    setShowRejectModal(false);
-    setSelectedClaim(null);
-    setRejectionReason('');
+    setIsSubmitting(true);
+    try {
+      await HrSelfServiceService.updateExpenseClaim(selectedClaim.id, {
+        status: 'rejected',
+        rejectionReason: rejectionReason.trim(),
+      });
+      toast({
+        title: "Claim Rejected",
+        description: `Claim ${selectedClaim.claimNumber} has been rejected`
+      });
+      setRows((prev) => prev.filter((r) => r.id !== selectedClaim.id));
+      setShowRejectModal(false);
+      setSelectedClaim(null);
+      setRejectionReason('');
+    } catch (err) {
+      toast({
+        title: "Rejection Failed",
+        description: err instanceof Error ? err.message : 'Could not reject the claim',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleExportToExcel = () => {
@@ -619,9 +654,10 @@ export default function Page() {
                 </button>
                 <button
                   onClick={confirmApprove}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-60"
                 >
-                  Confirm Approval
+                  {isSubmitting ? 'Approving…' : 'Confirm Approval'}
                 </button>
               </div>
             </div>
@@ -680,9 +716,10 @@ export default function Page() {
                 </button>
                 <button
                   onClick={confirmReject}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-60"
                 >
-                  Confirm Rejection
+                  {isSubmitting ? 'Rejecting…' : 'Confirm Rejection'}
                 </button>
               </div>
             </div>

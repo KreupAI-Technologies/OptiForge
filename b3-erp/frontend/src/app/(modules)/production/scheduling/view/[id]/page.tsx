@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { exportToCsv } from '@/lib/export';
 import {
   Calendar,
   Clock,
@@ -478,18 +479,34 @@ export default function ProductionSchedulingViewPage() {
     return { left: `${Math.max(0, left)}%`, width: `${Math.min(100 - left, width)}%` };
   };
 
-  const handleConfirmSchedule = () => {
-    alert('Schedule confirmed and locked for execution');
-  };
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleReschedule = () => {
-    if (confirm('This will run the scheduling algorithm again. Continue?')) {
-      alert('Rescheduling in progress...');
+  const handleConfirmSchedule = async () => {
+    try {
+      setActionSubmitting(true);
+      setActionMessage(null);
+      await ProductionOrphanService.updateScheduleLine(scheduleId, { status: 'confirmed' });
+      setActionMessage({ type: 'success', text: 'Schedule confirmed and locked for execution.' });
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to confirm schedule.',
+      });
+    } finally {
+      setActionSubmitting(false);
     }
   };
 
+  const handleReschedule = () => {
+    router.push(`/production/scheduling/edit/${scheduleId}`);
+  };
+
   const handleExport = () => {
-    alert('Exporting schedule to Excel...');
+    exportToCsv(
+      `schedule-${schedule.scheduleNumber}`,
+      schedule.workOrders as unknown as Record<string, unknown>[],
+    );
   };
 
   const handlePrintGantt = () => {
@@ -507,6 +524,17 @@ export default function ProductionSchedulingViewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-3">
+      {actionMessage && (
+        <div
+          className={`mb-3 rounded-lg border px-4 py-3 text-sm ${
+            actionMessage.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {actionMessage.text}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button
@@ -557,10 +585,11 @@ export default function ProductionSchedulingViewPage() {
             {schedule.status === 'draft' && (
               <button
                 onClick={handleConfirmSchedule}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                disabled={actionSubmitting}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 <CheckCircle className="w-4 h-4" />
-                Confirm
+                {actionSubmitting ? 'Confirming…' : 'Confirm'}
               </button>
             )}
             <button

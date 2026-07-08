@@ -43,12 +43,48 @@ function withCompany(query: Record<string, string | undefined> = {}): string {
   return `?${params.toString()}`;
 }
 
+async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    throw new Error(`API Error ${res.status}: ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export const TimesheetService = {
   // ---- Timesheets ---------------------------------------------------------
   async getTimesheets(
     extra: Record<string, string | undefined> = {},
   ): Promise<any[]> {
     return toArray(await request(`/hr/timesheets${withCompany(extra)}`));
+  },
+
+  // Create a timesheet row (used by bulk-punch). Defaults companyId.
+  async createTimesheet(data: Record<string, any>): Promise<any> {
+    return send('/hr/timesheets', 'POST', {
+      companyId: DEFAULT_COMPANY_ID,
+      ...data,
+    });
+  },
+
+  // Update a timesheet (status + fields). Used by approve/reject.
+  async updateTimesheet(id: string, data: Record<string, any>): Promise<any> {
+    return send(`/hr/timesheets/${id}`, 'PUT', data);
+  },
+
+  async approveTimesheet(id: string): Promise<any> {
+    return send(`/hr/timesheets/${id}`, 'PUT', { status: 'approved' });
+  },
+
+  async rejectTimesheet(id: string, reason?: string): Promise<any> {
+    return send(`/hr/timesheets/${id}`, 'PUT', {
+      status: 'rejected',
+      ...(reason ? { rejectionReason: reason } : {}),
+    });
   },
 };
 

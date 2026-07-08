@@ -62,6 +62,7 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -86,9 +87,14 @@ export default function UserProfilePage() {
   }, []);
 
   const handleSave = () => {
-    // No profile-update endpoint exists on the backend yet; persist locally only.
+    // The domain backend currently exposes only `GET /auth/profile` — there is
+    // no profile-update endpoint yet (see NEEDS BACKEND). We therefore keep the
+    // edited values in local state and surface an honest, non-blocking notice
+    // instead of silently pretending the change was persisted.
     setIsEditing(false);
-    alert('Changes saved locally. Profile updates are not yet persisted to the server.');
+    setSaveNotice(
+      'Your changes are applied in this session only. Profile updates are not yet persisted to the server.',
+    );
   };
 
   if (loading) {
@@ -135,6 +141,19 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 p-3">
       <div className="w-full">
+        {saveNotice && (
+          <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <span>{saveNotice}</span>
+            <button
+              onClick={() => setSaveNotice(null)}
+              className="ml-auto text-amber-600 hover:text-amber-800"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* Header Card */}
         <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden mb-3">
           {/* Cover Image */}

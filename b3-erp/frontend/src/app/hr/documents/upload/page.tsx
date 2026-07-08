@@ -2,13 +2,16 @@
 
 import { useState } from 'react';
 import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 export default function UploadDocumentsPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [description, setDescription] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const documentCategories = [
     { value: 'personal', label: 'Personal Documents', sublabel: 'Aadhaar, PAN, Passport, etc.' },
@@ -65,26 +68,36 @@ export default function UploadDocumentsPage() {
 
     setUploading(true);
     setUploadSuccess(false);
+    setUploadError(null);
 
     try {
-      // Simulate file upload - Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Here you would typically:
-      // const formData = new FormData();
-      // formData.append('category', selectedCategory);
-      // selectedFiles.forEach(file => formData.append('files', file));
-      // await fetch('/api/documents/upload', { method: 'POST', body: formData });
+      const uploadedOn = new Date().toISOString().split('T')[0];
+      // The /hr/documents endpoint persists document metadata records
+      // (one per file). Binary blob storage is a separate, not-yet-built
+      // service — see NEEDS BACKEND note.
+      await Promise.all(
+        selectedFiles.map((file) =>
+          HrComplianceDocsService.createDocument({
+            docCategory: selectedCategory,
+            title: file.name,
+            fileName: file.name,
+            fileSize: formatFileSize(file.size),
+            uploadedOn,
+            status: 'pending',
+            remarks: description || undefined,
+          }),
+        ),
+      );
 
       setUploadSuccess(true);
       setSelectedFiles([]);
       setSelectedCategory('');
+      setDescription('');
 
       // Reset success message after 3 seconds
       setTimeout(() => setUploadSuccess(false), 3000);
     } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Upload failed. Please try again.');
+      setUploadError(error instanceof Error ? error.message : 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -197,6 +210,8 @@ export default function UploadDocumentsPage() {
                 </label>
                 <textarea
                   rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   placeholder="Add any additional notes about these documents..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -234,6 +249,13 @@ export default function UploadDocumentsPage() {
             <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-800">
               <CheckCircle className="h-5 w-5" />
               <span className="font-medium">Upload successful! Documents submitted for verification.</span>
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-800">
+              <AlertCircle className="h-5 w-5" />
+              <span className="font-medium">{uploadError}</span>
             </div>
           )}
         </div>

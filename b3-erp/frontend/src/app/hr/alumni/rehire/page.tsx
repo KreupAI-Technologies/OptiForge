@@ -54,6 +54,8 @@ export default function Page() {
   const [rows, setRows] = useState<RehireCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +99,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const mockCandidates: RehireCandidate[] = rows;
 
@@ -163,28 +165,73 @@ export default function Page() {
     setShowHoldModal(true);
   };
 
-  const submitApproval = () => {
-    toast({
-      title: "Rehire Approved",
-      description: `${selectedCandidate?.name}'s rehire request has been approved.`
-    });
-    setShowApproveModal(false);
+  const submitApproval = async () => {
+    if (!selectedCandidate) return;
+    if (!approveFormData.joiningDate || !approveFormData.approvalRemarks.trim()) {
+      toast({ title: 'Missing details', description: 'Enter joining date and approval remarks.', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await HrSelfServiceService.updateAlumni(selectedCandidate.id, {
+        status: 'approved',
+        proposedCTC: approveFormData.offerCTC,
+        comments: approveFormData.approvalRemarks,
+        details: { joiningDate: approveFormData.joiningDate, offerCTC: approveFormData.offerCTC },
+      });
+      toast({ title: 'Rehire Approved', description: `${selectedCandidate.name}'s rehire request has been approved.` });
+      setShowApproveModal(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast({ title: 'Approval failed', description: err instanceof Error ? err.message : 'Could not approve request.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const submitRejection = () => {
-    toast({
-      title: "Rehire Rejected",
-      description: `${selectedCandidate?.name}'s rehire request has been rejected.`
-    });
-    setShowRejectModal(false);
+  const submitRejection = async () => {
+    if (!selectedCandidate) return;
+    if (!rejectFormData.rejectionReason || !rejectFormData.detailedRemarks.trim()) {
+      toast({ title: 'Missing details', description: 'Select a reason and enter remarks.', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await HrSelfServiceService.updateAlumni(selectedCandidate.id, {
+        status: 'rejected',
+        comments: `${rejectFormData.rejectionReason}: ${rejectFormData.detailedRemarks}`,
+      });
+      toast({ title: 'Rehire Rejected', description: `${selectedCandidate.name}'s rehire request has been rejected.` });
+      setShowRejectModal(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast({ title: 'Rejection failed', description: err instanceof Error ? err.message : 'Could not reject request.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const submitHold = () => {
-    toast({
-      title: "Request On Hold",
-      description: `${selectedCandidate?.name}'s rehire request has been put on hold.`
-    });
-    setShowHoldModal(false);
+  const submitHold = async () => {
+    if (!selectedCandidate) return;
+    if (!holdFormData.holdReason || !holdFormData.expectedResolutionDate || !holdFormData.remarks.trim()) {
+      toast({ title: 'Missing details', description: 'Fill in all hold fields.', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await HrSelfServiceService.updateAlumni(selectedCandidate.id, {
+        status: 'on_hold',
+        comments: `${holdFormData.holdReason}: ${holdFormData.remarks}`,
+        details: { expectedResolutionDate: holdFormData.expectedResolutionDate },
+      });
+      toast({ title: 'Request On Hold', description: `${selectedCandidate.name}'s rehire request has been put on hold.` });
+      setShowHoldModal(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast({ title: 'Hold failed', description: err instanceof Error ? err.message : 'Could not hold request.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -740,10 +787,11 @@ export default function Page() {
               </button>
               <button
                 onClick={submitApproval}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+                disabled={submitting}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-60"
               >
                 <CheckCircle className="h-4 w-4" />
-                Confirm Approval
+                {submitting ? 'Saving…' : 'Confirm Approval'}
               </button>
             </div>
           </div>
@@ -861,10 +909,11 @@ export default function Page() {
               </button>
               <button
                 onClick={submitRejection}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2"
+                disabled={submitting}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2 disabled:opacity-60"
               >
                 <XCircle className="h-4 w-4" />
-                Confirm Rejection
+                {submitting ? 'Saving…' : 'Confirm Rejection'}
               </button>
             </div>
           </div>
@@ -995,10 +1044,11 @@ export default function Page() {
               </button>
               <button
                 onClick={submitHold}
-                className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium flex items-center gap-2"
+                disabled={submitting}
+                className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium flex items-center gap-2 disabled:opacity-60"
               >
                 <Pause className="h-4 w-4" />
-                Put On Hold
+                {submitting ? 'Saving…' : 'Put On Hold'}
               </button>
             </div>
           </div>

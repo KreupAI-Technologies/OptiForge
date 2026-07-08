@@ -52,7 +52,10 @@ import {
   RenewContractModal,
   AmendContractModal,
   TerminateContractModal,
-  ContractData
+  ContractData,
+  RenewContractData,
+  AmendContractData,
+  TerminateContractData
 } from '@/components/procurement/ContractModals'
 import { procurementContractService } from '@/services/procurement-contract.service'
 
@@ -110,10 +113,10 @@ export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [isActioning, setIsActioning] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
+  const loadContracts = async (): Promise<void> => {
       setIsLoading(true)
       setLoadError(null)
       try {
@@ -159,20 +162,18 @@ export default function ContractsPage() {
           nextReviewDate: undefined,
           tags: Array.isArray(c?.tags) ? c.tags : undefined,
         }))
-        if (!cancelled) setContracts(mapped)
+        setContracts(mapped)
       } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load contracts')
-          setContracts([])
-        }
+        setLoadError(err instanceof Error ? err.message : 'Failed to load contracts')
+        setContracts([])
       } finally {
-        if (!cancelled) setIsLoading(false)
+        setIsLoading(false)
       }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
+  }
+
+  useEffect(() => {
+    loadContracts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const [selectedStatus, setSelectedStatus] = useState('all')
@@ -189,6 +190,57 @@ export default function ContractsPage() {
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false)
   const [isAmendModalOpen, setIsAmendModalOpen] = useState(false)
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false)
+
+  // Contract mutation handlers (wired to procurementContractService)
+  const runAction = async (fn: () => Promise<unknown>, closeModal: () => void) => {
+    setIsActioning(true)
+    setActionError(null)
+    try {
+      await fn()
+      closeModal()
+      await loadContracts()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Action failed. Please try again.')
+    } finally {
+      setIsActioning(false)
+    }
+  }
+
+  const handleCreateContract = (data: ContractData) =>
+    runAction(
+      () => procurementContractService.createContract(data as unknown as Record<string, unknown>),
+      () => setIsCreateModalOpen(false)
+    )
+
+  const handleRenewContract = (data: RenewContractData) => {
+    if (!selectedContract) return
+    return runAction(
+      () => procurementContractService.renewContract(selectedContract.id, data as unknown as Record<string, unknown>),
+      () => setIsRenewModalOpen(false)
+    )
+  }
+
+  const handleAmendContract = (data: AmendContractData) => {
+    if (!selectedContract) return
+    return runAction(
+      () => procurementContractService.updateContract(selectedContract.id, { amendment: data } as unknown as Record<string, unknown>),
+      () => setIsAmendModalOpen(false)
+    )
+  }
+
+  const handleTerminateContract = (data: TerminateContractData) => {
+    if (!selectedContract) return
+    return runAction(
+      () => procurementContractService.terminateContract(selectedContract.id, data as unknown as Record<string, unknown>),
+      () => setIsTerminateModalOpen(false)
+    )
+  }
+
+  const handleSendForReview = (contract: Contract) =>
+    runAction(
+      () => procurementContractService.submitContract(contract.id),
+      () => {}
+    )
 
   const stats: ContractStats = {
     total: contracts.length,
@@ -283,6 +335,13 @@ export default function ContractsPage() {
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+          <button onClick={() => setActionError(null)} className="ml-auto text-red-600 hover:text-red-800">Dismiss</button>
         </div>
       )}
       {!isLoading && !loadError && contracts.length === 0 && (
@@ -572,11 +631,20 @@ export default function ContractsPage() {
                       <Eye className="h-4 w-4 text-gray-600" />
                       <span className="text-gray-700">View</span>
                     </button>
-                    <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                    <button
+                      onClick={() => {
+                        setSelectedContract(contract)
+                        setIsAmendModalOpen(true)
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                    >
                       <Edit className="h-4 w-4 text-gray-600" />
                       <span className="text-gray-700">Edit</span>
                     </button>
-                    <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                    <button
+                      onClick={() => setExpandedContract(isExpanded ? null : contract.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                    >
                       <MoreVertical className="h-4 w-4 text-gray-600" />
                       <span className="text-gray-700">More</span>
                     </button>
@@ -655,7 +723,11 @@ export default function ContractsPage() {
 
                     {/* Actions Bar */}
                     <div className="flex gap-3 pt-3 border-t">
-                      <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-1">
+                      <button
+                        onClick={() => handleSendForReview(contract)}
+                        disabled={isActioning}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-1 disabled:opacity-50"
+                      >
                         <Send className="h-4 w-4" />
                         Send for Review
                       </button>
@@ -764,10 +836,7 @@ export default function ContractsPage() {
       <CreateContractModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Creating contract:', data)
-          setIsCreateModalOpen(false)
-        }}
+        onSubmit={handleCreateContract}
       />
 
       <ViewContractDetailsModal
@@ -780,30 +849,21 @@ export default function ContractsPage() {
         isOpen={isRenewModalOpen}
         onClose={() => setIsRenewModalOpen(false)}
         contract={selectedContract as ContractData | null}
-        onSubmit={(data) => {
-          console.log('Renewing contract:', data)
-          setIsRenewModalOpen(false)
-        }}
+        onSubmit={handleRenewContract}
       />
 
       <AmendContractModal
         isOpen={isAmendModalOpen}
         onClose={() => setIsAmendModalOpen(false)}
         contract={selectedContract as ContractData | null}
-        onSubmit={(data) => {
-          console.log('Amending contract:', data)
-          setIsAmendModalOpen(false)
-        }}
+        onSubmit={handleAmendContract}
       />
 
       <TerminateContractModal
         isOpen={isTerminateModalOpen}
         onClose={() => setIsTerminateModalOpen(false)}
         contract={selectedContract as ContractData | null}
-        onSubmit={(data) => {
-          console.log('Terminating contract:', data)
-          setIsTerminateModalOpen(false)
-        }}
+        onSubmit={handleTerminateContract}
       />
     </div>
   )

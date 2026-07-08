@@ -33,6 +33,8 @@ export default function DesignationsPage() {
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,70 +87,30 @@ export default function DesignationsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
-  const mockDesignations: Designation[] = [
-    {
-      id: 'D001', title: 'Production Manager', code: 'PM-01', department: 'Production', level: 'manager', grade: 'M1',
-      employeeCount: 8, minSalary: 600000, maxSalary: 900000, avgSalary: 750000, reportingTo: 'VP Operations',
-      responsibilities: ['Oversee production operations', 'Manage production team', 'Ensure quality standards', 'Budget management'],
-      requirements: ['B.Tech Mechanical', '8+ years experience', 'Six Sigma certification'], status: 'active'
-    },
-    {
-      id: 'D002', title: 'Quality Control Head', code: 'QCH-01', department: 'Quality', level: 'manager', grade: 'M1',
-      employeeCount: 3, minSalary: 550000, maxSalary: 850000, avgSalary: 700000, reportingTo: 'VP Quality',
-      responsibilities: ['Lead QC team', 'Implement quality systems', 'Audit processes', 'Report to management'],
-      requirements: ['M.Sc Chemistry/Related', '6+ years experience', 'ISO auditor certification'], status: 'active'
-    },
-    {
-      id: 'D003', title: 'Senior Software Engineer', code: 'SSE-01', department: 'IT', level: 'senior', grade: 'E3',
-      employeeCount: 12, minSalary: 800000, maxSalary: 1400000, avgSalary: 1100000, reportingTo: 'IT Manager',
-      responsibilities: ['Design software solutions', 'Code review', 'Mentor junior engineers', 'Technical documentation'],
-      requirements: ['B.Tech CS/IT', '5+ years experience', 'Expertise in full-stack development'], status: 'active'
-    },
-    {
-      id: 'D004', title: 'HR Executive', code: 'HRE-01', department: 'Human Resources', level: 'mid', grade: 'E2',
-      employeeCount: 6, minSalary: 350000, maxSalary: 550000, avgSalary: 450000, reportingTo: 'HR Manager',
-      responsibilities: ['Recruitment', 'Employee onboarding', 'Maintain HR records', 'Employee engagement'],
-      requirements: ['MBA HR', '2-4 years experience', 'SHRM certification preferred'], status: 'active'
-    },
-    {
-      id: 'D005', title: 'Production Supervisor', code: 'PS-01', department: 'Production', level: 'lead', grade: 'E3',
-      employeeCount: 18, minSalary: 350000, maxSalary: 500000, avgSalary: 425000, reportingTo: 'Production Manager',
-      responsibilities: ['Supervise production line', 'Monitor quality', 'Train operators', 'Report to manager'],
-      requirements: ['Diploma/B.Tech', '3+ years experience', 'Safety certification'], status: 'active'
-    },
-    {
-      id: 'D006', title: 'Warehouse Manager', code: 'WM-01', department: 'Logistics', level: 'manager', grade: 'M2',
-      employeeCount: 4, minSalary: 450000, maxSalary: 700000, avgSalary: 575000, reportingTo: 'Logistics Head',
-      responsibilities: ['Manage warehouse operations', 'Inventory control', 'Team management', 'Vendor coordination'],
-      requirements: ['B.Com/MBA', '5+ years experience', 'ERP knowledge'], status: 'active'
-    },
-    {
-      id: 'D007', title: 'Safety Officer', code: 'SO-01', department: 'Safety', level: 'mid', grade: 'E2',
-      employeeCount: 10, minSalary: 300000, maxSalary: 450000, avgSalary: 375000, reportingTo: 'Safety Manager',
-      responsibilities: ['Conduct safety audits', 'Training programs', 'Incident investigation', 'Compliance reporting'],
-      requirements: ['B.Tech Safety/Industrial', '3+ years experience', 'NEBOSH certification'], status: 'active'
-    },
-    {
-      id: 'D008', title: 'Research Scientist', code: 'RS-01', department: 'Research', level: 'senior', grade: 'E3',
-      employeeCount: 5, minSalary: 700000, maxSalary: 1200000, avgSalary: 950000, reportingTo: 'R&D Head',
-      responsibilities: ['Conduct research', 'Product development', 'Technical papers', 'Patent filing'],
-      requirements: ['M.Sc/PhD', '5+ years research experience', 'Published papers'], status: 'active'
-    },
-    {
-      id: 'D009', title: 'Accounts Assistant', code: 'AA-01', department: 'Finance', level: 'junior', grade: 'E1',
-      employeeCount: 8, minSalary: 250000, maxSalary: 350000, avgSalary: 300000, reportingTo: 'Finance Manager',
-      responsibilities: ['Bookkeeping', 'Invoice processing', 'Bank reconciliation', 'GST filing'],
-      requirements: ['B.Com', '1-2 years experience', 'Tally proficiency'], status: 'active'
-    },
-    {
-      id: 'D010', title: 'Maintenance Technician', code: 'MT-01', department: 'Maintenance', level: 'mid', grade: 'E2',
-      employeeCount: 15, minSalary: 280000, maxSalary: 420000, avgSalary: 350000, reportingTo: 'Maintenance Manager',
-      responsibilities: ['Equipment maintenance', 'Breakdown resolution', 'Preventive maintenance', 'Documentation'],
-      requirements: ['ITI/Diploma', '3+ years experience', 'Electrical/Mechanical knowledge'], status: 'active'
+  const handleCreateDesignation = async (data: any) => {
+    setActionError(null);
+    try {
+      await HrPagesService.createDesignation({
+        title: data.title,
+        code: data.code,
+        department: data.department,
+        level: data.level,
+        grade: data.grade || undefined,
+        minSalary: data.minSalary ? Number(data.minSalary) : undefined,
+        maxSalary: data.maxSalary ? Number(data.maxSalary) : undefined,
+        reportsTo: data.reportingTo || data.reportsTo || undefined,
+        labourCategory: data.labourCategory || undefined,
+        labourGrade: data.labourGrade || undefined,
+        status: 'active',
+      });
+      setIsAddModalOpen(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create designation');
     }
-  ];
+  };
 
   const departments = ['all', 'Production', 'Quality', 'IT', 'Human Resources', 'Logistics', 'Safety', 'Research', 'Finance', 'Maintenance'];
   const levels = ['all', 'entry', 'junior', 'mid', 'senior', 'lead', 'manager', 'director', 'executive'];
@@ -245,6 +207,11 @@ export default function DesignationsPage() {
           {loadError}
         </div>
       )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <div className="bg-white border-2 border-purple-200 rounded-lg p-3">
@@ -315,11 +282,7 @@ export default function DesignationsPage() {
       <AddDesignationModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('New designation data:', data);
-          setIsAddModalOpen(false);
-          alert(`Designation Created Successfully!\n\nTitle: ${data.title}\nCode: ${data.code}\nDepartment: ${data.department}\nLevel: ${data.level.toUpperCase()}\nGrade: ${data.grade}\nLabour Category: ${data.labourCategory}\nLabour Grade (GCC): ${data.labourGrade}\nSalary Range: ₹${(Number(data.minSalary)/100000).toFixed(1)}L - ₹${(Number(data.maxSalary)/100000).toFixed(1)}L`);
-        }}
+        onSubmit={handleCreateDesignation}
       />
     </div>
   );

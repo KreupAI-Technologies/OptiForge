@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, User, Calendar, Plus, Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
@@ -24,6 +25,7 @@ export default function CreatePIPPage() {
   });
 
   const [newItem, setNewItem] = useState({ description: '', dueDate: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddActionItem = () => {
     if (!newItem.description || !newItem.dueDate) return;
@@ -46,6 +48,7 @@ export default function CreatePIPPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/hr/disciplinary-actions`, {
         method: 'POST',
@@ -60,10 +63,17 @@ export default function CreatePIPPage() {
           notes: JSON.stringify(formData.actionItems)
         })
       });
-      if (!res.ok) throw new Error('Request failed');
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      toast({ title: 'PIP created successfully!' });
       router.push('/hr/performance/pip/tracking');
-    } catch {
-      alert('Failed to save. Please try again.');
+    } catch (err) {
+      toast({
+        title: 'Failed to save PIP',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -204,15 +214,17 @@ export default function CreatePIPPage() {
           <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
             <button
               type="button"
+              onClick={() => router.back()}
               className="px-6 py-2 text-gray-700 font-medium hover:bg-gray-50 rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+              disabled={isSubmitting}
+              className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
             >
-              Create PIP
+              {isSubmitting ? 'Creating…' : 'Create PIP'}
             </button>
           </div>
         </form>

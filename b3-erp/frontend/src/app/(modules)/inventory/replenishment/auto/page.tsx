@@ -38,88 +38,10 @@ export default function AutoReplenishmentPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'configs' | 'logs'>('configs');
 
-  const configs: AutoReplenishmentConfig[] = [
-    {
-      id: '1',
-      configName: 'Critical Raw Materials - Real-time',
-      description: 'Monitor and auto-create replenishment for critical raw materials in real-time',
-      category: 'Raw Materials',
-      itemPattern: 'RM-*',
-      enabled: true,
-      schedule: 'realtime',
-      autoApprove: true,
-      maxOrderValue: 100000,
-      notifyUsers: ['procurement@company.com', 'inventory@company.com'],
-      lastRun: '2025-10-21 14:30:00',
-      nextRun: 'Continuous',
-      totalRequests: 156,
-      successRate: 98.5
-    },
-    {
-      id: '2',
-      configName: 'Components Daily Review',
-      description: 'Daily check and create replenishment requests for component parts',
-      category: 'Components',
-      itemPattern: 'CP-*',
-      enabled: true,
-      schedule: 'daily',
-      autoApprove: false,
-      maxOrderValue: 50000,
-      notifyUsers: ['procurement@company.com'],
-      lastRun: '2025-10-21 06:00:00',
-      nextRun: '2025-10-22 06:00:00',
-      totalRequests: 89,
-      successRate: 95.2
-    },
-    {
-      id: '3',
-      configName: 'Consumables Weekly Batch',
-      description: 'Weekly batch processing for consumable items replenishment',
-      category: 'Consumables',
-      itemPattern: 'CS-*',
-      enabled: true,
-      schedule: 'weekly',
-      autoApprove: false,
-      maxOrderValue: 25000,
-      notifyUsers: ['procurement@company.com'],
-      lastRun: '2025-10-20 08:00:00',
-      nextRun: '2025-10-27 08:00:00',
-      totalRequests: 45,
-      successRate: 91.1
-    },
-    {
-      id: '4',
-      configName: 'Fast-Moving Items Hourly',
-      description: 'Hourly monitoring of fast-moving items for immediate replenishment',
-      category: 'Fast-Moving',
-      itemPattern: 'FM-*',
-      enabled: true,
-      schedule: 'hourly',
-      autoApprove: true,
-      maxOrderValue: 75000,
-      notifyUsers: ['inventory@company.com'],
-      lastRun: '2025-10-21 14:00:00',
-      nextRun: '2025-10-21 15:00:00',
-      totalRequests: 234,
-      successRate: 97.8
-    },
-    {
-      id: '5',
-      configName: 'Seasonal Items - Inactive',
-      description: 'Seasonal items automatic replenishment during peak season',
-      category: 'Seasonal',
-      itemPattern: 'SN-*',
-      enabled: false,
-      schedule: 'daily',
-      autoApprove: false,
-      maxOrderValue: 30000,
-      notifyUsers: ['procurement@company.com'],
-      lastRun: '2025-08-15 06:00:00',
-      nextRun: 'Not scheduled',
-      totalRequests: 12,
-      successRate: 100
-    }
-  ];
+  // NEEDS BACKEND: there is no auto-replenishment CONFIG endpoint. Configs are not
+  // fetched or persisted anywhere, so we render an empty state rather than fabricated
+  // rows. Once a config CRUD API exists, load it here.
+  const configs: AutoReplenishmentConfig[] = [];
 
   // Activity logs derived from GET /inventory/reorder/suggestions.
   const [logs, setLogs] = useState<AutoReplenishmentLog[]>([]);
@@ -206,13 +128,10 @@ export default function AutoReplenishmentPage() {
     }
   };
 
-  const handleToggleConfig = (id: string) => {
-    alert(`Toggle configuration ${id}`);
-  };
-
-  const handleEditConfig = (id: string) => {
-    alert(`Edit configuration ${id}`);
-  };
+  // NEEDS BACKEND: no auto-replenishment config CRUD endpoint. Toggle/Edit are
+  // intentionally disabled no-ops until that API exists.
+  const handleToggleConfig = (_id: string) => {};
+  const handleEditConfig = (_id: string) => {};
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
@@ -272,7 +191,7 @@ export default function AutoReplenishmentPage() {
             <div>
               <p className="text-sm font-medium text-purple-600">Success Rate</p>
               <p className="text-3xl font-bold text-purple-900 mt-1">
-                {(configs.reduce((sum, c) => sum + c.successRate, 0) / configs.length).toFixed(1)}%
+                {(configs.length ? configs.reduce((sum, c) => sum + c.successRate, 0) / configs.length : 0).toFixed(1)}%
               </p>
             </div>
             <TrendingUp className="w-6 h-6 text-purple-700" />
@@ -325,7 +244,19 @@ export default function AutoReplenishmentPage() {
         </div>
 
         <div className="p-6">
-          {activeTab === 'configs' && (
+          {activeTab === 'configs' && configs.length === 0 && (
+            <div className="text-center py-12">
+              <Settings className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 font-medium">No auto-replenishment configurations</p>
+              <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto">
+                Creating and managing auto-replenishment configurations requires a backend
+                config API, which is not yet available. Activity logs below reflect real
+                reorder suggestions.
+              </p>
+            </div>
+          )}
+
+          {activeTab === 'configs' && configs.length > 0 && (
             <div className="space-y-2">
               {configs.map((config) => (
                 <div key={config.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
@@ -394,8 +325,9 @@ export default function AutoReplenishmentPage() {
                     <div className="flex gap-2 ml-4">
                       <button
                         onClick={() => handleToggleConfig(config.id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title={config.enabled ? 'Disable' : 'Enable'}
+                        disabled
+                        className="p-2 rounded-lg opacity-50 cursor-not-allowed"
+                        title="Config toggle not supported (no backend endpoint)"
                       >
                         {config.enabled ? (
                           <ToggleRight className="w-5 h-5 text-green-600" />
@@ -405,8 +337,9 @@ export default function AutoReplenishmentPage() {
                       </button>
                       <button
                         onClick={() => handleEditConfig(config.id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                       
+                        disabled
+                        className="p-2 rounded-lg opacity-50 cursor-not-allowed"
+                        title="Config edit not supported (no backend endpoint)"
                       >
                         <Settings className="w-5 h-5 text-blue-600" />
                       </button>

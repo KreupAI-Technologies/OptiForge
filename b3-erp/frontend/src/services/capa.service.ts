@@ -1262,12 +1262,12 @@ export class CAPAService {
 
     return this.request<CAPA>(`/quality/capa/${id}/initiate`, {
       method: 'POST',
-      body: JSON.stringify({ initiatorId }),
+      body: JSON.stringify({ initiatedBy: initiatorId }),
     });
   }
 
   // Move CAPA to implementation phase
-  static async implementCAPA(id: string): Promise<CAPA> {
+  static async implementCAPA(id: string, implementedBy?: string): Promise<CAPA> {
     if (USE_MOCK_DATA) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const index = MOCK_CAPAS.findIndex((c) => c.id === id);
@@ -1286,11 +1286,12 @@ export class CAPAService {
 
     return this.request<CAPA>(`/quality/capa/${id}/implement`, {
       method: 'POST',
+      body: JSON.stringify({ implementedBy }),
     });
   }
 
   // Move CAPA to verification phase
-  static async verifyCAPA(id: string): Promise<CAPA> {
+  static async verifyCAPA(id: string, verifiedBy?: string, isEffective = true): Promise<CAPA> {
     if (USE_MOCK_DATA) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const index = MOCK_CAPAS.findIndex((c) => c.id === id);
@@ -1309,6 +1310,7 @@ export class CAPAService {
 
     return this.request<CAPA>(`/quality/capa/${id}/verify`, {
       method: 'POST',
+      body: JSON.stringify({ verifiedBy, isEffective }),
     });
   }
 

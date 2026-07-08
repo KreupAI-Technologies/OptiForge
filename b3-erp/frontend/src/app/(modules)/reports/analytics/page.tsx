@@ -49,6 +49,7 @@ import {
   Clock,
   Zap,
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { fetchReportDataset } from '@/services/reports-management.service';
 
 interface AnalyticsMetric {
@@ -162,16 +163,19 @@ export default function AnalyticsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setIsLoading(true);
       try {
         const payload = await fetchReportDataset<AnalyticsOverview>('analytics.overview');
         if (cancelled) return;
         if (payload) setOverview(payload);
       } catch {
         // keep built-in defaults on error
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshKey]);
 
   const metrics: (AnalyticsMetric & { href: string })[] = [
     {
@@ -243,14 +247,13 @@ export default function AnalyticsPage() {
   const productionMetrics = Array.isArray(overview.productionMetrics) ? overview.productionMetrics : DEFAULT_PRODUCTION_METRICS;
 
   const handleRefresh = () => {
-    setIsLoading(true);
+    // Re-fetch the analytics dataset (handled by the refreshKey effect).
     setRefreshKey((prev) => prev + 1);
-    setTimeout(() => setIsLoading(false), 1000);
   };
 
-  const handleExport = (format: string) => {
-    console.log(`Exporting analytics data as ${format}`);
-    alert(`Analytics data exported as ${format}`);
+  const handleExport = () => {
+    // Export the current time-series dataset to CSV (client-side).
+    exportToCsv('analytics-overview', timeSeriesData);
   };
 
   const calculateTrend = (data: number[]): string => {
@@ -296,7 +299,7 @@ export default function AnalyticsPage() {
                 Refresh
               </button>
               <button
-                onClick={() => handleExport('pdf')}
+                onClick={handleExport}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />

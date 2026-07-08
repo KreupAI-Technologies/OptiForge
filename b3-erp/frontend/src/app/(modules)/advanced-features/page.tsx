@@ -1,10 +1,44 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Brain, ScanText, Wifi, ArrowRight, Activity, Cpu, FileText } from 'lucide-react';
+import { Brain, ScanText, Wifi, ArrowRight, Activity, Cpu, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { dashboardOverviewService, type DashboardOverviewMetrics } from '@/services/dashboard-overview.service';
+import { advancedFeaturesService, type AiInsightStats, type OcrStats } from '@/services/advanced-features.service';
 
 export default function AdvancedFeaturesPage() {
+    const [metrics, setMetrics] = useState<DashboardOverviewMetrics | null>(null);
+    const [insightStats, setInsightStats] = useState<AiInsightStats | null>(null);
+    const [ocrStats, setOcrStats] = useState<OcrStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const [overview, insights, ocr] = await Promise.all([
+                    dashboardOverviewService.getOverview(),
+                    advancedFeaturesService.insightStats(),
+                    advancedFeaturesService.ocrStats(),
+                ]);
+                if (cancelled) return;
+                setMetrics(overview.metrics);
+                setInsightStats(insights);
+                setOcrStats(ocr);
+            } catch (e) {
+                if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load summary');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const features = [
         {
             title: 'AI Insights',
@@ -12,7 +46,7 @@ export default function AdvancedFeaturesPage() {
             icon: Brain,
             color: 'bg-purple-100 text-purple-600',
             href: '/advanced-features/ai-insights',
-            stats: '98% Accuracy',
+            stats: insightStats ? `${insightStats.total} Insights` : 'AI Insights',
         },
         {
             title: 'OCR Integration',
@@ -20,7 +54,7 @@ export default function AdvancedFeaturesPage() {
             icon: ScanText,
             color: 'bg-blue-100 text-blue-600',
             href: '/advanced-features/ocr',
-            stats: '500+ Docs/hr',
+            stats: ocrStats ? `${ocrStats.total} Docs Processed` : 'OCR',
         },
         {
             title: 'IoT Dashboard',
@@ -38,6 +72,33 @@ export default function AdvancedFeaturesPage() {
                 <h1 className="text-3xl font-bold text-gray-900">Advanced Features</h1>
                 <p className="text-gray-600 mt-2">Next-generation capabilities for your manufacturing operations</p>
             </div>
+
+            {/* Live cross-module summary */}
+            {loading ? (
+                <div className="mb-8 flex items-center gap-2 text-gray-500 bg-white border border-gray-200 rounded-xl p-3">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Loading live summary…</span>
+                </div>
+            ) : error ? (
+                <div className="mb-8 flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm">{error}</span>
+                </div>
+            ) : (
+                <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                        { label: 'AI Insights', value: insightStats?.total ?? 0 },
+                        { label: 'OCR Documents', value: ocrStats?.total ?? 0 },
+                        { label: 'Docs Completed', value: ocrStats?.completed ?? 0 },
+                        { label: 'Inventory Items', value: metrics?.inventoryItems ?? 0 },
+                    ].map((kpi) => (
+                        <div key={kpi.label} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                            <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+                            <p className="text-sm text-gray-600 mt-1">{kpi.label}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {features.map((feature) => (
@@ -109,25 +170,53 @@ export default function AdvancedFeaturesPage() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
                     <div className="flex items-center gap-3 mb-3">
                         <FileText className="w-5 h-5 text-orange-600" />
-                        <h2 className="text-lg font-semibold text-gray-900">Recent Activities</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">Feature Breakdown</h2>
                     </div>
-                    <div className="space-y-2">
-                        {[
-                            { text: 'Invoice #INV-2024-001 processed via OCR', time: '2 mins ago', type: 'ocr' },
-                            { text: 'Machine B3-Milling-02 reported high temp', time: '15 mins ago', type: 'iot' },
-                            { text: 'Demand forecast updated for Q4', time: '1 hour ago', type: 'ai' },
-                        ].map((activity, i) => (
-                            <div key={i} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                                <div className={`w-2 h-2 mt-2 rounded-full ${activity.type === 'ai' ? 'bg-purple-500' :
-                                        activity.type === 'ocr' ? 'bg-blue-500' : 'bg-green-500'
-                                    }`} />
+                    {loading ? (
+                        <div className="flex items-center gap-2 text-gray-500 py-6">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Loading…</span>
+                        </div>
+                    ) : error ? (
+                        <div className="flex items-center gap-2 text-red-700 py-6">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-sm">{error}</span>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <div className="flex items-start gap-3 pb-3 border-b border-gray-100">
+                                <div className="w-2 h-2 mt-2 rounded-full bg-purple-500" />
                                 <div>
-                                    <p className="text-sm text-gray-900">{activity.text}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">{activity.time}</p>
+                                    <p className="text-sm text-gray-900">
+                                        {insightStats?.total ?? 0} AI insights across {Object.keys(insightStats?.byCategory ?? {}).length} categories
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        Avg confidence {Math.round((insightStats?.avgConfidence ?? 0) * 100)}%
+                                    </p>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                            <div className="flex items-start gap-3 pb-3 border-b border-gray-100">
+                                <div className="w-2 h-2 mt-2 rounded-full bg-blue-500" />
+                                <div>
+                                    <p className="text-sm text-gray-900">
+                                        {ocrStats?.completed ?? 0} of {ocrStats?.total ?? 0} OCR documents completed
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        {ocrStats?.processing ?? 0} processing · {ocrStats?.queued ?? 0} queued · {ocrStats?.failed ?? 0} failed
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3 last:pb-0">
+                                <div className="w-2 h-2 mt-2 rounded-full bg-green-500" />
+                                <div>
+                                    <p className="text-sm text-gray-900">
+                                        {metrics?.production ?? 0} production work centers · {metrics?.inventoryItems ?? 0} inventory items
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-0.5">From cross-module overview</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

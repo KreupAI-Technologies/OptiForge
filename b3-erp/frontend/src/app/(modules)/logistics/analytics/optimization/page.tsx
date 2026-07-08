@@ -19,6 +19,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { LogisticsService } from '@/services/logistics.service';
+import { routeService } from '@/services/route.service';
+import { toast } from '@/hooks/use-toast';
 
 interface OptimizationMetric {
   name: string;
@@ -31,6 +33,7 @@ interface OptimizationMetric {
 
 interface RouteOptimization {
   id: number;
+  routeId: string;
   routeName: string;
   origin: string;
   destination: string;
@@ -184,109 +187,47 @@ export default function OptimizationAnalyticsPage() {
       URL.revokeObjectURL(url);
 
       setIsExporting(false);
-      alert('Optimization report exported successfully!\n\nThe report includes:\n• Summary of total savings\n• Optimization metrics\n• Route recommendations\n• Load optimization data\n• Driver utilization data');
+      toast({ title: 'Report exported', description: 'The logistics optimization report was downloaded as CSV.', variant: 'success' });
     }, 500);
   };
 
-  const handleImplementOptimization = (route: RouteOptimization) => {
-    const confirmed = confirm(`Implement Route Optimization?
+  const [implementingId, setImplementingId] = useState<number | null>(null);
 
-Route: ${route.routeName}
-${route.origin} → ${route.destination}
+  const handleImplementOptimization = async (route: RouteOptimization) => {
+    if (!route.routeId) {
+      toast({
+        title: 'Cannot implement',
+        description: 'This route has no backend identifier; optimization cannot be applied.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const confirmed = confirm(
+      `Implement route optimization for "${route.routeName}" (${route.origin} → ${route.destination})?\n\n` +
+      `Projected cost saving: ₹${route.costSaving.toLocaleString()} (${route.savingPercentage}%).\n\n` +
+      `This calls the route optimization service to recalculate and apply the optimized route.`
+    );
+    if (!confirmed) return;
 
-CURRENT CONFIGURATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Distance: ${route.currentDistance} km
-Travel Time: ${route.currentTime} hours
-Cost: ₹${route.currentCost.toLocaleString()}
-
-OPTIMIZED CONFIGURATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Distance: ${route.optimizedDistance} km (-${route.distanceSaving} km)
-Travel Time: ${route.optimizedTime} hours (-${route.timeSaving} hours)
-Cost: ₹${route.optimizedCost.toLocaleString()} (-₹${route.costSaving.toLocaleString()})
-
-SAVINGS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cost Reduction: ${route.savingPercentage}%
-Monthly Savings: ₹${(route.costSaving * 4).toLocaleString()} (approx.)
-Annual Savings: ₹${(route.costSaving * 48).toLocaleString()} (approx.)
-
-RECOMMENDATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${route.recommendation}
-
-IMPLEMENTATION PROCESS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-This will:
-1. Update route master data
-2. Recalculate all route metrics
-3. Update GPS navigation waypoints
-4. Notify all drivers assigned to this route
-5. Update ETA calculations
-6. Modify freight cost calculations
-7. Update customer delivery schedules
-8. Create implementation audit log
-9. Schedule route verification
-10. Monitor performance for 30 days
-
-IMPACT ASSESSMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Active Trips: Will be notified of route changes
-• Future Bookings: Will use optimized route
-• Historical Data: Will be preserved for comparison
-• ROI Tracking: Enabled automatically
-
-Click OK to implement this optimization.`);
-
-    if (confirmed) {
-      // Update the route status to implemented
+    setImplementingId(route.id);
+    try {
+      await routeService.optimizeRoute(route.routeId);
       setRouteOptimizations(prev =>
-        prev.map(r =>
-          r.id === route.id
-            ? { ...r, status: 'implemented' as const }
-            : r
-        )
+        prev.map(r => (r.id === route.id ? { ...r, status: 'implemented' as const } : r)),
       );
-
-      alert(`Route Optimization Implemented Successfully!
-
-${route.routeName} has been optimized.
-
-IMPLEMENTATION DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✓ Route master data updated
-✓ GPS waypoints recalculated
-✓ Navigation system synchronized
-✓ Driver notifications sent (3 drivers)
-✓ ETA calculations updated
-✓ Freight costs adjusted
-✓ Customer schedules updated (12 bookings)
-✓ Audit log created
-
-MONITORING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Performance monitoring enabled for 30 days to track:
-• Actual vs. projected distance savings
-• Actual vs. projected time savings
-• Actual vs. projected cost savings
-• Driver feedback and route issues
-• Customer satisfaction scores
-
-NEXT STEPS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Monitor first 5 trips using new route
-2. Review driver feedback after 1 week
-3. Verify savings after 2 weeks
-4. Generate ROI report after 30 days
-5. Consider expanding to similar routes
-
-Expected Monthly Savings: ₹${(route.costSaving * 4).toLocaleString()}
-Expected Annual Savings: ₹${(route.costSaving * 48).toLocaleString()}
-
-Implementation ID: OPT-${route.id}-${Date.now()}
-Implemented By: Current User
-Timestamp: ${new Date().toLocaleString()}`);
+      toast({
+        title: 'Optimization implemented',
+        description: `${route.routeName} was optimized. Est. monthly saving ₹${(route.costSaving * 4).toLocaleString()}.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: 'Implementation failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setImplementingId(null);
     }
   };
 
@@ -355,6 +296,7 @@ Timestamp: ${new Date().toLocaleString()}`);
         const list = Array.isArray(raw) ? raw : [];
         const mapped: RouteOptimization[] = list.map((r, idx) => ({
           id: idx + 1,
+          routeId: String(r?.id ?? r?.routeId ?? ''),
           routeName: r?.routeName ?? '',
           origin: r?.origin ?? '',
           destination: r?.destination ?? '',
@@ -683,9 +625,10 @@ Timestamp: ${new Date().toLocaleString()}`);
                     {route.status === 'pending' && (
                       <button
                         onClick={() => handleImplementOptimization(route)}
-                        className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                        disabled={implementingId === route.id}
+                        className="text-purple-600 hover:text-purple-800 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Implement
+                        {implementingId === route.id ? 'Implementing...' : 'Implement'}
                       </button>
                     )}
                     {route.status === 'implemented' && (

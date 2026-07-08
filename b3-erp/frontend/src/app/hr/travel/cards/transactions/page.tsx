@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { CreditCard, Calendar, MapPin, CheckCircle, XCircle, AlertTriangle, Download, Link as LinkIcon, Search } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 
 interface CardTransaction {
   id: string;
@@ -78,31 +79,28 @@ export default function Page() {
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [transactions, setTransactions] = useState<CardTransaction[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const loadTransactions = async () => {
+    setLoadError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/hr/card-transactions?companyId=default-company-id`);
+      if (!res.ok) {
+        throw new Error(`API Error ${res.status}: ${res.statusText}`);
+      }
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+      setTransactions(rows.map(mapTransaction));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load transactions');
+      setTransactions([]);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadTransactions() {
-      try {
-        const res = await fetch(`${API_BASE_URL}/hr/card-transactions?companyId=default-company-id`);
-        if (!res.ok) {
-          if (!cancelled) setTransactions([]);
-          return;
-        }
-        const data = await res.json();
-        const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : null;
-        if (!rows) {
-          if (!cancelled) setTransactions([]);
-          return;
-        }
-        if (!cancelled) setTransactions(rows.map(mapTransaction));
-      } catch {
-        if (!cancelled) setTransactions([]);
-      }
-    }
     loadTransactions();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Safe Date Display Component
@@ -166,18 +164,36 @@ export default function Page() {
     return colors[category as keyof typeof colors];
   };
 
-  const handleLinkTransaction = (txn: CardTransaction) => {
-    toast({
-      title: "Transaction Linked",
-      description: `Transaction ${txn.transactionId} linked to expense report`
-    });
+  const handleLinkTransaction = async (txn: CardTransaction) => {
+    setActionId(txn.id);
+    try {
+      await HrExpensesService.updateCardTransaction(txn.id, { status: 'linked' });
+      toast({ title: 'Transaction Linked', description: `Transaction ${txn.transactionId} linked to expense report` });
+      await loadTransactions();
+    } catch (err) {
+      toast({
+        title: 'Failed to link transaction',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+    } finally {
+      setActionId(null);
+    }
   };
 
-  const handleMarkPersonal = (txn: CardTransaction) => {
-    toast({
-      title: "Marked as Personal",
-      description: `Transaction ${txn.transactionId} marked as personal expense`
-    });
+  const handleMarkPersonal = async (txn: CardTransaction) => {
+    setActionId(txn.id);
+    try {
+      await HrExpensesService.updateCardTransaction(txn.id, { status: 'personal' });
+      toast({ title: 'Marked as Personal', description: `Transaction ${txn.transactionId} marked as personal expense` });
+      await loadTransactions();
+    } catch (err) {
+      toast({
+        title: 'Failed to update transaction',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+    } finally {
+      setActionId(null);
+    }
   };
 
   const columns = [
@@ -260,7 +276,8 @@ export default function Page() {
           {row.status === 'captured' && (
             <button
               onClick={() => handleLinkTransaction(row)}
-              className="p-1 hover:bg-green-100 rounded"
+              disabled={actionId === row.id}
+              className="p-1 hover:bg-green-100 rounded disabled:opacity-40"
               title="Link to expense"
             >
               <LinkIcon className="h-4 w-4 text-green-600" />
@@ -270,14 +287,16 @@ export default function Page() {
             <>
               <button
                 onClick={() => handleLinkTransaction(row)}
-                className="p-1 hover:bg-green-100 rounded"
+                disabled={actionId === row.id}
+                className="p-1 hover:bg-green-100 rounded disabled:opacity-40"
                 title="Link to expense"
               >
                 <LinkIcon className="h-4 w-4 text-green-600" />
               </button>
               <button
                 onClick={() => handleMarkPersonal(row)}
-                className="p-1 hover:bg-purple-100 rounded"
+                disabled={actionId === row.id}
+                className="p-1 hover:bg-purple-100 rounded disabled:opacity-40"
                 title="Mark as personal"
               >
                 <XCircle className="h-4 w-4 text-purple-600" />
@@ -310,6 +329,13 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Auto-captured corporate credit card transactions</p>
       </div>
+
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
+          <span>{loadError}</span>
+          <button onClick={loadTransactions} className="underline font-medium">Retry</button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2 mb-3">

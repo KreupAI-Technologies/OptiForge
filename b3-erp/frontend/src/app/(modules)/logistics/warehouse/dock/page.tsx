@@ -32,132 +32,9 @@ export default function DockManagementPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  const handleEditDock = (dock: DockDoor) => {
-    const priorityText = dock.priority ? dock.priority.toUpperCase() : 'N/A';
-
-    alert(`Edit Dock Assignment - ${dock.dockNo}
-
-CURRENT CONFIGURATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-DOCK INFORMATION
-Dock Number: ${dock.dockNo} [Read-only]
-Dock Type: [${dock.type}] ▼
-  Options: Inbound / Outbound / Both
-Current Status: [${dock.status}] ▼
-  Options: Available / Occupied / Loading / Unloading / Reserved / Maintenance
-
-VEHICLE & CARRIER DETAILS
-Vehicle Number: [${dock.vehicleNo || 'Not assigned'}]
-Carrier Name: [${dock.carrierName || 'Not assigned'}] ▼
-  Suggested: Blue Dart, DHL, VRL, Gati, DTDC, FedEx, Indian Post
-
-APPOINTMENT DETAILS
-Appointment No: [${dock.appointmentNo || 'Auto-generated'}]
-Order/Reference No: [${dock.orderNo || 'N/A'}]
-Priority Level: [${priorityText}] ▼
-  Options: High / Medium / Low
-
-TIMING & SCHEDULE
-Scheduled Time: [${dock.scheduledTime || 'Not set'}] 📅
-Actual Arrival: [${dock.actualArrival || 'Pending'}] 📅
-Expected Departure: [${dock.expectedDeparture || 'Not set'}] 📅
-Current Wait Time: ${dock.waitTime} minutes ${dock.waitTime > 15 ? '⚠ High' : '✓'}
-
-CARGO INFORMATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Total Items: [${dock.itemsCount}] items
-Pallet Count: [${dock.palletCount}] pallets
-Weight: [ ] kg (total)
-Volume: [ ] m³ (total)
-Cargo Type: [ ] ▼
-  Options: General / Fragile / Perishable / Hazardous / Temperature Controlled
-
-OPERATION PROGRESS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Current Progress: ${dock.currentProgress}%
-${'█'.repeat(Math.floor(dock.currentProgress / 5))}${'░'.repeat(20 - Math.floor(dock.currentProgress / 5))} ${dock.currentProgress}%
-
-${dock.status === 'loading' || dock.status === 'unloading' ?
-`Update Progress:
-[ ] 0-25%: Just started
-[ ] 25-50%: In progress
-[ ] 50-75%: More than half done
-[ ] 75-100%: Almost complete` :
-'Progress tracking available when status is Loading/Unloading'}
-
-TEAM ASSIGNMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Assigned Team/Worker: [${dock.workerAssigned || 'Not assigned'}] ▼
-  Available Teams:
-  • Team A - Rajesh (Currently: ${dock.dockNo === 'DOCK-A01' || dock.dockNo === 'DOCK-C01' ? 'This dock' : 'Available'})
-  • Team B - Priya (Currently: ${dock.dockNo === 'DOCK-A03' || dock.dockNo === 'DOCK-C03' ? 'This dock' : 'Available'})
-  • Team C - Amit (Currently: ${dock.dockNo === 'DOCK-B01' || dock.dockNo === 'DOCK-D01' ? 'This dock' : 'Available'})
-  • Team D - Suresh (Currently: ${dock.dockNo === 'DOCK-B02' ? 'This dock' : 'Available'})
-  • Maintenance Team (For maintenance tasks)
-
-Additional Resources: [ ] ▼
-  Options: Forklift / Hand Pallet / Inspection Team / Quality Check / Custom Clearance
-
-SPECIAL INSTRUCTIONS & NOTES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Notes: [${dock.notes || 'No special instructions'}]
-        ┌────────────────────────────────────────┐
-        │                                        │
-        │  Add special instructions here...      │
-        │                                        │
-        └────────────────────────────────────────┘
-
-Special Handling Requirements:
-☐ Fragile - Handle with care
-☐ Temperature control required
-☐ Quality inspection needed
-☐ Custom clearance pending
-☐ Photo documentation required
-☐ Signature on delivery
-☐ Verify seal integrity
-☐ Cross-dock transfer
-
-VALIDATION CHECKS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${dock.status !== 'available' && !dock.vehicleNo ? '⚠ Warning: Active dock without vehicle assignment' : '✓ Vehicle assigned'}
-${dock.waitTime > 15 ? '⚠ Warning: Wait time exceeds 15 minutes - consider expediting' : '✓ Wait time within acceptable range'}
-${dock.currentProgress > 0 && !dock.workerAssigned ? '⚠ Warning: Operation in progress without team assignment' : '✓ Team assignment confirmed'}
-${dock.priority === 'high' && dock.currentProgress < 50 ? '⚠ High priority shipment - ensure timely completion' : '○ Priority level noted'}
-
-DOCK OPERATIONS LOG
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Last Status Change: ${dock.actualArrival || 'N/A'}
-Modified By: Current User
-Previous Status: [View history]
-Total Operations Today: 3 completed
-
-QUICK ACTIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Mark as Complete] - Finish current operation
-[Change Status] - Update dock status immediately
-[Assign Team] - Allocate workforce
-[Add Note] - Include special instructions
-[Upload Documents] - Attach BOL, invoice, etc.
-[Print Label] - Generate dock assignment slip
-[Send Alert] - Notify team/carrier
-
-COMPLETE OPERATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-If operation is complete, this will:
-• Mark dock as Available
-• Clear vehicle and carrier info
-• Log completion time
-• Generate operation summary
-• Notify next scheduled appointment
-• Update dock utilization metrics
-
-Actions:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Save Changes] [Complete Operation] [Reassign Dock] [Cancel] [View Full History]
-
-Note: Changes will be logged in audit trail and may trigger notifications to assigned teams and carriers.`);
-  };
+  // NOTE: The dock-doors API is read-only (GET /logistics/dock-doors); there is no
+  // create/update endpoint yet. The Edit action is disabled until the backend exposes
+  // a write endpoint for dock assignments. See report: NEEDS BACKEND.
 
   const [dockDoors, setDockDoors] = useState<DockDoor[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -402,8 +279,10 @@ Note: Changes will be logged in audit trail and may trigger notifications to ass
 
               {dock.status !== 'available' && dock.status !== 'maintenance' && (
                 <button
-                  onClick={() => handleEditDock(dock)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                  type="button"
+                  disabled
+                  title="Editing dock assignments is not yet available — the dock-doors API is currently read-only."
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm opacity-50 cursor-not-allowed"
                 >
                   <Edit className="w-4 h-4 text-gray-600" />
                   <span className="text-gray-700">Edit</span>

@@ -50,6 +50,7 @@ interface Routing {
 export default function RoutingMaster() {
   const [routings, setRoutings] = useState<Routing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRoutings();
@@ -58,6 +59,7 @@ export default function RoutingMaster() {
   const fetchRoutings = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const data = await manufacturingMastersService.getAllRoutings('1');
       const mapped: Routing[] = data.map((r: BackendRouting) => ({
         id: r.id,
@@ -92,8 +94,9 @@ export default function RoutingMaster() {
         }
       }));
       setRoutings(mapped);
-    } catch (error) {
-      console.error('Error fetching routings:', error);
+    } catch (err) {
+      console.error('Error fetching routings:', err);
+      setError('Failed to load routings. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -155,12 +158,41 @@ export default function RoutingMaster() {
     });
   }, [routings, searchTerm, filterStatus]);
 
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[300px]">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Clock className="h-5 w-5 animate-spin" />
+          <span>Loading routings...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          <span>{error}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 ">
       <div className="mb-3">
         <h2 className="text-2xl font-bold mb-2">Routing Master</h2>
         <p className="text-gray-600">Manage manufacturing process sequences and operations</p>
       </div>
+
+      {routings.length === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3 flex items-center gap-3 text-blue-700">
+          <GitBranch className="h-5 w-5" />
+          <span>No routings found.</span>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b border-gray-200">

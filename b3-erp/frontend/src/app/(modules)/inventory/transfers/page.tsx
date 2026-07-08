@@ -30,12 +30,6 @@ import {
   DispatchTransferData,
   ReceiveTransferData
 } from '@/components/inventory/InventoryTransferModals'
-import {
-  stockTransferService,
-  StockTransfer as ServiceStockTransfer,
-  TransferStatus,
-  TransferPriority
-} from '@/services/stock-transfer.service'
 import { inventoryService } from '@/services/InventoryService'
 import { exportToCsv, printCurrentView } from '@/lib/export'
 
@@ -76,6 +70,8 @@ const InventoryTransfersPage = () => {
   // Loading and data states
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [transfers, setTransfers] = useState<StockTransfer[]>([])
 
   // Fetch transfers on mount
@@ -83,42 +79,57 @@ const InventoryTransfersPage = () => {
     fetchTransfers()
   }, [])
 
+  // Map the raw backend TransferStatus (string enum: 'Draft', 'Submitted',
+  // 'In Transit', 'Partially Received', 'Received', 'Cancelled', 'Rejected')
+  // to the coarse status the table renders.
+  const mapStatus = (raw: string): 'draft' | 'approved' | 'in_transit' | 'received' | 'cancelled' => {
+    switch (raw) {
+      case 'Draft':
+        return 'draft'
+      case 'Submitted':
+        return 'approved'
+      case 'In Transit':
+        return 'in_transit'
+      case 'Partially Received':
+      case 'Received':
+        return 'received'
+      case 'Cancelled':
+      case 'Rejected':
+        return 'cancelled'
+      default:
+        return 'draft'
+    }
+  }
+
   const fetchTransfers = async () => {
     try {
       setLoading(true)
       setError(null)
-      const transferData = await stockTransferService.getAllTransfers()
+      const transferData = await inventoryService.getStockTransfers()
 
-      // Map service transfers to page format
-      const mappedTransfers: StockTransfer[] = transferData.map(t => {
-        const statusMapping: Record<string, 'draft' | 'approved' | 'in_transit' | 'received' | 'cancelled'> = {
-          [TransferStatus.DRAFT]: 'draft',
-          [TransferStatus.SUBMITTED]: 'draft',
-          [TransferStatus.APPROVED]: 'approved',
-          [TransferStatus.DISPATCHED]: 'in_transit',
-          [TransferStatus.IN_TRANSIT]: 'in_transit',
-          [TransferStatus.RECEIVED]: 'received',
-          [TransferStatus.COMPLETED]: 'received',
-          [TransferStatus.CANCELLED]: 'cancelled',
-          [TransferStatus.REJECTED]: 'cancelled',
-        }
-
+      // Map raw ORM rows to the page's table format defensively.
+      const mappedTransfers: StockTransfer[] = (transferData || []).map((t: any) => {
+        const lines: any[] = Array.isArray(t.lines) ? t.lines : []
+        const totalQuantity = lines.reduce(
+          (sum, l) => sum + Number(l?.requestedQuantity ?? 0),
+          0
+        )
         return {
           id: t.id,
-          transferId: t.transferNumber,
-          fromWarehouse: t.sourceWarehouseName,
-          toWarehouse: t.targetWarehouseName,
-          itemsCount: t.totalItems,
-          totalQuantity: t.totalRequestedQuantity,
-          transferDate: t.requestDate.split('T')[0],
-          expectedDelivery: t.expectedArrivalDate?.split('T')[0] || t.requiredDate?.split('T')[0] || '',
-          status: statusMapping[t.status] || 'draft',
-          initiatedBy: t.requestedByName,
-          approvedBy: t.approvedByName || '',
-          totalValue: t.totalValue,
-          transportMode: t.shippingMethod || 'Road',
-          vehicleNumber: t.vehicleNumber || '',
-          driverName: t.driverName || ''
+          transferId: t.transferNumber ?? '',
+          fromWarehouse: t.fromWarehouseName ?? t.fromWarehouseId ?? '',
+          toWarehouse: t.toWarehouseName ?? t.toWarehouseId ?? '',
+          itemsCount: t.totalLines ?? lines.length,
+          totalQuantity: t.totalQuantity ?? totalQuantity,
+          transferDate: (t.transferDate ?? '').toString().split('T')[0],
+          expectedDelivery: (t.expectedReceiptDate ?? '').toString().split('T')[0],
+          status: mapStatus(t.status),
+          initiatedBy: t.requestedByName ?? '',
+          approvedBy: t.approvedByName ?? '',
+          totalValue: Number(t.totalValue ?? 0),
+          transportMode: t.transportMode ?? 'Road',
+          vehicleNumber: t.vehicleNumber ?? '',
+          driverName: t.driverName ?? ''
         }
       })
 
@@ -211,21 +222,31 @@ const InventoryTransfersPage = () => {
 
   const handleApprove = async (transferId: string) => {
     try {
-      await stockTransferService.approveTransfer(transferId)
+      setSubmitting(true)
+      setActionError(null)
+      await inventoryService.approveStockTransfer(transferId)
       await fetchTransfers()
     } catch (err) {
       console.error('Failed to approve transfer:', err)
-      setError('Failed to approve transfer. Please try again.')
+      setActionError('Failed to approve transfer. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
+  // No dedicated delete endpoint for a draft transfer — the backend exposes
+  // /cancel as the way to void a transfer, so a "delete" maps to cancel.
   const handleDelete = async (transferId: string) => {
     try {
-      await stockTransferService.deleteTransfer(transferId)
+      setSubmitting(true)
+      setActionError(null)
+      await inventoryService.cancelStockTransfer(transferId)
       await fetchTransfers()
     } catch (err) {
-      console.error('Failed to delete transfer:', err)
-      setError('Failed to delete transfer. Please try again.')
+      console.error('Failed to cancel transfer:', err)
+      setActionError('Failed to cancel transfer. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -234,26 +255,28 @@ const InventoryTransfersPage = () => {
     setIsCreateOpen(true)
   }
 
-  const handleCreateTransferSubmit = async (data: CreateTransferData, isDraft: boolean) => {
+  const handleCreateTransferSubmit = async (data: CreateTransferData, _isDraft: boolean) => {
     try {
+      setSubmitting(true)
+      setActionError(null)
+      // Map the modal form to the backend CreateStockTransferDto shape.
       await inventoryService.createStockTransfer({
         transferType: 'Warehouse to Warehouse',
-        isDraft,
         transferDate: data?.transferDate ?? new Date().toISOString().slice(0, 10),
-        expectedDelivery: data?.expectedDelivery,
+        expectedReceiptDate: data?.expectedDelivery || undefined,
         fromWarehouseId: data?.fromWarehouse,
         toWarehouseId: data?.toWarehouse,
-        priority: data?.priority,
         purpose: data?.reason,
-        remarks: data?.notes,
         lines: (data?.items ?? []).map((l, i) => ({
           lineNumber: i + 1,
           itemId: l?.itemId,
+          itemCode: l?.itemId,
           itemName: l?.itemName,
           requestedQuantity: l?.transferQty ?? 0,
           uom: l?.uom,
-          batchNumber: l?.batchNumber,
-          serialNumbers: l?.serialNumbers,
+          remarks: l?.batchNumber
+            ? `Batch: ${l.batchNumber}`
+            : undefined,
         })),
       })
       // Refresh the list after creating
@@ -261,7 +284,9 @@ const InventoryTransfersPage = () => {
       setIsCreateOpen(false)
     } catch (err) {
       console.error('Failed to create transfer:', err)
-      setError('Failed to create transfer. Please try again.')
+      setActionError('Failed to create transfer. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -315,16 +340,21 @@ const InventoryTransfersPage = () => {
       return
     }
     try {
+      setSubmitting(true)
+      setActionError(null)
+      // No dedicated reject endpoint exists; a rejection voids the transfer
+      // via /cancel. Approve uses /approve.
       if (data.decision === 'reject') {
-        await stockTransferService.rejectTransfer(selectedTransfer.id, data.rejectionReason ?? data.notes)
+        await inventoryService.cancelStockTransfer(selectedTransfer.id)
       } else {
-        await stockTransferService.approveTransfer(selectedTransfer.id)
+        await inventoryService.approveStockTransfer(selectedTransfer.id)
       }
       await fetchTransfers()
     } catch (err) {
       console.error('Failed to process transfer approval:', err)
-      setError('Failed to process transfer. Please try again.')
+      setActionError('Failed to process transfer. Please try again.')
     } finally {
+      setSubmitting(false)
       setIsApproveOpen(false)
     }
   }
@@ -334,25 +364,21 @@ const InventoryTransfersPage = () => {
     setIsDispatchOpen(true)
   }
 
-  const handleDispatchSubmit = async (data: DispatchTransferData) => {
+  const handleDispatchSubmit = async (_data: DispatchTransferData) => {
     if (!selectedTransfer) {
       setIsDispatchOpen(false)
       return
     }
     try {
-      await stockTransferService.dispatchTransfer(selectedTransfer.id, {
-        items: [],
-        vehicleNumber: data?.vehicleNumber,
-        driverName: data?.driverName,
-        trackingNumber: data?.trackingNumber,
-        expectedArrivalDate: data?.dispatchDate,
-        remarks: data?.notes,
-      })
+      setSubmitting(true)
+      setActionError(null)
+      await inventoryService.dispatchStockTransfer(selectedTransfer.id)
       await fetchTransfers()
     } catch (err) {
       console.error('Failed to dispatch transfer:', err)
-      setError('Failed to dispatch transfer. Please try again.')
+      setActionError('Failed to dispatch transfer. Please try again.')
     } finally {
+      setSubmitting(false)
       setIsDispatchOpen(false)
     }
   }
@@ -368,31 +394,40 @@ const InventoryTransfersPage = () => {
       return
     }
     try {
-      await stockTransferService.receiveTransfer(selectedTransfer.id, {
-        items: (data?.itemsReceived ?? []).map((item) => ({
+      setSubmitting(true)
+      setActionError(null)
+      await inventoryService.receiveStockTransfer(selectedTransfer.id, {
+        lines: (data?.itemsReceived ?? []).map((item) => ({
           itemId: item?.itemId,
           receivedQuantity: item?.receivedQuantity ?? 0,
-          receivedCondition: item?.condition === 'damaged' ? 'DAMAGED' : 'GOOD',
+          receivedCondition: item?.condition === 'damaged' ? 'Damaged' : 'Good',
         })),
         remarks: data?.qcNotes,
       })
       await fetchTransfers()
     } catch (err) {
       console.error('Failed to receive transfer:', err)
-      setError('Failed to receive transfer. Please try again.')
+      setActionError('Failed to receive transfer. Please try again.')
     } finally {
+      setSubmitting(false)
       setIsReceiveOpen(false)
     }
   }
 
+  // No reject-receipt endpoint exists; rejecting a receipt voids the transfer
+  // via /cancel.
   const handleReceiveReject = async () => {
     if (selectedTransfer) {
       try {
-        await stockTransferService.rejectTransfer(selectedTransfer.id)
+        setSubmitting(true)
+        setActionError(null)
+        await inventoryService.cancelStockTransfer(selectedTransfer.id)
         await fetchTransfers()
       } catch (err) {
         console.error('Failed to reject transfer receipt:', err)
-        setError('Failed to reject transfer. Please try again.')
+        setActionError('Failed to reject transfer. Please try again.')
+      } finally {
+        setSubmitting(false)
       }
     }
     setIsReceiveOpen(false)
@@ -434,11 +469,15 @@ const InventoryTransfersPage = () => {
   const handleCancel = async () => {
     if (selectedTransfer) {
       try {
-        await stockTransferService.deleteTransfer(selectedTransfer.id)
+        setSubmitting(true)
+        setActionError(null)
+        await inventoryService.cancelStockTransfer(selectedTransfer.id)
         await fetchTransfers()
       } catch (err) {
         console.error('Failed to cancel transfer:', err)
-        setError('Failed to cancel transfer. Please try again.')
+        setActionError('Failed to cancel transfer. Please try again.')
+      } finally {
+        setSubmitting(false)
       }
     }
     setIsViewDetailsOpen(false)
@@ -534,13 +573,26 @@ const InventoryTransfersPage = () => {
             </button>
             <button
               onClick={handleCreateTransfer}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={submitting}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               Create Transfer
             </button>
           </div>
         </div>
+
+        {actionError && (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            <span>{actionError}</span>
+            <button
+              onClick={() => setActionError(null)}
+              className="text-red-600 hover:text-red-800 font-medium"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Filters and Search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">

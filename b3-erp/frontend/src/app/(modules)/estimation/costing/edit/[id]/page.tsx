@@ -59,47 +59,18 @@ export default function EditCostingPage() {
   const params = useParams();
   const costingId = params.id as string;
 
-  // Mock data - in real app, fetch by costingId
   const [formData, setFormData] = useState<CostingFormData>({
-    costingNumber: 'COST-2025-045',
-    boqNumber: 'BOQ-2025-001',
-    projectName: 'Manufacturing Plant Expansion - Phase 2',
-    clientName: 'Tata Steel Ltd.',
+    costingNumber: '',
+    boqNumber: '',
+    projectName: '',
+    clientName: '',
     status: 'draft',
     currency: 'INR',
     manufacturingOverheadPercent: 15,
     administrativeOverheadPercent: 8,
     profitMarginPercent: 18,
-    notes: 'Standard margins applied based on project size and complexity',
-    items: [
-      {
-        id: '1',
-        description: 'Structural Steel IS 2062 Grade',
-        category: 'materials',
-        quantity: 450,
-        unit: 'MT',
-        unitCost: 65000,
-        totalCost: 29250000,
-      },
-      {
-        id: '2',
-        description: 'TMT Bars Fe 500D',
-        category: 'materials',
-        quantity: 280,
-        unit: 'MT',
-        unitCost: 52000,
-        totalCost: 14560000,
-      },
-      {
-        id: '3',
-        description: 'Welding & Fabrication',
-        category: 'labor',
-        quantity: 800,
-        unit: 'Hrs',
-        unitCost: 850,
-        totalCost: 680000,
-      },
-    ],
+    notes: '',
+    items: [],
     totalMaterialCost: 0,
     totalLaborCost: 0,
     totalEquipmentCost: 0,
@@ -124,6 +95,27 @@ export default function EditCostingPage() {
       try {
         const raw = (await costEstimateService.findOne('default-company-id', costingId)) as any;
         if (!cancelled && raw) {
+          const rawItems = Array.isArray(raw.items) ? raw.items : [];
+          const mappedItems: CostItem[] = rawItems.map((it: any, idx: number) => {
+            const rawCat = String(it.category ?? it.costType ?? '').toLowerCase();
+            const category: CostItem['category'] =
+              rawCat.includes('labor') || rawCat.includes('labour')
+                ? 'labor'
+                : rawCat.includes('equip')
+                ? 'equipment'
+                : rawCat.includes('overhead')
+                ? 'overhead'
+                : 'materials';
+            return {
+              id: it.id ?? String(idx + 1),
+              description: it.description ?? '',
+              category,
+              quantity: it.quantity != null ? Number(it.quantity) : 0,
+              unit: it.unit ?? 'No',
+              unitCost: it.unitCost != null ? Number(it.unitCost) : 0,
+              totalCost: it.totalCost != null ? Number(it.totalCost) : 0,
+            };
+          });
           setFormData((prev) => ({
             ...prev,
             costingNumber: raw.estimateNumber ?? prev.costingNumber,
@@ -137,7 +129,7 @@ export default function EditCostingPage() {
             notes: raw.description ?? prev.notes,
             profitMarginPercent:
               raw.contingencyPercentage != null ? Number(raw.contingencyPercentage) : prev.profitMarginPercent,
-            items: prev.items,
+            items: mappedItems.length > 0 ? mappedItems : prev.items,
           }));
         }
       } catch (err) {

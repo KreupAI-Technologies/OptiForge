@@ -17,6 +17,12 @@ export default function CurrencyMasterPage() {
   const [filterDecimalDigits, setFilterDecimalDigits] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingCurrency, setEditingCurrency] = useState<Currency | null>(null);
+  const [form, setForm] = useState<{ code: string; name: string; symbol: string; isActive: boolean }>({
+    code: '', name: '', symbol: '', isActive: true,
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch currencies from the live backend, mapping the raw API shape to the page's Currency model.
   const loadCurrencies = async () => {
@@ -67,13 +73,47 @@ export default function CurrencyMasterPage() {
 
   // Action handlers
   const handleAddCurrency = () => {
-    showToast('Add currency functionality will be implemented', 'info');
-    // TODO: Open add currency modal/form
+    setEditingCurrency(null);
+    setForm({ code: '', name: '', symbol: '', isActive: true });
+    setShowModal(true);
   };
 
   const handleEditCurrency = (currency: Currency) => {
-    showToast(`Editing currency: ${currency.name}`, 'info');
-    // TODO: Open edit currency modal/form
+    setEditingCurrency(currency);
+    setForm({ code: currency.code, name: currency.name, symbol: currency.symbol ?? '', isActive: currency.isActive });
+    setShowModal(true);
+  };
+
+  const handleSaveCurrency = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      showToast('Currency code and name are required.', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      if (editingCurrency) {
+        await commonMastersService.updateCurrency(editingCurrency.id, {
+          code: form.code,
+          name: form.name,
+          symbol: form.symbol || undefined,
+          isActive: form.isActive,
+        });
+        showToast(`${form.name} updated successfully`, 'success');
+      } else {
+        await commonMastersService.createCurrency({
+          code: form.code,
+          name: form.name,
+          symbol: form.symbol || undefined,
+        });
+        showToast(`${form.name} created successfully`, 'success');
+      }
+      setShowModal(false);
+      await loadCurrencies();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save currency', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteCurrency = async (currency: Currency) => {
@@ -459,6 +499,78 @@ export default function CurrencyMasterPage() {
           emptyDescription="Try adjusting your search or filters to find what you're looking for."
         />
       </div>
+
+      {/* Add / Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">{editingCurrency ? 'Edit Currency' : 'Add New Currency'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Currency Code *</label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. USD"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Currency Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. US Dollar"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Symbol</label>
+                <input
+                  type="text"
+                  value={form.symbol}
+                  onChange={(e) => setForm({ ...form, symbol: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. $"
+                />
+              </div>
+              {editingCurrency && (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm text-gray-700">Active</span>
+                </label>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveCurrency}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving…' : editingCurrency ? 'Update Currency' : 'Create Currency'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>

@@ -29,6 +29,18 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 function qs(params: Record<string, string | undefined>): string {
   const parts = Object.entries(params)
     .filter(([, v]) => v != null && v !== '')
@@ -288,6 +300,15 @@ export class HrSelfServiceService {
   static getAlumni(filters?: { kind?: string; status?: string }) {
     return list<Alumni>(`/hr/alumni${qs({ ...filters })}`);
   }
+  static createAlumni(payload: Partial<Alumni>) {
+    return postJson<Alumni>('/hr/alumni', {
+      companyId: 'company-1',
+      ...payload,
+    });
+  }
+  static updateAlumni(id: string, payload: Partial<Alumni>) {
+    return putJson<Alumni>(`/hr/alumni/${id}`, payload);
+  }
   static getOvertimeRequests(status?: string) {
     return list<OvertimeRequest>(`/hr/overtime-requests${qs({ status })}`);
   }
@@ -302,5 +323,10 @@ export class HrSelfServiceService {
   }
   static getTrainingPrograms(filters?: { category?: string; status?: string }) {
     return list<TrainingProgram>(`/hr/training-programs${qs({ ...filters })}`);
+  }
+  // Reimbursement / expense-claim status transitions (approve/reject/process/pay)
+  // are applied via PUT — the controller has no dedicated action routes.
+  static updateExpenseClaim(id: string, payload: Partial<ExpenseClaim>) {
+    return putJson<ExpenseClaim>(`/hr/expense-claims/${id}`, payload);
   }
 }

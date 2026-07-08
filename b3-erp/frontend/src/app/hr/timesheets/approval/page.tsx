@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, Clock, Check, X, Eye, AlertCircle, Search, Filter, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TimesheetService } from '@/services/timesheet.service';
 
 interface TimesheetSubmission {
   id: string;
@@ -29,45 +30,43 @@ export default function TimesheetApprovalPage() {
   const [submissions, setSubmissions] = useState<TimesheetSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actioningId, setActioningId] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await HrPagesService.timesheets()) as any[];
+      const mapped: TimesheetSubmission[] = (raw ?? []).map((r, i) => {
+        const s = String(r.status ?? '').toLowerCase();
+        return {
+          id: String(r.id ?? `${i}`),
+          employeeCode: r.employeeCode ?? String(r.employeeId ?? ''),
+          employeeName: r.employeeName ?? 'Unknown',
+          department: r.department ?? 'Unassigned',
+          week: r.week ?? '',
+          weekPeriod: r.weekPeriod ?? '',
+          totalHours: Number(r.totalHours ?? 0),
+          regularHours: Number(r.regularHours ?? 0),
+          overtimeHours: Number(r.overtimeHours ?? 0),
+          projectCount: Number(r.projectCount ?? 0),
+          submittedDate: r.submittedDate ?? '',
+          status: s === 'approved' ? 'approved' : s === 'rejected' ? 'rejected' : 'pending',
+        };
+      });
+      setSubmissions(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load timesheets');
+      setSubmissions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.timesheets()) as any[];
-        const mapped: TimesheetSubmission[] = (raw ?? []).map((r, i) => {
-          const s = String(r.status ?? '').toLowerCase();
-          return {
-            id: String(r.id ?? `${i}`),
-            employeeCode: r.employeeCode ?? String(r.employeeId ?? ''),
-            employeeName: r.employeeName ?? 'Unknown',
-            department: r.department ?? 'Unassigned',
-            week: r.week ?? '',
-            weekPeriod: r.weekPeriod ?? '',
-            totalHours: Number(r.totalHours ?? 0),
-            regularHours: Number(r.regularHours ?? 0),
-            overtimeHours: Number(r.overtimeHours ?? 0),
-            projectCount: Number(r.projectCount ?? 0),
-            submittedDate: r.submittedDate ?? '',
-            status: s === 'approved' ? 'approved' : s === 'rejected' ? 'rejected' : 'pending',
-          };
-        });
-        if (!cancelled) setSubmissions(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load timesheets');
-          setSubmissions([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredData = useMemo(() => {
@@ -91,14 +90,39 @@ export default function TimesheetApprovalPage() {
     setShowDetailModal(true);
   };
 
-  const handleApprove = (submission: TimesheetSubmission) => {
-    alert(`Approved timesheet for ${submission.employeeName}`);
+  const handleApprove = async (submission: TimesheetSubmission) => {
+    setActionError(null);
+    setActioningId(submission.id);
+    try {
+      await TimesheetService.approveTimesheet(submission.id);
+      await load();
+    } catch (err) {
+      setActionError(
+        err instanceof Error
+          ? `Failed to approve ${submission.employeeName}: ${err.message}`
+          : `Failed to approve ${submission.employeeName}`,
+      );
+    } finally {
+      setActioningId(null);
+    }
   };
 
-  const handleReject = (submission: TimesheetSubmission) => {
+  const handleReject = async (submission: TimesheetSubmission) => {
     const reason = prompt('Enter rejection reason:');
-    if (reason) {
-      alert(`Rejected timesheet for ${submission.employeeName}. Reason: ${reason}`);
+    if (reason === null) return;
+    setActionError(null);
+    setActioningId(submission.id);
+    try {
+      await TimesheetService.rejectTimesheet(submission.id, reason || undefined);
+      await load();
+    } catch (err) {
+      setActionError(
+        err instanceof Error
+          ? `Failed to reject ${submission.employeeName}: ${err.message}`
+          : `Failed to reject ${submission.employeeName}`,
+      );
+    } finally {
+      setActioningId(null);
     }
   };
 
@@ -164,15 +188,15 @@ export default function TimesheetApprovalPage() {
           </button>
           <button
             onClick={() => handleApprove(row)}
-            className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
-           
+            disabled={actioningId === row.id}
+            className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-40"
           >
             <Check className="h-4 w-4" />
           </button>
           <button
             onClick={() => handleReject(row)}
-            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-           
+            disabled={actioningId === row.id}
+            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40"
           >
             <X className="h-4 w-4" />
           </button>
@@ -193,6 +217,12 @@ export default function TimesheetApprovalPage() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
         </div>
       )}
       <div className="mb-3">
@@ -372,20 +402,22 @@ export default function TimesheetApprovalPage() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    handleApprove(selectedTimesheet);
+                  onClick={async () => {
+                    await handleApprove(selectedTimesheet);
                     setShowDetailModal(false);
                   }}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  disabled={actioningId === selectedTimesheet.id}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
                 >
-                  Approve
+                  {actioningId === selectedTimesheet.id ? 'Working…' : 'Approve'}
                 </button>
                 <button
-                  onClick={() => {
-                    handleReject(selectedTimesheet);
+                  onClick={async () => {
+                    await handleReject(selectedTimesheet);
                     setShowDetailModal(false);
                   }}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  disabled={actioningId === selectedTimesheet.id}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60"
                 >
                   Reject
                 </button>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Search,
   Filter,
@@ -67,74 +68,76 @@ const statusOptions = [
 ];
 
 export default function RFPPage() {
+  const router = useRouter();
   const [rfps, setRfps] = useState<RFP[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [industryFilter, setIndustryFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    const loadRFPs = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await RFPService.getAllRFPs();
+  const loadRFPs = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await RFPService.getAllRFPs();
 
-        // Map service RFPs to page format
-        const mappedRFPs: RFP[] = data.map((rfp: ServiceRFP) => {
-          // Map status from service format to page format
-          let pageStatus: RFP['status'] = 'draft';
-          const statusValue = rfp.status;
-          if (statusValue === RFPStatus.DRAFT) pageStatus = 'draft';
-          else if (statusValue === RFPStatus.SUBMITTED) pageStatus = 'submitted';
-          else if (statusValue === RFPStatus.UNDER_REVIEW) pageStatus = 'under_review';
-          else if (statusValue === RFPStatus.IN_PROGRESS) pageStatus = 'shortlisted';
-          else if (statusValue === RFPStatus.APPROVED) pageStatus = 'won';
-          else if (statusValue === RFPStatus.REJECTED) pageStatus = 'lost';
-          else if (statusValue === RFPStatus.AWAITING_APPROVAL) pageStatus = 'shortlisted';
+      // Map service RFPs to page format
+      const mappedRFPs: RFP[] = data.map((rfp: ServiceRFP) => {
+        // Map status from service format to page format
+        let pageStatus: RFP['status'] = 'draft';
+        const statusValue = rfp.status;
+        if (statusValue === RFPStatus.DRAFT) pageStatus = 'draft';
+        else if (statusValue === RFPStatus.SUBMITTED) pageStatus = 'submitted';
+        else if (statusValue === RFPStatus.UNDER_REVIEW) pageStatus = 'under_review';
+        else if (statusValue === RFPStatus.IN_PROGRESS) pageStatus = 'shortlisted';
+        else if (statusValue === RFPStatus.APPROVED) pageStatus = 'won';
+        else if (statusValue === RFPStatus.REJECTED) pageStatus = 'lost';
+        else if (statusValue === RFPStatus.AWAITING_APPROVAL) pageStatus = 'shortlisted';
 
-          // Map industry (default to manufacturing if not in our list)
-          let industry: RFP['industry'] = 'manufacturing';
-          const categoryLower = (rfp.category || '').toLowerCase();
-          if (categoryLower.includes('construction')) industry = 'construction';
-          else if (categoryLower.includes('auto')) industry = 'automotive';
-          else if (categoryLower.includes('pharma')) industry = 'pharma';
-          else if (categoryLower.includes('energy')) industry = 'energy';
-          else if (categoryLower.includes('electron')) industry = 'electronics';
+        // Map industry (default to manufacturing if not in our list)
+        let industry: RFP['industry'] = 'manufacturing';
+        const categoryLower = (rfp.category || '').toLowerCase();
+        if (categoryLower.includes('construction')) industry = 'construction';
+        else if (categoryLower.includes('auto')) industry = 'automotive';
+        else if (categoryLower.includes('pharma')) industry = 'pharma';
+        else if (categoryLower.includes('energy')) industry = 'energy';
+        else if (categoryLower.includes('electron')) industry = 'electronics';
 
-          return {
-            id: rfp.id,
-            rfpNumber: rfp.rfpNumber,
-            clientName: rfp.customerName,
-            projectTitle: rfp.title,
-            industry: industry,
-            submissionDate: rfp.issueDate.split('T')[0],
-            closingDate: rfp.submissionDeadline.split('T')[0],
-            estimatedValue: rfp.estimatedBudget || 0,
-            status: pageStatus,
-            salesOwner: rfp.salesPerson || rfp.assignedTo || 'Unassigned',
-            requirementDetails: rfp.projectScope || '',
-            technicalSpecs: rfp.technicalSpecifications || '',
-            commercialTerms: rfp.paymentTerms || '',
-            competitorInfo: rfp.competitorAnalysis || '',
-            winProbability: rfp.winProbability || 50,
-          };
-        });
+        return {
+          id: rfp.id,
+          rfpNumber: rfp.rfpNumber,
+          clientName: rfp.customerName,
+          projectTitle: rfp.title,
+          industry: industry,
+          submissionDate: rfp.issueDate.split('T')[0],
+          closingDate: rfp.submissionDeadline.split('T')[0],
+          estimatedValue: rfp.estimatedBudget || 0,
+          status: pageStatus,
+          salesOwner: rfp.salesPerson || rfp.assignedTo || 'Unassigned',
+          requirementDetails: rfp.projectScope || '',
+          technicalSpecs: rfp.technicalSpecifications || '',
+          commercialTerms: rfp.paymentTerms || '',
+          competitorInfo: rfp.competitorAnalysis || '',
+          winProbability: rfp.winProbability || 50,
+        };
+      });
 
-        setRfps(mappedRFPs);
-      } catch (err) {
-        console.error('Error loading RFPs:', err);
-        setError('Failed to load RFPs. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadRFPs();
+      setRfps(mappedRFPs);
+    } catch (err) {
+      setError('Failed to load RFPs. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadRFPs();
+  }, [loadRFPs]);
 
   const filteredRFPs = rfps.filter((rfp) => {
     const matchesSearch =
@@ -168,15 +171,24 @@ export default function RFPPage() {
   };
 
   const handleView = (id: string) => {
-    console.log('Viewing RFP:', id);
+    router.push(`/sales/rfp/view/${id}`);
   };
 
   const handleEdit = (id: string) => {
-    console.log('Editing RFP:', id);
+    router.push(`/sales/rfp/edit/${id}`);
   };
 
-  const handleSubmit = (id: string) => {
-    console.log('Submitting RFP:', id);
+  const handleSubmit = async (id: string) => {
+    setSubmittingId(id);
+    setActionError(null);
+    try {
+      await RFPService.updateStatus(id, RFPStatus.SUBMITTED, 'Current User');
+      await loadRFPs();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to submit RFP.');
+    } finally {
+      setSubmittingId(null);
+    }
   };
 
   if (loading) {
@@ -209,6 +221,12 @@ export default function RFPPage() {
 
   return (
     <div className="w-full min-h-screen px-4 py-2">
+      {actionError && (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-red-500 hover:text-red-700">×</button>
+        </div>
+      )}
       {/* Stats with Export Button */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">
@@ -407,10 +425,14 @@ export default function RFPPage() {
                         {rfp.status === 'draft' && (
                           <button
                             onClick={() => handleSubmit(rfp.id)}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
-                           
+                            disabled={submittingId === rfp.id}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
                           >
-                            <Send className="w-4 h-4" />
+                            {submittingId === rfp.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Send className="w-4 h-4" />
+                            )}
                           </button>
                         )}
                       </div>

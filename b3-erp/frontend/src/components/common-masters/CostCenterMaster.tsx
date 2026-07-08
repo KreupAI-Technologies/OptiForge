@@ -292,9 +292,37 @@ export default function CostCenterMaster() {
     setCurrentTab('basic');
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this cost center?')) {
-      setCostCenters(costCenters.filter(cc => cc.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this cost center?')) return;
+    try {
+      await commonMastersService.deleteCostCenter(id);
+      await loadCostCenters();
+    } catch (error) {
+      console.error('Failed to delete cost center:', error);
+      alert('Failed to delete cost center.');
+    }
+  };
+
+  const handleSave = async () => {
+    const codeInput = document.querySelector<HTMLInputElement>('input[data-field="cost-center-code"]');
+    const nameInput = document.querySelector<HTMLInputElement>('input[data-field="cost-center-name"]');
+    const code = codeInput?.value?.trim() || '';
+    const name = nameInput?.value?.trim() || '';
+    if (!code || !name) {
+      alert('Cost Center Code and Name are required.');
+      return;
+    }
+    try {
+      if (selectedCostCenter?.id) {
+        await commonMastersService.updateCostCenter(selectedCostCenter.id, { code, name });
+      } else {
+        await commonMastersService.createCostCenter({ code, name, companyId: 'default-company-id' });
+      }
+      setIsModalOpen(false);
+      await loadCostCenters();
+    } catch (error) {
+      console.error('Failed to save cost center:', error);
+      alert('Failed to save cost center.');
     }
   };
 
@@ -667,6 +695,7 @@ export default function CostCenterMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="cost-center-code"
                         defaultValue={selectedCostCenter?.code}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="CC-XXX-000"
@@ -678,6 +707,7 @@ export default function CostCenterMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="cost-center-name"
                         defaultValue={selectedCostCenter?.name}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter cost center name"
@@ -1165,10 +1195,7 @@ export default function CostCenterMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Cost Center saved successfully!');
-                }}
+                onClick={handleSave}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {selectedCostCenter ? 'Update' : 'Create'} Cost Center

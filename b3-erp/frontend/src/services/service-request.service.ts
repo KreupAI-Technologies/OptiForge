@@ -347,19 +347,76 @@ export class ServiceRequestService {
       return MOCK_SERVICE_REQUESTS[index];
     }
     return this.request<ServiceRequest>(`/after-sales/service-requests/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   /**
-   * Assign service request to an engineer
+   * Assign service request to an engineer (POST :id/assign)
    */
-  static async assignServiceRequest(id: string, engineerId: string, engineerName: string): Promise<ServiceRequest> {
-    return this.updateServiceRequest(id, {
-      assignedTo: engineerId,
-      assignedToName: engineerName,
-      status: 'acknowledged',
+  static async assignServiceRequest(
+    id: string,
+    engineerId: string,
+    engineerName: string,
+    assignedBy = 'system',
+  ): Promise<ServiceRequest> {
+    return this.request<ServiceRequest>(`/after-sales/service-requests/${id}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({
+        assignedTo: engineerId,
+        assignedToName: engineerName,
+        assignedBy,
+      }),
+    });
+  }
+
+  /** Acknowledge a service request (POST :id/acknowledge) */
+  static async acknowledgeServiceRequest(id: string, acknowledgedBy = 'system'): Promise<ServiceRequest> {
+    return this.request<ServiceRequest>(`/after-sales/service-requests/${id}/acknowledge`, {
+      method: 'POST',
+      body: JSON.stringify({ acknowledgedBy }),
+    });
+  }
+
+  /** Start work on a service request (POST :id/start) */
+  static async startServiceRequest(id: string, startedBy = 'system'): Promise<ServiceRequest> {
+    return this.request<ServiceRequest>(`/after-sales/service-requests/${id}/start`, {
+      method: 'POST',
+      body: JSON.stringify({ startedBy }),
+    });
+  }
+
+  /** Resolve a service request (POST :id/resolve) */
+  static async resolveServiceRequest(
+    id: string,
+    resolution: string,
+    resolvedBy = 'system',
+    rootCause?: string,
+  ): Promise<ServiceRequest> {
+    return this.request<ServiceRequest>(`/after-sales/service-requests/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ resolution, resolvedBy, rootCause }),
+    });
+  }
+
+  /** Close a service request (POST :id/close) */
+  static async closeServiceRequest(id: string, closedBy = 'system', closureNotes?: string): Promise<ServiceRequest> {
+    return this.request<ServiceRequest>(`/after-sales/service-requests/${id}/close`, {
+      method: 'POST',
+      body: JSON.stringify({ closedBy, closureNotes }),
+    });
+  }
+
+  /** Cancel a service request (POST :id/cancel) */
+  static async cancelServiceRequest(
+    id: string,
+    cancellationReason: string,
+    cancelledBy = 'system',
+  ): Promise<ServiceRequest> {
+    return this.request<ServiceRequest>(`/after-sales/service-requests/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ cancellationReason, cancelledBy }),
     });
   }
 

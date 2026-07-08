@@ -420,6 +420,16 @@ class CPQGuidedSellingService {
     }
   }
 
+  async createQuestionnaire(data: Partial<SalesQuestionnaire>): Promise<SalesQuestionnaire> {
+    const response = await apiClient.post<SalesQuestionnaire>(`${this.baseUrl}/questionnaires`, data);
+    return response.data;
+  }
+
+  async updateQuestionnaire(id: string, data: Partial<SalesQuestionnaire>): Promise<SalesQuestionnaire> {
+    const response = await apiClient.patch<SalesQuestionnaire>(`${this.baseUrl}/questionnaires/${id}`, data);
+    return response.data;
+  }
+
   async submitQuestionnaireResponse(data: Partial<QuestionnaireResponse>): Promise<QuestionnaireResponse> {
     try {
       const response = await apiClient.post<QuestionnaireResponse>(`${this.baseUrl}/questionnaires/responses`, data);

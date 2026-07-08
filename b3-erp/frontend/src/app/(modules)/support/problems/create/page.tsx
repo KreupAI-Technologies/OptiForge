@@ -12,6 +12,7 @@ const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
 export default function CreateProblem() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -54,6 +55,7 @@ export default function CreateProblem() {
     e.preventDefault()
     if (submitting) return
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await ITILService.createProblem({
         title: formData.title,
@@ -67,8 +69,7 @@ export default function CreateProblem() {
       })
       router.push('/support/problems')
     } catch (err) {
-      console.error('Failed to create problem:', err)
-      alert('Failed to create problem. Please try again.')
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create problem. Please try again.')
       setSubmitting(false)
     }
   }
@@ -82,19 +83,31 @@ export default function CreateProblem() {
           <p className="text-gray-600 mt-1">Document a new problem for investigation and resolution</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
             <X className="h-4 w-4 inline mr-2" />
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg hover:from-purple-700 hover:to-indigo-700"
+            disabled={submitting}
+            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-4 w-4 inline mr-2" />
-            Create Problem
+            {submitting ? 'Creating…' : 'Create Problem'}
           </button>
         </div>
       </div>
+
+      {submitError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {submitError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* Basic Information */}

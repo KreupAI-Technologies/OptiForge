@@ -5,6 +5,8 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const USE_MOCK_DATA = false;
+// Placeholder actor for mutation endpoints that require a user id until auth wiring lands.
+const CURRENT_USER = 'current-user';
 
 // ============================================================================
 // Type Definitions
@@ -896,11 +898,20 @@ export class JournalService {
 
     return this.request<JournalEntry>(`/finance/journal-entries/${id}/post`, {
       method: 'POST',
+      body: JSON.stringify({ postedBy: CURRENT_USER }),
+    });
+  }
+
+  // Reject Journal Entry (pending approval -> rejected)
+  static async rejectJournalEntry(id: string, reason: string): Promise<JournalEntry> {
+    return this.request<JournalEntry>(`/finance/journal-entries/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejectedBy: CURRENT_USER, reason }),
     });
   }
 
   // Reverse Journal Entry
-  static async reverseJournalEntry(id: string, reversalDate?: Date): Promise<JournalEntry> {
+  static async reverseJournalEntry(id: string, reversalDate?: Date, reason?: string): Promise<JournalEntry> {
     if (USE_MOCK_DATA) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const originalEntry = MOCK_JOURNAL_ENTRIES.find((je) => je.id === id);
@@ -960,9 +971,10 @@ export class JournalService {
       return reversalEntry;
     }
 
+    const reversal = (reversalDate ?? new Date()).toISOString().split('T')[0];
     return this.request<JournalEntry>(`/finance/journal-entries/${id}/reverse`, {
       method: 'POST',
-      body: JSON.stringify({ reversalDate }),
+      body: JSON.stringify({ reversedBy: CURRENT_USER, reversalDate: reversal, reason }),
     });
   }
 

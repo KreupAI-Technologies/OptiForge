@@ -57,6 +57,7 @@ const QualityInspectionEditPage = () => {
   const inspectionId = params?.id as string;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [workOrderId, setWorkOrderId] = useState("");
   const [product, setProduct] = useState("");
@@ -88,96 +89,43 @@ const QualityInspectionEditPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setLoadError(null);
 
-      // Mock fallback defaults (used if the API returns nothing / errors)
-      const mock = {
-        workOrderId: "WO-2025-1001",
-        product: "Ball Bearing 6205",
-        productCode: "PRD-BB-6205",
-        inspectionType: "final",
-        inspector: "Rajesh Kumar",
-        inspectionDate: "2025-10-17T14:30",
-        shift: "Afternoon",
-        sampleSize: 125,
-        lotSize: 1000,
-        samplingPlan: "Normal Inspection Level II",
-        aqlLevel: "1.5",
-        lotNumber: "LOT-2025-0234",
-        batchNumber: "BATCH-2025-W42-01",
-        equipmentUsed: "Digital Micrometer DM-450",
-        inspectorSignature: "RK-2025-10-17",
-        testParameters: [
-          {
-            id: "tp-1",
-            parameterName: "Inner Diameter",
-            type: "Dimensional",
-            specification: "25.00 ± 0.02",
-            nominalValue: 25.0,
-            upperTolerance: 25.02,
-            lowerTolerance: 24.98,
-            unit: "mm",
-            actualMeasurement: 25.01,
-            testMethod: "Digital Micrometer",
-            acceptanceCriteria: "Within tolerance",
-            result: "pass",
-            deviation: 0.4,
-          },
-          {
-            id: "tp-2",
-            parameterName: "Outer Diameter",
-            type: "Dimensional",
-            specification: "52.00 ± 0.03",
-            nominalValue: 52.0,
-            upperTolerance: 52.03,
-            lowerTolerance: 51.97,
-            unit: "mm",
-            actualMeasurement: 52.015,
-            testMethod: "Digital Micrometer",
-            acceptanceCriteria: "Within tolerance",
-            result: "pass",
-            deviation: 0.5,
-          },
-        ] as TestParameter[],
-      };
-
-      let d: any = mock;
       try {
         const res = await ProductionOrphanService.getNcr(inspectionId);
-        const rec = Array.isArray(res) ? res[0] : (res?.data ?? res);
-        if (rec && typeof rec === "object") {
-          d = rec;
+        const d: any = Array.isArray(res) ? res[0] : (res?.data ?? res);
+        if (!d || typeof d !== "object") {
+          throw new Error("Inspection not found");
         }
-      } catch {
-        d = mock;
+
+        setWorkOrderId(d?.workOrderId ?? d?.workOrderNumber ?? "");
+        setProduct(d?.product ?? d?.productName ?? "");
+        setProductCode(d?.productCode ?? "");
+        setInspectionType(d?.inspectionType ?? "final");
+        setInspector(d?.inspector ?? "");
+        setInspectionDate(d?.inspectionDate ?? "");
+        setShift(d?.shift ?? "Morning");
+        setSampleSize(d?.sampleSize ?? 0);
+        setLotSize(d?.lotSize ?? 0);
+        setSamplingPlan(d?.samplingPlan ?? "Normal Inspection Level II");
+        setAqlLevel(d?.aqlLevel ?? "1.5");
+        setLotNumber(d?.lotNumber ?? "");
+        setBatchNumber(d?.batchNumber ?? "");
+        setEquipmentUsed(
+          Array.isArray(d?.equipmentUsed)
+            ? d.equipmentUsed.join(", ")
+            : (d?.equipmentUsed ?? "")
+        );
+        setInspectorSignature(d?.inspectorSignature ?? "");
+        setTestParameters(
+          Array.isArray(d?.testParameters) ? d.testParameters : []
+        );
+        setOverallDisposition(d?.overallDisposition ?? "Accept");
+      } catch (err: any) {
+        setLoadError(err?.message ?? "Failed to load inspection");
+      } finally {
+        setLoading(false);
       }
-
-      setWorkOrderId(d?.workOrderId ?? d?.workOrderNumber ?? mock.workOrderId);
-      setProduct(d?.product ?? d?.productName ?? mock.product);
-      setProductCode(d?.productCode ?? mock.productCode);
-      setInspectionType(d?.inspectionType ?? mock.inspectionType);
-      setInspector(d?.inspector ?? mock.inspector);
-      setInspectionDate(d?.inspectionDate ?? mock.inspectionDate);
-      setShift(d?.shift ?? mock.shift);
-      setSampleSize(d?.sampleSize ?? mock.sampleSize);
-      setLotSize(d?.lotSize ?? mock.lotSize);
-      setSamplingPlan(d?.samplingPlan ?? mock.samplingPlan);
-      setAqlLevel(d?.aqlLevel ?? mock.aqlLevel);
-      setLotNumber(d?.lotNumber ?? mock.lotNumber);
-      setBatchNumber(d?.batchNumber ?? mock.batchNumber);
-      setEquipmentUsed(
-        Array.isArray(d?.equipmentUsed)
-          ? d.equipmentUsed.join(", ")
-          : (d?.equipmentUsed ?? mock.equipmentUsed)
-      );
-      setInspectorSignature(d?.inspectorSignature ?? mock.inspectorSignature);
-      setTestParameters(
-        Array.isArray(d?.testParameters) && d.testParameters.length > 0
-          ? d.testParameters
-          : mock.testParameters
-      );
-      setOverallDisposition(d?.overallDisposition ?? "Accept");
-
-      setLoading(false);
     };
 
     if (inspectionId) {
@@ -317,6 +265,27 @@ const QualityInspectionEditPage = () => {
         <div className="flex flex-col items-center gap-2">
           <RefreshCw className="w-12 h-12 text-blue-600 animate-spin" />
           <p className="text-gray-600">Loading inspection data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500" />
+          <p className="text-lg font-semibold text-gray-800">
+            Unable to load inspection
+          </p>
+          <p className="text-sm text-gray-600">{loadError}</p>
+          <button
+            onClick={() => router.back()}
+            className="mt-2 flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+          >
+            <X className="w-4 h-4" />
+            Go Back
+          </button>
         </div>
       </div>
     );

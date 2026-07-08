@@ -48,6 +48,8 @@ export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,230 +121,27 @@ export default function TeamsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
-  // Mock data for teams
-  const mockTeams: Team[] = [
-    {
-      id: 'T001',
-      name: 'Production Line 1',
-      code: 'PL1',
-      department: 'Production',
-      teamLead: 'Rajesh Kumar',
-      teamLeadId: 'EMP001',
-      teamLeadEmail: 'rajesh.kumar@company.com',
-      teamLeadPhone: '+91 98765 43210',
-      memberCount: 24,
-      activeProjects: 5,
-      completedProjects: 18,
-      avgPerformance: 87,
-      budgetUtilization: 82,
-      establishedDate: '2020-01-15',
-      location: 'Plant A - Floor 1',
-      shift: 'Day Shift (6 AM - 2 PM)',
-      status: 'active',
-      members: [
-        { id: 'M001', name: 'Amit Sharma', designation: 'Senior Operator', joiningDate: '2020-03-15', performance: 'excellent', avatar: 'AS' },
-        { id: 'M002', name: 'Priya Singh', designation: 'Operator', joiningDate: '2021-06-20', performance: 'good', avatar: 'PS' },
-        { id: 'M003', name: 'Suresh Patel', designation: 'Junior Operator', joiningDate: '2022-01-10', performance: 'average', avatar: 'SP' },
-      ]
-    },
-    {
-      id: 'T002',
-      name: 'Quality Control Team',
-      code: 'QCT',
-      department: 'Quality',
-      teamLead: 'Meera Nair',
-      teamLeadId: 'EMP002',
-      teamLeadEmail: 'meera.nair@company.com',
-      teamLeadPhone: '+91 98765 43211',
-      memberCount: 12,
-      activeProjects: 8,
-      completedProjects: 32,
-      avgPerformance: 92,
-      budgetUtilization: 75,
-      establishedDate: '2019-06-20',
-      location: 'Quality Lab - Building B',
-      shift: 'General Shift (9 AM - 6 PM)',
-      status: 'active',
-      members: [
-        { id: 'M004', name: 'Vikram Reddy', designation: 'QC Inspector', joiningDate: '2019-08-15', performance: 'excellent', avatar: 'VR' },
-        { id: 'M005', name: 'Anjali Mehta', designation: 'QC Analyst', joiningDate: '2020-11-20', performance: 'excellent', avatar: 'AM' },
-      ]
-    },
-    {
-      id: 'T003',
-      name: 'Maintenance & Engineering',
-      code: 'MNT',
-      department: 'Maintenance',
-      teamLead: 'Sanjay Desai',
-      teamLeadId: 'EMP003',
-      teamLeadEmail: 'sanjay.desai@company.com',
-      teamLeadPhone: '+91 98765 43212',
-      memberCount: 16,
-      activeProjects: 3,
-      completedProjects: 45,
-      avgPerformance: 85,
-      budgetUtilization: 88,
-      establishedDate: '2018-03-10',
-      location: 'Maintenance Workshop',
-      shift: 'Rotational Shifts',
-      status: 'active',
-      members: [
-        { id: 'M006', name: 'Arjun Pillai', designation: 'Senior Technician', joiningDate: '2018-05-15', performance: 'good', avatar: 'AP' },
-        { id: 'M007', name: 'Ramesh Gupta', designation: 'Technician', joiningDate: '2019-02-20', performance: 'good', avatar: 'RG' },
-      ]
-    },
-    {
-      id: 'T004',
-      name: 'Warehouse Operations',
-      code: 'WHO',
-      department: 'Logistics',
-      teamLead: 'Lakshmi Iyer',
-      teamLeadId: 'EMP004',
-      teamLeadEmail: 'lakshmi.iyer@company.com',
-      teamLeadPhone: '+91 98765 43213',
-      memberCount: 20,
-      activeProjects: 6,
-      completedProjects: 28,
-      avgPerformance: 78,
-      budgetUtilization: 91,
-      establishedDate: '2020-08-01',
-      location: 'Warehouse - Section C',
-      shift: 'Day Shift (7 AM - 3 PM)',
-      status: 'active',
-      members: [
-        { id: 'M008', name: 'Karthik Rao', designation: 'Warehouse Supervisor', joiningDate: '2020-09-15', performance: 'good', avatar: 'KR' },
-        { id: 'M009', name: 'Deepa Joshi', designation: 'Store Keeper', joiningDate: '2021-04-10', performance: 'average', avatar: 'DJ' },
-      ]
-    },
-    {
-      id: 'T005',
-      name: 'Assembly Line 2',
-      code: 'AL2',
-      department: 'Production',
-      teamLead: 'Naveen Chandra',
-      teamLeadId: 'EMP005',
-      teamLeadEmail: 'naveen.chandra@company.com',
-      teamLeadPhone: '+91 98765 43214',
-      memberCount: 28,
-      activeProjects: 7,
-      completedProjects: 22,
-      avgPerformance: 83,
-      budgetUtilization: 79,
-      establishedDate: '2021-02-15',
-      location: 'Plant A - Floor 2',
-      shift: 'Night Shift (10 PM - 6 AM)',
-      status: 'active',
-      members: [
-        { id: 'M010', name: 'Ravi Shankar', designation: 'Assembly Operator', joiningDate: '2021-03-20', performance: 'good', avatar: 'RS' },
-      ]
-    },
-    {
-      id: 'T006',
-      name: 'R&D Innovation Lab',
-      code: 'RND',
-      department: 'Research',
-      teamLead: 'Dr. Sunita Rao',
-      teamLeadId: 'EMP006',
-      teamLeadEmail: 'sunita.rao@company.com',
-      teamLeadPhone: '+91 98765 43215',
-      memberCount: 8,
-      activeProjects: 4,
-      completedProjects: 12,
-      avgPerformance: 94,
-      budgetUtilization: 68,
-      establishedDate: '2019-11-05',
-      location: 'R&D Center - Building D',
-      shift: 'Flexible Hours',
-      status: 'active',
-      members: [
-        { id: 'M011', name: 'Anil Kumar', designation: 'Research Scientist', joiningDate: '2019-12-01', performance: 'excellent', avatar: 'AK' },
-      ]
-    },
-    {
-      id: 'T007',
-      name: 'Safety & Compliance',
-      code: 'SFC',
-      department: 'Safety',
-      teamLead: 'Pooja Malhotra',
-      teamLeadId: 'EMP007',
-      teamLeadEmail: 'pooja.malhotra@company.com',
-      teamLeadPhone: '+91 98765 43216',
-      memberCount: 10,
-      activeProjects: 5,
-      completedProjects: 38,
-      avgPerformance: 90,
-      budgetUtilization: 72,
-      establishedDate: '2018-07-20',
-      location: 'Safety Office - Main Building',
-      shift: 'General Shift (9 AM - 6 PM)',
-      status: 'active',
-      members: [
-        { id: 'M012', name: 'Manoj Tiwari', designation: 'Safety Officer', joiningDate: '2018-08-15', performance: 'excellent', avatar: 'MT' },
-      ]
-    },
-    {
-      id: 'T008',
-      name: 'Packaging Unit',
-      code: 'PKG',
-      department: 'Production',
-      teamLead: 'Kavita Sharma',
-      teamLeadId: 'EMP008',
-      teamLeadEmail: 'kavita.sharma@company.com',
-      teamLeadPhone: '+91 98765 43217',
-      memberCount: 18,
-      activeProjects: 4,
-      completedProjects: 25,
-      avgPerformance: 81,
-      budgetUtilization: 85,
-      establishedDate: '2020-05-12',
-      location: 'Packaging Area - Plant B',
-      shift: 'Day Shift (8 AM - 4 PM)',
-      status: 'active',
-      members: []
-    },
-    {
-      id: 'T009',
-      name: 'IT Infrastructure',
-      code: 'ITI',
-      department: 'IT',
-      teamLead: 'Rahul Verma',
-      teamLeadId: 'EMP009',
-      teamLeadEmail: 'rahul.verma@company.com',
-      teamLeadPhone: '+91 98765 43218',
-      memberCount: 14,
-      activeProjects: 9,
-      completedProjects: 56,
-      avgPerformance: 88,
-      budgetUtilization: 77,
-      establishedDate: '2017-09-15',
-      location: 'IT Department - 3rd Floor',
-      shift: 'General Shift (9 AM - 6 PM)',
-      status: 'active',
-      members: []
-    },
-    {
-      id: 'T010',
-      name: 'Customer Support',
-      code: 'CSP',
-      department: 'Customer Service',
-      teamLead: 'Neha Kapoor',
-      teamLeadId: 'EMP010',
-      teamLeadEmail: 'neha.kapoor@company.com',
-      teamLeadPhone: '+91 98765 43219',
-      memberCount: 15,
-      activeProjects: 0,
-      completedProjects: 0,
-      avgPerformance: 86,
-      budgetUtilization: 70,
-      establishedDate: '2021-01-10',
-      location: 'Customer Service Center',
-      shift: 'Rotational Shifts',
-      status: 'active',
-      members: []
-    },
-  ];
+  const handleCreateTeam = async (data: any) => {
+    setActionError(null);
+    try {
+      await HrPagesService.createTeam({
+        name: data.name,
+        code: data.code,
+        department: data.department,
+        teamLead: data.teamLeadName || undefined,
+        location: data.location || undefined,
+        shift: data.shift || undefined,
+        budgetAllocation: data.budgetAllocation ? Number(data.budgetAllocation) : undefined,
+        status: 'active',
+      });
+      setIsCreateModalOpen(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create team');
+    }
+  };
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'Research', 'Safety', 'IT', 'Customer Service'];
 
@@ -500,6 +299,11 @@ export default function TeamsPage() {
       {loadError && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
         </div>
       )}
 
@@ -830,11 +634,7 @@ export default function TeamsPage() {
       <CreateTeamModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('New team data:', data);
-          setIsCreateModalOpen(false);
-          alert(`Team Created Successfully!\n\nTeam: ${data.name} (${data.code})\nDepartment: ${data.department}\nTeam Lead: ${data.teamLeadName}\nLocation: ${data.location}\nShift: ${data.shift}`);
-        }}
+        onSubmit={handleCreateTeam}
       />
     </div>
   );

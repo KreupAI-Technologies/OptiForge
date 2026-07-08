@@ -15,7 +15,10 @@ import {
   Search,
   Filter,
   Eye,
-  Send
+  Send,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 
 interface TDSTransaction {
@@ -48,6 +51,31 @@ interface TDSReturn {
   deducteeCount: number;
 }
 
+interface TDSSectionConfig {
+  id: string;
+  sectionCode: string;
+  description: string;
+  rate: number;
+  threshold: number;
+  isActive: boolean;
+}
+
+interface TDSConfigForm {
+  sectionCode: string;
+  description: string;
+  rate: string;
+  threshold: string;
+  isActive: boolean;
+}
+
+const emptyConfigForm: TDSConfigForm = {
+  sectionCode: '',
+  description: '',
+  rate: '',
+  threshold: '',
+  isActive: true,
+};
+
 export default function TDSManagementPage() {
   const [activeTab, setActiveTab] = useState<'transactions' | 'returns' | 'challans'>('transactions');
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +87,44 @@ export default function TDSManagementPage() {
   const [tdsTransactions, setTdsTransactions] = useState<TDSTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // TDS section configuration (tax masters, taxType=TDS)
+  const [sectionConfigs, setSectionConfigs] = useState<TDSSectionConfig[]>([]);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  // Create/edit config modal
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [configForm, setConfigForm] = useState<TDSConfigForm>(emptyConfigForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const loadTaxMasters = async () => {
+    setConfigLoading(true);
+    setConfigError(null);
+    try {
+      const raw = await FinanceService.getTaxMasters({ taxType: 'TDS' });
+      const mapped: TDSSectionConfig[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+        id: String(r.id ?? ''),
+        sectionCode: r.sectionCode ?? r.code ?? r.taxCode ?? r.name ?? '',
+        description: r.description ?? r.taxName ?? r.name ?? '',
+        rate: Number(r.rate ?? r.taxRate ?? 0),
+        threshold: Number(r.threshold ?? r.thresholdAmount ?? 0),
+        isActive: r.isActive ?? r.active ?? true,
+      }));
+      setSectionConfigs(mapped);
+    } catch (e) {
+      setConfigError(e instanceof Error ? e.message : 'Failed to load TDS section configuration');
+      setSectionConfigs([]);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTaxMasters();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,7 +177,9 @@ export default function TDSManagementPage() {
   }, []);
 
 
-  // Sample TDS returns
+  // TODO(NEEDS BACKEND): No endpoint for TDS returns. These are illustrative
+  // placeholder rows only. Replace with a real service call once a
+  // TDS-returns endpoint exists. Not live data.
   const tdsReturns: TDSReturn[] = [
     {
       id: 'TR001',
@@ -159,7 +227,9 @@ export default function TDSManagementPage() {
     }
   ];
 
-  // Sample challans
+  // TODO(NEEDS BACKEND): No endpoint for TDS challans. These are illustrative
+  // placeholder rows only. Replace with a real service call once a
+  // TDS-challans endpoint exists. Not live data.
   const challans = [
     {
       id: 'CH001',
@@ -251,7 +321,66 @@ export default function TDSManagementPage() {
   };
 
   const handleNewTDSEntry = () => {
-    alert('New TDS Entry\n\nThis will open a form to record a new TDS deduction.\n\nYou can enter:\n- Deductee details (Name, PAN)\n- Section code (192/194C/194J/194I/etc.)\n- Gross payment amount\n- TDS rate and amount\n- Payment reference\n- Quarter\n\nThe system will:\n- Auto-calculate TDS based on section\n- Validate PAN format\n- Check for duplicate entries\n- Update pending deposit amount');
+    setEditingId(null);
+    setConfigForm(emptyConfigForm);
+    setFormError(null);
+    setIsConfigModalOpen(true);
+  };
+
+  const handleEditConfig = (cfg: TDSSectionConfig) => {
+    setEditingId(cfg.id);
+    setConfigForm({
+      sectionCode: cfg.sectionCode,
+      description: cfg.description,
+      rate: String(cfg.rate ?? ''),
+      threshold: String(cfg.threshold ?? ''),
+      isActive: cfg.isActive,
+    });
+    setFormError(null);
+    setIsConfigModalOpen(true);
+  };
+
+  const handleDeleteConfig = async (cfg: TDSSectionConfig) => {
+    if (!window.confirm(`Delete TDS section ${cfg.sectionCode || cfg.description}?`)) return;
+    try {
+      await FinanceService.deleteTaxMaster(cfg.id);
+      await loadTaxMasters();
+    } catch (e) {
+      setConfigError(e instanceof Error ? e.message : 'Failed to delete TDS section');
+    }
+  };
+
+  const handleSubmitConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!configForm.sectionCode.trim()) {
+      setFormError('Section code is required');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    const payload = {
+      taxType: 'TDS',
+      sectionCode: configForm.sectionCode.trim(),
+      description: configForm.description.trim(),
+      rate: Number(configForm.rate) || 0,
+      threshold: Number(configForm.threshold) || 0,
+      isActive: configForm.isActive,
+    };
+    try {
+      if (editingId) {
+        await FinanceService.updateTaxMaster(editingId, payload);
+      } else {
+        await FinanceService.createTaxMaster(payload);
+      }
+      setIsConfigModalOpen(false);
+      setEditingId(null);
+      setConfigForm(emptyConfigForm);
+      await loadTaxMasters();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save TDS section');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDownloadForm16A = () => {
@@ -422,6 +551,90 @@ export default function TDSManagementPage() {
             <div className="text-2xl font-bold mb-1">{deducteeCount}</div>
             <div className="text-blue-100 text-sm">Deductees</div>
             <div className="mt-2 text-xs text-blue-100">Unique PANs</div>
+          </div>
+        </div>
+
+        {/* TDS Section Configuration (tax masters, taxType=TDS) */}
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-3 border-b border-gray-700">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-400" />
+              <h2 className="text-lg font-semibold text-white">TDS Section Configuration</h2>
+            </div>
+            <button
+              onClick={handleNewTDSEntry}
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Section
+            </button>
+          </div>
+          {configError && (
+            <div className="px-6 py-2 text-sm text-red-300 bg-red-500/10 border-b border-red-400/30">{configError}</div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-300">Section</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-300">Description</th>
+                  <th className="px-3 py-2 text-right text-sm font-semibold text-gray-300">Rate (%)</th>
+                  <th className="px-3 py-2 text-right text-sm font-semibold text-gray-300">Threshold</th>
+                  <th className="px-3 py-2 text-center text-sm font-semibold text-gray-300">Active</th>
+                  <th className="px-3 py-2 text-center text-sm font-semibold text-gray-300">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {configLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-4 text-center text-sm text-gray-400">Loading configuration…</td>
+                  </tr>
+                ) : sectionConfigs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-4 text-center text-sm text-gray-400">No TDS sections configured yet.</td>
+                  </tr>
+                ) : (
+                  sectionConfigs.map((cfg) => (
+                    <tr key={cfg.id} className="border-b border-gray-700 hover:bg-gray-800/50 transition-colors">
+                      <td className="px-3 py-2">{getSectionBadge(cfg.sectionCode)}</td>
+                      <td className="px-3 py-2 text-white text-sm">{cfg.description}</td>
+                      <td className="px-3 py-2 text-right text-white text-sm">{cfg.rate}</td>
+                      <td className="px-3 py-2 text-right text-white text-sm">{formatCurrency(cfg.threshold)}</td>
+                      <td className="px-3 py-2 text-center">
+                        {cfg.isActive ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">
+                            <CheckCircle className="w-3 h-3" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-500/20 text-gray-400 rounded-full text-xs">
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleEditConfig(cfg)}
+                            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                            title="Edit section"
+                          >
+                            <Edit2 className="w-4 h-4 text-blue-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteConfig(cfg)}
+                            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                            title="Delete section"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -748,6 +961,101 @@ export default function TDSManagementPage() {
           )}
         </div>
       </div>
+
+      {/* Add / Edit TDS Section Configuration modal */}
+      {isConfigModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md bg-gray-800 border border-gray-700 rounded-xl shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-white">
+                {editingId ? 'Edit TDS Section' : 'Add TDS Section'}
+              </h3>
+              <button
+                onClick={() => setIsConfigModalOpen(false)}
+                className="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                title="Close"
+              >
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitConfig} className="p-5 space-y-4">
+              {formError && (
+                <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{formError}</div>
+              )}
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Section Code *</label>
+                <input
+                  type="text"
+                  value={configForm.sectionCode}
+                  onChange={(e) => setConfigForm({ ...configForm, sectionCode: e.target.value })}
+                  placeholder="e.g. 194C, 194J, 194I, 192"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={configForm.description}
+                  onChange={(e) => setConfigForm({ ...configForm, description: e.target.value })}
+                  placeholder="e.g. Payment to contractors"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={configForm.rate}
+                    onChange={(e) => setConfigForm({ ...configForm, rate: e.target.value })}
+                    placeholder="e.g. 2"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Threshold</label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={configForm.threshold}
+                    onChange={(e) => setConfigForm({ ...configForm, threshold: e.target.value })}
+                    placeholder="e.g. 30000"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={configForm.isActive}
+                  onChange={(e) => setConfigForm({ ...configForm, isActive: e.target.checked })}
+                  className="rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                />
+                Active
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsConfigModalOpen(false)}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Saving…' : editingId ? 'Update Section' : 'Create Section'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

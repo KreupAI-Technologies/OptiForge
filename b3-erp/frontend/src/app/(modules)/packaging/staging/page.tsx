@@ -46,47 +46,6 @@ interface StagedItem {
     transportMethod: 'Own Vehicle' | 'Third Party' | 'Courier';
 }
 
-const mockStagedItems: StagedItem[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'SS304 Kitchen Sink Panel',
-        quantity: 24,
-        packingComplete: true,
-        shippingBillNumber: 'SB-2025-001',
-        status: 'Ready to Ship',
-        stagedDate: '2025-01-24',
-        customerName: 'Hotel Paradise Ltd',
-        deliveryAddress: 'Mumbai, Maharashtra',
-        transportMethod: 'Own Vehicle',
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-004',
-        productName: 'Drawer Slide Assembly',
-        quantity: 30,
-        packingComplete: true,
-        shippingBillNumber: 'SB-2025-002',
-        status: 'Shipped',
-        stagedDate: '2025-01-24',
-        customerName: 'Springfield Academy',
-        deliveryAddress: 'Pune, Maharashtra',
-        transportMethod: 'Third Party',
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-005',
-        productName: 'Countertop Support Bracket',
-        quantity: 40,
-        packingComplete: true,
-        status: 'Staging',
-        stagedDate: '2025-01-25',
-        customerName: 'City General Hospital',
-        deliveryAddress: 'Bangalore, Karnataka',
-        transportMethod: 'Courier',
-    },
-];
-
 function mapStaging(m: PackagingStagingDto): StagedItem {
     return {
         id: m.id || '',
@@ -118,6 +77,42 @@ export default function DispatchStagingPage() {
     const [items, setItems] = useState<StagedItem[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [loading, setLoading] = useState(false);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+    const loadStaging = async (projectId: string) => {
+        setLoading(true);
+        try {
+            const data = await PackagingService.getStaging(projectId);
+            setItems(Array.isArray(data) ? data.map(mapStaging) : []);
+        } catch (error) {
+            console.error('Failed to load staged items:', error);
+            setItems([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAdvanceStatus = async (item: StagedItem, newStatus: StagedItem['status']) => {
+        if (!item.id || !selectedProject) return;
+        try {
+            setUpdatingId(item.id);
+            await PackagingService.updateStaging(item.id, { status: newStatus });
+            toast({
+                title: newStatus === 'Shipped' ? 'Item Shipped' : 'Marked Ready to Ship',
+                description: `${item.productName} is now ${newStatus}.`,
+            });
+            await loadStaging(selectedProject.id);
+        } catch (error) {
+            console.error('Failed to update staged item:', error);
+            toast({
+                title: 'Update Failed',
+                description: error instanceof Error ? error.message : 'Could not update the staged item.',
+                variant: 'destructive',
+            });
+        } finally {
+            setUpdatingId(null);
+        }
+    };
 
     // Load projects
     useEffect(() => {
@@ -152,19 +147,8 @@ export default function DispatchStagingPage() {
     // Load staged items when project is selected
     useEffect(() => {
         if (!selectedProject) return;
-        const loadStaging = async () => {
-            setLoading(true);
-            try {
-                const data = await PackagingService.getStaging(selectedProject.id);
-                setItems(Array.isArray(data) ? data.map(mapStaging) : []);
-            } catch (error) {
-                console.error('Failed to load staged items:', error);
-                setItems([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadStaging();
+        loadStaging(selectedProject.id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
@@ -385,6 +369,31 @@ export default function DispatchStagingPage() {
                                                     <span className="text-sm font-medium text-green-800">
                                                         Shipping Bill: {item.shippingBillNumber}
                                                     </span>
+                                                </div>
+                                            )}
+                                            {(item.status === 'Staging' || item.status === 'Ready to Ship') && (
+                                                <div className="mt-3 flex gap-2 border-t pt-3">
+                                                    {item.status === 'Staging' && (
+                                                        <Button
+                                                            size="sm"
+                                                            disabled={updatingId === item.id}
+                                                            onClick={() => handleAdvanceStatus(item, 'Ready to Ship')}
+                                                        >
+                                                            <CheckCircle className="w-4 h-4 mr-1" />
+                                                            {updatingId === item.id ? 'Updating…' : 'Mark Ready to Ship'}
+                                                        </Button>
+                                                    )}
+                                                    {item.status === 'Ready to Ship' && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-purple-600 hover:bg-purple-700"
+                                                            disabled={updatingId === item.id}
+                                                            onClick={() => handleAdvanceStatus(item, 'Shipped')}
+                                                        >
+                                                            <Truck className="w-4 h-4 mr-1" />
+                                                            {updatingId === item.id ? 'Shipping…' : 'Mark Shipped'}
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

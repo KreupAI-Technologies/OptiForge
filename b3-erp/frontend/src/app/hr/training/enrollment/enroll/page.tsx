@@ -18,6 +18,8 @@ interface Program {
   date: string;
   enrolled: number;
   capacity: number;
+  code?: string;
+  category?: string;
 }
 
 export default function EnrollmentPage() {
@@ -25,20 +27,42 @@ export default function EnrollmentPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrPagesService.trainingEnrollments<any[]>();
-        if (!cancelled) setEmployees(Array.isArray(rows) ? (rows as any) : []);
+        const [enrollRows, programRows] = await Promise.all([
+          HrPagesService.trainingEnrollments<any[]>(),
+          HrPagesService.trainingPrograms<any[]>(),
+        ]);
+        if (!cancelled) {
+          setEmployees(Array.isArray(enrollRows) ? (enrollRows as any) : []);
+          setPrograms(
+            (Array.isArray(programRows) ? programRows : []).map((p: any) => ({
+              id: String(p.id),
+              title: p.title ?? p.name ?? 'Untitled',
+              date: p.nextBatch ?? p.startDate ?? '',
+              enrolled: Number(p.enrolled ?? 0),
+              capacity: Number(p.capacity ?? 0),
+              code: p.code,
+              category: p.category,
+            })),
+          );
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load data');
           setEmployees([]);
+          setPrograms([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -46,12 +70,6 @@ export default function EnrollmentPage() {
     })();
     return () => { cancelled = true; };
   }, []);
-
-  const programs: Program[] = [
-    { id: '1', title: 'Advanced React Patterns', date: '2024-04-10', enrolled: 15, capacity: 20 },
-    { id: '2', title: 'Effective Communication', date: '2024-04-12', enrolled: 48, capacity: 50 },
-    { id: '3', title: 'Security Compliance', date: '2024-04-15', enrolled: 30, capacity: 30 },
-  ];
 
   const currentProgram = programs.find(p => p.id === selectedProgram);
 
@@ -61,17 +79,38 @@ export default function EnrollmentPage() {
     ));
   };
 
-  const handleEnroll = () => {
-    const selectedCount = employees.filter(e => e.selected).length;
-    if (selectedCount === 0) return;
+  const handleEnroll = async () => {
+    const selected = employees.filter(e => e.selected);
+    if (selected.length === 0 || !currentProgram) return;
 
-    if (currentProgram && (currentProgram.enrolled + selectedCount > currentProgram.capacity)) {
-      alert(`Cannot enroll ${selectedCount} employees. Only ${currentProgram.capacity - currentProgram.enrolled} spots remaining.`);
+    if (currentProgram.capacity > 0 && currentProgram.enrolled + selected.length > currentProgram.capacity) {
+      setActionError(`Cannot enroll ${selected.length} employees. Only ${currentProgram.capacity - currentProgram.enrolled} spots remaining.`);
       return;
     }
 
-    alert(`Successfully enrolled ${selectedCount} employees in ${currentProgram?.title}`);
-    setEmployees(employees.map(e => ({ ...e, selected: false })));
+    setEnrolling(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await Promise.all(
+        selected.map((emp) =>
+          HrPagesService.createTrainingEnrollment({
+            employeeId: emp.id,
+            employeeName: (emp as any).name ?? (emp as any).employeeName ?? '',
+            programCode: currentProgram.code ?? currentProgram.id,
+            programTitle: currentProgram.title,
+            category: currentProgram.category,
+            status: 'upcoming',
+          }),
+        ),
+      );
+      setActionSuccess(`Successfully enrolled ${selected.length} employee(s) in ${currentProgram.title}.`);
+      setEmployees(employees.map(e => ({ ...e, selected: false })));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to enroll employees.');
+    } finally {
+      setEnrolling(false);
+    }
   };
 
   const filteredEmployees = employees.filter(e =>
@@ -194,14 +233,14 @@ export default function EnrollmentPage() {
               </div>
               <button
                 onClick={handleEnroll}
-                disabled={!selectedProgram}
-                className={`px-6 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 ${selectedProgram
+                disabled={!selectedProgram || enrolling || employees.filter(e => e.selected).length === 0}
+                className={`px-6 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 ${selectedProgram && !enrolling
                     ? 'bg-purple-600 text-white hover:bg-purple-700'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
               >
                 <UserPlus className="h-4 w-4" />
-                Confirm Enrollment
+                {enrolling ? 'Enrolling…' : 'Confirm Enrollment'}
               </button>
             </div>
             {!selectedProgram && (
@@ -209,6 +248,15 @@ export default function EnrollmentPage() {
                 <AlertTriangle className="h-3 w-3" />
                 Please select a training session first
               </p>
+            )}
+            {actionError && (
+              <p className="text-right text-xs text-red-600 mt-2">{actionError}</p>
+            )}
+            {actionSuccess && (
+              <p className="text-right text-xs text-green-600 mt-2">{actionSuccess}</p>
+            )}
+            {loadError && (
+              <p className="text-right text-xs text-red-600 mt-2">{loadError}</p>
             )}
           </div>
         </div>

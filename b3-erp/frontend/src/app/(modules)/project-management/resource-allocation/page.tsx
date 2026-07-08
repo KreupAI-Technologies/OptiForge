@@ -64,6 +64,25 @@ export default function ResourceAllocationPage() {
  const [isLoading, setIsLoading] = useState(true);
  const [loadError, setLoadError] = useState<string | null>(null);
  const [searchTerm, setSearchTerm] = useState('');
+ const [submitting, setSubmitting] = useState(false);
+ const [actionError, setActionError] = useState<string | null>(null);
+ const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+ const refreshAllocations = async () => {
+  const raw = (await projectManagementService.listAllResources()) as any[];
+  const mapped: Allocation[] = raw.map((r, i) => ({
+   id: String(r?.id ?? i),
+   resourceId: String(r?.userId ?? r?.resourceId ?? ''),
+   resourceName: String(r?.user?.name ?? r?.resourceName ?? r?.userId ?? 'Unassigned'),
+   role: String(r?.role ?? ''),
+   projectPhase: String(r?.projectPhase ?? r?.projectId ?? ''),
+   allocatedHours: Number(r?.allocatedHours ?? 0),
+   startDate: String(r?.startDate ?? ''),
+   endDate: String(r?.endDate ?? ''),
+   allocation: Number(r?.allocationPercentage ?? r?.allocation ?? 0),
+  }));
+  setAllocations(mapped);
+ };
 
  useEffect(() => {
   let cancelled = false;
@@ -89,19 +108,7 @@ export default function ResourceAllocationPage() {
     // Backend returns raw project-resource ORM rows
     // ({ userId, role, allocationPercentage, startDate, endDate }); map them
     // onto the page's Allocation model with defensive access.
-    const raw = (await projectManagementService.listAllResources()) as any[];
-    const mapped: Allocation[] = raw.map((r, i) => ({
-     id: String(r?.id ?? i),
-     resourceId: String(r?.userId ?? r?.resourceId ?? ''),
-     resourceName: String(r?.user?.name ?? r?.resourceName ?? r?.userId ?? 'Unassigned'),
-     role: String(r?.role ?? ''),
-     projectPhase: String(r?.projectPhase ?? r?.projectId ?? ''),
-     allocatedHours: Number(r?.allocatedHours ?? 0),
-     startDate: String(r?.startDate ?? ''),
-     endDate: String(r?.endDate ?? ''),
-     allocation: Number(r?.allocationPercentage ?? r?.allocation ?? 0),
-    }));
-    if (!cancelled) setAllocations(mapped);
+    if (!cancelled) await refreshAllocations();
    } catch (err) {
     if (!cancelled) {
      setLoadError(err instanceof Error ? err.message : 'Failed to load resource allocations');
@@ -158,34 +165,41 @@ export default function ResourceAllocationPage() {
   return sum;
  }, 0);
 
- const handleAddAllocation = () => {
+ const handleAddAllocation = async () => {
   if (!selectedResource || !newAllocation.projectPhase) return;
 
   const resource = resources.find(r => r.id === selectedResource);
   if (!resource) return;
 
-  const allocation: Allocation = {
-   id: Date.now().toString(),
-   resourceId: resource.id,
-   resourceName: resource.name,
-   role: resource.role,
-   projectPhase: newAllocation.projectPhase,
-   allocatedHours: newAllocation.allocatedHours,
-   startDate: newAllocation.startDate,
-   endDate: newAllocation.endDate,
-   allocation: newAllocation.allocation,
-  };
-
-  setAllocations([...allocations, allocation]);
-  setShowAddModal(false);
-  setSelectedResource('');
-  setNewAllocation({
-   projectPhase: '',
-   allocatedHours: 0,
-   startDate: '',
-   endDate: '',
-   allocation: 0,
-  });
+  setSubmitting(true);
+  setActionError(null);
+  setActionSuccess(null);
+  try {
+   await projectManagementService.createResource({
+    projectId: newAllocation.projectPhase,
+    userId: resource.id,
+    role: resource.role,
+    allocationPercentage: newAllocation.allocation,
+    startDate: newAllocation.startDate || undefined,
+    endDate: newAllocation.endDate || undefined,
+    hourlyRate: resource.costRate ? resource.costRate / 8 : undefined,
+   });
+   await refreshAllocations();
+   setActionSuccess('Resource allocated successfully');
+   setShowAddModal(false);
+   setSelectedResource('');
+   setNewAllocation({
+    projectPhase: '',
+    allocatedHours: 0,
+    startDate: '',
+    endDate: '',
+    allocation: 0,
+   });
+  } catch (err) {
+   setActionError(err instanceof Error ? err.message : 'Failed to allocate resource');
+  } finally {
+   setSubmitting(false);
+  }
  };
 
  const formatCurrency = (amount: number) => {
@@ -211,35 +225,110 @@ export default function ResourceAllocationPage() {
  };
 
  // Handler functions for all modals
+ const runAction = async (fn: () => Promise<void>, success: string, close: () => void) => {
+  setSubmitting(true);
+  setActionError(null);
+  setActionSuccess(null);
+  try {
+   await fn();
+   await refreshAllocations();
+   setActionSuccess(success);
+   close();
+  } catch (err) {
+   setActionError(err instanceof Error ? err.message : 'Action failed');
+  } finally {
+   setSubmitting(false);
+  }
+ };
+
  const handleAllocate = (data: any) => {
-  console.log('Allocate:', data);
-  setShowAllocateModal(false);
+  const match = resources.find(
+   (r) => r.name.toLowerCase() === String(data?.resource ?? '').toLowerCase()
+  );
+  runAction(
+   () =>
+    projectManagementService.createResource({
+     projectId: String(data?.task ?? ''),
+     userId: match ? match.id : String(data?.resource ?? ''),
+     role: match?.role,
+     allocationPercentage: undefined,
+     hourlyRate: data?.hours ? Number(data.hours) : undefined,
+    }).then(() => undefined),
+   'Resource allocated successfully',
+   () => setShowAllocateModal(false)
+  );
  };
 
  const handleEdit = (data: any) => {
-  console.log('Edit:', data);
-  setShowEditModal(false);
-  setSelectedAllocation(null);
+  if (!selectedAllocation) return;
+  runAction(
+   () =>
+    projectManagementService.updateResource(selectedAllocation.id, {
+     allocationPercentage: data?.hours !== null && data?.hours !== undefined ? Number(data.hours) : undefined,
+    }).then(() => undefined),
+   'Allocation updated',
+   () => {
+    setShowEditModal(false);
+    setSelectedAllocation(null);
+   }
+  );
  };
 
  const handleReassign = (data: any) => {
-  console.log('Reassign:', data);
-  setShowReassignModal(false);
-  setSelectedAllocation(null);
+  if (!selectedAllocation) return;
+  const match = resources.find(
+   (r) => r.name.toLowerCase() === String(data?.newResource ?? '').toLowerCase()
+  );
+  runAction(
+   () =>
+    projectManagementService.updateResource(selectedAllocation.id, {
+     role: match?.role ?? selectedAllocation.role,
+    }).then(() => undefined),
+   'Resource reassigned',
+   () => {
+    setShowReassignModal(false);
+    setSelectedAllocation(null);
+   }
+  );
  };
 
- const handleBulkAllocate = (data: any) => {
-  console.log('Bulk Allocate:', data);
-  setShowBulkAllocateModal(false);
+ const handleBulkAllocate = async (data: any) => {
+  const projectId = String(data?.tasks ?? '').split(',')[0]?.trim();
+  const names = String(data?.resources ?? '')
+   .split(',')
+   .map((s) => s.trim())
+   .filter(Boolean);
+  runAction(
+   async () => {
+    for (const name of names) {
+     const match = resources.find((r) => r.name.toLowerCase() === name.toLowerCase());
+     await projectManagementService.createResource({
+      projectId,
+      userId: match ? match.id : name,
+      role: match?.role,
+     });
+    }
+   },
+   'Resources allocated',
+   () => setShowBulkAllocateModal(false)
+  );
  };
 
  const handleSetCapacity = (data: any) => {
-  console.log('Set Capacity:', data);
+  // Capacity setting has no dedicated backend endpoint; apply locally to the
+  // in-memory resource picker so downstream availability math reflects it.
+  const cap = Number(data?.capacity ?? data ?? 0);
+  if (cap > 0) {
+   setResources((prev) => prev.map((r) => ({ ...r, availability: cap })));
+  }
   setShowCapacityModal(false);
  };
 
  const handleApplyFilter = (filters: any) => {
-  console.log('Apply Filters:', filters);
+  // Filtering is client-side on already-fetched allocations.
+  if (filters?.resource && filters.resource !== 'all') {
+   setSearchTerm(String(filters.resource));
+  }
   setShowFilterModal(false);
  };
 
@@ -249,16 +338,18 @@ export default function ResourceAllocationPage() {
  };
 
  const handleDelete = async () => {
-  if (selectedAllocation) {
-   try {
-    await projectManagementService.deleteResource(selectedAllocation.id);
-    setAllocations(allocations.filter(a => a.id !== selectedAllocation.id));
-   } catch (err) {
-    alert(err instanceof Error ? err.message : 'Failed to delete allocation');
-   }
+  if (!selectedAllocation) {
+   setShowDeleteModal(false);
+   return;
   }
-  setShowDeleteModal(false);
-  setSelectedAllocation(null);
+  await runAction(
+   () => projectManagementService.deleteResource(selectedAllocation.id),
+   'Allocation deleted',
+   () => {
+    setShowDeleteModal(false);
+    setSelectedAllocation(null);
+   }
+  );
  };
 
  // Helper functions to open modals with context
@@ -316,6 +407,18 @@ export default function ResourceAllocationPage() {
    {!isLoading && !loadError && allocations.length === 0 && (
     <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
      No resource allocations found.
+    </div>
+   )}
+   {actionError && (
+    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+     <AlertCircle className="h-4 w-4" />
+     {actionError}
+    </div>
+   )}
+   {actionSuccess && (
+    <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+     <CheckCircle className="h-4 w-4" />
+     {actionSuccess}
     </div>
    )}
 
@@ -703,10 +806,11 @@ export default function ResourceAllocationPage() {
        </button>
        <button
         onClick={handleAddAllocation}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        disabled={submitting}
+        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
        >
         <Save className="w-5 h-5" />
-        Allocate
+        {submitting ? 'Saving…' : 'Allocate'}
        </button>
       </div>
      </div>

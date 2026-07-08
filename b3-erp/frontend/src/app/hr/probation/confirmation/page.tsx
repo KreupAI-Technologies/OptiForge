@@ -39,6 +39,7 @@ export default function Page() {
   const [rows, setRows] = useState<ConfirmationRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -95,24 +96,77 @@ export default function Page() {
     setShowRejectModal(true);
   };
 
-  const handleSubmitApprove = (e: React.FormEvent) => {
+  const handleSubmitApprove = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Confirmation Approved",
-      description: `${selectedRequest?.name} has been successfully confirmed and will receive a confirmation letter.`
-    });
-    setShowApproveModal(false);
-    setSelectedRequest(null);
+    if (!selectedRequest) return;
+    setIsSubmitting(true);
+    try {
+      await HrTalentService.updateProbation<ConfirmationRequest>(selectedRequest.id, {
+        status: 'approved',
+        data: {
+          status: 'approved',
+          confirmationDate: approveFormData.confirmationDate,
+          remarks: approveFormData.remarks,
+        },
+      });
+      toast({
+        title: "Confirmation Approved",
+        description: `${selectedRequest.name} has been successfully confirmed and will receive a confirmation letter.`
+      });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === selectedRequest.id
+            ? { ...r, status: 'approved', confirmationDate: approveFormData.confirmationDate, remarks: approveFormData.remarks }
+            : r,
+        ),
+      );
+      setShowApproveModal(false);
+      setSelectedRequest(null);
+    } catch (err) {
+      toast({
+        title: "Approval Failed",
+        description: err instanceof Error ? err.message : 'Could not approve the confirmation',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSubmitReject = (e: React.FormEvent) => {
+  const handleSubmitReject = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Confirmation Rejected",
-      description: `Confirmation request for ${selectedRequest?.name} has been rejected. HR will be notified.`
-    });
-    setShowRejectModal(false);
-    setSelectedRequest(null);
+    if (!selectedRequest) return;
+    setIsSubmitting(true);
+    try {
+      await HrTalentService.updateProbation<ConfirmationRequest>(selectedRequest.id, {
+        status: 'rejected',
+        data: {
+          status: 'rejected',
+          remarks: `${rejectFormData.reason}: ${rejectFormData.remarks}`,
+        },
+      });
+      toast({
+        title: "Confirmation Rejected",
+        description: `Confirmation request for ${selectedRequest.name} has been rejected. HR will be notified.`
+      });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === selectedRequest.id
+            ? { ...r, status: 'rejected', remarks: `${rejectFormData.reason}: ${rejectFormData.remarks}` }
+            : r,
+        ),
+      );
+      setShowRejectModal(false);
+      setSelectedRequest(null);
+    } catch (err) {
+      toast({
+        title: "Rejection Failed",
+        description: err instanceof Error ? err.message : 'Could not reject the confirmation',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -368,10 +422,11 @@ export default function Page() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium inline-flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   <CheckCircle className="h-4 w-4" />
-                  Confirm Approval
+                  {isSubmitting ? 'Approving…' : 'Confirm Approval'}
                 </button>
               </div>
             </form>
@@ -487,10 +542,11 @@ export default function Page() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium inline-flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   <XCircle className="h-4 w-4" />
-                  Confirm Rejection
+                  {isSubmitting ? 'Rejecting…' : 'Confirm Rejection'}
                 </button>
               </div>
             </form>

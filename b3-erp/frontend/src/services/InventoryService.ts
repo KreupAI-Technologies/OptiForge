@@ -241,17 +241,31 @@ class InventoryService {
         await apiClient.delete(`/inventory/stock-adjustments/${id}`);
     }
 
+    async submitStockAdjustment(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/stock-adjustments/${id}/submit`, {});
+        return (response as any)?.data ?? response;
+    }
+
     async approveStockAdjustment(id: string): Promise<any> {
-        const response = await apiClient.patch<any>(`/inventory/stock-adjustments/${id}`, { status: 'Approved' });
-        return response.data;
+        const response = await apiClient.post<any>(`/inventory/stock-adjustments/${id}/approve`, {});
+        return (response as any)?.data ?? response;
     }
 
     async rejectStockAdjustment(id: string, reason?: string): Promise<any> {
-        const response = await apiClient.patch<any>(`/inventory/stock-adjustments/${id}`, {
-            status: 'Rejected',
-            approvalRemarks: reason,
+        const response = await apiClient.post<any>(`/inventory/stock-adjustments/${id}/reject`, {
+            reason,
         });
-        return response.data;
+        return (response as any)?.data ?? response;
+    }
+
+    async postStockAdjustment(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/stock-adjustments/${id}/post`, {});
+        return (response as any)?.data ?? response;
+    }
+
+    async getStockAdjustment(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/stock-adjustments/${id}`);
+        return (response as any)?.data ?? response;
     }
 
     async getSerialNumbers(): Promise<any[]> {
@@ -365,6 +379,42 @@ class InventoryService {
 
     async createStockTransfer(data: any): Promise<any> {
         const response = await apiClient.post<any>('/inventory/stock-transfers', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async submitStockTransfer(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/stock-transfers/${id}/submit`, {});
+        return (response as any)?.data ?? response;
+    }
+
+    async approveStockTransfer(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/stock-transfers/${id}/approve`, {});
+        return (response as any)?.data ?? response;
+    }
+
+    async dispatchStockTransfer(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/stock-transfers/${id}/dispatch`, {});
+        return (response as any)?.data ?? response;
+    }
+
+    async receiveStockTransfer(id: string, receiveData?: any): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/stock-transfers/${id}/receive`, receiveData ?? {});
+        return (response as any)?.data ?? response;
+    }
+
+    async cancelStockTransfer(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/stock-transfers/${id}/cancel`, {});
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Reorder parameters (optimization / rules) ----
+    async updateReorderParameters(id: string, params: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/reorder/items/${id}/parameters`, params);
+        return (response as any)?.data ?? response;
+    }
+
+    async getReorderReport(): Promise<any> {
+        const response = await apiClient.get<any>('/inventory/reorder/report');
         return (response as any)?.data ?? response;
     }
 

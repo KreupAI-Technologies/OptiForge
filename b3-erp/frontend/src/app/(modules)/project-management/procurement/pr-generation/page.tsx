@@ -44,6 +44,8 @@ export default function GeneratePRPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PRItem[]>([]);
   const [notes, setNotes] = useState('');
+  const [bomHeaderId, setBomHeaderId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -68,9 +70,14 @@ export default function GeneratePRPage() {
   const loadProjectData = async (id: string) => {
     setLoading(true);
     try {
-      const project = await projectManagementService.getProject(id);
+      const [project, receptions] = await Promise.all([
+        projectManagementService.getProject(id),
+        projectManagementService.getBOMReceptions(id).catch(() => []),
+      ]);
       setSelectedProject(project);
-      // Mock shortfall items for the project
+      // Use the latest released/processed BOM as the requisition source.
+      setBomHeaderId(receptions[0]?.id ?? null);
+      // Draft shortfall line-items the planner can adjust before submitting.
       setItems([
         { id: 'ITM-002', name: 'Laminate - White Gloss', category: 'Finish', shortfallQty: 20, orderQty: 25, unit: 'sheets', preferredVendor: 'Merino' },
         { id: 'ITM-003', name: 'Hettich Soft Close Hinge', category: 'Hardware', shortfallQty: 55, orderQty: 60, unit: 'pcs', preferredVendor: 'Hettich India' },
@@ -95,14 +102,37 @@ export default function GeneratePRPage() {
     setItems(items.filter(i => i.id !== id));
   };
 
-  const handleSubmit = () => {
-    toast({
-      title: "PR Generated",
-      description: "Purchase Requisition submitted for approval.",
-    });
-    setTimeout(() => {
+  const handleSubmit = async () => {
+    if (!projectId) return;
+    if (!bomHeaderId) {
+      toast({
+        variant: "destructive",
+        title: "No released BOM",
+        description: "A released BOM is required before generating a Purchase Requisition for this project.",
+      });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await projectManagementService.createProcurementPR({
+        projectId,
+        bomHeaderId,
+        requestedBy: 'Procurement Planner',
+      });
+      toast({
+        title: "PR Generated",
+        description: "Purchase Requisition submitted for approval.",
+      });
       router.push('/project-management/procurement/approvals');
-    }, 1500);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to generate PR",
+        description: error instanceof Error ? error.message : "Could not create the requisition.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // View 1: Project Selection
@@ -179,9 +209,9 @@ export default function GeneratePRPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => router.push(window.location.pathname)}>Change Project</Button>
-          <Button onClick={handleSubmit} size="sm" className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={handleSubmit} size="sm" disabled={submitting} className="bg-blue-600 hover:bg-blue-700">
             <Send className="w-4 h-4 mr-2" />
-            Submit for Approval
+            {submitting ? 'Submitting…' : 'Submit for Approval'}
           </Button>
         </div>
       </div>

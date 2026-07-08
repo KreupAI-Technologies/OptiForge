@@ -155,6 +155,8 @@ export default function AddWorkOrderEnhancedPage() {
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -246,14 +248,6 @@ export default function AddWorkOrderEnhancedPage() {
       productDescription: product.description,
       uom: product.uom || prev.uom,
       bomRef: product.bomRef,
-      materialRequirements: [
-        { id: '1', itemCode: 'MAT-001', description: 'Primary Material', requiredQty: 10, uom: 'Kg', stockAvailable: 50, stockStatus: 'available' },
-        { id: '2', itemCode: 'MAT-002', description: 'Secondary Component', requiredQty: 5, uom: 'Pcs', stockAvailable: 3, stockStatus: 'shortage' },
-      ],
-      operations: [
-        { id: '1', sequence: 1, operationName: 'Cutting', workCenter: 'CNC Machining', setupTime: 30, runTime: 60 },
-        { id: '2', sequence: 2, operationName: 'Assembly', workCenter: 'Assembly Line A', setupTime: 15, runTime: 90 },
-      ],
     }));
     setProductSearch('');
   };
@@ -293,18 +287,31 @@ export default function AddWorkOrderEnhancedPage() {
     if (!validateStep(currentStep)) {
       return;
     }
+    setSubmitting(true);
+    setSubmitError(null);
     try {
       await workOrderService.createWorkOrder(formData as any);
       clearDraft();
       router.push('/production/work-orders');
     } catch (error) {
-      console.error('Failed to create work order:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Failed to create work order');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleSaveDraft = () => {
-    alert('Work order saved as draft!');
-    router.push('/production/work-orders');
+  const handleSaveDraft = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await workOrderService.createWorkOrder({ ...formData, status: 'draft' } as any);
+      clearDraft();
+      router.push('/production/work-orders');
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save draft');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -821,28 +828,31 @@ export default function AddWorkOrderEnhancedPage() {
         )}
       </div>
 
+      {submitError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{submitError}</div>
+      )}
       <div className="flex items-center justify-between sticky bottom-0 bg-white border-t border-gray-200 py-4">
         <div>
           {currentStep > 0 && (
-            <button onClick={prevStep} className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={prevStep} disabled={submitting} className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
               <ChevronLeft className="h-5 w-5" />
               <span>Previous</span>
             </button>
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button onClick={handleSaveDraft} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-            Save Draft
+          <button onClick={handleSaveDraft} disabled={submitting} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            {submitting ? 'Saving…' : 'Save Draft'}
           </button>
           {currentStep < 4 ? (
-            <button onClick={nextStep} className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button onClick={nextStep} disabled={submitting} className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
               <span>Next</span>
               <ChevronRight className="h-5 w-5" />
             </button>
           ) : (
-            <button onClick={handleSubmit} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            <button onClick={handleSubmit} disabled={submitting} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
               <Send className="h-5 w-5" />
-              <span>Create Work Order</span>
+              <span>{submitting ? 'Creating…' : 'Create Work Order'}</span>
             </button>
           )}
         </div>

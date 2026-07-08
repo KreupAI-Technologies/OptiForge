@@ -114,6 +114,66 @@ export default function ContractManagement() {
   const [showAIInsights, setShowAIInsights] = useState(true)
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [actionBusy, setActionBusy] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  // Sample data — used as fallback until the backend returns contracts.
+  const [contracts, setContracts] = useState<Contract[]>([])
+
+  const contractTypeMap: Record<string, Contract['type']> = {
+    MASTER: 'master', PURCHASE: 'purchase', SERVICE: 'service', NDA: 'nda', FRAMEWORK: 'framework',
+  }
+  const contractStatusMap: Record<string, Contract['status']> = {
+    DRAFT: 'draft', NEGOTIATION: 'negotiation', PENDING_APPROVAL: 'negotiation', ACTIVE: 'active',
+    EXPIRING: 'expiring', EXPIRED: 'expired', TERMINATED: 'terminated',
+  }
+
+  const loadContracts = React.useCallback(async () => {
+    try {
+      const raw = await procurementContractService.getContracts()
+      if (Array.isArray(raw) && raw.length) {
+        setContracts(raw.map((c: any, idx: number): Contract => ({
+          id: c.contractNumber ?? c.id ?? `CTR-${idx + 1}`,
+          title: c.title ?? c.name ?? 'Untitled Contract',
+          supplier: c.vendorName ?? c.supplier ?? c.vendor?.name ?? '—',
+          type: contractTypeMap[String(c.contractType ?? c.type ?? '').toUpperCase()] ?? 'purchase',
+          status: contractStatusMap[String(c.status ?? '').toUpperCase()] ?? 'draft',
+          value: Number(c.value ?? c.contractValue ?? 0),
+          startDate: (c.startDate ?? '').toString().slice(0, 10),
+          endDate: (c.endDate ?? '').toString().slice(0, 10),
+          renewalDate: c.renewalDate ? c.renewalDate.toString().slice(0, 10) : undefined,
+          owner: c.owner ?? c.ownerName ?? '—',
+          department: c.department ?? '—',
+          compliance: Number(c.complianceScore ?? c.compliance ?? 100),
+          risk: (String(c.riskLevel ?? c.risk ?? 'low').toLowerCase() as Contract['risk']),
+          autoRenew: Boolean(c.autoRenew),
+          notifications: Number(c.notifications ?? 0),
+          _backendId: c.id ?? undefined,
+        } as Contract & { _backendId?: string })))
+      }
+    } catch {
+      // leave contracts empty on error
+    }
+  }, [])
+
+  // Wire the genuine renew mutation to the backend endpoint
+  // (POST /procurement/contracts/:id/renew) then refresh the list.
+  const renewContractById = async (backendId: string | undefined, label: string) => {
+    if (!backendId) {
+      setActionError(`Cannot renew ${label}: missing contract id.`)
+      return
+    }
+    setActionBusy(true)
+    setActionError(null)
+    try {
+      await procurementContractService.renewContract(backendId)
+      await loadContracts()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to renew ${label}`)
+    } finally {
+      setActionBusy(false)
+    }
+  }
 
   // Handler functions
   const handleCreateContract = () => {
@@ -140,10 +200,9 @@ export default function ContractManagement() {
   };
 
   const handleRenewContract = (contract: Contract) => {
-    console.log('Renewing contract:', contract.id);
-    const daysToExpiry = Math.ceil((new Date(contract.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    console.log('Contract renewal details:', { contract, daysToExpiry });
-    alert(`Renew Contract: ${contract.id} - ${contract.title}. Days to expiry: ${daysToExpiry}. Auto-renewal: ${contract.autoRenew ? 'Yes' : 'No'}.`);
+    const backendId = (contract as Contract & { _backendId?: string })._backendId;
+    if (!confirm(`Renew contract ${contract.id} — ${contract.title}?`)) return;
+    void renewContractById(backendId, contract.id);
   };
 
   const handleAmendContract = (contract: Contract) => {
@@ -185,47 +244,9 @@ export default function ContractManagement() {
     alert(`Contract: ${contract.id} - ${contract.title}. Supplier: ${contract.supplier}, Value: $${(contract.value / 1000).toFixed(0)}K, Status: ${contract.status.toUpperCase()}, Days Remaining: ${daysRemaining}.`);
   };
 
-  // Sample data — used as fallback until the backend returns contracts.
-  const [contracts, setContracts] = useState<Contract[]>([])
-
   useEffect(() => {
-    let cancelled = false
-    const contractTypeMap: Record<string, Contract['type']> = {
-      MASTER: 'master', PURCHASE: 'purchase', SERVICE: 'service', NDA: 'nda', FRAMEWORK: 'framework',
-    }
-    const contractStatusMap: Record<string, Contract['status']> = {
-      DRAFT: 'draft', NEGOTIATION: 'negotiation', PENDING_APPROVAL: 'negotiation', ACTIVE: 'active',
-      EXPIRING: 'expiring', EXPIRED: 'expired', TERMINATED: 'terminated',
-    }
-    const load = async () => {
-      try {
-        const raw = await procurementContractService.getContracts()
-        if (!cancelled && Array.isArray(raw) && raw.length) {
-          setContracts(raw.map((c: any, idx: number): Contract => ({
-            id: c.contractNumber ?? c.id ?? `CTR-${idx + 1}`,
-            title: c.title ?? c.name ?? 'Untitled Contract',
-            supplier: c.vendorName ?? c.supplier ?? c.vendor?.name ?? '—',
-            type: contractTypeMap[String(c.contractType ?? c.type ?? '').toUpperCase()] ?? 'purchase',
-            status: contractStatusMap[String(c.status ?? '').toUpperCase()] ?? 'draft',
-            value: Number(c.value ?? c.contractValue ?? 0),
-            startDate: (c.startDate ?? '').toString().slice(0, 10),
-            endDate: (c.endDate ?? '').toString().slice(0, 10),
-            renewalDate: c.renewalDate ? c.renewalDate.toString().slice(0, 10) : undefined,
-            owner: c.owner ?? c.ownerName ?? '—',
-            department: c.department ?? '—',
-            compliance: Number(c.complianceScore ?? c.compliance ?? 100),
-            risk: (String(c.riskLevel ?? c.risk ?? 'low').toLowerCase() as Contract['risk']),
-            autoRenew: Boolean(c.autoRenew),
-            notifications: Number(c.notifications ?? 0),
-          })))
-        }
-      } catch {
-        // keep sample data on error
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
+    void loadContracts()
+  }, [loadContracts])
 
   const milestones: ContractMilestone[] = [
     {
@@ -306,6 +327,12 @@ export default function ContractManagement() {
 
   return (
     <div className="p-6 space-y-3 bg-gray-50 min-h-screen">
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</div>
+      )}
+      {actionBusy && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">Processing contract action...</div>
+      )}
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-200">
         <div className="flex items-center justify-between mb-3">
@@ -1140,7 +1167,11 @@ export default function ContractManagement() {
                               {daysUntilRenewal}
                             </div>
                             <div className="text-sm text-gray-500">days left</div>
-                            <button className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition">
+                            <button
+                              onClick={() => handleRenewContract(contract)}
+                              disabled={actionBusy}
+                              className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition disabled:opacity-50"
+                            >
                               Start Renewal
                             </button>
                           </div>

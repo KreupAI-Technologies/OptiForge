@@ -17,6 +17,9 @@ export default function AttendancePage() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -48,9 +51,31 @@ export default function AttendancePage() {
     setAttendees(attendees.map(a => a.id === id ? { ...a, status } : a));
   };
 
-  const handleSave = () => {
-    console.log('Attendance Saved:', attendees);
-    alert('Attendance records updated successfully! (Mock)');
+  const handleSave = async () => {
+    if (attendees.length === 0) return;
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+    try {
+      const attendanceValue: Record<Attendee['status'], number> = {
+        Present: 100,
+        Late: 50,
+        Absent: 0,
+      };
+      await Promise.all(
+        attendees.map((a) =>
+          HrPagesService.updateTrainingEnrollment(a.id, {
+            attendance: attendanceValue[a.status],
+            status: a.status === 'Absent' ? 'upcoming' : 'in-progress',
+          }),
+        ),
+      );
+      setSaveSuccess(`Attendance saved for ${attendees.length} attendee(s).`);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save attendance.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -70,13 +95,24 @@ export default function AttendancePage() {
           </div>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+            disabled={saving || isLoading || attendees.length === 0}
+            className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="h-4 w-4" />
-            Save Records
+            {saving ? 'Saving…' : 'Save Records'}
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>
+      )}
+      {saveError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>
+      )}
+      {saveSuccess && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{saveSuccess}</div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
         {/* Stats Cards */}

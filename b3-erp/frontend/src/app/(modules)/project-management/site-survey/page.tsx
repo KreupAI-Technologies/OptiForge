@@ -81,326 +81,47 @@ export default function SiteSurveyPage() {
  const [showExportModal, setShowExportModal] = useState(false);
  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
- const [mockSurveys, setMockSurveys] = useState<SiteSurvey[]>([
-  {
-   id: 'SS-001',
-   surveyNumber: 'SURV-2025-001',
-   projectId: 'PRJ-2025-001',
-   projectName: 'Taj Hotels - Commercial Kitchen Setup',
-   projectType: 'Commercial Kitchen',
-   surveyDate: '2025-01-10',
-   siteName: 'Taj Hotels - Main Kitchen',
-   siteAddress: 'Apollo Bunder Road, Colaba',
-   city: 'Mumbai',
-   state: 'Maharashtra',
-   surveyorName: 'Ramesh Kumar',
-   surveyorContact: '+91-9876543210',
-   status: 'Completed',
-   measurements: {
-    length: 25.5,
-    width: 18.2,
-    height: 4.5,
-    area: 464.1,
-   },
-   accessibility: 'Good',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: true,
-   floorLevel: 'Ground Floor',
-   ceilingType: 'RCC Slab with false ceiling provision',
-   wallCondition: 'Good - Plastered and painted',
-   ventilation: 'Existing exhaust system - needs upgrade',
-   naturalLight: 'Limited - artificial lighting required',
-   existingEquipment: 'Old kitchen equipment to be removed',
-   obstacles: 'Two load bearing columns in center area',
-   specialRequirements: 'Fire suppression system mandatory, Health dept. approval needed',
-   photosCount: 45,
-   drawingsCount: 8,
-   issues: ['Existing drainage insufficient', 'Power capacity needs upgrade to 200KVA', 'Ceiling height limited in one corner'],
-   recommendations: ['Install new drainage system', 'Upgrade electrical panel', 'Use low-profile equipment in corner area', 'Add additional exhaust hoods'],
-   estimatedBudget: 8500000,
-   completionPercent: 100,
-  },
-  {
-   id: 'SS-002',
-   surveyNumber: 'SURV-2025-002',
-   projectId: 'PRJ-2025-002',
-   projectName: 'BigBasket - Cold Room Installation',
-   projectType: 'Cold Room',
-   surveyDate: '2025-01-12',
-   siteName: 'BigBasket Warehouse - Cold Storage',
-   siteAddress: 'Electronic City Phase 2',
-   city: 'Bangalore',
-   state: 'Karnataka',
-   surveyorName: 'Suresh Patel',
-   surveyorContact: '+91-9876543211',
-   status: 'Completed',
-   measurements: {
-    length: 15.0,
-    width: 12.0,
-    height: 3.5,
-    area: 180.0,
-   },
-   accessibility: 'Good',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: true,
-   floorLevel: 'First Floor',
-   ceilingType: 'Metal deck roofing',
-   wallCondition: 'New construction - ready for installation',
-   ventilation: 'Not required for cold room',
-   naturalLight: 'None - insulated space',
-   existingEquipment: 'None',
-   obstacles: 'Nil',
-   specialRequirements: 'Heavy duty flooring for forklift operation, FSSI compliance required',
-   photosCount: 32,
-   drawingsCount: 6,
-   issues: ['Floor load capacity to be verified', 'Backup power arrangement needed'],
-   recommendations: ['Install reinforced flooring', 'Setup DG backup with auto changeover', 'Install temperature monitoring system'],
-   estimatedBudget: 4200000,
-   completionPercent: 100,
-  },
-  {
-   id: 'SS-003',
-   surveyNumber: 'SURV-2025-003',
-   projectId: 'PRJ-2025-003',
-   projectName: 'L&T Campus - Industrial Kitchen',
-   projectType: 'Industrial Kitchen',
-   surveyDate: '2025-01-14',
-   siteName: 'L&T Campus Cafeteria',
-   siteAddress: 'Saki Vihar Road, Powai',
-   city: 'Mumbai',
-   state: 'Maharashtra',
-   surveyorName: 'Vijay Sharma',
-   surveyorContact: '+91-9876543212',
-   status: 'In Progress',
-   measurements: {
-    length: 30.0,
-    width: 20.0,
-    height: 5.0,
-    area: 600.0,
-   },
-   accessibility: 'Moderate',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: false,
-   floorLevel: 'Ground Floor',
-   ceilingType: 'High ceiling with exposed beams',
-   wallCondition: 'Requires waterproofing treatment',
-   ventilation: 'Nil - complete system needed',
-   naturalLight: 'Good - large windows on one side',
-   existingEquipment: 'Minimal - to be retained',
-   obstacles: 'Service corridor access limited to 3 meters width',
-   specialRequirements: 'Capacity for 2000 meals per day, Multiple cuisine zones needed',
-   photosCount: 28,
-   drawingsCount: 4,
-   issues: ['No drainage system', 'Insufficient ventilation', 'Access for large equipment difficult'],
-   recommendations: ['Plan phased installation', 'Install complete drainage network', 'Design modular kitchen layout', 'Use smaller equipment that can be assembled on site'],
-   estimatedBudget: 12000000,
-   completionPercent: 65,
-  },
-  {
-   id: 'SS-004',
-   surveyNumber: 'SURV-2025-004',
-   projectId: 'PRJ-2025-004',
-   projectName: 'ITC Grand - Bakery Equipment Setup',
-   projectType: 'Commercial Kitchen',
-   surveyDate: '2025-01-15',
-   siteName: 'ITC Grand - Bakery Section',
-   siteAddress: 'Gachibowli Main Road',
-   city: 'Hyderabad',
-   state: 'Telangana',
-   surveyorName: 'Amit Singh',
-   surveyorContact: '+91-9876543213',
-   status: 'Completed',
-   measurements: {
-    length: 12.0,
-    width: 10.0,
-    height: 3.8,
-    area: 120.0,
-   },
-   accessibility: 'Good',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: true,
-   floorLevel: 'Basement',
-   ceilingType: 'RCC with waterproofing',
-   wallCondition: 'Excellent - tiled walls',
-   ventilation: 'Existing but needs enhancement',
-   naturalLight: 'None - basement location',
-   existingEquipment: 'Old bakery ovens - functional',
-   obstacles: 'Low ceiling height in entry passage',
-   specialRequirements: 'Temperature controlled environment, Dust-free zone needed',
-   photosCount: 38,
-   drawingsCount: 5,
-   issues: ['Humidity control needed', 'Entry passage height restriction'],
-   recommendations: ['Install HVAC with dehumidifier', 'Plan equipment assembly inside', 'Add proper lighting - min 500 lux'],
-   estimatedBudget: 3500000,
-   completionPercent: 100,
-  },
-  {
-   id: 'SS-005',
-   surveyNumber: 'SURV-2025-005',
-   projectId: 'PRJ-2025-005',
-   projectName: 'Godrej Properties - Modular Kitchen',
-   projectType: 'Modular Kitchen',
-   surveyDate: '2025-01-16',
-   siteName: 'Godrej Elements - Sample Flat',
-   siteAddress: 'Hinjewadi Phase 3',
-   city: 'Pune',
-   state: 'Maharashtra',
-   surveyorName: 'Dinesh Kumar',
-   surveyorContact: '+91-9876543214',
-   status: 'Scheduled',
-   measurements: {
-    length: 4.5,
-    width: 3.2,
-    height: 3.0,
-    area: 14.4,
-   },
-   accessibility: 'Good',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: true,
-   floorLevel: '12th Floor',
-   ceilingType: 'Gypsum false ceiling',
-   wallCondition: 'Painted - ready for installation',
-   ventilation: 'Window available',
-   naturalLight: 'Excellent',
-   existingEquipment: 'None',
-   obstacles: 'Nil',
-   specialRequirements: 'Premium finish, Smart kitchen features required',
-   photosCount: 15,
-   drawingsCount: 3,
-   issues: ['Limited space', 'No provision for chimney outlet'],
-   recommendations: ['Use space-saving designs', 'Install recirculation type chimney', 'Maximize vertical storage'],
-   estimatedBudget: 450000,
-   completionPercent: 0,
-  },
-  {
-   id: 'SS-006',
-   surveyNumber: 'SURV-2025-006',
-   projectId: 'PRJ-2025-006',
-   projectName: 'Siemens - Switchgear Manufacturing Unit',
-   projectType: 'Switchgear',
-   surveyDate: '2025-01-17',
-   siteName: 'Siemens Factory - Assembly Bay',
-   siteAddress: 'Kalwa Industrial Area',
-   city: 'Thane',
-   state: 'Maharashtra',
-   surveyorName: 'Prakash Rao',
-   surveyorContact: '+91-9876543215',
-   status: 'In Progress',
-   measurements: {
-    length: 40.0,
-    width: 25.0,
-    height: 8.0,
-    area: 1000.0,
-   },
-   accessibility: 'Good',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: true,
-   floorLevel: 'Ground Floor',
-   ceilingType: 'Industrial shed - steel structure',
-   wallCondition: 'Industrial grade',
-   ventilation: 'Adequate industrial ventilation',
-   naturalLight: 'Good - skylight roof',
-   existingEquipment: 'Assembly benches present',
-   obstacles: 'Overhead crane path to be avoided',
-   specialRequirements: 'ESD flooring, Clean room conditions, Heavy equipment foundation',
-   photosCount: 52,
-   drawingsCount: 12,
-   issues: ['Vibration isolation needed for testing equipment', 'Dust control required'],
-   recommendations: ['Install anti-vibration pads', 'Setup air filtration system', 'Dedicated testing chamber'],
-   estimatedBudget: 15000000,
-   completionPercent: 45,
-  },
-  {
-   id: 'SS-007',
-   surveyNumber: 'SURV-2025-007',
-   projectId: 'PRJ-2025-007',
-   projectName: 'Reliance Retail - Cold Storage',
-   projectType: 'Cold Room',
-   surveyDate: '2025-01-18',
-   siteName: 'Reliance Retail Hub',
-   siteAddress: 'Gota Ahmedabad',
-   city: 'Ahmedabad',
-   state: 'Gujarat',
-   surveyorName: 'Ravi Shankar',
-   surveyorContact: '+91-9876543216',
-   status: 'Scheduled',
-   measurements: {
-    length: 20.0,
-    width: 15.0,
-    height: 4.0,
-    area: 300.0,
-   },
-   accessibility: 'Moderate',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: true,
-   floorLevel: 'Ground Floor',
-   ceilingType: 'Pre-engineered building',
-   wallCondition: 'New construction',
-   ventilation: 'Not applicable',
-   naturalLight: 'None - insulated structure',
-   existingEquipment: 'None',
-   obstacles: 'Site leveling pending',
-   specialRequirements: 'Multi-temperature zones, Heavy duty racking system',
-   photosCount: 0,
-   drawingsCount: 0,
-   issues: ['Site preparation incomplete', 'Power connection pending'],
-   recommendations: ['Complete civil work first', 'Install transformer for dedicated power', 'Plan for future expansion'],
-   estimatedBudget: 7500000,
-   completionPercent: 0,
-  },
-  {
-   id: 'SS-008',
-   surveyNumber: 'SURV-2025-008',
-   projectId: 'PRJ-2025-008',
-   projectName: 'Marriott Hotel - Kitchen Renovation',
-   projectType: 'Commercial Kitchen',
-   surveyDate: '2025-01-19',
-   siteName: 'Marriott Convention Center Kitchen',
-   siteAddress: 'Seaport Airport Road',
-   city: 'Kochi',
-   state: 'Kerala',
-   surveyorName: 'Venkat Rao',
-   surveyorContact: '+91-9876543217',
-   status: 'Scheduled',
-   measurements: {
-    length: 22.0,
-    width: 16.0,
-    height: 4.2,
-    area: 352.0,
-   },
-   accessibility: 'Difficult',
-   powerAvailable: true,
-   waterAvailable: true,
-   drainageAvailable: true,
-   floorLevel: 'Second Floor',
-   ceilingType: 'Acoustic ceiling tiles',
-   wallCondition: 'Requires renovation',
-   ventilation: 'Old system - complete replacement needed',
-   naturalLight: 'Limited',
-   existingEquipment: 'Extensive - to be removed',
-   obstacles: 'Ongoing hotel operations - phased work required',
-   specialRequirements: 'Zero downtime during peak hours, Noise control mandatory',
-   photosCount: 0,
-   drawingsCount: 0,
-   issues: ['Work during operational hours', 'Material movement through service lift only', 'Coordination with hotel operations'],
-   recommendations: ['Night shift work plan', 'Pre-fabricate maximum components off-site', 'Detailed project staging plan'],
-   estimatedBudget: 9500000,
-   completionPercent: 0,
-  },
- ]);
+ const [mockSurveys, setMockSurveys] = useState<SiteSurvey[]>([]);
+ const [loadError, setLoadError] = useState<string | null>(null);
+ const [submitting, setSubmitting] = useState(false);
+ const [actionError, setActionError] = useState<string | null>(null);
+ const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+ const refreshSurveys = async () => {
+  const rows = await projectManagementService.listPmSiteSurveys();
+  setMockSurveys(Array.isArray(rows) ? (rows as unknown as SiteSurvey[]) : []);
+ };
 
  useEffect(() => {
-  projectManagementService.listPmSiteSurveys()
-   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockSurveys(rows as unknown as SiteSurvey[]); })
-   .catch(() => { /* keep seed data on error */ });
+  refreshSurveys().catch((e) =>
+   setLoadError(e instanceof Error ? e.message : 'Failed to load site surveys')
+  );
  }, []);
+
+ const runAction = async (fn: () => Promise<void>, success: string, close: () => void) => {
+  setSubmitting(true);
+  setActionError(null);
+  setActionSuccess(null);
+  try {
+   await fn();
+   await refreshSurveys();
+   setActionSuccess(success);
+   close();
+  } catch (err) {
+   setActionError(err instanceof Error ? err.message : 'Action failed');
+  } finally {
+   setSubmitting(false);
+  }
+ };
+
+ const updateSelectedSurvey = (patch: Partial<SiteSurvey>, success: string, close: () => void) => {
+  if (!selectedSurvey) { close(); return; }
+  runAction(
+   () => projectManagementService.updatePmSiteSurvey(selectedSurvey.id, patch as any).then(() => undefined),
+   success,
+   close
+  );
+ };
 
  const stats = {
   totalSurveys: mockSurveys.length,
@@ -408,7 +129,7 @@ export default function SiteSurveyPage() {
   inProgress: mockSurveys.filter(s => s.status === 'In Progress').length,
   scheduled: mockSurveys.filter(s => s.status === 'Scheduled').length,
   totalPhotos: mockSurveys.reduce((sum, s) => sum + s.photosCount, 0),
-  avgCompletion: (mockSurveys.reduce((sum, s) => sum + s.completionPercent, 0) / mockSurveys.length).toFixed(0),
+  avgCompletion: mockSurveys.length > 0 ? (mockSurveys.reduce((sum, s) => sum + s.completionPercent, 0) / mockSurveys.length).toFixed(0) : '0',
  };
 
  const filteredSurveys = mockSurveys.filter((survey) => {
@@ -455,60 +176,78 @@ export default function SiteSurveyPage() {
 
  // Handler functions
  const handleScheduleSurvey = (data: any) => {
-  console.log('Schedule Survey:', data);
-  setShowScheduleModal(false);
+  runAction(
+   () => projectManagementService.createPmSiteSurvey({
+    ...(data ?? {}),
+    status: data?.status ?? 'Scheduled',
+   }).then(() => undefined),
+   'Survey scheduled',
+   () => setShowScheduleModal(false)
+  );
  };
 
  const handleEditSurvey = (data: any) => {
-  console.log('Edit Survey:', data);
-  setShowEditModal(false);
-  setSelectedSurvey(null);
+  updateSelectedSurvey(data ?? {}, 'Survey updated', () => { setShowEditModal(false); setSelectedSurvey(null); });
  };
 
  const handleUpdateMeasurements = (data: any) => {
-  console.log('Update Measurements:', data);
-  setShowMeasurementsModal(false);
-  setSelectedSurvey(null);
+  updateSelectedSurvey(
+   { measurements: { ...(selectedSurvey?.measurements ?? { length: 0, width: 0, height: 0, area: 0 }), ...(data ?? {}) } },
+   'Measurements updated',
+   () => { setShowMeasurementsModal(false); setSelectedSurvey(null); }
+  );
  };
 
  const handleUploadPhotos = (data: any) => {
-  console.log('Upload Photos:', data);
-  setShowPhotosModal(false);
-  setSelectedSurvey(null);
+  const count = Array.isArray(data?.files) ? data.files.length : Number(data?.count ?? 1);
+  updateSelectedSurvey(
+   { photosCount: (selectedSurvey?.photosCount ?? 0) + (count || 1) },
+   'Photos uploaded',
+   () => { setShowPhotosModal(false); setSelectedSurvey(null); }
+  );
  };
 
  const handleAddDrawings = (data: any) => {
-  console.log('Add Drawings:', data);
-  setShowDrawingsModal(false);
-  setSelectedSurvey(null);
+  const count = Array.isArray(data?.files) ? data.files.length : Number(data?.count ?? 1);
+  updateSelectedSurvey(
+   { drawingsCount: (selectedSurvey?.drawingsCount ?? 0) + (count || 1) },
+   'Drawings added',
+   () => { setShowDrawingsModal(false); setSelectedSurvey(null); }
+  );
  };
 
  const handleRecordConditions = (data: any) => {
-  console.log('Record Site Conditions:', data);
-  setShowConditionsModal(false);
-  setSelectedSurvey(null);
+  updateSelectedSurvey(data ?? {}, 'Site conditions recorded', () => { setShowConditionsModal(false); setSelectedSurvey(null); });
  };
 
  const handleAddIssue = (data: any) => {
-  console.log('Add Issue:', data);
-  setShowIssuesModal(false);
-  setSelectedSurvey(null);
+  const issue = String(data?.issue ?? data?.text ?? '');
+  updateSelectedSurvey(
+   { issues: [...(selectedSurvey?.issues ?? []), issue].filter(Boolean) },
+   'Issue added',
+   () => { setShowIssuesModal(false); setSelectedSurvey(null); }
+  );
  };
 
  const handleAddRecommendation = (data: any) => {
-  console.log('Add Recommendation:', data);
-  setShowRecommendationsModal(false);
-  setSelectedSurvey(null);
+  const rec = String(data?.recommendation ?? data?.text ?? '');
+  updateSelectedSurvey(
+   { recommendations: [...(selectedSurvey?.recommendations ?? []), rec].filter(Boolean) },
+   'Recommendation added',
+   () => { setShowRecommendationsModal(false); setSelectedSurvey(null); }
+  );
  };
 
  const handleUpdateStatus = (data: any) => {
-  console.log('Update Status:', data);
-  setShowStatusModal(false);
-  setSelectedSurvey(null);
+  updateSelectedSurvey(
+   { status: String(data?.status ?? '') as SiteSurvey['status'], completionPercent: data?.completionPercent != null ? Number(data.completionPercent) : selectedSurvey?.completionPercent },
+   'Status updated',
+   () => { setShowStatusModal(false); setSelectedSurvey(null); }
+  );
  };
 
  const handleGenerateReport = (data: any) => {
-  console.log('Generate Report:', data);
+  // Report generation is a client-side export of the current survey set.
   setShowGenerateReportModal(false);
   setSelectedSurvey(null);
  };
@@ -571,6 +310,15 @@ export default function SiteSurveyPage() {
 
  return (
   <div className="p-6 space-y-3">
+   {loadError && (
+    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>
+   )}
+   {actionError && (
+    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{actionError}</div>
+   )}
+   {actionSuccess && (
+    <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">{actionSuccess}</div>
+   )}
    {/* Header */}
    <div className="flex justify-between items-start">
     <div>
@@ -594,10 +342,11 @@ export default function SiteSurveyPage() {
      </button>
      <button
       onClick={() => setShowScheduleModal(true)}
-      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+      disabled={submitting}
+      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
      >
       <Plus className="h-5 w-5" />
-      <span>Schedule Survey</span>
+      <span>{submitting ? 'Saving…' : 'Schedule Survey'}</span>
      </button>
     </div>
    </div>

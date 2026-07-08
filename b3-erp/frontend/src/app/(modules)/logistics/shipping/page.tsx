@@ -34,7 +34,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { shipmentService, Shipment } from '@/services/shipment.service';
+import { shipmentService, Shipment, CreateShipmentDto } from '@/services/shipment.service';
 
 // ShipmentOrder Interface for UI display
 interface ShipmentOrder {
@@ -149,6 +149,12 @@ export default function LogisticsShippingPage() {
   const [shipmentOrders, setShipmentOrders] = useState<ShipmentOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const reloadShipments = async () => {
+    const { data: shipments } = await shipmentService.getAllShipments();
+    setShipmentOrders(shipments.map(mapServiceShipmentToUI));
+  };
 
   // Load shipments from service
   useEffect(() => {
@@ -262,12 +268,7 @@ export default function LogisticsShippingPage() {
     setShowCreateModal(true);
   };
 
-  const handleSubmitCreate = () => {
-    toast({
-      title: "Shipment Created",
-      description: `New shipment ${createFormData.order_number} has been created successfully.`
-    });
-    setShowCreateModal(false);
+  const resetCreateForm = () => {
     setCreateFormData({
       order_number: '',
       customer_name: '',
@@ -287,6 +288,61 @@ export default function LogisticsShippingPage() {
       payment_method: 'prepaid',
       notes: ''
     });
+  };
+
+  // Map UI priority back to the service priority enum
+  const toServicePriority = (p: ShipmentOrder['priority']): Shipment['priority'] => {
+    switch (p) {
+      case 'low': return 'Low';
+      case 'high': return 'High';
+      case 'urgent': return 'Urgent';
+      default: return 'Normal';
+    }
+  };
+
+  const handleSubmitCreate = async () => {
+    // Parse "City, State" destination into the DTO fields
+    const [destCity = '', destState = ''] = createFormData.destination.split(',').map(s => s.trim());
+    const payload: CreateShipmentDto = {
+      customerId: '',
+      customerName: createFormData.customer_name,
+      deliveryAddress: createFormData.destination,
+      city: destCity,
+      state: destState,
+      postalCode: '',
+      country: 'India',
+      expectedDeliveryDate: createFormData.expected_delivery,
+      priority: toServicePriority(createFormData.priority),
+      items: [
+        {
+          productId: '',
+          productCode: createFormData.order_number || 'SHIP-ITEM',
+          productName: createFormData.order_number || 'Shipment',
+          quantity: 1,
+          uom: 'PCS',
+          weight: Number(createFormData.weight_kg) || 0,
+        },
+      ],
+      notes: createFormData.notes || undefined,
+    };
+
+    setIsSubmitting(true);
+    try {
+      await shipmentService.createShipment(payload);
+      toast({
+        title: "Shipment Created",
+        description: `New shipment for ${createFormData.customer_name || 'customer'} has been created successfully.`,
+        variant: "success"
+      });
+      setShowCreateModal(false);
+      resetCreateForm();
+      await reloadShipments();
+    } catch (error) {
+      console.error('Error creating shipment:', error);
+      toast({ title: "Error", description: "Failed to create shipment. Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleViewDetails = (shipment: ShipmentOrder) => {
@@ -309,18 +365,37 @@ export default function LogisticsShippingPage() {
   };
 
   const handleExport = () => {
-    toast({
-      title: "Exporting Data",
-      description: "Shipping data is being exported to Excel..."
-    });
+    if (filteredShipments.length === 0) {
+      toast({ title: "Nothing to export", description: "No shipments match the current filters." });
+      return;
+    }
+    const headers = [
+      'Shipment ID', 'Order Number', 'Customer', 'Origin', 'Destination',
+      'Carrier', 'Shipped Date', 'Expected Delivery', 'Actual Delivery',
+      'Weight (kg)', 'Tracking Number', 'Status', 'Priority', 'Shipping Cost', 'Payment Method'
+    ];
+    const rows = filteredShipments.map(s => [
+      s.shipment_id, s.order_number, s.customer_name, s.origin, s.destination,
+      s.carrier_name, s.shipped_date, s.expected_delivery, s.actual_delivery || 'N/A',
+      s.weight_kg, s.tracking_number, s.status, s.priority, s.shipping_cost, s.payment_method
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v ?? '')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shipments_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast({ title: "Export complete", description: `${filteredShipments.length} shipments exported to CSV.`, variant: "success" });
   };
 
   const handleRefresh = async () => {
     setIsLoading(true);
     try {
-      const { data: shipments } = await shipmentService.getAllShipments();
-      const mappedShipments = shipments.map(mapServiceShipmentToUI);
-      setShipmentOrders(mappedShipments);
+      await reloadShipments();
       toast({
         title: "Data Refreshed",
         description: "Shipment data has been updated."
@@ -337,22 +412,63 @@ export default function LogisticsShippingPage() {
     }
   };
 
-  const handleDelete = (shipment: ShipmentOrder) => {
-    if (confirm(`Are you sure you want to delete shipment ${shipment.shipment_id}?`)) {
+  const handleDelete = async (shipment: ShipmentOrder) => {
+    if (!confirm(`Are you sure you want to delete shipment ${shipment.shipment_id}?`)) return;
+    setIsSubmitting(true);
+    try {
+      await shipmentService.deleteShipment(shipment.id);
       toast({
         title: "Shipment Deleted",
-        description: `Shipment ${shipment.shipment_id} has been deleted.`
+        description: `Shipment ${shipment.shipment_id} has been deleted.`,
+        variant: "success"
       });
+      await reloadShipments();
+    } catch (error) {
+      console.error('Error deleting shipment:', error);
+      toast({ title: "Error", description: "Failed to delete shipment.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleSubmitUpdate = (e: React.FormEvent) => {
+  const handleSubmitUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Status Updated",
-      description: `Shipment ${selectedShipment?.shipment_id} status updated to ${updateFormData.status}.`
-    });
-    setShowUpdateModal(false);
+    if (!selectedShipment) return;
+    setIsSubmitting(true);
+    try {
+      const target = updateFormData.status;
+      if (target === 'picked') {
+        // "Picked" maps to Dispatched in the service model
+        await shipmentService.dispatchShipment(selectedShipment.id);
+      } else if (target === 'delivered') {
+        await shipmentService.deliverShipment(selectedShipment.id);
+      } else {
+        const serviceStatusMap: Record<ShipmentOrder['status'], Shipment['status']> = {
+          pending: 'Pending',
+          picked: 'Dispatched',
+          in_transit: 'In Transit',
+          delivered: 'Delivered',
+          delayed: 'Returned',
+          cancelled: 'Cancelled',
+        };
+        await shipmentService.updateShipment(selectedShipment.id, {
+          status: serviceStatusMap[target],
+          notes: updateFormData.notes || undefined,
+        });
+      }
+      toast({
+        title: "Status Updated",
+        description: `Shipment ${selectedShipment.shipment_id} status updated to ${updateFormData.status}.`,
+        variant: "success"
+      });
+      setShowUpdateModal(false);
+      await reloadShipments();
+    } catch (error) {
+      console.error('Error updating shipment status:', error);
+      toast({ title: "Error", description: "Failed to update shipment status.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -1177,9 +1293,11 @@ export default function LogisticsShippingPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold"
+                    disabled={isSubmitting}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Update Status
+                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isSubmitting ? 'Updating...' : 'Update Status'}
                   </button>
                   <button
                     type="button"
@@ -1510,10 +1628,11 @@ export default function LogisticsShippingPage() {
               </button>
               <button
                 onClick={handleSubmitCreate}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+                disabled={isSubmitting}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Package className="h-4 w-4" />
-                Create Shipment
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                {isSubmitting ? 'Creating...' : 'Create Shipment'}
               </button>
             </div>
           </div>

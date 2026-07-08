@@ -72,11 +72,46 @@ export default function SiteIssuesPage() {
  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
  const [mockIssues, setMockIssues] = useState<SiteIssue[]>([]);
+ const [loadError, setLoadError] = useState<string | null>(null);
+ const [submitting, setSubmitting] = useState(false);
+ const [actionError, setActionError] = useState<string | null>(null);
+ const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+ const refreshIssues = async () => {
+   const rows = await projectManagementService.listSiteIssues();
+   setMockIssues(Array.isArray(rows) ? (rows as unknown as SiteIssue[]) : []);
+ };
+
  useEffect(() => {
-   projectManagementService.listSiteIssues().then((rows) => {
-     if (Array.isArray(rows)) setMockIssues(rows as unknown as SiteIssue[]);
-   });
+   refreshIssues().catch((e) =>
+     setLoadError(e instanceof Error ? e.message : 'Failed to load site issues')
+   );
  }, []);
+
+ const runAction = async (fn: () => Promise<void>, success: string, close: () => void) => {
+   setSubmitting(true);
+   setActionError(null);
+   setActionSuccess(null);
+   try {
+     await fn();
+     await refreshIssues();
+     setActionSuccess(success);
+     close();
+   } catch (err) {
+     setActionError(err instanceof Error ? err.message : 'Action failed');
+   } finally {
+     setSubmitting(false);
+   }
+ };
+
+ const updateSelectedIssue = (patch: Partial<SiteIssue>, success: string, close: () => void) => {
+   if (!selectedIssue) { close(); return; }
+   runAction(
+     () => projectManagementService.updateSiteIssue(selectedIssue.id, patch as any).then(() => undefined),
+     success,
+     close
+   );
+ };
 
  const stats = {
   totalIssues: mockIssues.length,
@@ -152,66 +187,95 @@ export default function SiteIssuesPage() {
 
  // Handler functions
  const handleReportIssue = (data: any) => {
-  console.log('Report Issue:', data);
-  setShowReportModal(false);
+  runAction(
+   () => projectManagementService.createSiteIssue({
+    ...(data ?? {}),
+    reportedDate: data?.reportedDate ?? new Date().toISOString().slice(0, 10),
+    status: data?.status ?? 'Open',
+   }).then(() => undefined),
+   'Issue reported',
+   () => setShowReportModal(false)
+  );
  };
 
  const handleEditIssue = (data: any) => {
-  console.log('Edit Issue:', data);
-  setShowEditModal(false);
-  setSelectedIssue(null);
+  updateSelectedIssue(data ?? {}, 'Issue updated', () => { setShowEditModal(false); setSelectedIssue(null); });
  };
 
  const handleAssignIssue = (data: any) => {
-  console.log('Assign Issue:', data);
-  setShowAssignModal(false);
-  setSelectedIssue(null);
+  updateSelectedIssue(
+   { assignedTo: String(data?.assignedTo ?? data?.assignee ?? ''), targetDate: data?.targetDate },
+   'Issue assigned',
+   () => { setShowAssignModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleUpdateStatus = (data: any) => {
-  console.log('Update Status:', data);
-  setShowStatusModal(false);
-  setSelectedIssue(null);
+  updateSelectedIssue(
+   { status: String(data?.status ?? '') as SiteIssue['status'], actualResolutionDate: data?.actualResolutionDate },
+   'Status updated',
+   () => { setShowStatusModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleAddRootCause = (data: any) => {
-  console.log('Add Root Cause:', data);
-  setShowRootCauseModal(false);
-  setSelectedIssue(null);
+  updateSelectedIssue(
+   { rootCause: String(data?.rootCause ?? data?.text ?? '') },
+   'Root cause added',
+   () => { setShowRootCauseModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleAddSolution = (data: any) => {
-  console.log('Add Solution:', data);
-  setShowSolutionModal(false);
-  setSelectedIssue(null);
+  updateSelectedIssue(
+   { proposedSolution: String(data?.proposedSolution ?? data?.solution ?? data?.text ?? '') },
+   'Solution added',
+   () => { setShowSolutionModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleAddResolution = (data: any) => {
-  console.log('Add Resolution:', data);
-  setShowResolutionModal(false);
-  setSelectedIssue(null);
+  updateSelectedIssue(
+   {
+    resolutionDetails: String(data?.resolutionDetails ?? data?.resolution ?? data?.text ?? ''),
+    actualResolutionDate: data?.actualResolutionDate ?? new Date().toISOString().slice(0, 10),
+    status: 'Resolved',
+   },
+   'Resolution recorded',
+   () => { setShowResolutionModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleAddPreventive = (data: any) => {
-  console.log('Add Preventive Measures:', data);
-  setShowPreventiveModal(false);
-  setSelectedIssue(null);
+  updateSelectedIssue(
+   { preventiveMeasures: String(data?.preventiveMeasures ?? data?.text ?? '') },
+   'Preventive measures added',
+   () => { setShowPreventiveModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleUploadAttachments = (data: any) => {
-  console.log('Upload Attachments:', data);
-  setShowAttachmentsModal(false);
-  setSelectedIssue(null);
+  const count = Array.isArray(data?.files) ? data.files.length : Number(data?.attachments ?? 0);
+  updateSelectedIssue(
+   { attachments: (selectedIssue?.attachments ?? 0) + (count || 1) },
+   'Attachments uploaded',
+   () => { setShowAttachmentsModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleAddComment = (data: any) => {
-  console.log('Add Comment:', data);
-  setShowCommentsModal(false);
-  setSelectedIssue(null);
+  // No dedicated comments collection endpoint; append to impact/notes on the issue.
+  const comment = String(data?.comment ?? data?.text ?? '');
+  const existing = selectedIssue?.impactOnWork ?? '';
+  updateSelectedIssue(
+   { impactOnWork: existing ? `${existing}\n${comment}` : comment },
+   'Comment added',
+   () => { setShowCommentsModal(false); setSelectedIssue(null); }
+  );
  };
 
  const handleGenerateReport = (data: any) => {
-  console.log('Generate Report:', data);
+  // Report generation is a client-side export of the current filtered issues.
   setShowGenerateReportModal(false);
   setSelectedIssue(null);
  };
@@ -269,6 +333,15 @@ export default function SiteIssuesPage() {
 
  return (
   <div className="p-6 space-y-3">
+   {loadError && (
+    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>
+   )}
+   {actionError && (
+    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{actionError}</div>
+   )}
+   {actionSuccess && (
+    <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">{actionSuccess}</div>
+   )}
    {/* Header */}
    <div className="flex justify-between items-start">
     <div>
@@ -285,10 +358,11 @@ export default function SiteIssuesPage() {
      </button>
      <button
       onClick={() => setShowReportModal(true)}
-      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+      disabled={submitting}
+      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
      >
       <Plus className="h-5 w-5" />
-      <span>Report Issue</span>
+      <span>{submitting ? 'Saving…' : 'Report Issue'}</span>
      </button>
     </div>
    </div>

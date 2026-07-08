@@ -424,9 +424,17 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
 
     setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Project updated:', formData);
+      await projectManagementService.updateProject(id, {
+        projectName: formData.projectName,
+        projectType: formData.projectType,
+        customer: formData.customerName,
+        location: formData.location,
+        salesOrderNumber: formData.salesOrderNumber,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        budget: parseFloat(formData.estimatedBudget) || 0,
+        contractValue: parseFloat(formData.contractValue) || 0,
+      });
 
       // Initialize global ProjectContext
       loadProject({
@@ -440,6 +448,7 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
       router.push('/project-management');
     } catch (error) {
       console.error('Error updating project:', error);
+      alert('Failed to update project. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -450,22 +459,34 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
   };
 
   // Template Modal Handlers
-  const handleCreateTemplate = (data: any) => {
-    console.log('Creating template:', data);
-    setShowCreateTemplateModal(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const runTemplateSave = async (fn: () => Promise<unknown>, onDone: () => void) => {
+    setTemplateSaving(true);
+    try {
+      const result = await fn();
+      if (result === null) throw new Error('Request failed');
+      onDone();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save template. Please try again.');
+    } finally {
+      setTemplateSaving(false);
+    }
   };
 
-  const handleEditTemplate = (data: any) => {
-    console.log('Updating template:', data);
-    setShowEditTemplateModal(false);
-    setSelectedTemplate(null);
-  };
+  const handleCreateTemplate = (data: any) => runTemplateSave(
+    () => projectManagementService.createPmTemplate(data),
+    () => setShowCreateTemplateModal(false),
+  );
 
-  const handleDuplicateTemplate = (data: any) => {
-    console.log('Duplicating template:', data);
-    setShowDuplicateTemplateModal(false);
-    setSelectedTemplate(null);
-  };
+  const handleEditTemplate = (data: any) => runTemplateSave(
+    () => projectManagementService.updatePmTemplate(String(selectedTemplate!.id), data),
+    () => { setShowEditTemplateModal(false); setSelectedTemplate(null); },
+  );
+
+  const handleDuplicateTemplate = (data: any) => runTemplateSave(
+    () => projectManagementService.createPmTemplate({ ...selectedTemplate, ...data, id: undefined }),
+    () => { setShowDuplicateTemplateModal(false); setSelectedTemplate(null); },
+  );
 
   const handleDeleteTemplate = async () => {
     const templateId = selectedTemplate?.id;
@@ -481,40 +502,37 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
     }
   };
 
-  const handleTemplateSettings = (data: any) => {
-    console.log('Saving template settings:', data);
-    setShowTemplateSettingsModal(false);
-    setSelectedTemplate(null);
-  };
+  const handleTemplateSettings = (data: any) => runTemplateSave(
+    () => projectManagementService.updatePmTemplate(String(selectedTemplate!.id), data),
+    () => { setShowTemplateSettingsModal(false); setSelectedTemplate(null); },
+  );
 
-  const handleShareTemplate = (data: any) => {
-    console.log('Sharing template:', data);
-    setShowShareTemplateModal(false);
-    setSelectedTemplate(null);
-  };
+  const handleShareTemplate = (data: any) => runTemplateSave(
+    () => projectManagementService.updatePmTemplate(String(selectedTemplate!.id), data),
+    () => { setShowShareTemplateModal(false); setSelectedTemplate(null); },
+  );
 
-  const handleExportTemplate = (data: any) => {
+  const handleExportTemplate = (_data: any) => {
     exportToCsv('project-template', selectedTemplate ? [selectedTemplate] : []);
     setShowExportTemplateModal(false);
     setSelectedTemplate(null);
   };
 
-  const handleImportTemplate = (file: File | null) => {
-    console.log('Importing template file:', file?.name);
+  const handleImportTemplate = (_file: File | null) => {
+    // NEEDS BACKEND: no template import endpoint; file parsing must be server-side.
+    alert('Template import is not available yet.');
     setShowImportTemplateModal(false);
   };
 
-  const handleArchiveTemplate = () => {
-    console.log('Archiving template:', selectedTemplate);
-    setShowArchiveTemplateModal(false);
-    setSelectedTemplate(null);
-  };
+  const handleArchiveTemplate = () => runTemplateSave(
+    () => projectManagementService.updatePmTemplate(String(selectedTemplate!.id), { status: 'archived' } as any),
+    () => { setShowArchiveTemplateModal(false); setSelectedTemplate(null); },
+  );
 
-  const handleToggleFavorite = () => {
-    console.log('Toggling favorite for template:', selectedTemplate);
-    setShowFavoriteTemplateModal(false);
-    setSelectedTemplate(null);
-  };
+  const handleToggleFavorite = () => runTemplateSave(
+    () => projectManagementService.updatePmTemplate(String(selectedTemplate!.id), { isFavorite: !selectedTemplate?.isFavorite } as any),
+    () => { setShowFavoriteTemplateModal(false); setSelectedTemplate(null); },
+  );
 
   // Render all steps for preview mode
   const renderAllSteps = () => {

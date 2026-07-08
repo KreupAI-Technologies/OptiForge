@@ -21,12 +21,30 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { LogisticsService, DeliveryCoordinationDto } from '@/services/logistics.service';
 
 interface ProjectInfo {
     id: string;
     name: string;
     clientName: string;
     status: string;
+    projectCode?: string;
+}
+
+/** Resolve (or create) the DeliveryCoordination record for a project. */
+async function resolveCoordination(
+    project: ProjectInfo,
+    seed?: Partial<DeliveryCoordinationDto>,
+): Promise<DeliveryCoordinationDto> {
+    const woNumber = project.projectCode || project.id;
+    const existing = await LogisticsService.getDeliveryCoordinations();
+    const match = existing.find((c) => c.woNumber === woNumber);
+    if (match) return match;
+    return LogisticsService.createDeliveryCoordination({
+        woNumber,
+        customerName: project.clientName,
+        ...seed,
+    });
 }
 
 interface DeliveryItem {
@@ -59,6 +77,8 @@ export default function DeliveryConfirmationPage() {
 
     const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
     const [signatureUploaded, setSignatureUploaded] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -66,12 +86,14 @@ export default function DeliveryConfirmationPage() {
 
     const loadProjects = async () => {
         try {
+            setError(null);
             const allProjects = await projectManagementService.getProjects();
             const projectInfos: ProjectInfo[] = allProjects.map((p: Project) => ({
                 id: p.id,
                 name: p.name || `Project ${p.id}`,
                 clientName: p.clientName || 'Unknown Client',
                 status: p.status || 'active',
+                projectCode: p.projectCode,
             }));
             setProjects(projectInfos);
 
@@ -82,8 +104,9 @@ export default function DeliveryConfirmationPage() {
                     setSelectedProject(found);
                 }
             }
-        } catch (error) {
-            console.error('Error loading projects:', error);
+        } catch (err) {
+            console.error('Error loading projects:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load projects');
         } finally {
             setIsLoadingProjects(false);
         }
@@ -127,12 +150,30 @@ export default function DeliveryConfirmationPage() {
         });
     };
 
-    const handleConfirmDelivery = () => {
-        setDeliveryConfirmed(true);
-        toast({
-            title: 'Delivery Confirmed',
-            description: 'Delivery receipt and unloading sign-off completed',
-        });
+    const handleConfirmDelivery = async () => {
+        if (!selectedProject || submitting) return;
+        setSubmitting(true);
+        try {
+            const coordination = await resolveCoordination(selectedProject);
+            await LogisticsService.updateDeliveryCoordination(coordination.id, {
+                status: 'Ready',
+            });
+            setDeliveryConfirmed(true);
+            toast({
+                title: 'Delivery Confirmed',
+                description: 'Delivery receipt and unloading sign-off completed',
+                variant: 'success',
+            });
+        } catch (err) {
+            console.error('Error confirming delivery:', err);
+            toast({
+                title: 'Failed to Confirm Delivery',
+                description: err instanceof Error ? err.message : 'Could not record delivery confirmation',
+                variant: 'destructive',
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const getConditionBadge = (condition: DeliveryItem['condition']) => {
@@ -172,10 +213,20 @@ export default function DeliveryConfirmationPage() {
                         />
                     </div>
 
-                    {isLoadingProjects ? (
+                    {error ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+                            <p className="text-red-700 font-medium">Failed to load projects</p>
+                            <p className="text-sm text-red-600 mt-1">{error}</p>
+                            <Button className="mt-4" variant="outline" onClick={loadProjects}>Retry</Button>
+                        </div>
+                    ) : isLoadingProjects ? (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
                             <span className="ml-2 text-gray-600">Loading projects...</span>
+                        </div>
+                    ) : filteredProjects.length === 0 ? (
+                        <div className="rounded-lg border bg-white p-12 text-center text-gray-500">
+                            No projects found.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -377,10 +428,10 @@ export default function DeliveryConfirmationPage() {
                 {!deliveryConfirmed ? (
                     <Button
                         onClick={handleConfirmDelivery}
-                        disabled={!signatureUploaded || deliveryItems.filter(i => i.received).length === 0}
+                        disabled={!signatureUploaded || deliveryItems.filter(i => i.received).length === 0 || submitting}
                         size="lg"
                     >
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                         Confirm Delivery & Unloading
                     </Button>
                 ) : (

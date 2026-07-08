@@ -1,9 +1,67 @@
 'use client';
 
 import Link from 'next/link';
-import { BarChart3, FileText, TrendingUp, Wallet, BookOpen, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BarChart3, FileText, TrendingUp, Wallet, BookOpen, ArrowRight, RefreshCw } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 export default function FinancialReportsPage() {
+  const [summary, setSummary] = useState<{
+    receivable: number;
+    payable: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [ar, ap] = await Promise.all([
+          FinanceService.getReceivablesAging().catch(() => ({ data: [], summary: null })),
+          FinanceService.getPayablesAging().catch(() => ({ data: [], summary: null })),
+        ]);
+        const sumBalances = (rows: any[]) =>
+          (rows || []).reduce(
+            (s, r) =>
+              s +
+              Number(
+                r?.totalOutstanding ??
+                  r?.total ??
+                  r?.balance ??
+                  r?.outstandingAmount ??
+                  r?.amount ??
+                  0,
+              ),
+            0,
+          );
+        const receivable = Number(
+          (ar as any)?.summary?.totalOutstanding ??
+            (ar as any)?.summary?.total ??
+            sumBalances((ar as any)?.data),
+        );
+        const payable = Number(
+          (ap as any)?.summary?.totalOutstanding ??
+            (ap as any)?.summary?.total ??
+            sumBalances((ap as any)?.data),
+        );
+        if (!cancelled) setSummary({ receivable, payable });
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load report summary');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Number.isFinite(n) ? n : 0);
+
   const reportCategories = [
     {
       title: 'Primary Financial Statements',
@@ -53,6 +111,29 @@ export default function FinancialReportsPage() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full px-3 py-2 ">
           <div className="w-full space-y-3">
+            {/* Live outstanding summary */}
+            {loading && (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <RefreshCw className="h-4 w-4 animate-spin" /> Loading live report summary…
+              </div>
+            )}
+            {error && !loading && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Failed to load live summary: {error}
+              </div>
+            )}
+            {summary && !loading && !error && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                  <p className="text-xs text-gray-500">Total Outstanding Receivable</p>
+                  <p className="text-2xl font-bold text-green-600">{fmt(summary.receivable)}</p>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                  <p className="text-xs text-gray-500">Total Outstanding Payable</p>
+                  <p className="text-2xl font-bold text-red-600">{fmt(summary.payable)}</p>
+                </div>
+              </div>
+            )}
             {/* Report Categories */}
             {reportCategories.map((category) => (
               <div key={category.title} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">

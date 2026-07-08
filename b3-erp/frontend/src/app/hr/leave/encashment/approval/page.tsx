@@ -5,6 +5,7 @@ import { CheckCircle, Search, Filter, X, AlertCircle, DollarSign, Clock, User, A
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { LeaveService } from '@/services/leave.service';
 
 interface EncashmentApproval {
   id: string;
@@ -405,13 +406,19 @@ export default function EncashmentApprovalPage() {
             setSelectedRequest(null);
             setApprovalAction(null);
           }}
-          onConfirm={(comments, paymentMode) => {
-            // Update the approval queue
+          onConfirm={async (comments, paymentMode) => {
+            const nextStatus = approvalAction === 'approve' ? 'approved' : 'rejected';
+            await LeaveService.updateEncashment(selectedRequest.id, {
+              status: nextStatus,
+              approvedOn: new Date().toISOString(),
+              ...(approvalAction === 'reject' ? { rejectionReason: comments, remarks: comments } : {}),
+              ...(approvalAction === 'approve' ? { paymentMode, remarks: comments || undefined } : {}),
+            });
             setApprovalQueue(approvalQueue.map(req =>
               req.id === selectedRequest.id
                 ? {
                     ...req,
-                    status: approvalAction === 'approve' ? 'approved' : 'rejected',
+                    status: nextStatus,
                     approvedBy: 'Current User',
                     approvedOn: new Date().toISOString(),
                     rejectionReason: approvalAction === 'reject' ? comments : undefined,
@@ -438,20 +445,30 @@ function ApprovalActionModal({
   request: EncashmentApproval;
   action: 'approve' | 'reject';
   onClose: () => void;
-  onConfirm: (comments: string, paymentMode?: 'salary' | 'cheque' | 'bank_transfer') => void;
+  onConfirm: (comments: string, paymentMode?: 'salary' | 'cheque' | 'bank_transfer') => void | Promise<void>;
 }) {
   const [comments, setComments] = useState('');
   const [paymentMode, setPaymentMode] = useState<'salary' | 'cheque' | 'bank_transfer'>('salary');
   const [currentStep, setCurrentStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isApprove = action === 'approve';
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (action === 'reject' && !comments.trim()) {
-      alert('Please provide a reason for rejection');
+      setError('Please provide a reason for rejection');
       return;
     }
-    onConfirm(comments, isApprove ? paymentMode : undefined);
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onConfirm(comments, isApprove ? paymentMode : undefined);
+    } catch {
+      setError('Failed to submit decision. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -613,17 +630,24 @@ function ApprovalActionModal({
             />
           </div>
 
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
             <button
               onClick={handleConfirm}
-              className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors ${
+              disabled={submitting}
+              className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-60 ${
                 isApprove
                   ? 'bg-green-600 text-white hover:bg-green-700'
                   : 'bg-red-600 text-white hover:bg-red-700'
               }`}
             >
-              {isApprove ? 'Confirm Approval' : 'Confirm Rejection'}
+              {submitting ? 'Submitting…' : isApprove ? 'Confirm Approval' : 'Confirm Rejection'}
             </button>
             <button
               onClick={onClose}

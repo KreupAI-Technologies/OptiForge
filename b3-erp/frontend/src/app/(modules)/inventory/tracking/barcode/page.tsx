@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, QrCode, Scan, Package, MapPin, Calendar, Download, Upload, Printer, CheckCircle } from 'lucide-react';
 import { inventoryService } from '@/services/InventoryService';
+import { exportToCsv } from '@/lib/export';
 
 interface BarcodeItem {
   id: string;
@@ -30,6 +31,9 @@ export default function BarcodeTrackingPage() {
   const [barcodeItems, setBarcodeItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<
+    { status: 'found'; item: any } | { status: 'not-found'; code: string } | null
+  >(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,18 +92,26 @@ export default function BarcodeTrackingPage() {
   });
 
   const handleScan = () => {
-    if (scanInput.trim()) {
-      const foundItem = barcodeItems.find(item =>
-        item.barcode.toLowerCase() === scanInput.toLowerCase()
-      );
+    const code = scanInput.trim();
+    if (!code) return;
 
-      if (foundItem) {
-        alert(`Item Found!\n\nItem: ${foundItem.itemName}\nCode: ${foundItem.itemCode}\nLocation: ${foundItem.location}\nQuantity: ${foundItem.quantity} ${foundItem.uom}`);
-        setScanInput('');
-      } else {
-        alert('Barcode not found in the system.');
-      }
+    // Look the scanned code up against the real, already-loaded barcode data
+    // (backed by /inventory/serial-numbers). Match on barcode OR serial number.
+    const lower = code.toLowerCase();
+    const foundItem = barcodeItems.find(
+      (item) =>
+        item.barcode?.toLowerCase() === lower ||
+        item.serialNumber?.toLowerCase() === lower
+    );
+
+    if (foundItem) {
+      setScanResult({ status: 'found', item: foundItem });
+      // Also surface the match in the table by filtering to it.
+      setSearchQuery(foundItem.barcode || code);
+    } else {
+      setScanResult({ status: 'not-found', code });
     }
+    setScanInput('');
   };
 
   const getStatusColor = (status: string) => {
@@ -134,15 +146,34 @@ export default function BarcodeTrackingPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() =>
+              exportToCsv(
+                'barcodes',
+                filteredItems as unknown as Record<string, unknown>[]
+              )
+            }
+            disabled={filteredItems.length === 0}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          {/* Bulk barcode import + label printing require dedicated backend
+              endpoints that do not yet exist — disabled until then. */}
+          <button
+            disabled
+            title="Bulk import requires a backend import endpoint (not yet available)"
+            className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 opacity-50 cursor-not-allowed"
+          >
             <Upload className="w-4 h-4" />
             <span>Import</span>
           </button>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            disabled
+            title="Label printing requires a backend label-generation endpoint (not yet available)"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 opacity-50 cursor-not-allowed"
+          >
             <Printer className="w-4 h-4" />
             <span>Print Labels</span>
           </button>
@@ -240,6 +271,57 @@ export default function BarcodeTrackingPage() {
             <p className="text-sm text-blue-700 mt-3">
               Scan the barcode using a scanner or manually enter the barcode number to lookup item details
             </p>
+
+            {scanResult?.status === 'found' && (
+              <div className="mt-3 bg-white border border-green-200 rounded-lg p-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="font-semibold text-green-800">Item Found</span>
+                  </div>
+                  <button
+                    onClick={() => setScanResult(null)}
+                    className="text-gray-400 hover:text-gray-600 text-sm"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500">Item</p>
+                    <p className="font-medium text-gray-900">{scanResult.item.itemName || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Code</p>
+                    <p className="font-medium text-gray-900">{scanResult.item.itemCode || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Location</p>
+                    <p className="font-medium text-gray-900">{scanResult.item.location || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Quantity</p>
+                    <p className="font-medium text-gray-900">
+                      {scanResult.item.quantity} {scanResult.item.uom}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {scanResult?.status === 'not-found' && (
+              <div className="mt-3 bg-white border border-red-200 rounded-lg p-3 flex items-center justify-between">
+                <span className="text-sm text-red-700">
+                  Barcode <span className="font-mono font-semibold">{scanResult.code}</span> not found in the system.
+                </span>
+                <button
+                  onClick={() => setScanResult(null)}
+                  className="text-gray-400 hover:text-gray-600 text-sm"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -333,7 +415,20 @@ export default function BarcodeTrackingPage() {
           </table>
         </div>
 
-        {filteredItems.length === 0 && (
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-3 text-gray-500">Loading barcodes...</p>
+          </div>
+        )}
+
+        {!isLoading && loadError && (
+          <div className="text-center py-12">
+            <p className="text-red-600">{loadError}</p>
+          </div>
+        )}
+
+        {!isLoading && !loadError && filteredItems.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500">No barcodes found matching your criteria</p>
           </div>

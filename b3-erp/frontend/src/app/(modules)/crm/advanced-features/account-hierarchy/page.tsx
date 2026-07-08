@@ -111,55 +111,59 @@ export default function AccountHierarchyPage() {
   const [rootAccount, setRootAccount] = useState<AccountNode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadHierarchy = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      let data: any[] = [];
+      try {
+        const res = await crmService.customers.getHierarchy();
+        data = Array.isArray(res) ? res : [];
+      } catch {
+        data = [];
+      }
+
+      // Fall back to flat customer list if hierarchy endpoint returned nothing.
+      if (data.length === 0) {
+        const res = await crmService.customers.getAll();
+        data = Array.isArray(res) ? res : [];
+      }
+
+      setRootAccount(buildTree(data));
+    } catch (err: any) {
+      setLoadError(err?.message ?? 'Failed to load account hierarchy.');
+      setRootAccount(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        let data: any[] = [];
-        try {
-          const res = await crmService.customers.getHierarchy();
-          data = Array.isArray(res) ? res : [];
-        } catch {
-          data = [];
-        }
-
-        // Fall back to flat customer list if hierarchy endpoint returned nothing.
-        if (data.length === 0) {
-          const res = await crmService.customers.getAll();
-          data = Array.isArray(res) ? res : [];
-        }
-
-        if (cancelled) return;
-        setRootAccount(buildTree(data));
-      } catch (err: any) {
-        if (cancelled) return;
-        setLoadError(err?.message ?? 'Failed to load account hierarchy.');
-        setRootAccount(null);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    load();
+    (async () => {
+      if (!cancelled) await loadHierarchy();
+    })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAddChild = (id: string) => {
-    console.log('Adding child to account:', id);
+    // Open the link modal preset to the parent account so a child can be attached.
+    setCurrentAccountId(id);
+    setShowAccountLinkModal(true);
   };
 
   const handleEditAccount = (id: string) => {
-    console.log('Editing account:', id);
+    router.push(`/crm/customers/${id}/edit`);
   };
 
   const handleViewAccount = (id: string) => {
-    console.log('Viewing account details:', id);
+    router.push(`/crm/customers/${id}`);
   };
 
   const handleLinkAccount = (id: string) => {
@@ -167,10 +171,35 @@ export default function AccountHierarchyPage() {
     setShowAccountLinkModal(true);
   };
 
-  const handleSaveAccountLink = (link: AccountLink) => {
-    console.log('Account linked:', link);
-    setShowAccountLinkModal(false);
-    setCurrentAccountId(undefined);
+  const handleSaveAccountLink = async (link: AccountLink) => {
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      // Persist the parent/child hierarchy relationship on the customer record
+      // via parentCustomerId. For 'parent', the source becomes a child of the
+      // target; for 'child', the target becomes a child of the source.
+      if (link.relationshipType === 'parent') {
+        await crmService.customers.update(link.sourceAccountId, {
+          parentCustomerId: link.targetAccountId,
+        });
+      } else if (link.relationshipType === 'child') {
+        await crmService.customers.update(link.targetAccountId, {
+          parentCustomerId: link.sourceAccountId,
+        });
+      } else {
+        // partner / competitor relationships have no hierarchy field yet.
+        throw new Error(
+          `"${link.relationshipType}" relationships are not yet supported by the backend.`,
+        );
+      }
+      setShowAccountLinkModal(false);
+      setCurrentAccountId(undefined);
+      await loadHierarchy();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to link account.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -194,6 +223,20 @@ export default function AccountHierarchyPage() {
         {loadError && !isLoading && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {loadError}
+          </div>
+        )}
+        {isSaving && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Saving link…
+          </div>
+        )}
+        {actionError && (
+          <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{actionError}</span>
+            <button onClick={() => setActionError(null)} className="text-red-500 hover:text-red-700">
+              ×
+            </button>
           </div>
         )}
 

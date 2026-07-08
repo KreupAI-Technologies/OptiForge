@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, XCircle, Clock, User, DollarSign, Calendar, FileText, MessageSquare, Download } from 'lucide-react'
-import { estimationWorkflowStageService } from '@/services/estimation-workflow-stage.service'
+import { costEstimateService, CostEstimate, CostEstimateItem } from '@/services/estimation-cost-estimate.service'
 
 interface EstimateItem {
   id: string
@@ -16,147 +16,150 @@ interface EstimateItem {
   amount: number
 }
 
+interface EstimateView {
+  id: string
+  estimateNumber: string
+  projectName: string
+  customerName: string
+  contactPerson: string
+  contactEmail: string
+  contactPhone: string
+  category: string
+  estimatedValue: number
+  submittedBy: string
+  submittedDate: string
+  submittedTime: string
+  pendingWith: string
+  pendingDays: number
+  priority: 'high' | 'medium' | 'low'
+  approvalLevel: string
+  comments: number
+  status: string
+  validityDays: number
+  paymentTerms: string
+  deliveryTime: string
+  items: EstimateItem[]
+}
+
+const COMPANY_ID = 'default-company-id'
+
+const EMPTY_ESTIMATE: EstimateView = {
+  id: '',
+  estimateNumber: '',
+  projectName: '',
+  customerName: '',
+  contactPerson: '',
+  contactEmail: '',
+  contactPhone: '',
+  category: '',
+  estimatedValue: 0,
+  submittedBy: '',
+  submittedDate: '',
+  submittedTime: '',
+  pendingWith: '',
+  pendingDays: 0,
+  priority: 'medium',
+  approvalLevel: '',
+  comments: 0,
+  status: '',
+  validityDays: 0,
+  paymentTerms: '',
+  deliveryTime: '',
+  items: [],
+}
+
+function mapItem(it: CostEstimateItem): EstimateItem {
+  return {
+    id: it.id,
+    itemCode: it.itemNumber || '',
+    description: it.description || '',
+    category: it.category || 'Uncategorized',
+    quantity: it.quantity || 0,
+    unit: it.unit || '',
+    rate: it.unitCost || 0,
+    amount: it.totalCost || 0,
+  }
+}
+
 export default function ViewPendingEstimatePage() {
   const router = useRouter()
   const params = useParams()
   const estimateId = params?.id as string
 
-  // Mock data - would come from API
-  const estimateData = {
-    id: estimateId,
-    estimateNumber: 'EST-2025-0142',
-    projectName: 'Luxury Penthouse - Ultra Premium Kitchen',
-    customerName: 'DLF Limited',
-    contactPerson: 'Mr. Amit Verma',
-    contactEmail: 'amit.verma@dlf.com',
-    contactPhone: '+91 98765 43210',
-    category: 'Premium Modular Kitchen',
-    estimatedValue: 8500000,
-    submittedBy: 'Amit Sharma',
-    submittedDate: '2025-10-18',
-    submittedTime: '14:30',
-    pendingWith: 'Mr. Suresh Iyer (Senior Manager)',
-    pendingDays: 2,
-    priority: 'high' as const,
-    approvalLevel: 'Level 2',
-    comments: 3,
-    status: 'Pending Approval',
-    validityDays: 30,
-    paymentTerms: '40% Advance, 30% During Installation, 30% On Completion',
-    deliveryTime: '45 working days from order confirmation',
-    items: [
-      {
-        id: '1',
-        itemCode: 'BASE-001',
-        description: 'Premium Base Cabinet 600mm - Italian Walnut',
-        category: 'Base Cabinets',
-        quantity: 8,
-        unit: 'Unit',
-        rate: 28500,
-        amount: 228000
-      },
-      {
-        id: '2',
-        itemCode: 'WALL-002',
-        description: 'Wall Cabinet 900mm with Glass Door - Frosted',
-        category: 'Wall Cabinets',
-        quantity: 5,
-        unit: 'Unit',
-        rate: 32000,
-        amount: 160000
-      },
-      {
-        id: '3',
-        itemCode: 'COUNTER-003',
-        description: 'Italian Marble Countertop - Statuario',
-        category: 'Countertops',
-        quantity: 25,
-        unit: 'Sq.Ft',
-        rate: 8500,
-        amount: 212500
-      },
-      {
-        id: '4',
-        itemCode: 'ISLAND-004',
-        description: 'Kitchen Island with Breakfast Counter',
-        category: 'Island Units',
-        quantity: 1,
-        unit: 'Unit',
-        rate: 185000,
-        amount: 185000
-      },
-      {
-        id: '5',
-        itemCode: 'APPL-005',
-        description: 'Built-in Oven - Bosch Premium',
-        category: 'Appliances',
-        quantity: 1,
-        unit: 'Unit',
-        rate: 125000,
-        amount: 125000
-      },
-      {
-        id: '6',
-        itemCode: 'APPL-006',
-        description: 'Built-in Microwave - Bosch Premium',
-        category: 'Appliances',
-        quantity: 1,
-        unit: 'Unit',
-        rate: 65000,
-        amount: 65000
-      },
-      {
-        id: '7',
-        itemCode: 'HARD-007',
-        description: 'Soft Close Hinges - Blum Premium',
-        category: 'Hardware',
-        quantity: 45,
-        unit: 'Set',
-        rate: 850,
-        amount: 38250
-      },
-      {
-        id: '8',
-        itemCode: 'LIGHT-008',
-        description: 'Under Cabinet LED Lighting',
-        category: 'Lighting',
-        quantity: 15,
-        unit: 'M',
-        rate: 1800,
-        amount: 27000
-      }
-    ]
-  }
+  const [estimateData, setEstimateData] = useState<EstimateView>(EMPTY_ESTIMATE)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [processing, setProcessing] = useState(false)
 
-  const COMPANY_ID = 'company-001'
+  useEffect(() => {
+    if (!estimateId) return
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const est = await costEstimateService.findOne(COMPANY_ID, estimateId) as CostEstimate & { items?: CostEstimateItem[] }
+        if (!mounted) return
+        const submittedAt = est.submittedAt || est.createdAt
+        setEstimateData({
+          ...EMPTY_ESTIMATE,
+          id: est.id,
+          estimateNumber: est.estimateNumber || '',
+          projectName: est.title || '',
+          customerName: est.customerName || '',
+          category: est.estimateType || '',
+          estimatedValue: est.totalCost || 0,
+          submittedBy: est.submittedBy || '',
+          submittedDate: submittedAt || '',
+          submittedTime: submittedAt ? new Date(submittedAt).toLocaleTimeString() : '',
+          status: est.status || '',
+          validityDays: est.validUntil && est.estimateDate
+            ? Math.max(0, Math.round((new Date(est.validUntil).getTime() - new Date(est.estimateDate).getTime()) / (1000 * 60 * 60 * 24)))
+            : 0,
+          items: Array.isArray(est.items) ? est.items.map(mapItem) : [],
+        })
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load estimate.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [estimateId])
 
   const handleApprove = async () => {
+    if (processing) return
     if (!confirm(`Are you sure you want to approve "${estimateData.projectName}"?`)) return
+    setProcessing(true)
     try {
-      await estimationWorkflowStageService.update(COMPANY_ID, estimateId, { status: 'active' })
+      await costEstimateService.approve(COMPANY_ID, estimateId, 'Current User')
       router.push('/estimation/workflow/pending')
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to approve estimate.')
+    } finally {
+      setProcessing(false)
     }
   }
 
   const handleReject = async () => {
+    if (processing) return
     if (!confirm(`Are you sure you want to reject "${estimateData.projectName}"? Please provide a reason in comments.`)) return
+    setProcessing(true)
     try {
-      await estimationWorkflowStageService.update(COMPANY_ID, estimateId, { status: 'inactive' })
+      await costEstimateService.reject(COMPANY_ID, estimateId, 'Current User')
       router.push('/estimation/workflow/pending')
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to reject estimate.')
+    } finally {
+      setProcessing(false)
     }
   }
 
   const handleViewComments = () => {
     router.push(`/estimation/workflow/pending/comments/${estimateId}`)
-  }
-
-  const handleDownload = () => {
-    console.log('Downloading estimate PDF:', estimateId)
-    // Would trigger PDF download
   }
 
   const handleBack = () => {
@@ -204,13 +207,6 @@ export default function ViewPendingEstimatePage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={handleDownload}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Download PDF
-            </button>
-            <button
               onClick={handleViewComments}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2 relative"
             >
@@ -224,14 +220,16 @@ export default function ViewPendingEstimatePage() {
             </button>
             <button
               onClick={handleReject}
-              className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center gap-2"
+              disabled={processing}
+              className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center gap-2 disabled:opacity-50"
             >
               <XCircle className="w-4 h-4" />
               Reject
             </button>
             <button
               onClick={handleApprove}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+              disabled={processing}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
             >
               <CheckCircle className="w-4 h-4" />
               Approve
@@ -240,6 +238,13 @@ export default function ViewPendingEstimatePage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">Loading estimate...</div>
+      )}
+      {!loading && error && (
+        <div className="flex-1 flex items-center justify-center text-sm text-red-600">{error}</div>
+      )}
+      {!loading && !error && (
       <div className="flex-1 overflow-auto p-3">
         <div className="grid grid-cols-3 gap-3">
           {/* Main Content */}
@@ -427,14 +432,16 @@ export default function ViewPendingEstimatePage() {
               <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
                 <button
                   onClick={handleApprove}
-                  className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium"
+                  disabled={processing}
+                  className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium disabled:opacity-50"
                 >
                   <CheckCircle className="w-5 h-5" />
                   Approve Estimate
                 </button>
                 <button
                   onClick={handleReject}
-                  className="w-full px-4 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center gap-2 font-medium"
+                  disabled={processing}
+                  className="w-full px-4 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center gap-2 font-medium disabled:opacity-50"
                 >
                   <XCircle className="w-5 h-5" />
                   Reject Estimate
@@ -444,6 +451,7 @@ export default function ViewPendingEstimatePage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -52,41 +52,41 @@ export default function PayrollDisbursementPage() {
   const [records, setRecords] = useState<EmployeeDisbursement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const loadDisbursements = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrPayrollService.getDisbursements('disbursement');
+      if (Array.isArray(raw)) {
+        const mapped: EmployeeDisbursement[] = raw.map((r: any) => ({
+          id: r.id ?? '',
+          employeeId: r.employeeId ?? r.employeeCode ?? '',
+          employeeName: r.employeeName ?? '',
+          designation: r.details?.designation ?? '',
+          department: r.department ?? '',
+          bankName: r.bankName ?? r.details?.bankName ?? '',
+          accountNumber: r.accountNumber ?? r.details?.accountNumber ?? '',
+          ifscCode: r.details?.ifscCode ?? '',
+          netSalary: Number(r.netPay ?? r.details?.netPay ?? r.amount ?? 0),
+          disbursementStatus: (r.status ?? 'pending') as EmployeeDisbursement['disbursementStatus'],
+          disbursedOn: r.details?.disbursedOn ?? undefined,
+          transactionId: r.details?.transactionId ?? undefined,
+          failureReason: r.details?.failureReason ?? undefined,
+        }));
+        setRecords(mapped);
+      }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrPayrollService.getDisbursements('disbursement');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped: EmployeeDisbursement[] = raw.map((r: any) => ({
-            id: r.id ?? '',
-            employeeId: r.employeeId ?? r.employeeCode ?? '',
-            employeeName: r.employeeName ?? '',
-            designation: r.details?.designation ?? '',
-            department: r.department ?? '',
-            bankName: r.bankName ?? r.details?.bankName ?? '',
-            accountNumber: r.accountNumber ?? r.details?.accountNumber ?? '',
-            ifscCode: r.details?.ifscCode ?? '',
-            netSalary: Number(r.netPay ?? r.details?.netPay ?? r.amount ?? 0),
-            disbursementStatus: (r.status ?? 'pending') as EmployeeDisbursement['disbursementStatus'],
-            disbursedOn: r.details?.disbursedOn ?? undefined,
-            transactionId: r.details?.transactionId ?? undefined,
-            failureReason: r.details?.failureReason ?? undefined,
-          }));
-          setRecords(mapped);
-        }
-      } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    loadDisbursements();
   }, []);
 
   const filteredRecords = useMemo(() => {
@@ -165,9 +165,63 @@ export default function PayrollDisbursementPage() {
     setShowUpdateBankModal(true);
   };
 
-  const handleRetryPayment = (record: EmployeeDisbursement) => {
-    alert(`Retrying payment for ${record.employeeName}`);
-    // Implementation for retry payment
+  const handleRetryPayment = async (record: EmployeeDisbursement) => {
+    if (busyId) return;
+    setBusyId(record.id);
+    setActionError(null);
+    try {
+      await HrPayrollService.updateDisbursement(record.id, {
+        status: 'processing',
+        details: { ...(record as any), retriedAt: new Date().toISOString(), failureReason: null },
+      });
+      await loadDisbursements();
+    } catch {
+      setActionError(`Failed to retry payment for ${record.employeeName}. Please try again.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleConfirmProcessPayment = async () => {
+    if (!selectedRecord || busyId) return;
+    setBusyId(selectedRecord.id);
+    setActionError(null);
+    try {
+      await HrPayrollService.updateDisbursement(selectedRecord.id, {
+        status: 'completed',
+        details: {
+          ...(selectedRecord as any),
+          disbursedOn: new Date().toISOString(),
+        },
+      });
+      setShowProcessPaymentModal(false);
+      setSelectedRecord(null);
+      await loadDisbursements();
+    } catch {
+      setActionError('Failed to process payment. Please try again.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleConfirmUpdateBank = async (bankName: string, accountNumber: string, ifscCode: string) => {
+    if (!selectedRecord || busyId) return;
+    setBusyId(selectedRecord.id);
+    setActionError(null);
+    try {
+      await HrPayrollService.updateDisbursement(selectedRecord.id, {
+        bankName,
+        accountNumber,
+        details: { ...(selectedRecord as any), bankName, accountNumber, ifscCode },
+      });
+      setShowUpdateBankModal(false);
+      setSelectedRecord(null);
+      await loadDisbursements();
+    } catch {
+      setActionError('Failed to update bank details. Please try again.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -177,6 +231,7 @@ export default function PayrollDisbursementPage() {
         <p className="text-sm text-gray-600 mt-1">Process and track salary payments to employee bank accounts</p>
         {isLoading && <p className="text-xs text-gray-400 mt-1">Loading…</p>}
         {loadError && <p className="text-sm text-red-600 mt-1">{loadError}</p>}
+        {actionError && <p className="text-sm text-red-600 mt-1">{actionError}</p>}
       </div>
 
       <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border border-purple-200 p-3 mb-3">
@@ -459,9 +514,10 @@ export default function PayrollDisbursementPage() {
                 <>
                   <button
                     onClick={() => handleRetryPayment(record)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm"
+                    disabled={busyId === record.id}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50"
                   >
-                    Retry Payment
+                    {busyId === record.id ? 'Retrying…' : 'Retry Payment'}
                   </button>
                   <button
                     onClick={() => handleUpdateBankDetails(record)}
@@ -564,6 +620,8 @@ export default function PayrollDisbursementPage() {
             setShowProcessPaymentModal(false);
             setSelectedRecord(null);
           }}
+          onConfirm={handleConfirmProcessPayment}
+          busy={busyId === selectedRecord.id}
           formatCurrency={formatCurrency}
         />
       )}
@@ -576,6 +634,8 @@ export default function PayrollDisbursementPage() {
             setShowUpdateBankModal(false);
             setSelectedRecord(null);
           }}
+          onSave={handleConfirmUpdateBank}
+          busy={busyId === selectedRecord.id}
         />
       )}
     </div>
@@ -883,10 +943,12 @@ function PaymentReportModal({ batch, onClose, formatCurrency }: PaymentReportMod
 interface ProcessPaymentModalProps {
   record: EmployeeDisbursement;
   onClose: () => void;
+  onConfirm: () => void;
+  busy: boolean;
   formatCurrency: (amount: number) => string;
 }
 
-function ProcessPaymentModal({ record, onClose, formatCurrency }: ProcessPaymentModalProps) {
+function ProcessPaymentModal({ record, onClose, onConfirm, busy, formatCurrency }: ProcessPaymentModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
@@ -940,14 +1002,12 @@ function ProcessPaymentModal({ record, onClose, formatCurrency }: ProcessPayment
             Cancel
           </button>
           <button
-            onClick={() => {
-              alert(`Payment of ${formatCurrency(record.netSalary)} initiated for ${record.employeeName}`);
-              onClose();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            onClick={onConfirm}
+            disabled={busy}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
-            Process Payment
+            {busy ? 'Processing…' : 'Process Payment'}
           </button>
         </div>
       </div>
@@ -959,9 +1019,11 @@ function ProcessPaymentModal({ record, onClose, formatCurrency }: ProcessPayment
 interface UpdateBankModalProps {
   record: EmployeeDisbursement;
   onClose: () => void;
+  onSave: (bankName: string, accountNumber: string, ifscCode: string) => void;
+  busy: boolean;
 }
 
-function UpdateBankModal({ record, onClose }: UpdateBankModalProps) {
+function UpdateBankModal({ record, onClose, onSave, busy }: UpdateBankModalProps) {
   const [bankName, setBankName] = useState(record.bankName);
   const [accountNumber, setAccountNumber] = useState(record.accountNumber);
   const [ifscCode, setIfscCode] = useState(record.ifscCode);
@@ -1029,13 +1091,11 @@ function UpdateBankModal({ record, onClose }: UpdateBankModalProps) {
             Cancel
           </button>
           <button
-            onClick={() => {
-              alert(`Bank details updated for ${record.employeeName}`);
-              onClose();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            onClick={() => onSave(bankName, accountNumber, ifscCode)}
+            disabled={busy}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            Save Changes
+            {busy ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
       </div>

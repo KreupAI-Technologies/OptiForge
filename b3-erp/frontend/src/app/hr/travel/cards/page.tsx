@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { CreditCard, User, DollarSign, Calendar, AlertCircle, Lock, Unlock, Plus, Eye, Download } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 
 interface CorporateCard {
   id: string;
@@ -36,46 +37,44 @@ export default function Page() {
   const [rows, setRows] = useState<CorporateCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrSelfServiceService.getCorporateCards();
+      const mapped: CorporateCard[] = raw.map((r) => ({
+        id: r.id,
+        cardNumber: r.cardNumber ?? '',
+        cardholderName: r.cardholderName ?? '',
+        employeeCode: r.employeeCode ?? '',
+        department: r.department ?? '',
+        designation: r.designation ?? '',
+        cardType: (r.cardType as CorporateCard['cardType']) ?? 'visa',
+        cardLevel: 'silver',
+        creditLimit: Number(r.creditLimit ?? 0),
+        availableLimit: Number(r.availableLimit ?? 0),
+        currentBalance: Number(r.currentBalance ?? 0),
+        issueDate: r.issueDate ?? '',
+        expiryDate: r.expiryDate ?? '',
+        status: (r.status as CorporateCard['status']) ?? 'active',
+        lastTransactionDate: r.lastTransactionDate ?? undefined,
+        monthlySpend: Number(r.monthlySpend ?? 0),
+        billingCycle: r.billingCycle ?? '',
+      }));
+      setRows(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load corporate cards');
+      setRows([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrSelfServiceService.getCorporateCards();
-        const mapped: CorporateCard[] = raw.map((r) => ({
-          id: r.id,
-          cardNumber: r.cardNumber ?? '',
-          cardholderName: r.cardholderName ?? '',
-          employeeCode: r.employeeCode ?? '',
-          department: r.department ?? '',
-          designation: r.designation ?? '',
-          cardType: (r.cardType as CorporateCard['cardType']) ?? 'visa',
-          cardLevel: 'silver',
-          creditLimit: Number(r.creditLimit ?? 0),
-          availableLimit: Number(r.availableLimit ?? 0),
-          currentBalance: Number(r.currentBalance ?? 0),
-          issueDate: r.issueDate ?? '',
-          expiryDate: r.expiryDate ?? '',
-          status: (r.status as CorporateCard['status']) ?? 'active',
-          lastTransactionDate: r.lastTransactionDate ?? undefined,
-          monthlySpend: Number(r.monthlySpend ?? 0),
-          billingCycle: r.billingCycle ?? '',
-        }));
-        if (!cancelled) setRows(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load corporate cards');
-          setRows([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mockCards: CorporateCard[] = rows;
@@ -132,18 +131,30 @@ export default function Page() {
     setShowDetailsModal(true);
   };
 
-  const handleBlockCard = (card: CorporateCard) => {
-    toast({
-      title: "Card Blocked",
-      description: `Card ${card.cardNumber} has been blocked successfully`
-    });
+  const handleBlockCard = async (card: CorporateCard) => {
+    setActionId(card.id);
+    try {
+      await HrExpensesService.updateCorporateCard(card.id, { status: 'blocked' });
+      toast({ title: 'Card Blocked', description: `Card ${card.cardNumber} has been blocked successfully` });
+      await load();
+    } catch (err) {
+      toast({ title: 'Failed to block card', description: err instanceof Error ? err.message : 'Please try again.' });
+    } finally {
+      setActionId(null);
+    }
   };
 
-  const handleUnblockCard = (card: CorporateCard) => {
-    toast({
-      title: "Card Unblocked",
-      description: `Card ${card.cardNumber} has been activated successfully`
-    });
+  const handleUnblockCard = async (card: CorporateCard) => {
+    setActionId(card.id);
+    try {
+      await HrExpensesService.updateCorporateCard(card.id, { status: 'active' });
+      toast({ title: 'Card Unblocked', description: `Card ${card.cardNumber} has been activated successfully` });
+      await load();
+    } catch (err) {
+      toast({ title: 'Failed to unblock card', description: err instanceof Error ? err.message : 'Please try again.' });
+    } finally {
+      setActionId(null);
+    }
   };
 
   const handleDownloadStatement = (card: CorporateCard) => {
@@ -155,6 +166,37 @@ export default function Page() {
 
   const handleRequestNewCard = () => {
     setShowRequestModal(true);
+  };
+
+  const requestFormRef = useRef<HTMLFormElement>(null);
+  const [requesting, setRequesting] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+
+  const handleSubmitCardRequest = async () => {
+    const fd = requestFormRef.current ? new FormData(requestFormRef.current) : null;
+    const val = (k: string) => (fd?.get(k)?.toString() ?? '');
+    setRequesting(true);
+    setRequestError(null);
+    try {
+      await HrExpensesService.createCorporateCard({
+        cardholderName: val('cardholderName'),
+        employeeCode: val('employeeCode'),
+        department: val('department'),
+        designation: val('designation'),
+        cardType: val('cardType'),
+        creditLimit: Number(val('creditLimit') || 0),
+        monthlySpend: Number(val('monthlyUsage') || 0),
+        status: 'pending_activation',
+      });
+      toast({ title: 'Card Request Submitted', description: 'Your corporate card request has been submitted for approval' });
+      setShowRequestModal(false);
+      requestFormRef.current?.reset();
+      await load();
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : 'Failed to submit card request.');
+    } finally {
+      setRequesting(false);
+    }
   };
 
   const columns = [
@@ -225,7 +267,8 @@ export default function Page() {
           {row.status === 'active' && (
             <button
               onClick={() => handleBlockCard(row)}
-              className="p-1 hover:bg-red-100 rounded"
+              disabled={actionId === row.id}
+              className="p-1 hover:bg-red-100 rounded disabled:opacity-40"
               title="Block card"
             >
               <Lock className="h-4 w-4 text-red-600" />
@@ -234,7 +277,8 @@ export default function Page() {
           {row.status === 'blocked' && (
             <button
               onClick={() => handleUnblockCard(row)}
-              className="p-1 hover:bg-green-100 rounded"
+              disabled={actionId === row.id}
+              className="p-1 hover:bg-green-100 rounded disabled:opacity-40"
               title="Unblock card"
             >
               <Unlock className="h-4 w-4 text-green-600" />
@@ -651,13 +695,12 @@ export default function Page() {
             </div>
 
             <div className="p-6">
-              <form onSubmit={(e) => {
+              {requestError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{requestError}</div>
+              )}
+              <form ref={requestFormRef} onSubmit={(e) => {
                 e.preventDefault();
-                toast({
-                  title: "Card Request Submitted",
-                  description: "Your corporate card request has been submitted for approval"
-                });
-                setShowRequestModal(false);
+                handleSubmitCardRequest();
               }}>
                 <div className="space-y-3">
                   {/* Employee Information */}
@@ -667,6 +710,7 @@ export default function Page() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name *</label>
                         <input
+                          name="cardholderName"
                           type="text"
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -676,6 +720,7 @@ export default function Page() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code *</label>
                         <input
+                          name="employeeCode"
                           type="text"
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -685,6 +730,7 @@ export default function Page() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
                         <select
+                          name="department"
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         >
@@ -702,6 +748,7 @@ export default function Page() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Designation *</label>
                         <input
+                          name="designation"
                           type="text"
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -718,6 +765,7 @@ export default function Page() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Card Type *</label>
                         <select
+                          name="cardType"
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         >
@@ -742,6 +790,7 @@ export default function Page() {
                       <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Requested Credit Limit *</label>
                         <input
+                          name="creditLimit"
                           type="number"
                           required
                           min="100000"
@@ -778,6 +827,7 @@ export default function Page() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Expected Usage *</label>
                         <input
+                          name="monthlyUsage"
                           type="number"
                           required
                           min="5000"
@@ -844,15 +894,17 @@ export default function Page() {
                     <button
                       type="button"
                       onClick={() => setShowRequestModal(false)}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                      disabled={requesting}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                      disabled={requesting}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                     >
-                      Submit Request
+                      {requesting ? 'Submitting…' : 'Submit Request'}
                     </button>
                   </div>
                 </div>

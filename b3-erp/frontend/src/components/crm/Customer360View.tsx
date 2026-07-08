@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Building2, DollarSign, TrendingUp, Activity, Award, AlertCircle, Calendar, Phone, Mail, MapPin, CreditCard, ShoppingCart, FileText, MessageSquare, Star } from 'lucide-react';
 import { crmService, asArray } from '@/services/crm.service';
+import CrmDataState from './CrmDataState';
 
 export interface Customer360Data {
   id: string;
@@ -101,6 +102,7 @@ const priorityColors: Record<string, string> = {
 export default function Customer360View() {
   const [customer, setCustomer] = useState<Customer360Data>(emptyCustomer);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'interactions' | 'tickets' | 'purchases' | 'csat'>('overview');
 
   useEffect(() => {
@@ -157,9 +159,9 @@ export default function Customer360View() {
           },
           csatScores: [],
         };
-        if (mounted) setCustomer(mapped);
+        if (mounted) { setCustomer(mapped); setError(null); }
       } catch (e) {
-        if (mounted) setCustomer(emptyCustomer);
+        if (mounted) { setCustomer(emptyCustomer); setError(e instanceof Error ? e.message : 'Failed to load customer'); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -181,6 +183,14 @@ export default function Customer360View() {
         </h2>
         <p className="text-gray-600 mt-1">Complete customer interaction history, purchase journey, warranty status, and CSAT feedback</p>
       </div>
+
+      <CrmDataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && !customer.id}
+        loadingText="Loading customer 360°…"
+        emptyText="No customers found."
+      />
 
       {/* Customer Header Card */}
       <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg shadow-lg border-2 border-indigo-200 p-3">

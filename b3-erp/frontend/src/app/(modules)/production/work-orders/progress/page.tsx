@@ -60,39 +60,54 @@ export default function InProgressWorkOrdersPage() {
   const [inProgressOrders, setInProgressOrders] = useState<InProgressWorkOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pausingId, setPausingId] = useState<string | null>(null);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
+
+  const mapOrder = (r: any): InProgressWorkOrder => ({
+    id: String(r.id ?? ''),
+    workOrderNumber: r.workOrderNumber ?? '',
+    productCode: r.productCode ?? '',
+    productName: r.productName ?? '',
+    category: r.category ?? '',
+    quantity: Number(r.quantity ?? 0),
+    unit: r.unit ?? '',
+    produced: Number(r.produced ?? 0),
+    rejected: Number(r.rejected ?? 0),
+    priority: (r.priority ?? 'medium') as InProgressWorkOrder['priority'],
+    salesOrderNumber: r.salesOrderNumber ?? '',
+    customerName: r.customerName ?? '',
+    startDate: r.startDate ?? '',
+    dueDate: r.dueDate ?? '',
+    daysRemaining: Number(r.daysRemaining ?? 0),
+    currentStation: r.currentStation ?? '',
+    completionPercentage: Number(r.completionPercentage ?? 0),
+    plannedDuration: Number(r.plannedDuration ?? 0),
+    actualDaysElapsed: Number(r.actualDaysElapsed ?? 0),
+    assignedTeam: r.assignedTeam ?? '',
+    shift: r.shift ?? '',
+    status: (r.status ?? 'on-track') as InProgressWorkOrder['status'],
+    issues: Array.isArray(r.issues) ? r.issues.map((i: any) => String(i)) : [],
+    nextMilestone: r.nextMilestone ?? '',
+  });
+
+  const loadOrders = async () => {
+    setIsLoading(true); setLoadError(null);
+    try {
+      const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
+      setInProgressOrders((raw || []).map(mapOrder));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load'); setInProgressOrders([]);
+    } finally { setIsLoading(false); }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
-        const mapped: InProgressWorkOrder[] = (raw || []).map((r: any) => ({
-          id: String(r.id ?? ''),
-          workOrderNumber: r.workOrderNumber ?? '',
-          productCode: r.productCode ?? '',
-          productName: r.productName ?? '',
-          category: r.category ?? '',
-          quantity: Number(r.quantity ?? 0),
-          unit: r.unit ?? '',
-          produced: Number(r.produced ?? 0),
-          rejected: Number(r.rejected ?? 0),
-          priority: (r.priority ?? 'medium') as InProgressWorkOrder['priority'],
-          salesOrderNumber: r.salesOrderNumber ?? '',
-          customerName: r.customerName ?? '',
-          startDate: r.startDate ?? '',
-          dueDate: r.dueDate ?? '',
-          daysRemaining: Number(r.daysRemaining ?? 0),
-          currentStation: r.currentStation ?? '',
-          completionPercentage: Number(r.completionPercentage ?? 0),
-          plannedDuration: Number(r.plannedDuration ?? 0),
-          actualDaysElapsed: Number(r.actualDaysElapsed ?? 0),
-          assignedTeam: r.assignedTeam ?? '',
-          shift: r.shift ?? '',
-          status: (r.status ?? 'on-track') as InProgressWorkOrder['status'],
-          issues: Array.isArray(r.issues) ? r.issues.map((i: any) => String(i)) : [],
-          nextMilestone: r.nextMilestone ?? '',
-        }));
-        if (!cancelled) setInProgressOrders(mapped);
+        if (!cancelled) setInProgressOrders((raw || []).map(mapOrder));
       } catch (err) {
         if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setInProgressOrders([]); }
       } finally { if (!cancelled) setIsLoading(false); }
@@ -135,10 +150,19 @@ export default function InProgressWorkOrdersPage() {
     router.push(`/production/work-orders/view/${workOrderId}`);
   };
 
-  const handlePause = (order: InProgressWorkOrder) => {
-    if (confirm(`Pause production for Work Order ${order.workOrderNumber}?\n\nProduct: ${order.productName}\nCurrent Progress: ${order.completionPercentage}%`)) {
-      console.log('Pausing work order:', order);
-      alert(`Work Order ${order.workOrderNumber} has been paused.\n\nStatus: On Hold\nCurrent Progress: ${order.completionPercentage}%\nProduced: ${order.produced} ${order.unit}`);
+  const handlePause = async (order: InProgressWorkOrder) => {
+    if (!confirm(`Pause production for Work Order ${order.workOrderNumber}?\n\nProduct: ${order.productName}\nCurrent Progress: ${order.completionPercentage}%`)) {
+      return;
+    }
+    setPausingId(order.id);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.updateWorkOrder(order.id, { status: 'on_hold' });
+      await loadOrders();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to pause ${order.workOrderNumber}`);
+    } finally {
+      setPausingId(null);
     }
   };
 
@@ -147,15 +171,32 @@ export default function InProgressWorkOrdersPage() {
     setIsProgressModalOpen(true);
   };
 
-  const handleProgressUpdate = (updateData: any) => {
-    console.log('Progress updated:', updateData);
-    alert(`Progress updated successfully for ${selectedWorkOrder?.workOrderNumber}!\n\nProduced: ${updateData.produced} ${selectedWorkOrder?.unit}\nRejected: ${updateData.rejected}\nCompletion: ${updateData.completionPercentage}%\nCurrent Station: ${updateData.currentStation}`);
+  const handleProgressUpdate = async (updateData: any) => {
+    if (!selectedWorkOrder) return;
+    setIsSavingProgress(true);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.updateWorkOrderProgress(selectedWorkOrder.id, {
+        produced: updateData.produced,
+        rejected: updateData.rejected,
+        completionPercentage: updateData.completionPercentage,
+        currentStation: updateData.currentStation,
+      });
+      setIsProgressModalOpen(false);
+      setSelectedWorkOrder(null);
+      await loadOrders();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to update progress for ${selectedWorkOrder.workOrderNumber}`);
+    } finally {
+      setIsSavingProgress(false);
+    }
   };
 
   return (
     <div className="w-full px-3 py-2">
       {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
       {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
+      {actionError && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -406,10 +447,11 @@ export default function InProgressWorkOrdersPage() {
                   </button>
                   <button
                     onClick={() => handlePause(order)}
-                    className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 text-sm flex items-center gap-2"
+                    disabled={pausingId === order.id}
+                    className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Pause className="h-4 w-4" />
-                    Pause
+                    {pausingId === order.id ? 'Pausing…' : 'Pause'}
                   </button>
                   <button
                     onClick={() => handleUpdateProgress(order)}

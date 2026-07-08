@@ -861,6 +861,22 @@ export class WorkflowService {
   }
 
   /**
+   * Delete a workflow template
+   */
+  static async deleteTemplate(id: string): Promise<void> {
+    if (USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const index = MOCK_WORKFLOW_TEMPLATES.findIndex((t) => t.id === id);
+      if (index !== -1) MOCK_WORKFLOW_TEMPLATES.splice(index, 1);
+      return;
+    }
+
+    await this.request<void>(`/api/workflow/templates/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
    * Create a new workflow template (alias for createTemplate)
    */
   static async createWorkflowTemplate(data: Partial<CreateTemplateDto>): Promise<WorkflowTemplate> {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MasterDataService, MDVendor, mdLabel } from '@/services/master-data.service';
+import { FinanceService } from '@/services/finance.service';
 import {
   ArrowLeft,
   Save,
@@ -312,18 +313,7 @@ export default function AddPayablePage() {
     };
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-      const res = await fetch(`${apiBase}/finance/payables`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-company-id': 'default-company-id',
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        throw new Error(`API Error: ${res.statusText}`);
-      }
+      await FinanceService.createPayable(payload);
       router.push('/finance/payables');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save payable');

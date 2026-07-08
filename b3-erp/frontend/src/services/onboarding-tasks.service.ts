@@ -49,6 +49,23 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
+async function sendJson<T>(
+  path: string,
+  method: 'POST' | 'PUT' | 'DELETE',
+  body?: Record<string, any>,
+): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 function buildQuery(feature: string, companyId?: string): string {
   const q = new URLSearchParams();
   q.set('companyId', companyId || 'company-1');
@@ -66,6 +83,26 @@ export class OnboardingTasksService {
     );
     return Array.isArray(data) ? data : [];
   }
+
+  static async create(
+    body: Partial<OnboardingTaskRecord> & { feature: string; companyId?: string },
+  ): Promise<OnboardingTaskRecord> {
+    return sendJson<OnboardingTaskRecord>('/hr/onboarding-tasks', 'POST', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static async update(
+    id: string,
+    body: Partial<OnboardingTaskRecord>,
+  ): Promise<OnboardingTaskRecord> {
+    return sendJson<OnboardingTaskRecord>(`/hr/onboarding-tasks/${id}`, 'PUT', body);
+  }
+
+  static async remove(id: string): Promise<{ success: boolean }> {
+    return sendJson<{ success: boolean }>(`/hr/onboarding-tasks/${id}`, 'DELETE');
+  }
 }
 
 export class OffboardingTasksService {
@@ -77,5 +114,25 @@ export class OffboardingTasksService {
       `/hr/offboarding-tasks?${buildQuery(feature, companyId)}`,
     );
     return Array.isArray(data) ? data : [];
+  }
+
+  static async create(
+    body: Partial<OffboardingTaskRecord> & { feature: string; companyId?: string },
+  ): Promise<OffboardingTaskRecord> {
+    return sendJson<OffboardingTaskRecord>('/hr/offboarding-tasks', 'POST', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static async update(
+    id: string,
+    body: Partial<OffboardingTaskRecord>,
+  ): Promise<OffboardingTaskRecord> {
+    return sendJson<OffboardingTaskRecord>(`/hr/offboarding-tasks/${id}`, 'PUT', body);
+  }
+
+  static async remove(id: string): Promise<{ success: boolean }> {
+    return sendJson<{ success: boolean }>(`/hr/offboarding-tasks/${id}`, 'DELETE');
   }
 }

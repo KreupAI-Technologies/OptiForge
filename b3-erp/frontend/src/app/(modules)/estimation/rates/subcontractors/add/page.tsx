@@ -10,6 +10,7 @@ const companyId = 'default-company-id'
 export default function AddSubcontractorPage() {
   const router = useRouter()
 
+  const [submitting, setSubmitting] = useState(false)
   const [contractorCode, setContractorCode] = useState('')
   const [contractorName, setContractorName] = useState('')
   const [serviceType, setServiceType] = useState('')
@@ -136,27 +137,33 @@ export default function AddSubcontractorPage() {
       return
     }
 
+    setSubmitting(true)
     try {
-      await estimationResourceRateService.createResourceRate(companyId, {
-        rateType: 'Subcontractor',
+      await estimationResourceRateService.createSubcontractorRate(companyId, {
         code: contractorCode,
-        name: contractorName,
-        category: serviceType,
-        unit,
-        currency: 'INR',
-        standardRate: parseFloat(rate),
+        subcontractorName: contractorName,
+        contactPerson,
+        email,
+        phone,
         isActive: status === 'active',
-        effectiveFrom: effectiveFrom || undefined,
-        supplierName: contractorName,
+        services: [
+          {
+            serviceId: contractorCode,
+            serviceName: serviceType,
+            description: specializations.join(', '),
+            unit,
+            rate: parseFloat(rate),
+            minimumCharge: parseFloat(minimumOrder) || 0,
+            leadTime: leadTime ? `${leadTime} days` : '',
+          },
+        ],
         // Subcontractor-specific extras spread onto the payload
         serviceType,
         specialization: specializations,
         subcontractorRateType: rateType,
-        contactPerson,
-        phone,
-        email,
-        minimumOrder: parseFloat(minimumOrder) || 0,
-        leadTime: parseInt(leadTime) || 0,
+        rate: parseFloat(rate),
+        unit,
+        effectiveFrom: effectiveFrom || undefined,
         paymentTerms,
         status,
         companyAddress,
@@ -169,7 +176,9 @@ export default function AddSubcontractorPage() {
       router.push('/estimation/rates/subcontractors')
     } catch (error) {
       console.error('Failed to create subcontractor:', error)
-      alert('Failed to save subcontractor. Please try again.')
+      alert(error instanceof Error ? error.message : 'Failed to save subcontractor. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -192,10 +201,11 @@ export default function AddSubcontractorPage() {
           </div>
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={submitting}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            Save Subcontractor
+            {submitting ? 'Saving...' : 'Save Subcontractor'}
           </button>
         </div>
       </div>
@@ -689,10 +699,11 @@ export default function AddSubcontractorPage() {
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={submitting}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              Save Subcontractor
+              {submitting ? 'Saving...' : 'Save Subcontractor'}
             </button>
           </div>
         </div>

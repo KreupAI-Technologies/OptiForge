@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Calculator, TrendingUp, DollarSign, BookOpen, ChevronRight, ChevronDown, Building, Download, Upload, Grid, List } from 'lucide-react';
 import { commonMastersService, Account } from '@/services/common-masters.service';
+import { FinanceService, AccountType, AccountStatus } from '@/services/finance.service';
 
 const accountTypes = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 const accountSubTypes = {
@@ -122,34 +123,53 @@ export default function ChartOfAccountsMaster() {
     setActiveTab('basic');
   };
 
-  const handleDeleteAccount = (id: string) => {
+  const handleDeleteAccount = async (id: string) => {
     const hasChildren = accounts.some(acc => acc.parentId === id);
     if (hasChildren) {
       alert('Cannot delete account with sub-accounts. Please delete sub-accounts first.');
       return;
     }
-    if (confirm('Are you sure you want to delete this account?')) {
-      setAccounts(accounts.filter(account => account.id !== id));
+    if (!confirm('Are you sure you want to delete this account?')) return;
+    try {
+      await FinanceService.deleteAccount(id);
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      alert('Failed to delete account.');
     }
   };
 
-  const handleSaveAccount = (accountData: any) => {
-    if (editingAccount?.id) {
-      setAccounts(accounts.map(account =>
-        account.id === editingAccount.id
-          ? { ...account, ...accountData, updatedAt: new Date().toISOString().split('T')[0] }
-          : account
-      ));
-    } else {
-      const newAccount: Account = {
-        id: Date.now().toString(),
-        ...accountData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setAccounts([...accounts, newAccount]);
+  const handleSaveAccount = async (accountData: any) => {
+    const typeMap: Record<string, AccountType> = {
+      asset: AccountType.ASSET,
+      liability: AccountType.LIABILITY,
+      equity: AccountType.EQUITY,
+      revenue: AccountType.REVENUE,
+      expense: AccountType.EXPENSE,
+    };
+    try {
+      if (editingAccount?.id) {
+        await FinanceService.updateAccount(editingAccount.id, {
+          name: accountData.accountName,
+          description: accountData.description || undefined,
+          status: accountData.status === 'inactive' ? AccountStatus.INACTIVE : AccountStatus.ACTIVE,
+        });
+      } else {
+        await FinanceService.createAccount({
+          code: accountData.accountCode,
+          name: accountData.accountName,
+          type: typeMap[accountData.accountType] ?? AccountType.ASSET,
+          parentId: accountData.parentId || undefined,
+          description: accountData.description || undefined,
+          currency: accountData.currency || undefined,
+        });
+      }
+      setShowModal(false);
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Failed to save account:', error);
+      alert('Failed to save account.');
     }
-    setShowModal(false);
   };
 
   const getStatusBadge = (status: string) => {

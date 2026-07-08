@@ -41,6 +41,7 @@ export default function Page() {
   const [rows, setRows] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -96,14 +97,49 @@ export default function Page() {
     setShowConductModal(true);
   };
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Review Submitted",
-      description: `Performance review for ${selectedReview?.employeeName} has been completed and saved.`
-    });
-    setShowConductModal(false);
-    setSelectedReview(null);
+    if (!selectedReview) return;
+    setIsSubmitting(true);
+    const performanceRating = Number(conductFormData.performanceRating);
+    const areasStrength = conductFormData.areasStrength.split(',').map((s) => s.trim()).filter(Boolean);
+    const areasImprovement = conductFormData.areasImprovement.split(',').map((s) => s.trim()).filter(Boolean);
+    const completedDate = new Date().toISOString().split('T')[0];
+    const recommendation = conductFormData.recommendation as Review['recommendation'];
+    try {
+      await HrTalentService.updateProbation<Review>(selectedReview.id, {
+        status: 'completed',
+        data: {
+          status: 'completed',
+          performanceRating,
+          areasStrength,
+          areasImprovement,
+          recommendation,
+          completedDate,
+        },
+      });
+      toast({
+        title: "Review Submitted",
+        description: `Performance review for ${selectedReview.employeeName} has been completed and saved.`
+      });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === selectedReview.id
+            ? { ...r, status: 'completed', performanceRating, areasStrength, areasImprovement, recommendation, completedDate }
+            : r,
+        ),
+      );
+      setShowConductModal(false);
+      setSelectedReview(null);
+    } catch (err) {
+      toast({
+        title: "Submission Failed",
+        description: err instanceof Error ? err.message : 'Could not submit the review',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReschedule = (review: Review) => {
@@ -112,14 +148,37 @@ export default function Page() {
     setShowRescheduleModal(true);
   };
 
-  const handleSubmitReschedule = (e: React.FormEvent) => {
+  const handleSubmitReschedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Review Rescheduled",
-      description: `Review for ${selectedReview?.employeeName} has been rescheduled to ${rescheduleDate}.`
-    });
-    setShowRescheduleModal(false);
-    setSelectedReview(null);
+    if (!selectedReview) return;
+    setIsSubmitting(true);
+    try {
+      await HrTalentService.updateProbation<Review>(selectedReview.id, {
+        status: 'rescheduled',
+        data: { status: 'rescheduled', scheduledDate: rescheduleDate },
+      });
+      toast({
+        title: "Review Rescheduled",
+        description: `Review for ${selectedReview.employeeName} has been rescheduled to ${rescheduleDate}.`
+      });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === selectedReview.id
+            ? { ...r, status: 'rescheduled', scheduledDate: rescheduleDate }
+            : r,
+        ),
+      );
+      setShowRescheduleModal(false);
+      setSelectedReview(null);
+    } catch (err) {
+      toast({
+        title: "Reschedule Failed",
+        description: err instanceof Error ? err.message : 'Could not reschedule the review',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -441,9 +500,10 @@ export default function Page() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
-                  Submit Review
+                  {isSubmitting ? 'Submitting…' : 'Submit Review'}
                 </button>
               </div>
             </form>
@@ -500,9 +560,10 @@ export default function Page() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
-                  Reschedule
+                  {isSubmitting ? 'Rescheduling…' : 'Reschedule'}
                 </button>
               </div>
             </form>

@@ -20,6 +20,7 @@ import { SupportScheduledChange } from './entities/support-scheduled-change.enti
 import { OmnichannelInteraction } from './entities/omnichannel-interaction.entity';
 import { SupportReportSchedule } from './entities/support-report-schedule.entity';
 import { SupportCustomReport } from './entities/support-custom-report.entity';
+import { SupportOnboardingTask } from './entities/support-onboarding-task.entity';
 import { SupportAutomationRuleController } from './controllers/support-automation-rule.controller';
 import { SupportFaqController } from './controllers/support-faq.controller';
 import { SupportTicketCategoryController } from './controllers/support-ticket-category.controller';
@@ -40,6 +41,7 @@ import { OmnichannelInteractionController } from './controllers/omnichannel-inte
 import { ITILController } from './controllers/itil.controller';
 import { SupportReportScheduleController } from './controllers/support-report-schedule.controller';
 import { SupportCustomReportController } from './controllers/support-custom-report.controller';
+import { SupportOnboardingTaskController } from './controllers/support-onboarding-task.controller';
 import { SupportAutomationRuleService } from './services/support-automation-rule.service';
 import { SupportFaqService } from './services/support-faq.service';
 import { SupportTicketCategoryService } from './services/support-ticket-category.service';
@@ -59,6 +61,7 @@ import { SupportScheduledChangeService } from './services/support-scheduled-chan
 import { OmnichannelInteractionService } from './services/omnichannel-interaction.service';
 import { SupportReportScheduleService } from './services/support-report-schedule.service';
 import { SupportCustomReportService } from './services/support-custom-report.service';
+import { SupportOnboardingTaskService } from './services/support-onboarding-task.service';
 import { AIResponsesService } from './services/ai-responses.service';
 import { BacklogService } from './services/backlog.service';
 import { ChannelRoutingService } from './services/channel-routing.service';
@@ -95,6 +98,7 @@ import { SupportController } from './support.controller';
       OmnichannelInteraction,
       SupportReportSchedule,
       SupportCustomReport,
+      SupportOnboardingTask,
     ]),
   ],
   controllers: [
@@ -120,6 +124,7 @@ import { SupportController } from './support.controller';
     OmnichannelInteractionController,
     SupportReportScheduleController,
     SupportCustomReportController,
+    SupportOnboardingTaskController,
     ITILController,
     SupportController,
   ],
@@ -143,6 +148,7 @@ import { SupportController } from './support.controller';
     OmnichannelInteractionService,
     SupportReportScheduleService,
     SupportCustomReportService,
+    SupportOnboardingTaskService,
     AIResponsesService,
     BacklogService,
     ChannelRoutingService,

@@ -282,10 +282,11 @@ export default function BulkPunchPage() {
             </button>
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={isSaving || isLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
             >
               <Save className="h-4 w-4" />
-              Save All Changes
+              {isSaving ? 'Saving…' : 'Save All Changes'}
             </button>
           </div>
         </div>

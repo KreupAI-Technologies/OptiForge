@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import { Car, Plus, Calendar, IndianRupee, User, MapPin, Edit2, Trash2, X, Save, AlertCircle, Download, Navigation } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -35,29 +35,86 @@ interface CabBooking {
   remarks?: string;
 }
 
+const EMPTY_CAB_FORM = {
+  travelRequestId: '',
+  employeeCode: '',
+  employeeName: '',
+  provider: 'ola',
+  bookingNumber: '',
+  cabType: 'sedan',
+  pickupLocation: '',
+  dropLocation: '',
+  pickupDate: '',
+  pickupTime: '',
+  tripType: 'one-way',
+  distance: '',
+  baseFare: '',
+  taxes: '',
+  totalAmount: '',
+  bookingStatus: 'confirmed',
+  paymentMethod: 'corporate-account',
+  remarks: '',
+};
+
 export default function CabBookingPage() {
   const [bookings, setBookings] = useState<CabBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...EMPTY_CAB_FORM });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrExpensesService.getBookings('cab');
+      setBookings(Array.isArray(rows) ? (rows as any) : []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      setBookings([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrPagesService.travelRequests<any[]>();
-        if (!cancelled) setBookings(Array.isArray(rows) ? (rows as any) : []);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
-          setBookings([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSaveBooking = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await HrExpensesService.createBooking('cab', {
+        employeeCode: form.employeeCode,
+        cardHolder: form.employeeName,
+        merchantName: form.provider,
+        transactionId: form.bookingNumber,
+        location: `${form.pickupLocation} → ${form.dropLocation}`,
+        transactionDate: form.pickupDate,
+        transactionTime: form.pickupTime,
+        amount: Number(form.totalAmount || 0),
+        status: form.bookingStatus === 'cancelled' ? 'cancelled' : 'pending',
+        notes: [
+          `Cab: ${form.cabType}, ${form.tripType}`,
+          form.distance ? `${form.distance}km` : '',
+          `Payment: ${form.paymentMethod}`,
+          form.travelRequestId ? `TR: ${form.travelRequestId}` : '',
+          form.remarks,
+        ].filter(Boolean).join(' | '),
+      });
+      toast({ title: 'Booking Added', description: 'Cab booking has been recorded successfully' });
+      setShowAddModal(false);
+      setForm({ ...EMPTY_CAB_FORM });
+      await load();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save booking.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -362,20 +419,23 @@ export default function CabBookingPage() {
             </div>
 
             <div className="p-6">
-              <form className="space-y-3">
+              {saveError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>
+              )}
+              <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); handleSaveBooking(); }}>
                 {/* Employee & Travel Request */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Travel Request ID</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="TR-2025-XXX" />
+                    <input type="text" value={form.travelRequestId} onChange={(e) => setForm({ ...form, travelRequestId: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="TR-2025-XXX" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Code</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="EMPXXX" />
+                    <input type="text" value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="EMPXXX" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Name</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
 
@@ -383,7 +443,7 @@ export default function CabBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Provider</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="ola">Ola</option>
                       <option value="uber">Uber</option>
                       <option value="meru">Meru</option>
@@ -393,11 +453,11 @@ export default function CabBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Number</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="OLA123456" />
+                    <input type="text" value={form.bookingNumber} onChange={(e) => setForm({ ...form, bookingNumber: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="OLA123456" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Cab Type</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select value={form.cabType} onChange={(e) => setForm({ ...form, cabType: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="hatchback">Hatchback</option>
                       <option value="sedan">Sedan</option>
                       <option value="suv">SUV</option>
@@ -410,11 +470,11 @@ export default function CabBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Pickup Location</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Office / Airport" />
+                    <input type="text" value={form.pickupLocation} onChange={(e) => setForm({ ...form, pickupLocation: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Office / Airport" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Drop Location</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Destination" />
+                    <input type="text" value={form.dropLocation} onChange={(e) => setForm({ ...form, dropLocation: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Destination" />
                   </div>
                 </div>
 
@@ -422,15 +482,15 @@ export default function CabBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Pickup Date</label>
-                    <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input type="date" value={form.pickupDate} onChange={(e) => setForm({ ...form, pickupDate: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Pickup Time</label>
-                    <input type="time" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input type="time" value={form.pickupTime} onChange={(e) => setForm({ ...form, pickupTime: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Trip Type</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select value={form.tripType} onChange={(e) => setForm({ ...form, tripType: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="one-way">One Way</option>
                       <option value="round-trip">Round Trip</option>
                       <option value="hourly">Hourly Rental</option>
@@ -439,7 +499,7 @@ export default function CabBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Distance (km)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input type="number" value={form.distance} onChange={(e) => setForm({ ...form, distance: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                 </div>
 
@@ -447,15 +507,15 @@ export default function CabBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Base Fare (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input type="number" value={form.baseFare} onChange={(e) => setForm({ ...form, baseFare: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Taxes (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input type="number" value={form.taxes} onChange={(e) => setForm({ ...form, taxes: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Total Amount (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input type="number" value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                 </div>
 
@@ -463,7 +523,7 @@ export default function CabBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Status</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select value={form.bookingStatus} onChange={(e) => setForm({ ...form, bookingStatus: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="confirmed">Confirmed</option>
                       <option value="pending">Pending</option>
                       <option value="completed">Completed</option>
@@ -472,7 +532,7 @@ export default function CabBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="corporate-account">Corporate Account</option>
                       <option value="employee-paid">Employee Paid</option>
                       <option value="cash">Cash</option>
@@ -482,24 +542,22 @@ export default function CabBookingPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Remarks</label>
-                  <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={3} placeholder="Any additional notes..."></textarea>
+                  <textarea value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={3} placeholder="Any additional notes..."></textarea>
                 </div>
               </form>
             </div>
 
             <div className="p-6 border-t border-gray-200 flex justify-end gap-3 sticky bottom-0 bg-white">
-              <button onClick={() => setShowAddModal(false)} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium">
+              <button onClick={() => setShowAddModal(false)} disabled={saving} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium disabled:opacity-50">
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  toast({ title: "Booking Added", description: "Cab booking has been recorded successfully" });
-                  setShowAddModal(false);
-                }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+                onClick={handleSaveBooking}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                Save Booking
+                {saving ? 'Saving…' : 'Save Booking'}
               </button>
             </div>
           </div>

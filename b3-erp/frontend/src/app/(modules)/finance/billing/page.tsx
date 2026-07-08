@@ -20,6 +20,8 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { FinanceService } from '@/services/finance.service';
+import { InvoiceService } from '@/services/invoice.service';
 
 interface ProjectInfo {
     id: string;
@@ -40,6 +42,15 @@ interface BillingEntry {
     status: 'Draft' | 'Generated' | 'Sent' | 'Paid';
 }
 
+// Map backend invoice status -> the coarse billing lifecycle used on this page
+const mapInvoiceStatus = (raw: string): BillingEntry['status'] => {
+    const s = String(raw || '').toUpperCase();
+    if (s === 'PAID') return 'Paid';
+    if (s === 'DRAFT') return 'Draft';
+    if (s === 'PENDING_APPROVAL' || s === 'PENDING') return 'Generated';
+    return 'Sent';
+};
+
 export default function BillingPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -52,15 +63,46 @@ export default function BillingPage() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
     // Page data state
-    const [billingEntries, setBillingEntries] = useState<BillingEntry[]>([
-        { id: '1', invoiceNumber: 'INV-2024-345', orderNumber: 'ORD-KT-345', customerName: 'Pearl Apartments', amount: 450000, taxAmount: 81000, totalAmount: 531000, dueDate: '2024-12-15', status: 'Sent' },
-        { id: '2', invoiceNumber: 'INV-2024-346', orderNumber: 'ORD-KT-346', customerName: 'Villa Project', amount: 750000, taxAmount: 135000, totalAmount: 885000, dueDate: '2024-12-20', status: 'Draft' },
-        { id: '3', invoiceNumber: 'INV-2024-343', orderNumber: 'ORD-KT-343', customerName: 'Prestige Heights', amount: 320000, taxAmount: 57600, totalAmount: 377600, dueDate: '2024-12-10', status: 'Paid' },
-    ]);
+    const [billingEntries, setBillingEntries] = useState<BillingEntry[]>([]);
+    const [isLoadingBilling, setIsLoadingBilling] = useState(true);
+    const [billingError, setBillingError] = useState<string | null>(null);
+    const [actionId, setActionId] = useState<string | null>(null);
 
     useEffect(() => {
         loadProjects();
+        loadBillingEntries();
     }, []);
+
+    const loadBillingEntries = async () => {
+        setIsLoadingBilling(true);
+        try {
+            const raw = await FinanceService.getInvoices();
+            setBillingError(null);
+            setBillingEntries(
+                (Array.isArray(raw) ? raw : []).map((inv: any, i: number) => {
+                    const amount = Number(inv.subtotal ?? inv.amount ?? 0);
+                    const taxAmount = Number(inv.totalTax ?? inv.taxAmount ?? 0);
+                    return {
+                        id: String(inv.id ?? i + 1),
+                        invoiceNumber: String(inv.invoiceNumber ?? ''),
+                        orderNumber: String(inv.poNumber ?? inv.orderNumber ?? inv.reference ?? ''),
+                        customerName: String(inv.customerName ?? inv.customer ?? ''),
+                        amount,
+                        taxAmount,
+                        totalAmount: Number(inv.totalAmount ?? inv.total ?? amount + taxAmount),
+                        dueDate: String(inv.dueDate ?? '').slice(0, 10),
+                        status: mapInvoiceStatus(inv.status),
+                    };
+                })
+            );
+        } catch (error: any) {
+            console.error('Error loading billing entries:', error);
+            setBillingError(error?.message || 'Failed to load billing entries');
+            setBillingEntries([]);
+        } finally {
+            setIsLoadingBilling(false);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -101,24 +143,44 @@ export default function BillingPage() {
         p.clientName.toLowerCase().includes(projectSearch.toLowerCase())
     );
 
-    const handleGenerateInvoice = (id: string) => {
-        setBillingEntries(billingEntries.map(entry =>
-            entry.id === id ? { ...entry, status: 'Generated' } : entry
-        ));
-        toast({
-            title: 'Invoice Generated',
-            description: 'Invoice has been generated successfully',
-        });
+    const handleGenerateInvoice = async (id: string) => {
+        setActionId(id);
+        try {
+            await InvoiceService.submitInvoice(id);
+            toast({
+                title: 'Invoice Generated',
+                description: 'Invoice has been submitted successfully',
+            });
+            await loadBillingEntries();
+        } catch (error: any) {
+            toast({
+                title: 'Generate Failed',
+                description: error?.message || 'Could not generate invoice',
+                variant: 'destructive',
+            });
+        } finally {
+            setActionId(null);
+        }
     };
 
-    const handleSendInvoice = (id: string) => {
-        setBillingEntries(billingEntries.map(entry =>
-            entry.id === id ? { ...entry, status: 'Sent' } : entry
-        ));
-        toast({
-            title: 'Invoice Sent',
-            description: 'Invoice has been sent to accounts team',
-        });
+    const handleSendInvoice = async (id: string) => {
+        setActionId(id);
+        try {
+            await InvoiceService.approveInvoice(id);
+            toast({
+                title: 'Invoice Sent',
+                description: 'Invoice has been sent to accounts team',
+            });
+            await loadBillingEntries();
+        } catch (error: any) {
+            toast({
+                title: 'Send Failed',
+                description: error?.message || 'Could not send invoice',
+                variant: 'destructive',
+            });
+        } finally {
+            setActionId(null);
+        }
     };
 
     const getStatusBadge = (status: BillingEntry['status']) => {
@@ -265,7 +327,7 @@ export default function BillingPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Billing & Invoice Tracking</CardTitle>
-                        <Button size="sm">
+                        <Button size="sm" onClick={() => router.push('/finance/invoices/add')}>
                             <Plus className="h-4 w-4 mr-1" />
                             New Invoice
                         </Button>
@@ -288,7 +350,18 @@ export default function BillingPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {billingEntries.map((entry) => (
+                                {isLoadingBilling && (
+                                    <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">
+                                        <Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading invoices...
+                                    </td></tr>
+                                )}
+                                {!isLoadingBilling && billingError && (
+                                    <tr><td colSpan={9} className="p-8 text-center text-red-600">{billingError}</td></tr>
+                                )}
+                                {!isLoadingBilling && !billingError && billingEntries.length === 0 && (
+                                    <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">No billing entries found.</td></tr>
+                                )}
+                                {!isLoadingBilling && !billingError && billingEntries.map((entry) => (
                                     <tr key={entry.id} className="border-t hover:bg-muted/50">
                                         <td className="p-4 font-medium">{entry.invoiceNumber}</td>
                                         <td className="p-4">{entry.orderNumber}</td>
@@ -304,21 +377,27 @@ export default function BillingPage() {
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
+                                                        disabled={actionId === entry.id}
                                                         onClick={() => handleGenerateInvoice(entry.id)}
                                                     >
-                                                        Generate
+                                                        {actionId === entry.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}
                                                     </Button>
                                                 )}
                                                 {entry.status === 'Generated' && (
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
+                                                        disabled={actionId === entry.id}
                                                         onClick={() => handleSendInvoice(entry.id)}
                                                     >
-                                                        Send to Accounts
+                                                        {actionId === entry.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send to Accounts'}
                                                     </Button>
                                                 )}
-                                                <Button size="sm" variant="ghost">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => router.push(`/finance/invoices/view/${entry.id}`)}
+                                                >
                                                     <FileText className="h-4 w-4" />
                                                 </Button>
                                             </div>

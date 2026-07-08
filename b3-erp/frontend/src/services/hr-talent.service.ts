@@ -77,4 +77,105 @@ export class HrTalentService {
   ): Promise<T[]> {
     return getRows<T>('/hr/performance-goals', recordType, companyId);
   }
+
+  // --- Succession create (POST /hr/succession-plans) ---
+  // The backend stores each row as { companyId, recordType, title, status, data }
+  // where `data` is the full page row shape. Callers pass the row model in `data`.
+  static async createSuccession<T = Record<string, any>>(
+    data: T,
+    opts: { recordType?: string; companyId?: string; title?: string; status?: string } = {},
+  ): Promise<HrTalentRecord<T>> {
+    const res = await fetch(`${API_BASE_URL}/hr/succession-plans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyId: opts.companyId ?? 'company-1',
+        recordType: opts.recordType ?? 'plan',
+        title: opts.title,
+        status: opts.status,
+        data,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Request failed (${res.status})`);
+    }
+    return res.json();
+  }
+
+  // --- Probation create/update (POST/PUT /hr/probation-reviews[/:id]) ---
+  // Rows are stored as { companyId, recordType, employeeCode, status, data }
+  // where `data` mirrors the page row model. `getProbation` returns { id, ...data },
+  // so the row's `id` is the DB row id used for updates.
+  static async createProbation<T = Record<string, any>>(
+    data: T,
+    opts: { recordType?: string; companyId?: string; employeeCode?: string; status?: string } = {},
+  ): Promise<HrTalentRecord<T>> {
+    const res = await fetch(`${API_BASE_URL}/hr/probation-reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyId: opts.companyId ?? 'company-1',
+        recordType: opts.recordType ?? 'tracking',
+        employeeCode: opts.employeeCode,
+        status: opts.status,
+        data,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Request failed (${res.status})`);
+    }
+    return res.json();
+  }
+
+  static async updateProbation<T = Record<string, any>>(
+    id: string,
+    payload: { data?: Partial<T>; status?: string; employeeCode?: string },
+  ): Promise<HrTalentRecord<T>> {
+    const res = await fetch(`${API_BASE_URL}/hr/probation-reviews/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      throw new Error(`Request failed (${res.status})`);
+    }
+    return res.json();
+  }
+
+  // --- Performance goals create/update (POST/PUT /hr/performance-goals[/:id]) ---
+  static async createPerformance<T = Record<string, any>>(
+    data: T,
+    opts: { recordType?: string; companyId?: string; employeeCode?: string; status?: string } = {},
+  ): Promise<HrTalentRecord<T>> {
+    const res = await fetch(`${API_BASE_URL}/hr/performance-goals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyId: opts.companyId ?? 'company-1',
+        recordType: opts.recordType ?? 'my-goal',
+        employeeCode: opts.employeeCode,
+        status: opts.status,
+        data,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Request failed (${res.status})`);
+    }
+    return res.json();
+  }
+
+  static async updatePerformance<T = Record<string, any>>(
+    id: string,
+    payload: { data?: Partial<T>; status?: string; employeeCode?: string },
+  ): Promise<HrTalentRecord<T>> {
+    const res = await fetch(`${API_BASE_URL}/hr/performance-goals/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      throw new Error(`Request failed (${res.status})`);
+    }
+    return res.json();
+  }
 }

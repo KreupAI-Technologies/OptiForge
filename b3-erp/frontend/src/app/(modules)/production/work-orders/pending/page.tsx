@@ -52,6 +52,42 @@ export default function PendingWorkOrdersPage() {
   const [pendingOrders, setPendingOrders] = useState<PendingWorkOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [startingId, setStartingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadOrders = async () => {
+    setIsLoading(true); setLoadError(null);
+    try {
+      const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
+      const mapped: PendingWorkOrder[] = (raw || []).map((r: any) => ({
+        id: String(r.id ?? ''),
+        workOrderNumber: r.workOrderNumber ?? '',
+        productCode: r.productCode ?? '',
+        productName: r.productName ?? '',
+        category: r.category ?? '',
+        quantity: Number(r.quantity ?? 0),
+        unit: r.unit ?? '',
+        priority: (r.priority ?? 'medium') as PendingWorkOrder['priority'],
+        salesOrderNumber: r.salesOrderNumber ?? '',
+        customerName: r.customerName ?? '',
+        requiredDate: r.requiredDate ?? '',
+        daysUntilDue: Number(r.daysUntilDue ?? 0),
+        materialAvailability: Number(r.materialAvailability ?? 0),
+        laborAvailable: Boolean(r.laborAvailable ?? false),
+        equipmentReady: Boolean(r.equipmentReady ?? false),
+        estimatedDuration: Number(r.estimatedDuration ?? 0),
+        estimatedCost: Number(r.estimatedCost ?? 0),
+        createdDate: r.createdDate ?? '',
+        createdBy: r.createdBy ?? '',
+        blockers: Array.isArray(r.blockers) ? r.blockers.map((b: any) => String(b)) : [],
+        status: (r.status ?? 'awaiting-materials') as PendingWorkOrder['status'],
+      }));
+      setPendingOrders(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load'); setPendingOrders([]);
+    } finally { setIsLoading(false); }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -135,11 +171,19 @@ export default function PendingWorkOrdersPage() {
     router.push(`/production/work-orders/view/${workOrderId}`);
   };
 
-  const handleStartProduction = (order: PendingWorkOrder) => {
-    if (confirm(`Start production for Work Order ${order.workOrderNumber}?\n\nProduct: ${order.productName}\nQuantity: ${order.quantity} ${order.unit}\nEstimated Duration: ${order.estimatedDuration} days`)) {
-      console.log('Starting production for:', order);
-      alert(`Production started for ${order.workOrderNumber}!\n\nWork order has been moved to "In Progress" status.\nYou can track progress in the In Progress section.`);
+  const handleStartProduction = async (order: PendingWorkOrder) => {
+    if (!confirm(`Start production for Work Order ${order.workOrderNumber}?\n\nProduct: ${order.productName}\nQuantity: ${order.quantity} ${order.unit}\nEstimated Duration: ${order.estimatedDuration} days`)) {
+      return;
+    }
+    setStartingId(order.id);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.startWorkOrder(order.id);
       router.push('/production/work-orders/progress');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to start production for ${order.workOrderNumber}`);
+    } finally {
+      setStartingId(null);
     }
   };
 
@@ -147,6 +191,7 @@ export default function PendingWorkOrdersPage() {
     <div className="w-full px-3 py-2">
       {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
       {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
+      {actionError && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -379,10 +424,11 @@ export default function PendingWorkOrdersPage() {
                     {order.status === 'ready-to-start' && (
                       <button
                         onClick={() => handleStartProduction(order)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center gap-2"
+                        disabled={startingId === order.id}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Play className="h-4 w-4" />
-                        Start Production
+                        {startingId === order.id ? 'Starting…' : 'Start Production'}
                       </button>
                     )}
                   </div>

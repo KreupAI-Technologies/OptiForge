@@ -259,7 +259,7 @@ export function AddAccountModal({ isOpen, onClose, onCreate }: any) {
         <div className="bg-gray-50 px-3 py-2 flex justify-end space-x-3 border-t sticky bottom-0">
           <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">Cancel</button>
           <button
-            onClick={() => { console.log('Create Account:', formData); onCreate(formData); }}
+            onClick={() => onCreate(formData)}
             disabled={!isValid}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
@@ -369,7 +369,7 @@ export function EditAccountModal({ isOpen, onClose, onSave, account }: any) {
         <div className="bg-gray-50 px-3 py-2 flex justify-end space-x-3 border-t">
           <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">Cancel</button>
           <button
-            onClick={() => { console.log('Save Account:', formData); onSave(formData); }}
+            onClick={() => onSave(formData)}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             Save Changes

@@ -39,6 +39,7 @@ function ToolDispatchPageContent() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
     const [dispatched, setDispatched] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -79,13 +80,31 @@ function ToolDispatchPageContent() {
         p.clientName.toLowerCase().includes(projectSearch.toLowerCase())
     );
 
-    const handleDispatch = () => {
-        setDispatched(true);
-        toast({
-            title: 'Tools Dispatched',
-            description: 'Tools have been dispatched to the site',
-        });
-        setTimeout(() => router.push(`/installation/team-assignment?projectId=${selectedProject?.id}`), 1000);
+    const handleDispatch = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            await projectManagementService.createInstallDispatch({
+                projectId: selectedProject.id,
+                destination: selectedProject.clientName,
+                notes: 'Installation tools dispatched to site',
+            });
+            setDispatched(true);
+            toast({
+                title: 'Tools Dispatched',
+                description: 'Tools have been dispatched to the site.',
+            });
+            router.push(`/installation/team-assignment?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error dispatching tools:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Dispatch Failed',
+                description: 'Could not dispatch tools. Ensure all site readiness checks are complete, then try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // Project Selection View
@@ -173,8 +192,9 @@ function ToolDispatchPageContent() {
                     </Button>
                     <Button
                         onClick={handleDispatch}
-                        disabled={dispatched}
+                        disabled={dispatched || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {dispatched ? 'Dispatched' : 'Confirm Dispatch'}
                         <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>

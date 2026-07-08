@@ -445,3 +445,19 @@ FROM (
   LIMIT 3
 ) u
 ON CONFLICT ("sessionToken") DO NOTHING;
+
+-- ============================================================================
+-- Scalability & Performance metric samples (entity: SystemMonitor, kind='performance')
+-- Backs the /it-admin/system/scalability page. Reuses the existing
+-- it_system_monitor table (category='scalability'); idempotent/additive.
+-- ============================================================================
+INSERT INTO "it_system_monitor"
+  ("id", "companyId", "kind", "name", "category", "status", "severity", "message", "source", "value", "unit", "threshold", "occurrences", "lastOccurred")
+VALUES
+  ('b5a11000-0001-4000-8000-000000000001', 'company-1', 'performance', 'CPU Utilization', 'scalability', 'healthy', 'info', 'Average CPU utilization across app nodes', 'app-cluster', 45, '%', 85, 0, NULL),
+  ('b5a11000-0001-4000-8000-000000000002', 'company-1', 'performance', 'Memory Usage', 'scalability', 'healthy', 'info', 'Average memory usage across app nodes', 'app-cluster', 62, '%', 90, 0, NULL),
+  ('b5a11000-0001-4000-8000-000000000003', 'company-1', 'performance', 'Storage I/O', 'scalability', 'healthy', 'info', 'Disk I/O saturation on primary storage', 'storage-01', 28, '%', 80, 0, NULL),
+  ('b5a11000-0001-4000-8000-000000000004', 'company-1', 'performance', 'API Gateway Latency', 'scalability', 'degraded', 'warning', 'API Gateway latency spiked above target', 'api-gateway', 250, 'ms', 200, 3, '10 minutes ago'),
+  ('b5a11000-0001-4000-8000-000000000005', 'company-1', 'performance', 'Redis Cache Hit Rate', 'scalability', 'degraded', 'warning', 'Redis cache hit rate dropped below target', 'redis-01', 82, '%', 85, 1, '1 hour ago'),
+  ('b5a11000-0001-4000-8000-000000000006', 'company-1', 'performance', 'Active Worker Nodes', 'scalability', 'healthy', 'info', 'Auto-scaling added 2 worker nodes due to load', 'autoscaler', 8, 'count', NULL, 0, '2 hours ago')
+ON CONFLICT ("id") DO NOTHING;

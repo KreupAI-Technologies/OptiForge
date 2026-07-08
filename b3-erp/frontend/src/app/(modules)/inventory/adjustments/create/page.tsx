@@ -88,7 +88,8 @@ export default function CreateAdjustmentPage() {
     })),
   });
 
-  const submitAdjustment = async () => {
+  // `submitForApproval` = create the draft, then submit it for approval.
+  const submitAdjustment = async (submitForApproval: boolean) => {
     if (submitting) return;
     if (!warehouse) {
       alert('Please select a warehouse');
@@ -100,7 +101,11 @@ export default function CreateAdjustmentPage() {
     }
     setSubmitting(true);
     try {
-      await inventoryService.createStockAdjustment(buildPayload());
+      const created = await inventoryService.createStockAdjustment(buildPayload());
+      const newId = created?.id != null ? String(created.id) : undefined;
+      if (submitForApproval && newId) {
+        await inventoryService.submitStockAdjustment(newId);
+      }
       router.push('/inventory/adjustments');
     } catch (e) {
       console.error('Failed to create stock adjustment', e);
@@ -110,20 +115,7 @@ export default function CreateAdjustmentPage() {
     }
   };
 
-  const [adjustmentItems, setAdjustmentItems] = useState<AdjustmentItem[]>([
-    {
-      id: 1,
-      itemCode: 'ITM-001',
-      itemName: 'Steel Plate 10mm',
-      currentQty: 150,
-      adjustedQty: 145,
-      adjustment: -5,
-      unitValue: 2500,
-      valueImpact: -12500,
-      reason: 'Physical Count Variance',
-      batchNumber: 'BATCH-2025-001'
-    }
-  ]);
+  const [adjustmentItems, setAdjustmentItems] = useState<AdjustmentItem[]>([]);
 
   const addAdjustmentItem = () => {
     const newItem: AdjustmentItem = {
@@ -172,11 +164,11 @@ export default function CreateAdjustmentPage() {
   const negativeAdjustments = adjustmentItems.filter(item => item.adjustment < 0).length;
 
   const handleSaveDraft = async () => {
-    await submitAdjustment();
+    await submitAdjustment(false);
   };
 
   const handleSubmit = async () => {
-    await submitAdjustment();
+    await submitAdjustment(true);
   };
 
   return (
@@ -193,17 +185,19 @@ export default function CreateAdjustmentPage() {
         <div className="flex items-center space-x-3">
           <button
             onClick={handleSaveDraft}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
+            disabled={submitting}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            <span>Save Draft</span>
+            <span>{submitting ? 'Saving…' : 'Save Draft'}</span>
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            disabled={submitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
-            <span>Submit for Approval</span>
+            <span>{submitting ? 'Submitting…' : 'Submit for Approval'}</span>
           </button>
         </div>
       </div>

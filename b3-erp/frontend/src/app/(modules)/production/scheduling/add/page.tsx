@@ -108,6 +108,9 @@ const ProductionSchedulingAddPage = () => {
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [materialProjection, setMaterialProjection] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [woLoading, setWoLoading] = useState(true);
+  const [woError, setWoError] = useState<string | null>(null);
+  const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Generate Schedule ID on mount
   useEffect(() => {
@@ -116,132 +119,49 @@ const ProductionSchedulingAddPage = () => {
     setScheduleId(`SCH-${year}-${random}`);
   }, []);
 
-  // Load available work orders
+  // Load available work orders from the backend
   useEffect(() => {
-    const mockWorkOrders: WorkOrder[] = [
-      {
-        id: "WO-2025-1001",
-        product: "Ball Bearing 6205",
-        productCode: "PRD-BB-6205",
-        quantity: 1000,
-        dueDate: "2025-10-20",
-        status: "released",
-        priority: 1,
-        estimatedHours: 8,
-        setupTime: 1,
-        operations: 3,
-        materialAvailable: true,
-        workCenter: "CNC-01",
-        selected: false,
-      },
-      {
-        id: "WO-2025-1002",
-        product: "Shaft Assembly SA-450",
-        productCode: "PRD-SA-450",
-        quantity: 500,
-        dueDate: "2025-10-22",
-        status: "released",
-        priority: 1,
-        estimatedHours: 16,
-        setupTime: 2,
-        operations: 5,
-        materialAvailable: true,
-        workCenter: "CNC-01",
-        selected: false,
-      },
-      {
-        id: "WO-2025-1003",
-        product: "Gear Pinion GP-230",
-        productCode: "PRD-GP-230",
-        quantity: 750,
-        dueDate: "2025-10-18",
-        status: "released",
-        priority: 2,
-        estimatedHours: 12,
-        setupTime: 1.5,
-        operations: 4,
-        materialAvailable: true,
-        workCenter: "CNC-02",
-        selected: false,
-      },
-      {
-        id: "WO-2025-1004",
-        product: "Housing Unit HU-890",
-        productCode: "PRD-HU-890",
-        quantity: 300,
-        dueDate: "2025-10-25",
-        status: "planned",
-        priority: 1,
-        estimatedHours: 12,
-        setupTime: 2,
-        operations: 6,
-        materialAvailable: false,
-        workCenter: "CNC-03",
-        selected: false,
-      },
-      {
-        id: "WO-2025-1005",
-        product: "Flange FL-550",
-        productCode: "PRD-FL-550",
-        quantity: 600,
-        dueDate: "2025-10-19",
-        status: "released",
-        priority: 3,
-        estimatedHours: 8,
-        setupTime: 1,
-        operations: 3,
-        materialAvailable: true,
-        workCenter: "CNC-02",
-        selected: false,
-      },
-      {
-        id: "WO-2025-1006",
-        product: "Coupling CG-770",
-        productCode: "PRD-CG-770",
-        quantity: 400,
-        dueDate: "2025-10-21",
-        status: "released",
-        priority: 2,
-        estimatedHours: 10,
-        setupTime: 1.5,
-        operations: 4,
-        materialAvailable: true,
-        workCenter: "CNC-01",
-        selected: false,
-      },
-      {
-        id: "WO-2025-1007",
-        product: "Bushing BS-220",
-        productCode: "PRD-BS-220",
-        quantity: 800,
-        dueDate: "2025-10-23",
-        status: "released",
-        priority: 3,
-        estimatedHours: 6,
-        setupTime: 0.5,
-        operations: 2,
-        materialAvailable: true,
-        workCenter: "CNC-03",
-        selected: false,
-      },
-      {
-        id: "WO-2025-1008",
-        product: "Valve Body VB-340",
-        productCode: "PRD-VB-340",
-        quantity: 200,
-        dueDate: "2025-10-24",
-        status: "planned",
-        priority: 2,
-        estimatedHours: 14,
-        setupTime: 2,
-        operations: 7,
-        materialAvailable: false,
-        workCenter: "CNC-02",
-        selected: false,
-      },
-    ];
+    let active = true;
+    const loadWorkOrders = async () => {
+      try {
+        setWoLoading(true);
+        setWoError(null);
+        const rows = await ProductionOrphanService.getWorkOrders();
+        if (!active) return;
+        const mapped: WorkOrder[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          id: String(r.woNumber ?? r.wo_number ?? r.code ?? r.id ?? ''),
+          product: r.productName ?? r.product_name ?? r.product ?? '',
+          productCode: r.productCode ?? r.product_code ?? '',
+          quantity: Number(r.quantity ?? 0),
+          dueDate: (r.dueDate ?? r.due_date ?? r.plannedEnd ?? '')?.toString().split('T')[0] ?? '',
+          status: (r.status === 'planned' ? 'planned' : 'released') as WorkOrder['status'],
+          priority: Number(r.priority ?? 2) || 2,
+          estimatedHours: Number(r.estimatedHours ?? r.estimated_hours ?? 0),
+          setupTime: Number(r.setupTime ?? r.setup_time ?? 0),
+          operations: Number(r.operations ?? r.operationCount ?? 0),
+          materialAvailable: Boolean(r.materialAvailable ?? r.material_available ?? true),
+          workCenter: r.workCenter ?? r.work_center ?? '',
+          selected: false,
+        }));
+        setAvailableWOs(mapped);
+      } catch (err) {
+        if (active) {
+          setWoError(err instanceof Error ? err.message : 'Failed to load work orders');
+          setAvailableWOs([]);
+        }
+      } finally {
+        if (active) setWoLoading(false);
+      }
+    };
+    loadWorkOrders();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-    const mockConstraints: ScheduleConstraint[] = [
+  // Load default scheduling constraints
+  useEffect(() => {
+    const defaultConstraints: ScheduleConstraint[] = [
       {
         id: "work_center_capacity",
         name: "Work Center Capacity",
@@ -274,8 +194,7 @@ const ProductionSchedulingAddPage = () => {
       },
     ];
 
-    setAvailableWOs(mockWorkOrders);
-    setConstraints(mockConstraints);
+    setConstraints(defaultConstraints);
   }, []);
 
   const handleWOToggle = (woId: string) => {
@@ -333,138 +252,100 @@ const ProductionSchedulingAddPage = () => {
     }
 
     setAutoScheduling(true);
-    await new Promise((resolve) => setTimeout(resolve, 2500));
 
-    // Generate mock schedule preview
-    const mockPreview: SchedulePreview[] = [
-      {
-        workCenter: "CNC-01",
-        workOrders: selectedWOs
-          .filter((id) => {
-            const wo = availableWOs.find((w) => w.id === id);
-            return wo?.workCenter === "CNC-01";
-          })
-          .slice(0, 3)
-          .map((id, idx) => {
-            const wo = availableWOs.find((w) => w.id === id)!;
-            return {
-              id: wo.id,
-              product: wo.product,
-              startTime: `Oct ${13 + idx}, 08:00`,
-              endTime: `Oct ${13 + idx}, ${8 + wo.estimatedHours}:00`,
-              duration: wo.estimatedHours,
-            };
-          }),
-        utilization: 78,
-      },
-      {
-        workCenter: "CNC-02",
-        workOrders: selectedWOs
-          .filter((id) => {
-            const wo = availableWOs.find((w) => w.id === id);
-            return wo?.workCenter === "CNC-02";
-          })
-          .slice(0, 3)
-          .map((id, idx) => {
-            const wo = availableWOs.find((w) => w.id === id)!;
-            return {
-              id: wo.id,
-              product: wo.product,
-              startTime: `Oct ${13 + idx}, 08:00`,
-              endTime: `Oct ${13 + idx}, ${8 + wo.estimatedHours}:00`,
-              duration: wo.estimatedHours,
-            };
-          }),
-        utilization: 85,
-      },
-      {
-        workCenter: "CNC-03",
-        workOrders: selectedWOs
-          .filter((id) => {
-            const wo = availableWOs.find((w) => w.id === id);
-            return wo?.workCenter === "CNC-03";
-          })
-          .slice(0, 2)
-          .map((id, idx) => {
-            const wo = availableWOs.find((w) => w.id === id)!;
-            return {
-              id: wo.id,
-              product: wo.product,
-              startTime: `Oct ${13 + idx}, 08:00`,
-              endTime: `Oct ${13 + idx}, ${8 + wo.estimatedHours}:00`,
-              duration: wo.estimatedHours,
-            };
-          }),
-        utilization: 65,
-      },
-    ];
+    // Client-side scheduling projection derived from the actually-selected work
+    // orders. This is a UI preview (not fetched data); it groups the selected
+    // work orders by work center, sequences them and computes utilisation.
+    const selected = availableWOs.filter((wo) => selectedWOs.includes(wo.id));
 
-    const mockUtilization = [
-      { workCenter: "CNC-01", capacity: 168, allocated: 131, utilization: 78 },
-      { workCenter: "CNC-02", capacity: 168, allocated: 143, utilization: 85 },
-      { workCenter: "CNC-03", capacity: 168, allocated: 109, utilization: 65 },
-      { workCenter: "Assembly-01", capacity: 120, allocated: 72, utilization: 60 },
-    ];
+    // Capacity (hours) available per work center over the planning period.
+    const CAPACITY_HOURS = 168;
 
-    const mockConflicts = [
-      "CNC-02 capacity at 85% - approaching limit",
-      "WO-2025-1004: Material not available (ETA: Oct 15)",
-    ];
+    const byWorkCenter = new Map<string, WorkOrder[]>();
+    selected.forEach((wo) => {
+      const wc = wo.workCenter || "Unassigned";
+      if (!byWorkCenter.has(wc)) byWorkCenter.set(wc, []);
+      byWorkCenter.get(wc)!.push(wo);
+    });
 
-    const mockMaterialProjection = [
-      {
-        material: "Stainless Steel 304",
-        code: "RM-ST-304",
-        required: 2500,
-        available: 2500,
-        status: "available",
-      },
-      {
-        material: "Aluminum 6061",
-        code: "RM-AL-6061",
-        required: 1800,
-        available: 1200,
-        status: "shortage",
-        shortfall: 600,
-      },
-      {
-        material: "Brass C360",
-        code: "RM-BR-C360",
-        required: 800,
-        available: 800,
-        status: "available",
-      },
-      {
-        material: "Cast Iron GG25",
-        code: "RM-CI-GG25",
-        required: 1200,
-        available: 1000,
-        status: "partial",
-        shortfall: 200,
-      },
-    ];
+    const preview: SchedulePreview[] = [];
+    const utilization: any[] = [];
+    const conflictList: string[] = [];
 
-    setSchedulePreview(mockPreview);
-    setResourceUtilization(mockUtilization);
-    setConflicts(mockConflicts);
-    setMaterialProjection(mockMaterialProjection);
+    byWorkCenter.forEach((wos, workCenter) => {
+      let cursor = 8; // start at 08:00 on day offset 0
+      let dayOffset = 0;
+      const scheduledWOs = wos
+        // priority-based sequencing (P1 first), then earliest due date
+        .sort((a, b) => a.priority - b.priority || a.dueDate.localeCompare(b.dueDate))
+        .map((wo) => {
+          if (cursor + wo.estimatedHours > 24) {
+            dayOffset += 1;
+            cursor = 8;
+          }
+          const start = `Day ${dayOffset + 1}, ${String(cursor).padStart(2, "0")}:00`;
+          const end = `Day ${dayOffset + 1}, ${String(
+            Math.min(24, cursor + wo.estimatedHours),
+          ).padStart(2, "0")}:00`;
+          cursor += wo.estimatedHours;
+          if (!wo.materialAvailable) {
+            conflictList.push(`${wo.id}: Material not available`);
+          }
+          return {
+            id: wo.id,
+            product: wo.product,
+            startTime: start,
+            endTime: end,
+            duration: wo.estimatedHours,
+          };
+        });
+
+      const allocated = wos.reduce((sum, wo) => sum + wo.estimatedHours, 0);
+      const wcUtil = Math.round((allocated / CAPACITY_HOURS) * 100);
+      if (wcUtil > 90) {
+        conflictList.push(`${workCenter} capacity at ${wcUtil}% - approaching limit`);
+      }
+      preview.push({ workCenter, workOrders: scheduledWOs, utilization: wcUtil });
+      utilization.push({
+        workCenter,
+        capacity: CAPACITY_HOURS,
+        allocated,
+        utilization: wcUtil,
+      });
+    });
+
+    // Material projection derived from the selected work orders' availability flag.
+    const materialProj = selected.map((wo) => ({
+      material: wo.product,
+      code: wo.productCode,
+      required: wo.quantity,
+      available: wo.materialAvailable ? wo.quantity : 0,
+      status: wo.materialAvailable ? "available" : "shortage",
+      shortfall: wo.materialAvailable ? undefined : wo.quantity,
+    }));
+
+    setSchedulePreview(preview);
+    setResourceUtilization(utilization);
+    setConflicts(conflictList);
+    setMaterialProjection(materialProj);
     setScheduleGenerated(true);
     setAutoScheduling(false);
   };
 
   const handleSaveDraft = async () => {
     if (selectedWOs.length === 0) {
-      alert("Please select at least one work order");
+      setFormMessage({ type: "error", text: "Please select at least one work order." });
       return;
     }
 
     setSaving(true);
+    setFormMessage(null);
     try {
       const payload = {
-        scheduleId,
+        scheduleCode: scheduleId,
         planningPeriod,
-        startDate: periodDates.start,
-        endDate: periodDates.end,
+        plannedStart: periodDates.start,
+        plannedEnd: periodDates.end,
         schedulingMethod,
         status: "draft",
         workOrderIds: selectedWOs,
@@ -473,8 +354,10 @@ const ProductionSchedulingAddPage = () => {
       await ProductionOrphanService.createScheduleLine(payload as any);
       router.push("/production/scheduling");
     } catch (err) {
-      console.error("Failed to save schedule draft", err);
-      alert("Failed to save schedule. Please try again.");
+      setFormMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to save schedule. Please try again.",
+      });
     } finally {
       setSaving(false);
     }
@@ -482,35 +365,47 @@ const ProductionSchedulingAddPage = () => {
 
   const handlePublish = async () => {
     if (!scheduleGenerated) {
-      alert("Please generate schedule first by clicking Auto-Schedule");
+      setFormMessage({
+        type: "error",
+        text: "Please generate the schedule first by clicking Auto-Schedule.",
+      });
       return;
     }
 
     if (conflicts.length > 0) {
-      const confirm = window.confirm(
+      const proceed = window.confirm(
         `There are ${conflicts.length} conflict(s). Do you want to publish anyway?`
       );
-      if (!confirm) return;
+      if (!proceed) return;
     }
 
     setSaving(true);
+    setFormMessage(null);
     try {
       const payload = {
-        scheduleId,
+        scheduleCode: scheduleId,
         planningPeriod,
-        startDate: periodDates.start,
-        endDate: periodDates.end,
+        plannedStart: periodDates.start,
+        plannedEnd: periodDates.end,
         schedulingMethod,
-        status: "published",
+        status: "draft",
         workOrderIds: selectedWOs,
         constraints,
-        schedulePreview,
       };
-      await ProductionOrphanService.createScheduleLine(payload as any);
+      // schedule-lines has no publish route; create then mark published.
+      const created: any = await ProductionOrphanService.createScheduleLine(payload as any);
+      const createdId = created?.id ?? created?.data?.id;
+      if (createdId) {
+        await ProductionOrphanService.updateScheduleLine(String(createdId), {
+          status: "published",
+        });
+      }
       router.push("/production/scheduling");
     } catch (err) {
-      console.error("Failed to publish schedule", err);
-      alert("Failed to publish schedule. Please try again.");
+      setFormMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to publish schedule. Please try again.",
+      });
     } finally {
       setSaving(false);
     }
@@ -601,6 +496,18 @@ const ProductionSchedulingAddPage = () => {
           </div>
         </div>
       </div>
+
+      {formMessage && (
+        <div
+          className={`mb-3 rounded-lg border px-4 py-3 text-sm ${
+            formMessage.type === "success"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {formMessage.text}
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-3">
         {/* Left Panel - Configuration */}
@@ -879,6 +786,21 @@ const ProductionSchedulingAddPage = () => {
 
             {/* Work Orders List */}
             <div className="space-y-2 max-h-96 overflow-y-auto">
+              {woLoading && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                  Loading work orders…
+                </div>
+              )}
+              {woError && !woLoading && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {woError}
+                </div>
+              )}
+              {!woLoading && !woError && filteredWOs.length === 0 && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                  No work orders available.
+                </div>
+              )}
               {filteredWOs.map((wo) => (
                 <label
                   key={wo.id}

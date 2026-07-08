@@ -10,6 +10,7 @@ const companyId = 'default-company-id'
 export default function AddLaborRatePage() {
   const router = useRouter()
 
+  const [submitting, setSubmitting] = useState(false)
   const [skillCode, setSkillCode] = useState('')
   const [skillName, setSkillName] = useState('')
   const [department, setDepartment] = useState('')
@@ -76,6 +77,7 @@ export default function AddLaborRatePage() {
       return
     }
 
+    setSubmitting(true)
     try {
       await estimationResourceRateService.createResourceRate(companyId, {
         rateType: 'Labor',
@@ -102,7 +104,9 @@ export default function AddLaborRatePage() {
       router.push('/estimation/rates/labor')
     } catch (error) {
       console.error('Failed to create labor rate:', error)
-      alert('Failed to save labor rate. Please try again.')
+      alert(error instanceof Error ? error.message : 'Failed to save labor rate. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -125,10 +129,11 @@ export default function AddLaborRatePage() {
           </div>
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={submitting}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            Save Rate
+            {submitting ? 'Saving...' : 'Save Rate'}
           </button>
         </div>
       </div>
@@ -457,10 +462,11 @@ export default function AddLaborRatePage() {
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={submitting}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              Save Rate
+              {submitting ? 'Saving...' : 'Save Rate'}
             </button>
           </div>
         </div>

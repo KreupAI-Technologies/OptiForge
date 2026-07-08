@@ -8,6 +8,7 @@ import {
   Percent, Package, Clock, Filter, Search, Eye, Send, ArrowUpRight
 } from 'lucide-react';
 import { procurementSavingsService } from '@/services/procurement-savings.service';
+import { exportToCsv } from '@/lib/export';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -142,8 +143,27 @@ const ProcurementSavings: React.FC = () => {
   };
 
   const handleExportReports = () => {
-    console.log('Exporting savings reports...');
-    alert('Export Savings Reports - This would generate executive summary, detailed reports, dashboard, or audit reports.');
+    if (!savingsInitiatives.length) {
+      alert('No savings initiatives to export.');
+      return;
+    }
+    exportToCsv(
+      `savings-initiatives-${new Date().toISOString().slice(0, 10)}.csv`,
+      savingsInitiatives.map((i) => ({
+        id: i.id,
+        name: i.name,
+        category: i.category,
+        type: i.type,
+        targetSavings: i.targetSavings,
+        actualSavings: i.actualSavings,
+        achievementPct: i.targetSavings ? ((i.actualSavings / i.targetSavings) * 100).toFixed(1) : '0',
+        progress: i.progress,
+        owner: i.owner,
+        startDate: i.startDate,
+        endDate: i.endDate,
+        status: i.status,
+      })),
+    );
   };
 
   const handleComparePeriods = () => {

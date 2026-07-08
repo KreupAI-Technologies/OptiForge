@@ -20164,6 +20164,20 @@ model ComplianceRegReport {
   @@map("compliance_reg_reports")
 }
 
+// --- In-app documentation / help articles (read-side) — /documentation, /help ---
+model DocArticle {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  category String @default("General")
+  title String
+  slug String
+  body String
+  tags String?
+  updated_at DateTime @default(now())
+
+  @@map("doc_articles")
+}
+
 // --- Overtime settings (rates + rules) — /hr/overtime/settings ---
 
 model HrOvertimeRate {
@@ -20237,4 +20251,41 @@ model ProductionVariance {
 
   @@index([companyId, category])
   @@map("production_variances")
+}
+
+// ---------------------------------------------------------------------------
+// Advanced Features — read-side models (net-new; backs the /advanced-features
+// AI Insights dashboard and OCR document-processing pages). READ-SIDE ONLY.
+// Physical tables are created via prisma/manual/orphan_advanced-features.sql.
+// ---------------------------------------------------------------------------
+
+model AiInsight {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  category    String
+  title       String
+  description String?
+  severity    String   @default("info") // info, low, medium, high, critical
+  confidence  Float    @default(0)
+  module      String?
+  status      String   @default("new") // new, reviewed, actioned, dismissed
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([companyId, category])
+  @@map("ai_insights")
+}
+
+model OcrDocument {
+  id              String    @id @default(uuid())
+  companyId       String    @map("company_id")
+  fileName        String    @map("file_name")
+  docType         String    @map("doc_type")
+  status          String    @default("queued") // queued, processing, completed, failed
+  extractedFields Json?     @map("extracted_fields")
+  confidence      Float     @default(0)
+  uploadedAt      DateTime  @default(now()) @map("uploaded_at")
+  processedAt     DateTime? @map("processed_at")
+
+  @@index([companyId, status])
+  @@map("ocr_documents")
 }

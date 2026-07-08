@@ -159,6 +159,7 @@ const GRNEditPage = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchingPO, setSearchingPO] = useState(false);
   const [showPOSearch, setShowPOSearch] = useState(false);
   const [availablePOs, setAvailablePOs] = useState<PurchaseOrder[]>([]);
@@ -200,79 +201,7 @@ const GRNEditPage = () => {
     let cancelled = false;
     const fetchGRNData = async () => {
       setLoading(true);
-      const applyMock = () => {
-        const mockData: GRNFormData = {
-          grn_number: 'GRN-2025-00123',
-          grn_date: '2025-01-15',
-          grn_time: '10:30',
-          po_id: 'PO-2025-00089',
-          po_number: 'PO-2025-00089',
-          vendor_id: 'V001',
-          vendor_name: 'Tata Steel Limited',
-          receipt_date: '2025-01-15',
-          receipt_time: '10:30',
-          received_by: 'Suresh Patil',
-          gate_entry_no: 'GE-2025-00456',
-          invoice_number: 'TSL/2025/00789',
-          invoice_date: '2025-01-14',
-          invoice_value: 545000,
-          transporter_name: 'Blue Dart Logistics',
-          vehicle_number: 'MH-12-AB-1234',
-          driver_name: 'Ramesh Singh',
-          driver_mobile: '+91 98765 12345',
-          lr_number: 'BD/LR/2025/12345',
-          lr_date: '2025-01-14',
-          freight_charges: 5000,
-          freight_paid_by: 'vendor',
-          line_items: [
-            {
-              id: 'LI-001',
-              item_code: 'RM-STEEL-001',
-              item_name: 'Cold Rolled Steel Sheet',
-              description: 'Cold Rolled Steel Sheet, Grade: CR4, Thickness: 1.5mm',
-              unit: 'KG',
-              po_quantity: 5000,
-              previously_received: 0,
-              pending_quantity: 5000,
-              received_quantity: 4850,
-              accepted_quantity: 0,
-              rejected_quantity: 0,
-              batch_number: 'BATCH-CR4-2025-01',
-              lot_number: 'LOT-TS-00123',
-              storage_location: 'WH-A-RACK-12-BIN-05',
-              unit_price: 95,
-              qc_required: true,
-              qc_status: 'pending'
-            },
-            {
-              id: 'LI-002',
-              item_code: 'RM-STEEL-002',
-              item_name: 'Galvanized Steel Coil',
-              description: 'Galvanized Steel Coil, Grade: GI, Width: 1200mm',
-              unit: 'KG',
-              po_quantity: 3000,
-              previously_received: 0,
-              pending_quantity: 3000,
-              received_quantity: 3000,
-              accepted_quantity: 0,
-              rejected_quantity: 0,
-              batch_number: 'BATCH-GI-2025-01',
-              lot_number: 'LOT-TS-00124',
-              storage_location: 'WH-A-RACK-13-BIN-02',
-              unit_price: 110,
-              qc_required: true,
-              qc_status: 'pending'
-            }
-          ],
-          quality_inspections: [],
-          documents: [],
-          status: 'draft',
-          notes: ''
-        };
-
-        setFormData(mockData);
-      };
-
+      setLoadError(null);
       try {
         const raw = (await goodsReceiptService.getGoodsReceiptById(grnId)) as any;
         if (cancelled) return;
@@ -307,10 +236,10 @@ const GRNEditPage = () => {
               : prev.line_items,
           }));
         } else {
-          applyMock();
+          setLoadError('Goods Receipt not found.');
         }
-      } catch {
-        if (!cancelled) applyMock();
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load GRN.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -489,6 +418,24 @@ const GRNEditPage = () => {
         <div className="text-center">
           <Loader className="w-12 h-12 text-blue-600 animate-spin mb-2" />
           <p className="text-gray-600">Loading GRN data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mb-2 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Unable to load GRN</h2>
+          <p className="text-gray-600 mb-3">{loadError}</p>
+          <button
+            onClick={() => router.push('/procurement/grn')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Back to GRN List
+          </button>
         </div>
       </div>
     );

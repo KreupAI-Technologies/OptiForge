@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { toast } from '@/hooks/use-toast';
 import { User, Save, Send, Calendar, TrendingUp, Target, Award, AlertCircle } from 'lucide-react';
 
 interface ReviewSection {
@@ -27,6 +28,7 @@ export default function SelfReviewPage() {
   const [reviewSections, setReviewSections] = useState<ReviewSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -121,15 +123,57 @@ export default function SelfReviewPage() {
   const exceededGoals = goals.filter(g => g.status === 'exceeded').length;
   const achievedGoals = goals.filter(g => g.status === 'achieved' || g.status === 'exceeded').length;
 
-  const handleSaveDraft = () => {
-    setIsDraft(true);
-    alert('Self-review saved as draft');
+  const buildPayload = (status: 'draft' | 'submitted') => ({
+    reviewType: 'self',
+    status,
+    reviewPeriodStart: reviewPeriod.start,
+    reviewPeriodEnd: reviewPeriod.end,
+    overallRating: Number(avgRating),
+    competencies: reviewSections.map((s) => ({
+      id: s.id,
+      title: s.title,
+      rating: s.rating,
+      comments: s.comments,
+    })),
+    achievements,
+    developmentAreas,
+    trainingNeeds,
+  });
+
+  const handleSaveDraft = async () => {
+    setIsSubmitting(true);
+    try {
+      await HrPagesService.createPerformanceReview(buildPayload('draft'));
+      setIsDraft(true);
+      toast({ title: 'Self-review saved as draft' });
+    } catch (err) {
+      toast({
+        title: 'Failed to save draft',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSubmit = () => {
-    if (confirm('Are you sure you want to submit your self-review? You will not be able to edit it after submission.')) {
+  const handleSubmit = async () => {
+    if (!confirm('Are you sure you want to submit your self-review? You will not be able to edit it after submission.')) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await HrPagesService.createPerformanceReview(buildPayload('submitted'));
       setIsDraft(false);
-      alert('Self-review submitted successfully!');
+      toast({ title: 'Self-review submitted successfully!' });
+    } catch (err) {
+      toast({
+        title: 'Failed to submit self-review',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -345,17 +389,19 @@ export default function SelfReviewPage() {
         <div className="flex gap-3">
           <button
             onClick={handleSaveDraft}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-60"
           >
             <Save className="h-4 w-4" />
-            Save Draft
+            {isSubmitting ? 'Saving…' : 'Save Draft'}
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-60"
           >
             <Send className="h-4 w-4" />
-            Submit Self-Review
+            {isSubmitting ? 'Submitting…' : 'Submit Self-Review'}
           </button>
         </div>
       )}

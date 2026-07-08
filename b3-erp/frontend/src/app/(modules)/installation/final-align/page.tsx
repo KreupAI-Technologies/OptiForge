@@ -50,6 +50,7 @@ function FinalAlignPageContent() {
         { id: '4', description: 'Handle Alignment', status: 'Pending' },
         { id: '5', description: 'Skirting Alignment', status: 'Pending' },
     ]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -96,12 +97,31 @@ function FinalAlignPageContent() {
         ));
     };
 
-    const handleComplete = () => {
-        toast({
-            title: 'Final Alignment Complete',
-            description: 'All alignment checks passed successfully',
-        });
-        setTimeout(() => router.push(`/installation/photo-doc?projectId=${selectedProject?.id}`), 1000);
+    const handleComplete = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            const done = checks.filter(c => c.status !== 'Pending').length;
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Final alignment complete: ${done}/${checks.length} checks passed (${checks.map(c => c.description).join(', ')}).`,
+                overallProgress: 90,
+            });
+            toast({
+                title: 'Final Alignment Complete',
+                description: 'All alignment checks passed. Progress saved.',
+            });
+            router.push(`/installation/photo-doc?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving final alignment progress:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not record final alignment progress. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: FinalCheck['status']) => {
@@ -197,8 +217,9 @@ function FinalAlignPageContent() {
                     </Button>
                     <Button
                         onClick={handleComplete}
-                        disabled={checks.some(c => c.status === 'Pending')}
+                        disabled={checks.some(c => c.status === 'Pending') || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Photo Doc <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

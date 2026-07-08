@@ -102,6 +102,7 @@ export default function AddReceivablePage() {
   const [selectedCustomerData, setSelectedCustomerData] = useState<IndianCustomer | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveToQueue, setSaveToQueue] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,8 +208,7 @@ export default function AddReceivablePage() {
 
   const handleSubmit = async (e: React.FormEvent, addToQueue: boolean = false) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setSaveToQueue(addToQueue);
+    setSubmitError(null);
 
     // Credit check validation
     if (formData.creditInfo?.creditStatus !== 'approved') {
@@ -220,17 +220,33 @@ export default function AddReceivablePage() {
         `Warning: Invoice amount (${formatCurrency(formData.amount)}) exceeds available credit (${formatCurrency(formData.creditInfo?.availableCredit || 0)}). Do you want to proceed?`
       );
       if (!proceed) {
-        setIsSubmitting(false);
         return;
       }
     }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsSubmitting(true);
+    setSaveToQueue(addToQueue);
 
-    console.log('New Receivable:', { ...formData, addedToQueue: addToQueue });
-    alert(addToQueue ? 'Receivable added to collection queue!' : 'Receivable created successfully!');
-    router.push('/finance/receivables');
+    try {
+      await FinanceService.createReceivable({
+        customerId: formData.customerId,
+        customerName: formData.customerName,
+        invoiceId: formData.selectedInvoice || undefined,
+        amount: formData.amount,
+        dueDate: formData.dueDate || undefined,
+        collectionAgent: formData.collectionAgent || undefined,
+        collectionPriority: formData.collectionPriority,
+        notes: formData.notes || undefined,
+        internalRemarks: formData.internalRemarks || undefined,
+        addToCollectionQueue: addToQueue,
+        status: addToQueue ? 'in_collection' : 'outstanding',
+      });
+      router.push('/finance/receivables');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create receivable');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -591,6 +607,14 @@ export default function AddReceivablePage() {
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Submit Error */}
+        {submitError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {submitError}
           </div>
         )}
 

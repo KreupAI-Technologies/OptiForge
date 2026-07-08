@@ -338,14 +338,26 @@ export default function DispatchPlanningEnhancedPage() {
   }
  };
 
- const handleSubmit = () => {
-  if (validateStep(currentStep)) {
+ const [submitting, setSubmitting] = useState(false);
+ const handleSubmit = async () => {
+  if (!validateStep(currentStep)) return;
+  setSubmitting(true);
+  try {
+   await projectManagementService.createInstallDispatch({ ...formData, projectId: formData.projectId });
    clearDraft();
    toast({
     title: 'Dispatch Created',
     description: `Dispatch ${formData.dispatchNumber} has been successfully created and scheduled.`,
    });
    router.push('/project-management');
+  } catch (err) {
+   toast({
+    title: 'Failed to Create Dispatch',
+    description: err instanceof Error ? err.message : 'Please try again.',
+    variant: 'destructive',
+   });
+  } finally {
+   setSubmitting(false);
   }
  };
 
@@ -1042,9 +1054,9 @@ export default function DispatchPlanningEnhancedPage() {
       <CheckCircle className="w-4 h-4 ml-2" />
      </Button>
     ) : (
-     <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700">
+     <Button onClick={handleSubmit} disabled={submitting} className="bg-green-600 hover:bg-green-700">
       <Truck className="w-4 h-4 mr-2" />
-      Create Dispatch
+      {submitting ? 'Creating...' : 'Create Dispatch'}
      </Button>
     )}
    </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { procurementOperationsService } from '@/services/procurement-operations.service';
 import {
   DollarSign, TrendingUp, AlertCircle, Target, BarChart3, Plus,
@@ -56,47 +56,45 @@ const ProcurementBudget: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Sample data - fallback until backend returns budget lines
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const raw = await procurementOperationsService.getBudgets('default-company-id');
-        if (!cancelled && Array.isArray(raw) && raw.length) {
-          setBudgetLines(raw.map((b: any, idx: number): BudgetLine => {
-            const budgetAmount = Number(b.budgetAmount ?? b.totalBudget ?? b.allocated ?? 0);
-            const spentAmount = Number(b.spentAmount ?? b.spent ?? 0);
-            const committedAmount = Number(b.committedAmount ?? b.committed ?? 0);
-            const availableAmount = Number(b.availableAmount ?? (budgetAmount - spentAmount - committedAmount));
-            const utilizationPercent = budgetAmount ? Math.round(((spentAmount + committedAmount) / budgetAmount) * 100) : 0;
-            const variance = budgetAmount - spentAmount - committedAmount;
-            return {
-              id: b.id ?? `BDG${idx + 1}`,
-              category: b.category ?? b.budgetType ?? '—',
-              department: b.department ?? '—',
-              budgetAmount,
-              spentAmount,
-              committedAmount,
-              availableAmount,
-              utilizationPercent,
-              variance,
-              variancePercent: budgetAmount ? Math.round((variance / budgetAmount) * 100) : 0,
-              period: b.period ?? b.fiscalYear ?? '—',
-              owner: b.owner ?? '—',
-              status: utilizationPercent > 100 ? 'overspent' : utilizationPercent >= 90 ? 'critical' : utilizationPercent >= 75 ? 'warning' : 'healthy',
-              lastModified: (b.updatedAt ?? b.lastModified ?? '').toString().slice(0, 10),
-            };
-          }));
-        }
-      } catch {
-        // keep sample data on error
+  const reloadBudgets = useCallback(async () => {
+    try {
+      const raw = await procurementOperationsService.getBudgets('default-company-id');
+      if (Array.isArray(raw)) {
+        setBudgetLines(raw.map((b: any, idx: number): BudgetLine => {
+          const budgetAmount = Number(b.budgetAmount ?? b.totalBudget ?? b.allocated ?? b.budget ?? 0);
+          const spentAmount = Number(b.spentAmount ?? b.spent ?? 0);
+          const committedAmount = Number(b.committedAmount ?? b.committed ?? 0);
+          const availableAmount = Number(b.availableAmount ?? b.available ?? (budgetAmount - spentAmount - committedAmount));
+          const utilizationPercent = budgetAmount ? Math.round(((spentAmount + committedAmount) / budgetAmount) * 100) : 0;
+          const variance = budgetAmount - spentAmount - committedAmount;
+          return {
+            id: b.id ?? `BDG${idx + 1}`,
+            category: b.category ?? b.budgetType ?? '—',
+            department: b.department ?? '—',
+            budgetAmount,
+            spentAmount,
+            committedAmount,
+            availableAmount,
+            utilizationPercent,
+            variance,
+            variancePercent: budgetAmount ? Math.round((variance / budgetAmount) * 100) : 0,
+            period: b.period ?? b.fiscalYear ?? '—',
+            owner: b.owner ?? '—',
+            status: utilizationPercent > 100 ? 'overspent' : utilizationPercent >= 90 ? 'critical' : utilizationPercent >= 75 ? 'warning' : 'healthy',
+            lastModified: (b.updatedAt ?? b.lastModified ?? '').toString().slice(0, 10),
+          };
+        }));
       }
-    };
-    load();
-    return () => { cancelled = true; };
+    } catch (err) {
+      console.error('Failed to load budgets:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    reloadBudgets();
+  }, [reloadBudgets]);
 
   // Mock data - Monthly budget trend
   const monthlyTrend = [
@@ -1883,9 +1881,22 @@ Data Privacy:
           availableAmount: selectedBudget.availableAmount,
           period: selectedBudget.period
         } : undefined}
-        onSubmit={(data) => {
-          console.log('Budget adjustment:', data);
-          setIsAdjustModalOpen(false);
+        onSubmit={async (data) => {
+          if (!selectedBudget?.id) {
+            setIsAdjustModalOpen(false);
+            return;
+          }
+          try {
+            await procurementOperationsService.updateBudget(selectedBudget.id, {
+              budget: Number(data?.newBudget ?? selectedBudget.budgetAmount),
+            });
+            await reloadBudgets();
+          } catch (err) {
+            console.error('Failed to adjust budget:', err);
+            alert('Failed to adjust budget. Please try again.');
+          } finally {
+            setIsAdjustModalOpen(false);
+          }
         }}
       />
 

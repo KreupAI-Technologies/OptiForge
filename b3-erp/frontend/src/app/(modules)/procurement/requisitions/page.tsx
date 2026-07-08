@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   Filter,
@@ -8,6 +9,8 @@ import {
   Eye,
   Edit2,
   CheckCircle,
+  XCircle,
+  ShoppingCart,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -38,7 +41,9 @@ interface PurchaseRequisition {
 }
 
 export default function ProcurementRequisitionsPage() {
+  const router = useRouter()
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([])
+  const [actioningId, setActioningId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -167,20 +172,52 @@ export default function ProcurementRequisitionsPage() {
   }
 
   const handleView = (id: string) => {
-    console.log('Viewing requisition:', id)
+    router.push(`/procurement/requisitions/${id}`)
   }
 
   const handleEdit = (id: string) => {
-    console.log('Editing requisition:', id)
+    router.push(`/procurement/requisitions/${id}/edit`)
   }
 
   const handleApprove = async (id: string) => {
     try {
+      setActioningId(id)
       await purchaseRequisitionService.approveRequisition(id)
       await loadRequisitions()
     } catch (err) {
       console.error('Error approving requisition:', err)
       setError('Failed to approve requisition. Please try again.')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    const reason = window.prompt('Enter a reason for rejecting this requisition:')
+    if (reason === null) return
+    try {
+      setActioningId(id)
+      await purchaseRequisitionService.rejectRequisition(id, reason)
+      await loadRequisitions()
+    } catch (err) {
+      console.error('Error rejecting requisition:', err)
+      setError('Failed to reject requisition. Please try again.')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  const handleConvertToPO = async (id: string) => {
+    if (!window.confirm('Convert this approved requisition to a Purchase Order?')) return
+    try {
+      setActioningId(id)
+      await purchaseRequisitionService.convertToPO(id)
+      await loadRequisitions()
+    } catch (err) {
+      console.error('Error converting requisition:', err)
+      setError('Failed to convert requisition to PO. Please try again.')
+    } finally {
+      setActioningId(null)
     }
   }
 
@@ -406,12 +443,33 @@ export default function ProcurementRequisitionsPage() {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         {req.status === 'pending_approval' && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(req.id)}
+                              disabled={actioningId === req.id}
+                              title="Approve"
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleReject(req.id)}
+                              disabled={actioningId === req.id}
+                              title="Reject"
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        {req.status === 'approved' && (
                           <button
-                            onClick={() => handleApprove(req.id)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-
+                            onClick={() => handleConvertToPO(req.id)}
+                            disabled={actioningId === req.id}
+                            title="Convert to PO"
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
                           >
-                            <CheckCircle className="w-4 h-4" />
+                            <ShoppingCart className="w-4 h-4" />
                           </button>
                         )}
                       </div>

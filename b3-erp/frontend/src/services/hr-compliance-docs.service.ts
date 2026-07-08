@@ -17,6 +17,18 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 const qs = (companyId: string, extra?: Record<string, string | undefined>) => {
   const params = new URLSearchParams({ companyId });
   if (extra) {
@@ -319,6 +331,13 @@ export class HrComplianceDocsService {
       `/hr/documents?${qs(companyId, { docCategory })}`,
     );
     return Array.isArray(data) ? data : [];
+  }
+
+  static async createDocument(
+    payload: Partial<HrDocument>,
+    companyId = 'company-1',
+  ): Promise<HrDocument> {
+    return postJson<HrDocument>('/hr/documents', { companyId, ...payload });
   }
 
   static async getCertificateRequests(recordType?: string, companyId = 'company-1'): Promise<CertificateRequest[]> {

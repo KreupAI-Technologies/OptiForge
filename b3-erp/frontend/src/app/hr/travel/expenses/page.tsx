@@ -7,6 +7,7 @@ import DataTable from '@/components/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 
 interface TravelExpense {
   id: string;
@@ -36,47 +37,45 @@ export default function Page() {
   const [rows, setRows] = useState<TravelExpense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrSelfServiceService.getExpenseClaims({ kind: 'travel' });
+      const mapped: TravelExpense[] = raw.map((r) => ({
+        id: r.id,
+        expenseNumber: r.claimNumber ?? '',
+        employeeName: r.employeeName ?? '',
+        employeeCode: r.employeeCode ?? '',
+        department: r.department ?? '',
+        travelRequestId: r.travelRequestId ?? '',
+        destination: r.destination ?? '',
+        travelDates: r.travelDates ?? '',
+        submittedDate: r.submittedDate ?? r.submissionDate ?? '',
+        totalExpenses: Number(r.amount ?? 0),
+        advanceAmount: Number(r.advanceAmount ?? 0),
+        cardExpenses: Number(r.cardExpenses ?? 0),
+        netPayable: Number(r.netPayable ?? 0),
+        status: (r.status as TravelExpense['status']) ?? 'pending',
+        itemsCount: Number(r.itemsCount ?? 0),
+        approver: r.approver ?? undefined,
+        approvedDate: r.approvedDate ?? undefined,
+        paidDate: r.paidDate ?? undefined,
+      }));
+      setRows(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load travel expenses');
+      setRows([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrSelfServiceService.getExpenseClaims({ kind: 'travel' });
-        const mapped: TravelExpense[] = raw.map((r) => ({
-          id: r.id,
-          expenseNumber: r.claimNumber ?? '',
-          employeeName: r.employeeName ?? '',
-          employeeCode: r.employeeCode ?? '',
-          department: r.department ?? '',
-          travelRequestId: r.travelRequestId ?? '',
-          destination: r.destination ?? '',
-          travelDates: r.travelDates ?? '',
-          submittedDate: r.submittedDate ?? r.submissionDate ?? '',
-          totalExpenses: Number(r.amount ?? 0),
-          advanceAmount: Number(r.advanceAmount ?? 0),
-          cardExpenses: Number(r.cardExpenses ?? 0),
-          netPayable: Number(r.netPayable ?? 0),
-          status: (r.status as TravelExpense['status']) ?? 'pending',
-          itemsCount: Number(r.itemsCount ?? 0),
-          approver: r.approver ?? undefined,
-          approvedDate: r.approvedDate ?? undefined,
-          paidDate: r.paidDate ?? undefined,
-        }));
-        if (!cancelled) setRows(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load travel expenses');
-          setRows([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mockExpenses: TravelExpense[] = rows;
@@ -116,18 +115,35 @@ export default function Page() {
     });
   };
 
-  const handleApproveExpense = (expense: TravelExpense) => {
-    toast({
-      title: "Expense Approved",
-      description: `Expense ${expense.expenseNumber} has been approved`
-    });
+  const handleApproveExpense = async (expense: TravelExpense) => {
+    setActionId(expense.id);
+    try {
+      await HrExpensesService.updateExpenseClaim(expense.id, { status: 'approved' });
+      toast({ title: 'Expense Approved', description: `Expense ${expense.expenseNumber} has been approved` });
+      await load();
+    } catch (err) {
+      toast({ title: 'Failed to approve', description: err instanceof Error ? err.message : 'Please try again.' });
+    } finally {
+      setActionId(null);
+    }
   };
 
-  const handleRejectExpense = (expense: TravelExpense) => {
-    toast({
-      title: "Expense Rejected",
-      description: `Expense ${expense.expenseNumber} has been rejected`
-    });
+  const handleRejectExpense = async (expense: TravelExpense) => {
+    const reason = prompt('Enter rejection reason (optional):');
+    if (reason === null) return;
+    setActionId(expense.id);
+    try {
+      await HrExpensesService.updateExpenseClaim(expense.id, {
+        status: 'rejected',
+        ...(reason ? { rejectionReason: reason } : {}),
+      });
+      toast({ title: 'Expense Rejected', description: `Expense ${expense.expenseNumber} has been rejected` });
+      await load();
+    } catch (err) {
+      toast({ title: 'Failed to reject', description: err instanceof Error ? err.message : 'Please try again.' });
+    } finally {
+      setActionId(null);
+    }
   };
 
   const handleNewExpense = () => {
@@ -209,14 +225,16 @@ export default function Page() {
             <>
               <button
                 onClick={() => handleApproveExpense(row)}
-                className="p-1 hover:bg-green-100 rounded"
+                disabled={actionId === row.id}
+                className="p-1 hover:bg-green-100 rounded disabled:opacity-40"
                 title="Approve"
               >
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </button>
               <button
                 onClick={() => handleRejectExpense(row)}
-                className="p-1 hover:bg-red-100 rounded"
+                disabled={actionId === row.id}
+                className="p-1 hover:bg-red-100 rounded disabled:opacity-40"
                 title="Reject"
               >
                 <XCircle className="h-4 w-4 text-red-600" />

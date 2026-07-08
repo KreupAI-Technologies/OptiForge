@@ -185,6 +185,7 @@ const BankReconciliation: React.FC = () => {
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAccounts();
@@ -193,6 +194,7 @@ const BankReconciliation: React.FC = () => {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await FinanceService.getChartOfAccounts({ type: 'ASSET' as any });
       // Filter for bank accounts
       const bankAccounts = data.filter((a: any) => a.isBankAccount);
@@ -221,7 +223,7 @@ const BankReconciliation: React.FC = () => {
       }));
       setAccounts(mappedAccounts);
     } catch (error) {
-      const { toast } = useToast();
+      setLoadError(error instanceof Error ? error.message : 'Failed to load bank accounts');
       toast({ title: 'Error', description: 'Failed to load bank accounts', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -1148,6 +1150,22 @@ const BankReconciliation: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900">Bank Reconciliation</h1>
         <p className="text-gray-600 mt-2">Reconcile bank statements with general ledger using automated matching</p>
       </div>
+
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Failed to load bank accounts from the server: {loadError}.
+        </div>
+      )}
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <RefreshCw className="h-4 w-4 animate-spin" /> Loading bank accounts…
+        </div>
+      )}
+      {!loading && !loadError && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+          {accounts.length} live bank account(s) loaded from finance.
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-3">

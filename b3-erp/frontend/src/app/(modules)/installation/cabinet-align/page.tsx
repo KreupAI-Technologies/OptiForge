@@ -51,6 +51,7 @@ function CabinetAlignPageContent() {
         { id: '2', section: 'Tall Units - Wall B', status: 'Pending', deviation: '-', notes: '' },
         { id: '3', section: 'Island Unit', status: 'Pending', deviation: '-', notes: '' },
     ]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -97,12 +98,31 @@ function CabinetAlignPageContent() {
         ));
     };
 
-    const handleComplete = () => {
-        toast({
-            title: 'Alignment Verified',
-            description: 'Cabinet alignment checks completed',
-        });
-        setTimeout(() => router.push(`/installation/trial-wall?projectId=${selectedProject?.id}`), 1000);
+    const handleComplete = async () => {
+        if (!selectedProject) return;
+        setIsSubmitting(true);
+        try {
+            const aligned = checks.filter(c => c.status === 'Aligned').length;
+            await projectManagementService.createInstallDailyReport({
+                projectId: selectedProject.id,
+                workDone: `Cabinet alignment verified: ${aligned}/${checks.length} sections aligned (${checks.map(c => c.section).join(', ')}).`,
+                overallProgress: 60,
+            });
+            toast({
+                title: 'Alignment Verified',
+                description: 'Cabinet alignment checks completed. Progress saved.',
+            });
+            router.push(`/installation/trial-wall?projectId=${selectedProject.id}`);
+        } catch (error) {
+            console.error('Error saving cabinet alignment progress:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not record alignment progress. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const getStatusBadge = (status: AlignmentCheck['status']) => {
@@ -199,8 +219,9 @@ function CabinetAlignPageContent() {
                     </Button>
                     <Button
                         onClick={handleComplete}
-                        disabled={checks.some(c => c.status === 'Pending')}
+                        disabled={checks.some(c => c.status === 'Pending') || isSubmitting}
                     >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Next: Trial Wall <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>

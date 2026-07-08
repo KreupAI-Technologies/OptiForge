@@ -61,24 +61,39 @@ export default function GSTManagementPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('2025-01');
   const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
 
   // GST transactions + returns loaded from tax masters (tax configuration)
   const [gstTransactions, setGstTransactions] = useState<GSTTransaction[]>([]);
   const [gstReturns, setGstReturns] = useState<GSTReturn[]>([]);
+  // Raw GST tax-rate config rows (the real, editable backing data)
+  const [gstRates, setGstRates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await FinanceService.getTaxMasters()) as any[];
-        const gstRows = (raw ?? []).filter((t) =>
-          ['CGST', 'SGST', 'IGST', 'CESS', 'GST'].includes(String(t.taxType ?? '').toUpperCase()),
-        );
+  // Create/Edit GST rate modal state
+  const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [editingRateId, setEditingRateId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [rateForm, setRateForm] = useState({
+    taxName: '',
+    taxCode: '',
+    taxCategory: 'GST',
+    taxRate: '',
+    description: '',
+    isActive: true,
+  });
+
+  const loadGstData = React.useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await FinanceService.getTaxMasters()) as any[];
+      const gstRows = (raw ?? []).filter((t) =>
+        ['CGST', 'SGST', 'IGST', 'CESS', 'GST'].includes(String(t.taxType ?? '').toUpperCase()),
+      );
+      setGstRates(gstRows);
+      {
         const txns: GSTTransaction[] = gstRows.map((t, i) => {
           const rate = Number(t.taxRate ?? 0);
           const type = String(t.taxType ?? '').toUpperCase();
@@ -118,29 +133,28 @@ export default function GSTManagementPage() {
           inputTax: 0,
           netTax: 0,
         }));
-        if (!cancelled) {
-          setGstTransactions(txns);
-          setGstReturns(returns);
-          if (txns.length > 0 && !txns.some((t) => t.returnPeriod === periodFilter)) {
-            setPeriodFilter(txns[0].returnPeriod);
+        setGstTransactions(txns);
+        setGstReturns(returns);
+        setPeriodFilter((prev) => {
+          if (txns.length > 0 && !txns.some((t) => t.returnPeriod === prev)) {
+            return txns[0].returnPeriod;
           }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load GST data');
-          setGstTransactions([]);
-          setGstReturns([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
+          return prev;
+        });
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load GST data');
+      setGstRates([]);
+      setGstTransactions([]);
+      setGstReturns([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadGstData();
+  }, [loadGstData]);
 
   const filteredTransactions = gstTransactions.filter(txn => {
     const matchesSearch =
@@ -213,16 +227,99 @@ export default function GSTManagementPage() {
     );
   };
 
+  // NEEDS BACKEND: GSTR-2A import has no endpoint in the finance service map
+  // (only tax-masters + statutory report exist). Kept as an informational stub;
+  // does NOT fabricate success.
   const handleImportGSTR2A = () => {
-    setIsImporting(true);
-    setTimeout(() => {
-      alert('Import GSTR-2A\n\nThis will open a file upload dialog to import GSTR-2A data from the GST portal.\n\nSupported formats:\n- JSON (from GST Portal)\n- Excel (.xlsx)\n\nThe system will:\n- Validate GSTIN\n- Match with purchase records\n- Identify mismatches\n- Auto-reconcile matched entries');
-      setIsImporting(false);
-    }, 500);
+    alert('Import GSTR-2A is not yet available.\n\nNo GST-portal import endpoint is wired on the backend. Once available, this will import and reconcile GSTR-2A data from the GST portal.');
   };
 
-  const handleNewTransaction = () => {
-    alert('New GST Transaction\n\nThis will open a form to manually add a GST transaction.\n\nYou can enter:\n- Transaction type (Sale/Purchase/Return)\n- Party details and GSTIN\n- Invoice details\n- Taxable amount and GST rates\n- HSN/SAC codes\n- Place of supply\n\nThe system will auto-calculate:\n- CGST, SGST, or IGST based on place of supply\n- Total tax and invoice amount');
+  const openCreateRate = () => {
+    setEditingRateId(null);
+    setFormError(null);
+    setRateForm({
+      taxName: '',
+      taxCode: '',
+      taxCategory: 'GST',
+      taxRate: '',
+      description: '',
+      isActive: true,
+    });
+    setIsRateModalOpen(true);
+  };
+
+  const openEditRate = (row: any) => {
+    setEditingRateId(String(row.id));
+    setFormError(null);
+    setRateForm({
+      taxName: row.taxName ?? '',
+      taxCode: row.taxCode ?? '',
+      taxCategory: row.taxCategory ?? 'GST',
+      taxRate: row.taxRate != null ? String(row.taxRate) : '',
+      description: row.description ?? '',
+      isActive: row.isActive != null ? Boolean(row.isActive) : true,
+    });
+    setIsRateModalOpen(true);
+  };
+
+  const closeRateModal = () => {
+    if (isSubmitting) return;
+    setIsRateModalOpen(false);
+    setEditingRateId(null);
+    setFormError(null);
+  };
+
+  const handleSubmitRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!rateForm.taxName.trim()) {
+      setFormError('Tax name is required.');
+      return;
+    }
+    const rateNum = Number(rateForm.taxRate);
+    if (rateForm.taxRate === '' || Number.isNaN(rateNum) || rateNum < 0) {
+      setFormError('Enter a valid GST rate (%).');
+      return;
+    }
+
+    const payload = {
+      taxName: rateForm.taxName.trim(),
+      taxCode: rateForm.taxCode.trim() || undefined,
+      taxType: 'GST',
+      taxCategory: rateForm.taxCategory.trim() || 'GST',
+      taxRate: rateNum,
+      description: rateForm.description.trim() || undefined,
+      isActive: rateForm.isActive,
+    };
+
+    setIsSubmitting(true);
+    try {
+      if (editingRateId) {
+        await FinanceService.updateTaxMaster(editingRateId, payload);
+      } else {
+        await FinanceService.createTaxMaster(payload);
+      }
+      setIsRateModalOpen(false);
+      setEditingRateId(null);
+      await loadGstData();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save GST rate.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteRate = async (row: any) => {
+    if (!row?.id) return;
+    const ok = window.confirm(`Delete GST rate "${row.taxName ?? row.id}"?`);
+    if (!ok) return;
+    try {
+      await FinanceService.deleteTaxMaster(String(row.id));
+      await loadGstData();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete GST rate.');
+    }
   };
 
   const handleExportGST = () => {
@@ -272,16 +369,14 @@ export default function GSTManagementPage() {
     alert(`GST Return Details\n\nReturn Type: ${ret.returnType}\nPeriod: ${ret.period}\nDue Date: ${ret.dueDate}\nStatus: ${ret.status}\n${ret.filedDate ? `\nFiled Date: ${ret.filedDate}` : ''}${ret.arn ? `\nARN: ${ret.arn}` : ''}\n\nTotal Sales: ${formatCurrency(ret.totalSales)}\nTotal Purchases: ${formatCurrency(ret.totalPurchases)}\nOutput Tax: ${formatCurrency(ret.outputTax)}\nInput Tax: ${formatCurrency(ret.inputTax)}\nNet Tax: ${formatCurrency(ret.netTax)}\n\n${ret.netTax >= 0 ? 'Tax Payable' : 'Tax Refund'}`);
   };
 
+  // NEEDS BACKEND: no GST-portal filing endpoint exists in the finance service map.
   const handleFileReturn = (ret: GSTReturn) => {
-    const confirm = window.confirm(`File ${ret.returnType} for ${ret.period}?\n\nNet Tax: ${formatCurrency(ret.netTax)}\nDue Date: ${ret.dueDate}\n\nThis will:\n- Validate all transactions\n- Generate JSON for GST portal\n- Mark return as filed\n- Generate ARN\n\nDo you want to continue?`);
-
-    if (confirm) {
-      alert(`Filing ${ret.returnType} for ${ret.period}\n\nIn production, this would:\n- Upload to GST portal API\n- Receive ARN\n- Update filing status\n- Send email confirmation\n- Update compliance dashboard\n\nDemo: Return filed successfully!\nARN: AA${new Date().getFullYear()}${(Math.random() * 1000000).toFixed(0)}X`);
-    }
+    alert(`Filing ${ret.returnType} for ${ret.period} is not yet available.\n\nNo GST-portal filing endpoint is wired on the backend. This action does not submit anything.`);
   };
 
+  // NEEDS BACKEND: no return-download/generation endpoint exists in the finance service map.
   const handleDownloadReturn = (ret: GSTReturn) => {
-    alert(`Download ${ret.returnType} for ${ret.period}\n\nAvailable formats:\n1. JSON - For GST portal upload\n2. PDF - Summary report\n3. Excel - Detailed transactions\n\nSelect format:\n- JSON: Direct upload to GST portal\n- PDF: For records and review\n- Excel: For analysis and reconciliation`);
+    alert(`Downloading ${ret.returnType} for ${ret.period} is not yet available.\n\nNo return-generation endpoint is wired on the backend.`);
   };
 
   return (
@@ -306,18 +401,18 @@ export default function GSTManagementPage() {
           <div className="flex gap-3">
             <button
               onClick={handleImportGSTR2A}
-              disabled={isImporting}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              title="GSTR-2A import (backend endpoint not yet available)"
             >
               <Upload className="w-4 h-4" />
-              {isImporting ? 'Importing...' : 'Import GSTR-2A'}
+              Import GSTR-2A
             </button>
             <button
-              onClick={handleNewTransaction}
+              onClick={openCreateRate}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />
-              New Transaction
+              Add GST Rate
             </button>
             <button
               onClick={handleExportGST}
@@ -370,6 +465,83 @@ export default function GSTManagementPage() {
             <div className="text-2xl font-bold mb-1">{pendingReturns}</div>
             <div className="text-orange-100 text-sm">Pending Returns</div>
             <div className="mt-2 text-xs text-orange-100">To be filed</div>
+          </div>
+        </div>
+
+        {/* GST Rate Configuration (real tax-master rows) */}
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-3 border-b border-gray-700">
+            <div>
+              <h2 className="text-lg font-semibold text-white">GST Rate Configuration</h2>
+              <p className="text-xs text-gray-400">GST tax-rate masters used across the system</p>
+            </div>
+            <button
+              onClick={openCreateRate}
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add GST Rate
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-300">Name</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-300">Code</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-gray-300">Category</th>
+                  <th className="px-3 py-2 text-right text-sm font-semibold text-gray-300">Rate (%)</th>
+                  <th className="px-3 py-2 text-center text-sm font-semibold text-gray-300">Active</th>
+                  <th className="px-3 py-2 text-center text-sm font-semibold text-gray-300">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gstRates.length === 0 && !isLoading && !loadError && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-6 text-center text-sm text-gray-400">
+                      No GST rates configured yet. Click &quot;Add GST Rate&quot; to create one.
+                    </td>
+                  </tr>
+                )}
+                {gstRates.map((row, i) => (
+                  <tr key={row.id ?? `rate-${i}`} className="border-b border-gray-700 hover:bg-gray-800/50 transition-colors">
+                    <td className="px-3 py-2 text-white text-sm">{row.taxName ?? '-'}</td>
+                    <td className="px-3 py-2 text-gray-300 text-sm font-mono">{row.taxCode ?? '-'}</td>
+                    <td className="px-3 py-2 text-gray-300 text-sm">{row.taxCategory ?? row.taxType ?? '-'}</td>
+                    <td className="px-3 py-2 text-right text-white text-sm">{Number(row.taxRate ?? 0)}</td>
+                    <td className="px-3 py-2 text-center">
+                      {row.isActive ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">
+                          <CheckCircle className="w-3 h-3" /> Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-500/20 text-gray-400 rounded-full text-xs">
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => openEditRate(row)}
+                          className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                          title="Edit GST rate"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRate(row)}
+                          className="px-2 py-1 text-xs bg-red-600/80 hover:bg-red-600 text-white rounded transition-colors"
+                          title="Delete GST rate"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -468,6 +640,17 @@ export default function GSTManagementPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    {filteredTransactions.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="px-3 py-6 text-center text-sm text-gray-400">
+                          {isLoading
+                            ? 'Loading…'
+                            : loadError
+                              ? 'Unable to load GST data.'
+                              : 'No GST transactions for the selected filters.'}
+                        </td>
+                      </tr>
+                    )}
                     {filteredTransactions.map((txn) => (
                       <tr key={txn.id} className="border-b border-gray-700 hover:bg-gray-800/50 transition-colors">
                         <td className="px-3 py-2 text-white text-sm">
@@ -549,6 +732,17 @@ export default function GSTManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {gstReturns.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-3 py-6 text-center text-sm text-gray-400">
+                        {isLoading
+                          ? 'Loading…'
+                          : loadError
+                            ? 'Unable to load GST data.'
+                            : 'No GST return periods available.'}
+                      </td>
+                    </tr>
+                  )}
                   {gstReturns.map((ret) => (
                     <tr key={ret.id} className="border-b border-gray-700 hover:bg-gray-800/50 transition-colors">
                       <td className="px-3 py-2">
@@ -616,6 +810,115 @@ export default function GSTManagementPage() {
           )}
         </div>
       </div>
+
+      {/* Add / Edit GST Rate Modal */}
+      {isRateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h3 className="text-lg font-semibold text-white">
+                {editingRateId ? 'Edit GST Rate' : 'Add GST Rate'}
+              </h3>
+              <button
+                onClick={closeRateModal}
+                disabled={isSubmitting}
+                className="text-gray-400 hover:text-white disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmitRate} className="space-y-3 px-5 py-4">
+              {formError && (
+                <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  {formError}
+                </div>
+              )}
+              <div>
+                <label className="mb-1 block text-sm text-gray-300">Tax Name *</label>
+                <input
+                  type="text"
+                  value={rateForm.taxName}
+                  onChange={(e) => setRateForm((f) => ({ ...f, taxName: e.target.value }))}
+                  placeholder="e.g. GST 18%"
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm text-gray-300">Tax Code</label>
+                  <input
+                    type="text"
+                    value={rateForm.taxCode}
+                    onChange={(e) => setRateForm((f) => ({ ...f, taxCode: e.target.value }))}
+                    placeholder="e.g. GST18"
+                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-300">Category</label>
+                  <select
+                    value={rateForm.taxCategory}
+                    onChange={(e) => setRateForm((f) => ({ ...f, taxCategory: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="GST">GST</option>
+                    <option value="Output">Output</option>
+                    <option value="Input">Input</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-300">Rate (%) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={rateForm.taxRate}
+                  onChange={(e) => setRateForm((f) => ({ ...f, taxRate: e.target.value }))}
+                  placeholder="e.g. 18"
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-300">Description / HSN</label>
+                <input
+                  type="text"
+                  value={rateForm.description}
+                  onChange={(e) => setRateForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Optional description or HSN/SAC code"
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={rateForm.isActive}
+                  onChange={(e) => setRateForm((f) => ({ ...f, isActive: e.target.checked }))}
+                  className="h-4 w-4 rounded border-gray-600 bg-gray-700"
+                />
+                Active
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeRateModal}
+                  disabled={isSubmitting}
+                  className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Saving…' : editingRateId ? 'Update Rate' : 'Create Rate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

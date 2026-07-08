@@ -34,6 +34,7 @@ export default function Page() {
   const [rows, setRows] = useState<ProcessingReimbursement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,11 +121,27 @@ export default function Page() {
     setShowDetailsModal(true);
   };
 
-  const handleMoveToNextStage = (claim: ProcessingReimbursement) => {
-    toast({
-      title: "Stage Updated",
-      description: `Claim ${claim.claimNumber} moved to next processing stage`
-    });
+  const handleMoveToNextStage = async (claim: ProcessingReimbursement) => {
+    setIsSubmitting(true);
+    try {
+      await HrSelfServiceService.updateExpenseClaim(claim.id, {
+        status: 'paid',
+        paidDate: new Date().toISOString(),
+      });
+      toast({
+        title: "Stage Updated",
+        description: `Claim ${claim.claimNumber} moved to next processing stage`
+      });
+      setRows((prev) => prev.filter((r) => r.id !== claim.id));
+    } catch (err) {
+      toast({
+        title: "Update Failed",
+        description: err instanceof Error ? err.message : 'Could not advance the claim',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleExportToExcel = () => {
@@ -539,9 +556,10 @@ export default function Page() {
                   handleMoveToNextStage(selectedClaim);
                   setShowDetailsModal(false);
                 }}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                disabled={isSubmitting}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-60"
               >
-                Move to Next Stage
+                {isSubmitting ? 'Updating…' : 'Move to Next Stage'}
               </button>
             </div>
           </div>

@@ -51,127 +51,11 @@ export default function Page() {
     notes: ''
   });
 
-  const fallbackRequests: AssetRequest[] = [
-    {
-      id: '1',
-      requestId: 'REQ-2024-001',
-      requestedBy: 'Amit Sharma',
-      employeeCode: 'EMP789',
-      department: 'Sales',
-      designation: 'Sales Executive',
-      assetCategory: 'laptop',
-      assetType: 'Dell Latitude 5430',
-      quantity: 1,
-      priority: 'high',
-      status: 'pending',
-      requestDate: '2024-10-20',
-      requiredBy: '2024-10-30',
-      businessJustification: 'Current laptop is 5 years old and experiencing frequent crashes. Need new laptop for client presentations and field work.',
-      estimatedCost: 75000
-    },
-    {
-      id: '2',
-      requestId: 'REQ-2024-002',
-      requestedBy: 'Priya Menon',
-      employeeCode: 'EMP456',
-      department: 'IT',
-      designation: 'System Administrator',
-      assetCategory: 'desktop',
-      assetType: 'HP ProDesk 600 G6',
-      quantity: 3,
-      priority: 'urgent',
-      status: 'approved',
-      requestDate: '2024-10-18',
-      requiredBy: '2024-10-25',
-      businessJustification: 'New employees joining next week. Need desktops for their workstations.',
-      estimatedCost: 180000,
-      approvedBy: 'Rajesh Kumar (IT Manager)',
-      approvalDate: '2024-10-19'
-    },
-    {
-      id: '3',
-      requestId: 'REQ-2024-003',
-      requestedBy: 'Vikram Singh',
-      employeeCode: 'EMP234',
-      department: 'Marketing',
-      designation: 'Marketing Manager',
-      assetCategory: 'mobile',
-      assetType: 'Samsung Galaxy S23',
-      quantity: 2,
-      priority: 'medium',
-      status: 'fulfilled',
-      requestDate: '2024-10-10',
-      requiredBy: '2024-10-20',
-      businessJustification: 'Marketing team needs mobile devices for social media content creation and client communication.',
-      estimatedCost: 140000,
-      approvedBy: 'Sunita Reddy (CMO)',
-      approvalDate: '2024-10-12',
-      fulfilledDate: '2024-10-15',
-      assignedAssets: ['MOB-2024-045', 'MOB-2024-046']
-    },
-    {
-      id: '4',
-      requestId: 'REQ-2024-004',
-      requestedBy: 'Neha Gupta',
-      employeeCode: 'EMP567',
-      department: 'Finance',
-      designation: 'Financial Analyst',
-      assetCategory: 'monitor',
-      assetType: 'Dell UltraSharp 27" 4K Monitor',
-      quantity: 2,
-      priority: 'low',
-      status: 'rejected',
-      requestDate: '2024-10-15',
-      requiredBy: '2024-11-01',
-      businessJustification: 'Need dual monitor setup for better productivity while working on financial reports.',
-      estimatedCost: 80000,
-      rejectionReason: 'Budget constraints for Q4. Request can be resubmitted in Q1 2025.'
-    },
-    {
-      id: '5',
-      requestId: 'REQ-2024-005',
-      requestedBy: 'Arjun Patel',
-      employeeCode: 'EMP890',
-      department: 'Operations',
-      designation: 'Operations Lead',
-      assetCategory: 'printer',
-      assetType: 'Canon imageRUNNER 2625i',
-      quantity: 1,
-      priority: 'high',
-      status: 'approved',
-      requestDate: '2024-10-22',
-      requiredBy: '2024-10-28',
-      businessJustification: 'Operations floor needs a multifunction printer for printing production reports and shipping labels.',
-      estimatedCost: 125000,
-      approvedBy: 'Meera Krishnan (COO)',
-      approvalDate: '2024-10-23'
-    },
-    {
-      id: '6',
-      requestId: 'REQ-2024-006',
-      requestedBy: 'Sanjay Desai',
-      employeeCode: 'EMP123',
-      department: 'HR',
-      designation: 'HR Executive',
-      assetCategory: 'furniture',
-      assetType: 'Ergonomic Office Chair',
-      quantity: 5,
-      priority: 'medium',
-      status: 'fulfilled',
-      requestDate: '2024-10-05',
-      requiredBy: '2024-10-15',
-      businessJustification: 'New joiners need ergonomic chairs to prevent workplace injuries.',
-      estimatedCost: 75000,
-      approvedBy: 'Kavita Sharma (HR Head)',
-      approvalDate: '2024-10-06',
-      fulfilledDate: '2024-10-12',
-      assignedAssets: ['FUR-2024-089', 'FUR-2024-090', 'FUR-2024-091', 'FUR-2024-092', 'FUR-2024-093']
-    }
-  ];
-
-  const [mockRequests, setMockRequests] = useState<AssetRequest[]>(fallbackRequests);
+  const [mockRequests, setMockRequests] = useState<AssetRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,35 +65,35 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetRequests();
         if (cancelled) return;
-        if (rows.length) {
-          setMockRequests(
-            rows.map((r) => ({
-              id: r.id,
-              requestId: r.requestId || '',
-              requestedBy: r.requester || '',
-              employeeCode: r.employeeCode || '',
-              department: r.department || '',
-              designation: r.designation || '',
-              assetCategory: (r.assetCategory as AssetRequest['assetCategory']) || 'other',
-              assetType: r.assetName || '',
-              quantity: Number(r.quantity ?? 0),
-              priority: (r.priority as AssetRequest['priority']) || 'medium',
-              status: (r.status as AssetRequest['status']) || 'pending',
-              requestDate: r.requestDate || '',
-              requiredBy: r.fulfillmentDate || r.requestDate || '',
-              businessJustification: r.purpose || '',
-              estimatedCost: undefined,
-              approvedBy: r.approver || undefined,
-              approvalDate: r.approvalDate || undefined,
-              rejectionReason: r.remarks || undefined,
-              fulfilledDate: r.fulfillmentDate || undefined,
-              assignedAssets: undefined,
-            })),
-          );
-        }
+        setMockRequests(
+          rows.map((r) => ({
+            id: r.id,
+            requestId: r.requestId || '',
+            requestedBy: r.requester || '',
+            employeeCode: r.employeeCode || '',
+            department: r.department || '',
+            designation: r.designation || '',
+            assetCategory: (r.assetCategory as AssetRequest['assetCategory']) || 'other',
+            assetType: r.assetName || '',
+            quantity: Number(r.quantity ?? 0),
+            priority: (r.priority as AssetRequest['priority']) || 'medium',
+            status: (r.status as AssetRequest['status']) || 'pending',
+            requestDate: r.requestDate || '',
+            requiredBy: r.fulfillmentDate || r.requestDate || '',
+            businessJustification: r.purpose || '',
+            estimatedCost: undefined,
+            approvedBy: r.approver || undefined,
+            approvalDate: r.approvalDate || undefined,
+            rejectionReason: r.remarks || undefined,
+            fulfilledDate: r.fulfillmentDate || undefined,
+            assignedAssets: undefined,
+          })),
+        );
       } catch (err) {
-        if (!cancelled)
+        if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load requests');
+          setMockRequests([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -217,7 +101,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filteredRequests = mockRequests.filter(r => {
     if (selectedStatus !== 'all' && r.status !== selectedStatus) return false;
@@ -287,31 +171,64 @@ export default function Page() {
     setShowFulfillModal(true);
   };
 
-  const handleSubmitApprove = (e: React.FormEvent) => {
+  const handleSubmitApprove = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Request Approved",
-      description: `Asset request ${selectedRequest?.requestId} has been approved.`
-    });
-    setShowApproveModal(false);
+    if (!selectedRequest) return;
+    setSubmitting(true);
+    try {
+      await HrAssetsService.updateAssetRequest(selectedRequest.id, {
+        status: 'approved',
+        approver: approveFormData.approvedBy,
+        approvalDate: new Date().toISOString().split('T')[0],
+        remarks: approveFormData.remarks || undefined,
+      });
+      toast({ title: 'Request Approved', description: `Asset request ${selectedRequest.requestId} has been approved.` });
+      setShowApproveModal(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast({ title: 'Approval failed', description: err instanceof Error ? err.message : 'Could not approve request.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitReject = (e: React.FormEvent) => {
+  const handleSubmitReject = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Request Rejected",
-      description: `Asset request ${selectedRequest?.requestId} has been rejected.`
-    });
-    setShowRejectModal(false);
+    if (!selectedRequest) return;
+    setSubmitting(true);
+    try {
+      await HrAssetsService.updateAssetRequest(selectedRequest.id, {
+        status: 'rejected',
+        remarks: `${rejectFormData.reason}: ${rejectFormData.remarks}`,
+      });
+      toast({ title: 'Request Rejected', description: `Asset request ${selectedRequest.requestId} has been rejected.` });
+      setShowRejectModal(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast({ title: 'Rejection failed', description: err instanceof Error ? err.message : 'Could not reject request.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmitFulfill = (e: React.FormEvent) => {
+  const handleSubmitFulfill = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Request Fulfilled",
-      description: `Asset request ${selectedRequest?.requestId} has been marked as fulfilled.`
-    });
-    setShowFulfillModal(false);
+    if (!selectedRequest) return;
+    setSubmitting(true);
+    try {
+      await HrAssetsService.updateAssetRequest(selectedRequest.id, {
+        status: 'fulfilled',
+        fulfillmentDate: fulfillFormData.fulfilledDate,
+        remarks: fulfillFormData.notes || undefined,
+      });
+      toast({ title: 'Request Fulfilled', description: `Asset request ${selectedRequest.requestId} has been marked as fulfilled.` });
+      setShowFulfillModal(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast({ title: 'Fulfillment failed', description: err instanceof Error ? err.message : 'Could not fulfill request.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -776,9 +693,10 @@ export default function Page() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold disabled:opacity-60"
                   >
-                    Approve Request
+                    {submitting ? 'Approving…' : 'Approve Request'}
                   </button>
                   <button
                     type="button"
@@ -866,9 +784,10 @@ export default function Page() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 font-semibold disabled:opacity-60"
                   >
-                    Reject Request
+                    {submitting ? 'Rejecting…' : 'Reject Request'}
                   </button>
                   <button
                     type="button"
@@ -989,9 +908,10 @@ export default function Page() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold"
+                    disabled={submitting}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-60"
                   >
-                    Mark as Fulfilled
+                    {submitting ? 'Saving…' : 'Mark as Fulfilled'}
                   </button>
                   <button
                     type="button"

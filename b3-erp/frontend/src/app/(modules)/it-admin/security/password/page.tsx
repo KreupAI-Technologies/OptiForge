@@ -66,6 +66,8 @@ const PasswordPolicyPage = () => {
   const [activeTab, setActiveTab] = useState('policy');
   const [showTestPassword, setShowTestPassword] = useState(false);
   const [testPassword, setTestPassword] = useState('');
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [policyBanner, setPolicyBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [policy, setPolicy] = useState<PasswordPolicy>({
     id: 'policy-001',
@@ -345,6 +347,8 @@ const PasswordPolicyPage = () => {
   const passwordStrength = calculatePasswordStrength(testPassword);
 
   const handleSavePolicy = async () => {
+    setSavingPolicy(true);
+    setPolicyBanner(null);
     try {
       await ItAdminService.savePasswordPolicy({
         minLength: policy.rules.minLength,
@@ -358,24 +362,53 @@ const PasswordPolicyPage = () => {
         lockoutThreshold: policy.lockout.attempts,
         lockoutDurationMinutes: policy.lockout.duration,
       });
-      alert('Password policy saved successfully!');
-    } catch {
-      alert('Failed to save password policy. Please try again.');
+      setPolicyBanner({ type: 'success', text: 'Password policy saved successfully.' });
+    } catch (e) {
+      setPolicyBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to save password policy.' });
+    } finally {
+      setSavingPolicy(false);
     }
   };
 
   const handleResetPolicy = () => {
-    if (confirm('Are you sure you want to reset the policy to default values?')) {
-      // Reset logic here
+    if (!confirm('Are you sure you want to reset the policy to default values?')) return;
+    setPolicy((prev) => ({
+      ...prev,
+      rules: {
+        minLength: 12,
+        maxLength: 128,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireNumbers: true,
+        requireSpecialChars: true,
+        preventCommonPasswords: true,
+        preventUserInfo: true,
+      },
+      expiry: { enabled: true, days: 90, warningDays: 14 },
+      history: { enabled: true, remember: 5 },
+      lockout: { enabled: true, attempts: 5, duration: 30 },
+    }));
+    setPolicyBanner({ type: 'success', text: 'Policy reset to defaults. Click Save to persist.' });
+  };
+
+  const handleUnlockUser = async (userId: string) => {
+    setPolicyBanner(null);
+    try {
+      await ItAdminService.unlockUser(userId);
+      setPolicyBanner({ type: 'success', text: `User ${userId} unlocked.` });
+    } catch (e) {
+      setPolicyBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to unlock user.' });
     }
   };
 
-  const handleUnlockUser = (userId: string) => {
-    alert(`User ${userId} unlocked successfully!`);
-  };
-
-  const handleForcePasswordChange = (userId: string) => {
-    alert(`Force password change initiated for user ${userId}`);
+  const handleForcePasswordChange = async (userId: string) => {
+    setPolicyBanner(null);
+    try {
+      await ItAdminService.updateUser(userId, { status: 'pending' });
+      setPolicyBanner({ type: 'success', text: `Force password change flagged for ${userId}.` });
+    } catch (e) {
+      setPolicyBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to update user.' });
+    }
   };
 
   const stats = {
@@ -824,14 +857,27 @@ const PasswordPolicyPage = () => {
                 )}
               </div>
 
+              {policyBanner && (
+                <div
+                  className={`rounded-lg border px-4 py-2 text-sm ${
+                    policyBanner.type === 'success'
+                      ? 'border-green-200 bg-green-50 text-green-700'
+                      : 'border-red-200 bg-red-50 text-red-700'
+                  }`}
+                >
+                  {policyBanner.text}
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
                   onClick={handleSavePolicy}
-                  className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  disabled={savingPolicy}
+                  className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
                   <Save className="w-4 h-4" />
-                  Save Policy
+                  {savingPolicy ? 'Saving...' : 'Save Policy'}
                 </button>
                 <button
                   onClick={handleResetPolicy}

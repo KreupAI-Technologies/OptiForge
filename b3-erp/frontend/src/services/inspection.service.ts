@@ -940,7 +940,30 @@ export class InspectionService {
 
     return this.request<Inspection>(`/quality/inspection/${id}/approve`, {
       method: 'POST',
-      body: JSON.stringify({ approverId }),
+      body: JSON.stringify({ approvedBy: approverId }),
+    });
+  }
+
+  // Reject an inspection
+  static async rejectInspection(id: string, rejectedBy?: string, reason?: string): Promise<Inspection> {
+    if (USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const index = MOCK_INSPECTIONS.findIndex((i) => i.id === id);
+      if (index === -1) {
+        throw new Error('Inspection not found');
+      }
+      MOCK_INSPECTIONS[index] = {
+        ...MOCK_INSPECTIONS[index],
+        status: InspectionStatus.REJECTED,
+        notes: reason ?? MOCK_INSPECTIONS[index].notes,
+        updatedAt: new Date(),
+      };
+      return MOCK_INSPECTIONS[index];
+    }
+
+    return this.request<Inspection>(`/quality/inspection/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejectedBy, reason }),
     });
   }
 

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogisticsService } from '@/services/logistics.service';
+import { toast } from '@/hooks/use-toast';
 import { ArrowLeft, Search, FileText, Package, Truck, MapPin, Calendar, CheckCircle, Clock, XCircle, AlertTriangle, Filter, Plus } from 'lucide-react';
 
 interface FreightBooking {
@@ -42,14 +43,32 @@ export default function FreightBookingPage() {
   const [bookings, setBookings] = useState<FreightBooking[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await LogisticsService.getFreightCharges();
-        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
-        if (cancelled) return;
-        setBookings((list as any[]).map((r, i) => ({
+  // New booking modal
+  const [formOpen, setFormOpen] = useState(false);
+  const [detailText, setDetailText] = useState<{ title: string; body: string } | null>(null);
+  const emptyForm = {
+    customerName: '',
+    origin: '',
+    destination: '',
+    cargoType: '',
+    weight: '',
+    volume: '',
+    transportMode: 'road' as FreightBooking['transportMode'],
+    carrier: '',
+    pickupDate: '',
+    expectedDelivery: '',
+    bookingAmount: '',
+    contactPerson: '',
+    contactPhone: '',
+  };
+  const [formData, setFormData] = useState(emptyForm);
+
+  const loadBookings = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const res = await LogisticsService.getFreightCharges();
+      const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+      setBookings((list as any[]).map((r, i) => ({
           id: String(r.id ?? i),
           bookingNo: r.bookingNo ?? r.chargeNumber ?? r.referenceNo ?? '',
           customerName: r.customerName ?? r.customer ?? '',
@@ -73,12 +92,12 @@ export default function FreightBookingPage() {
           contactPerson: r.contactPerson ?? '',
           contactPhone: r.contactPhone ?? '',
         })));
-      } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load bookings');
-      }
-    })();
-    return () => { cancelled = true; };
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load bookings');
+    }
   }, []);
+
+  useEffect(() => { loadBookings(); }, [loadBookings]);
 
   const bookingStats = {
     total: bookings.length,
@@ -124,188 +143,52 @@ export default function FreightBookingPage() {
     }
   };
 
-  const handleNewBooking = () => {
+  const openNewBooking = () => {
+    setFormData(emptyForm);
+    setFormOpen(true);
+  };
+
+  const handleSubmitBooking = async () => {
+    if (!formData.customerName.trim()) {
+      toast({ title: 'Validation error', description: 'Customer name is required.', variant: 'destructive' });
+      return;
+    }
+    if (!formData.origin.trim() || !formData.destination.trim()) {
+      toast({ title: 'Validation error', description: 'Origin and destination are required.', variant: 'destructive' });
+      return;
+    }
     setIsCreatingBooking(true);
-
-    const formData = `
-NEW FREIGHT BOOKING FORM
-========================
-
-ROUTE INFORMATION:
-------------------
-Origin Location: [Port/Airport/City]
-Origin Address: [Full address with postal code]
-Origin Contact: [Name & Phone]
-Destination Location: [Port/Airport/City]
-Destination Address: [Full address with postal code]
-Destination Contact: [Name & Phone]
-
-CARGO DETAILS:
---------------
-Cargo Type: [Electronics/Machinery/Textiles/Chemicals/FMCG/Pharmaceuticals/etc.]
-Description: [Detailed cargo description]
-HS Code: [Harmonized System Code]
-Weight: [Total weight in KG]
-Volume: [Total volume in CBM]
-Dimensions: [Length x Width x Height in CM]
-Number of Packages: [Count]
-Packaging Type: [Pallets/Crates/Cartons/Drums/Bulk]
-Commodity Value: [INR amount for customs & insurance]
-Dangerous Goods: [Yes/No - if yes, specify UN number & class]
-
-SERVICE SELECTION:
-------------------
-Transport Mode:
-  [ ] Air Freight (Fast delivery, higher cost)
-  [ ] Sea Freight (Economical for bulk cargo)
-  [ ] Road Transport (Door-to-door delivery)
-  [ ] Rail Transport (Cost-effective for domestic)
-  [ ] Multimodal (Combined modes)
-
-Service Level:
-  [ ] Express (Priority handling)
-  [ ] Standard (Regular service)
-  [ ] Economy (Cost-optimized)
-
-CARRIER SELECTION:
-------------------
-Preferred Carrier: [Select from list or enter name]
-Air: Emirates SkyCargo, Lufthansa Cargo, Qatar Airways Cargo, Air India Cargo
-Sea: Maersk Line, MSC, COSCO Shipping, CMA CGM, Hapag-Lloyd
-Road: VRL Logistics, Gati Ltd, TCI, DTDC, Delhivery
-Rail: Indian Railways - Container Corporation (CONCOR)
-
-Alternative Carrier (if primary unavailable): [Carrier name]
-
-SCHEDULE DETAILS:
------------------
-Pickup Date: [DD/MM/YYYY]
-Pickup Time Window: [HH:MM - HH:MM]
-Preferred Delivery Date: [DD/MM/YYYY]
-Delivery Time Window: [HH:MM - HH:MM]
-Transit Time Required: [Days]
-Delivery Instructions: [Special delivery requirements]
-
-INSURANCE COVERAGE:
--------------------
-Insurance Required: [ ] Yes  [ ] No
-Coverage Type:
-  [ ] All Risk Coverage
-  [ ] Named Perils Only
-  [ ] War & Strike Coverage
-Declared Value: [INR amount]
-Special Coverage: [Theft/Damage/Loss/Delay]
-
-CUSTOMS & DOCUMENTATION:
-------------------------
-Export/Import License No: [License number]
-IEC Code: [Import Export Code]
-GST Number: [GSTIN]
-Country of Origin: [Country]
-Incoterms: [FOB/CIF/CFR/DAP/DDP/EXW]
-
-Required Documents:
-  [✓] Commercial Invoice
-  [✓] Packing List
-  [✓] Bill of Lading / Airway Bill
-  [✓] Certificate of Origin
-  [ ] Phytosanitary Certificate
-  [ ] Fumigation Certificate
-  [ ] Test/Analysis Certificate
-  [ ] Dangerous Goods Declaration
-  [ ] Insurance Certificate
-  [ ] Letter of Credit
-  [ ] Import/Export Permit
-
-Customs Clearance:
-  [ ] Shipper Handles
-  [ ] Carrier Handles
-  [ ] Freight Forwarder Handles
-
-SPECIAL REQUIREMENTS:
----------------------
-Temperature Control:
-  [ ] Refrigerated (Specify temp: ___°C)
-  [ ] Frozen (Specify temp: ___°C)
-  [ ] Climate Controlled
-
-Handling Requirements:
-  [ ] Fragile - Handle with Care
-  [ ] This Side Up
-  [ ] Keep Dry
-  [ ] No Stacking
-  [ ] Hazardous Material (Specify: _______)
-
-Additional Services:
-  [ ] Cargo Inspection
-  [ ] Fumigation
-  [ ] Palletization
-  [ ] Shrink Wrapping
-  [ ] Warehousing (Days: ___)
-  [ ] Customs Brokerage
-  [ ] Door-to-Door Delivery
-  [ ] Tail Lift Required
-  [ ] Inside Delivery
-
-PAYMENT & BILLING:
-------------------
-Payment Terms: [Prepaid/Collect/Credit Account]
-Billing Party: [Shipper/Consignee/Third Party]
-Credit Terms: [Days]
-Cost Estimate:
-  - Base Freight: INR _______
-  - Fuel Surcharge: INR _______
-  - Handling Charges: INR _______
-  - Insurance: INR _______
-  - Customs Clearance: INR _______
-  - Documentation: INR _______
-  - Other Charges: INR _______
-  Total Estimated Cost: INR _______
-
-CONTACT INFORMATION:
---------------------
-Shipper Name: [Company/Individual]
-Shipper Contact Person: [Name]
-Shipper Phone: [+91-XXXXXXXXXX]
-Shipper Email: [email@domain.com]
-Shipper Address: [Complete address]
-
-Consignee Name: [Company/Individual]
-Consignee Contact Person: [Name]
-Consignee Phone: [International/Domestic]
-Consignee Email: [email@domain.com]
-Consignee Address: [Complete address]
-
-Notify Party (if different): [Name & Contact]
-
-BOOKING NOTES:
---------------
-Special Instructions: [Any specific requirements or notes]
-Reference Numbers: [PO Number, Invoice Number, etc.]
-Booking Priority: [ ] Urgent  [ ] Standard
-Internal Notes: [For office use]
-
-========================
-CONFIRMATION PROCESS:
-========================
-Once submitted, this booking will:
-1. Generate a unique Booking Number (FB-2025-XXXX)
-2. Send confirmation to carrier for capacity check
-3. Generate quote with freight charges breakdown
-4. Create pickup order with logistics team
-5. Generate Bill of Lading / Airway Bill
-6. Setup customs clearance workflow
-7. Enable real-time tracking
-8. Send notifications at each milestone
-
-Estimated Confirmation Time: 2-4 hours
-Priority Booking Confirmation: 30 minutes
-
-[Submit Booking]  [Save as Draft]  [Cancel]
-    `;
-
-    alert(formData);
-    setIsCreatingBooking(false);
+    const payload = {
+      customerName: formData.customerName.trim(),
+      customer: formData.customerName.trim(),
+      origin: formData.origin.trim(),
+      destination: formData.destination.trim(),
+      cargoType: formData.cargoType,
+      weight: formData.weight ? Number(formData.weight) : 0,
+      volume: formData.volume ? Number(formData.volume) : 0,
+      transportMode: formData.transportMode,
+      mode: formData.transportMode,
+      carrier: formData.carrier,
+      carrierName: formData.carrier,
+      pickupDate: formData.pickupDate,
+      expectedDelivery: formData.expectedDelivery,
+      bookingAmount: formData.bookingAmount ? Number(formData.bookingAmount) : 0,
+      totalCharge: formData.bookingAmount ? Number(formData.bookingAmount) : 0,
+      amount: formData.bookingAmount ? Number(formData.bookingAmount) : 0,
+      contactPerson: formData.contactPerson,
+      contactPhone: formData.contactPhone,
+      status: 'pending',
+    };
+    try {
+      await LogisticsService.createFreightCharge(payload);
+      toast({ title: 'Booking created', description: `Freight booking for ${formData.customerName} was created.`, variant: 'success' });
+      setFormOpen(false);
+      await loadBookings();
+    } catch (error) {
+      toast({ title: 'Booking failed', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsCreatingBooking(false);
+    }
   };
 
   const handleViewDetails = (booking: FreightBooking) => {
@@ -451,7 +334,7 @@ ${booking.customsStatus === 'cleared' ? '→ Download Customs Clearance Certific
 For assistance, contact: freight@factos.com | +91-1800-XXX-XXXX
     `;
 
-    alert(details);
+    setDetailText({ title: `Booking Details — ${booking.bookingNo}`, body: details });
     setIsViewingDetails(false);
   };
 
@@ -640,7 +523,7 @@ Next Update: Auto-refresh every 30 minutes
 For real-time updates, enable notifications above.
     `;
 
-    alert(trackingInfo);
+    setDetailText({ title: `Shipment Tracking — ${booking.bookingNo}`, body: trackingInfo });
     setIsTracking(false);
   };
 
@@ -662,7 +545,7 @@ For real-time updates, enable notifications above.
           </div>
         </div>
         <button
-          onClick={handleNewBooking}
+          onClick={openNewBooking}
           disabled={isCreatingBooking}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >

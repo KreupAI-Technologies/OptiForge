@@ -7,6 +7,7 @@ import {
   Attendance,
   AttendanceStatus
 } from '@/services/attendance.service';
+import { exportToCsv } from '@/lib/export';
 
 interface AttendanceRecord {
   id: string;
@@ -352,7 +353,10 @@ export default function AttendancePage() {
               )}
               {isSyncing ? 'Syncing...' : 'Sync Biometric Data'}
             </button>
-            <button className="flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all">
+            <button
+              onClick={() => exportToCsv('attendance', filteredAttendance as unknown as Record<string, unknown>[])}
+              className="flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all"
+            >
               <Download className="w-4 h-4 mr-2" />
               Export Report
             </button>

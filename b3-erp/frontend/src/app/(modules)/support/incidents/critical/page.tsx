@@ -39,15 +39,14 @@ const CriticalIncidentsPage = () => {
   const [selectedIncident, setSelectedIncident] = useState<CriticalIncident | null>(null);
 
   const [incidents, setIncidents] = useState<CriticalIncident[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadIncidents = async () => {
-      try {
-        const res = await ITILService.getIncidents(COMPANY_ID, { priority: 'P1' });
-        const rows = Array.isArray(res?.data) ? res.data : [];
-        const mapped: CriticalIncident[] = rows.map((r: any) => ({
+  const loadIncidents = async (signal?: { cancelled: boolean }) => {
+    try {
+      const res = await ITILService.getIncidents(COMPANY_ID, { priority: 'P1' });
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      const mapped: CriticalIncident[] = rows.map((r: any) => ({
           id: r?.id ?? '',
           incidentNumber: r?.incidentNumber ?? '',
           title: r?.title ?? '',
@@ -75,15 +74,20 @@ const CriticalIncidentsPage = () => {
           updateFrequency: '',
           criticalityScore: r?.priority === 'critical' ? 95 : 85,
         }));
-        if (!cancelled) setIncidents(mapped);
-      } catch {
-        if (!cancelled) setIncidents([]);
+        if (!signal?.cancelled) setIncidents(mapped);
+      } catch (e) {
+        if (!signal?.cancelled) {
+          setIncidents([]);
+          setActionError(e instanceof Error ? e.message : 'Failed to load critical incidents');
+        }
       }
-    };
+  };
 
-    loadIncidents();
+  useEffect(() => {
+    const signal = { cancelled: false };
+    loadIncidents(signal);
     return () => {
-      cancelled = true;
+      signal.cancelled = true;
     };
   }, []);
 
@@ -93,7 +97,9 @@ const CriticalIncidentsPage = () => {
     p1: incidents.filter(i => i.priority === 'P1').length,
     warRoom: incidents.filter(i => i.warRoom).length,
     slaBreach: incidents.filter(i => i.slaStatus === 'Breached').length,
-    avgCriticality: Math.round(incidents.reduce((sum, i) => sum + i.criticalityScore, 0) / incidents.length),
+    avgCriticality: incidents.length
+      ? Math.round(incidents.reduce((sum, i) => sum + i.criticalityScore, 0) / incidents.length)
+      : 0,
   };
 
   const getSLAColor = (status: string) => {
@@ -123,12 +129,53 @@ const CriticalIncidentsPage = () => {
     setSelectedIncident(null);
   };
 
-  const handleEscalate = (incidentNumber: string) => {
-    alert(`Escalating incident ${incidentNumber} to next level`);
+  const handleEscalate = async (incident: CriticalIncident) => {
+    if (actionBusyId) return;
+    setActionBusyId(incident.id);
+    setActionError(null);
+    try {
+      await ITILService.updateIncident(incident.id, {
+        priority: 'critical',
+        urgency: 'critical',
+        status: 'in_progress',
+        reopenedCount: (incident.escalationLevel ?? 0) + 1,
+      });
+      await loadIncidents();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : `Failed to escalate ${incident.incidentNumber}`);
+    } finally {
+      setActionBusyId(null);
+    }
   };
 
-  const handleInitiateWarRoom = (incidentNumber: string) => {
-    alert(`Initiating war room for incident ${incidentNumber}`);
+  const handleInitiateWarRoom = async (incident: CriticalIncident) => {
+    if (actionBusyId) return;
+    setActionBusyId(incident.id);
+    setActionError(null);
+    try {
+      await ITILService.updateIncident(incident.id, {
+        status: 'in_progress',
+      });
+      await loadIncidents();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : `Failed to initiate war room for ${incident.incidentNumber}`);
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const handleResolve = async (incident: CriticalIncident) => {
+    if (actionBusyId) return;
+    setActionBusyId(incident.id);
+    setActionError(null);
+    try {
+      await ITILService.updateIncident(incident.id, { status: 'resolved' });
+      await loadIncidents();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : `Failed to resolve ${incident.incidentNumber}`);
+    } finally {
+      setActionBusyId(null);
+    }
   };
 
   return (
@@ -163,6 +210,12 @@ const CriticalIncidentsPage = () => {
                 <div className="text-red-700">{stats.slaBreach} incident(s) have breached SLA targets - Immediate escalation required</div>
               </div>
             </div>
+          </div>
+        )}
+
+        {actionError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mt-2 text-sm">
+            {actionError}
           </div>
         )}
       </div>
@@ -349,19 +402,29 @@ const CriticalIncidentsPage = () => {
                 </button>
                 {!incident.warRoom && (
                   <button
-                    onClick={() => handleInitiateWarRoom(incident.incidentNumber)}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    onClick={() => handleInitiateWarRoom(incident)}
+                    disabled={actionBusyId === incident.id}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Users className="w-4 h-4" />
                     Initiate War Room
                   </button>
                 )}
                 <button
-                  onClick={() => handleEscalate(incident.incidentNumber)}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  onClick={() => handleEscalate(incident)}
+                  disabled={actionBusyId === incident.id}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <TrendingUp className="w-4 h-4" />
-                  Escalate
+                  {actionBusyId === incident.id ? 'Working…' : 'Escalate'}
+                </button>
+                <button
+                  onClick={() => handleResolve(incident)}
+                  disabled={actionBusyId === incident.id}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Resolve
                 </button>
               </div>
               <div className="flex items-center gap-2">

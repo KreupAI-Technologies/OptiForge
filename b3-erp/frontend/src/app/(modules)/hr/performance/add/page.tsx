@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmployeeService } from '@/services/employee.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
+import { toast } from '@/hooks/use-toast';
 import {
   ArrowLeft,
   Save,
@@ -90,6 +92,7 @@ export default function AddPerformancePage() {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -297,11 +300,14 @@ export default function AddPerformancePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      alert('Please fix all errors before submitting');
+      toast({
+        title: 'Please fix all errors before submitting',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -316,9 +322,22 @@ export default function AddPerformancePage() {
       createdDate: new Date().toISOString(),
     };
 
-    console.log('Creating performance review:', reviewData);
-    alert('Performance review created successfully!');
-    router.push('/hr/performance');
+    setIsSubmitting(true);
+    try {
+      await PerformanceManagementService.createHrPerformanceReview(reviewData);
+      toast({
+        title: 'Performance review created successfully!',
+      });
+      router.push('/hr/performance');
+    } catch (err) {
+      toast({
+        title: 'Failed to create review',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const overallRating = calculateOverallRating();
@@ -817,10 +836,11 @@ export default function AddPerformancePage() {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Create Review
+              {isSubmitting ? 'Creating…' : 'Create Review'}
             </button>
           </div>
         </form>

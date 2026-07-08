@@ -22,12 +22,35 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { LogisticsService, DeliveryCoordinationDto } from '@/services/logistics.service';
 
 interface ProjectInfo {
     id: string;
     name: string;
     clientName: string;
     status: string;
+    projectCode?: string;
+}
+
+/**
+ * Resolve (or create) the DeliveryCoordination record for a project.
+ * Coordinations are keyed by woNumber + customerName (no projectId link exists
+ * in the backend), so we derive woNumber from the project's code/id and match
+ * on woNumber; if none exists we create one.
+ */
+async function resolveCoordination(
+    project: ProjectInfo,
+    seed?: Partial<DeliveryCoordinationDto>,
+): Promise<DeliveryCoordinationDto> {
+    const woNumber = project.projectCode || project.id;
+    const existing = await LogisticsService.getDeliveryCoordinations();
+    const match = existing.find((c) => c.woNumber === woNumber);
+    if (match) return match;
+    return LogisticsService.createDeliveryCoordination({
+        woNumber,
+        customerName: project.clientName,
+        ...seed,
+    });
 }
 
 interface TransportOption {
@@ -50,11 +73,13 @@ export default function TransportSelectionPage() {
     const [selectedProject, setSelectedProject] = useState<ProjectInfo | null>(null);
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Page data state
     const [destination] = useState('Bangalore, Karnataka');
     const [distance] = useState('350 km');
     const [selectedTransport, setSelectedTransport] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     const transportOptions: TransportOption[] = [
         { id: '1', mode: 'Road', provider: 'TCI Express', estimatedDays: 2, cost: 15000, capacity: '10 tons', suitableFor: 'Local & Regional' },
@@ -69,12 +94,14 @@ export default function TransportSelectionPage() {
 
     const loadProjects = async () => {
         try {
+            setError(null);
             const allProjects = await projectManagementService.getProjects();
             const projectInfos: ProjectInfo[] = allProjects.map((p: Project) => ({
                 id: p.id,
                 name: p.name || `Project ${p.id}`,
                 clientName: p.clientName || 'Unknown Client',
                 status: p.status || 'active',
+                projectCode: p.projectCode,
             }));
             setProjects(projectInfos);
 
@@ -85,8 +112,9 @@ export default function TransportSelectionPage() {
                     setSelectedProject(found);
                 }
             }
-        } catch (error) {
-            console.error('Error loading projects:', error);
+        } catch (err) {
+            console.error('Error loading projects:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load projects');
         } finally {
             setIsLoadingProjects(false);
         }
@@ -106,12 +134,35 @@ export default function TransportSelectionPage() {
         p.clientName.toLowerCase().includes(projectSearch.toLowerCase())
     );
 
-    const handleSelectTransport = (id: string, provider: string) => {
-        setSelectedTransport(id);
-        toast({
-            title: 'Transport Selected',
-            description: `${provider} has been selected for this delivery`,
-        });
+    const handleSelectTransport = async (id: string, provider: string) => {
+        if (!selectedProject || submitting) return;
+        setSubmitting(true);
+        const option = transportOptions.find(o => o.id === id);
+        try {
+            const coordination = await resolveCoordination(selectedProject, {
+                transporter: provider,
+            });
+            await LogisticsService.updateDeliveryCoordination(coordination.id, {
+                transporter: provider,
+                transportMethod: option?.mode === 'Road' ? 'Own Vehicle' : 'Third Party',
+                status: 'Coordinated',
+            });
+            setSelectedTransport(id);
+            toast({
+                title: 'Transport Selected',
+                description: `${provider} has been assigned to this delivery`,
+                variant: 'success',
+            });
+        } catch (err) {
+            console.error('Error selecting transport:', err);
+            toast({
+                title: 'Failed to Select Transport',
+                description: err instanceof Error ? err.message : 'Could not save transport selection',
+                variant: 'destructive',
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const getModeIcon = (mode: TransportOption['mode']) => {
@@ -160,10 +211,20 @@ export default function TransportSelectionPage() {
                         />
                     </div>
 
-                    {isLoadingProjects ? (
+                    {error ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+                            <p className="text-red-700 font-medium">Failed to load projects</p>
+                            <p className="text-sm text-red-600 mt-1">{error}</p>
+                            <Button className="mt-4" variant="outline" onClick={loadProjects}>Retry</Button>
+                        </div>
+                    ) : isLoadingProjects ? (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
                             <span className="ml-2 text-gray-600">Loading projects...</span>
+                        </div>
+                    ) : filteredProjects.length === 0 ? (
+                        <div className="rounded-lg border bg-white p-12 text-center text-gray-500">
+                            No projects found.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -28,10 +28,22 @@ interface ExchangeRate {
   type: 'spot' | 'forward' | 'historical'
 }
 
-interface RateHistory {
-  date: string
-  rate: number
+interface RateFormState {
+  fromCurrency: string
+  toCurrency: string
+  rate: string
+  effectiveDate: string
   source: string
+  type: ExchangeRate['type']
+}
+
+const EMPTY_RATE_FORM: RateFormState = {
+  fromCurrency: '',
+  toCurrency: '',
+  rate: '',
+  effectiveDate: new Date().toISOString().slice(0, 10),
+  source: '',
+  type: 'spot',
 }
 
 export default function ExchangeRatesPage() {
@@ -43,6 +55,13 @@ export default function ExchangeRatesPage() {
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Add / edit modal state
+  const [showRateModal, setShowRateModal] = useState(false)
+  const [editingRateId, setEditingRateId] = useState<string | null>(null)
+  const [rateForm, setRateForm] = useState<RateFormState>(EMPTY_RATE_FORM)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const loadExchangeRates = useCallback(async () => {
     setLoading(true)
@@ -80,33 +99,67 @@ export default function ExchangeRatesPage() {
     loadExchangeRates()
   }, [loadExchangeRates])
 
-  const handleAddRate = async (data: any) => {
+  const openAddRateModal = () => {
+    setEditingRateId(null)
+    setRateForm({ ...EMPTY_RATE_FORM, type: (rateType as ExchangeRate['type']) || 'spot' })
+    setFormError(null)
+    setShowRateModal(true)
+  }
+
+  const openEditRateModal = (rate: ExchangeRate) => {
+    setEditingRateId(rate.id)
+    setRateForm({
+      fromCurrency: rate.fromCurrency,
+      toCurrency: rate.toCurrency,
+      rate: String(rate.rate),
+      effectiveDate: rate.effectiveDate || new Date().toISOString().slice(0, 10),
+      source: rate.source,
+      type: rate.type,
+    })
+    setFormError(null)
+    setShowRateModal(true)
+  }
+
+  const handleSubmitRate = async () => {
+    if (!rateForm.fromCurrency.trim() || !rateForm.toCurrency.trim() || !rateForm.rate) {
+      setFormError('From currency, to currency and rate are required.')
+      return
+    }
+    const payload = {
+      fromCurrency: rateForm.fromCurrency.trim().toUpperCase(),
+      toCurrency: rateForm.toCurrency.trim().toUpperCase(),
+      rate: Number(rateForm.rate),
+      effectiveDate: rateForm.effectiveDate,
+      source: rateForm.source.trim(),
+      type: rateForm.type,
+    }
+    setSubmitting(true)
+    setFormError(null)
     try {
-      await FinanceService.createExchangeRate(data)
+      if (editingRateId) {
+        await FinanceService.updateExchangeRate(editingRateId, payload)
+      } else {
+        await FinanceService.createExchangeRate(payload)
+      }
+      setShowRateModal(false)
       await loadExchangeRates()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create exchange rate')
+      setFormError(err instanceof Error ? err.message : 'Failed to save exchange rate')
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const handleUpdateRate = async (id: string, data: any) => {
+  const handleDeleteRate = async (rate: ExchangeRate) => {
+    if (!window.confirm(`Delete exchange rate ${rate.fromCurrency}/${rate.toCurrency}?`)) return
+    setError(null)
     try {
-      await FinanceService.updateExchangeRate(id, data)
+      await FinanceService.deleteExchangeRate(rate.id)
       await loadExchangeRates()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update exchange rate')
+      setError(err instanceof Error ? err.message : 'Failed to delete exchange rate')
     }
   }
-
-  const [rateHistory] = useState<RateHistory[]>([
-    { date: '2025-10-18', rate: 83.25, source: 'RBI' },
-    { date: '2025-10-17', rate: 83.15, source: 'RBI' },
-    { date: '2025-10-16', rate: 83.20, source: 'RBI' },
-    { date: '2025-10-15', rate: 83.10, source: 'RBI' },
-    { date: '2025-10-14', rate: 83.05, source: 'RBI' },
-    { date: '2025-10-11', rate: 83.00, source: 'RBI' },
-    { date: '2025-10-10', rate: 82.95, source: 'RBI' }
-  ])
 
   const appreciatingCurrencies = exchangeRates.filter(r => r.change > 0).length
   const depreciatingCurrencies = exchangeRates.filter(r => r.change < 0).length
@@ -187,61 +240,14 @@ export default function ExchangeRatesPage() {
     }, 1500)
   }
 
-  // Handler: Update Exchange Rates from External API
-  const handleUpdateRates = () => {
+  // Handler: Refresh rates from backend (re-fetch latest persisted rates)
+  const handleUpdateRates = async () => {
     setIsUpdating(true)
-
-    // Simulate API call to fetch latest rates
-    setTimeout(() => {
-      try {
-        // Simulate currency update results
-        const updateResults = exchangeRates.map(rate => {
-          const updateSuccess = Math.random() > 0.1 // 90% success rate
-          const newRate = updateSuccess
-            ? rate.rate * (1 + (Math.random() - 0.5) * 0.02) // +/- 1% variation
-            : rate.rate
-
-          return {
-            pair: `${rate.fromCurrency}/${rate.toCurrency}`,
-            oldRate: rate.rate.toFixed(4),
-            newRate: newRate.toFixed(4),
-            change: (newRate - rate.rate).toFixed(4),
-            status: updateSuccess ? 'Success' : 'Failed',
-            source: rate.source
-          }
-        })
-
-        const successCount = updateResults.filter(r => r.status === 'Success').length
-        const failedCount = updateResults.filter(r => r.status === 'Failed').length
-
-        const resultsSummary = updateResults.map(r =>
-          `${r.status === 'Success' ? '✅' : '❌'} ${r.pair}: ${r.oldRate} → ${r.newRate} (${parseFloat(r.change) >= 0 ? '+' : ''}${r.change})`
-        ).join('\n')
-
-        alert(`🔄 Exchange Rate Update Complete!\n\n` +
-          `📊 Update Summary:\n` +
-          `• Total Currencies: ${exchangeRates.length}\n` +
-          `• Successfully Updated: ${successCount}\n` +
-          `• Failed Updates: ${failedCount}\n` +
-          `• Success Rate: ${((successCount / exchangeRates.length) * 100).toFixed(1)}%\n` +
-          `• Update Source: RBI Real-time Feed\n` +
-          `• Update Time: ${new Date().toLocaleString('en-IN')}\n\n` +
-          `📈 Currency Update Details:\n${resultsSummary}\n\n` +
-          `${failedCount > 0 ? '⚠️ Some rates could not be updated. They will be retried in the next scheduled update.\n\n' : ''}` +
-          `🔔 Next Auto-Update: ${new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit' })}\n` +
-          `All rates have been synchronized with the latest market data.`)
-      } catch (error) {
-        alert(`❌ Rate Update Failed!\n\n` +
-          `Error: ${error instanceof Error ? error.message : 'Unable to connect to rate provider'}\n\n` +
-          `Possible Causes:\n` +
-          `• Network connectivity issues\n` +
-          `• API rate limit exceeded\n` +
-          `• External service temporarily unavailable\n\n` +
-          `Please try again in a few moments.`)
-      } finally {
-        setIsUpdating(false)
-      }
-    }, 2500)
+    try {
+      await loadExchangeRates()
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   // Handler: Configure Auto-Update Settings
@@ -478,7 +484,7 @@ export default function ExchangeRatesPage() {
               <h2 className="text-lg font-semibold text-gray-900">Current Exchange Rates</h2>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleAddRate({ type: rateType })}
+                  onClick={openAddRateModal}
                   className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
                 >
                   Add Rate
@@ -505,20 +511,35 @@ export default function ExchangeRatesPage() {
               {exchangeRates.map((rate) => (
                 <div
                   key={rate.id}
-                  onClick={() => handleUpdateRate(rate.id, { rate: rate.rate })}
-                  className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer">
+                  className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all">
                   <div className="flex items-center justify-between mb-2">
                     <div>
                       <p className="text-xs text-gray-600">Exchange Rate</p>
                       <p className="text-2xl font-bold text-gray-900">{rate.fromCurrency}/{rate.toCurrency}</p>
                     </div>
-                    <div className={`p-2 rounded-lg ${rate.change >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                      {rate.change >= 0 ? (
-                        <TrendingUp className="h-6 w-6 text-green-600" />
-                      ) : (
-                        <TrendingDown className="h-6 w-6 text-red-600" />
-                      )}
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${rate.change >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                        {rate.change >= 0 ? (
+                          <TrendingUp className="h-6 w-6 text-green-600" />
+                        ) : (
+                          <TrendingDown className="h-6 w-6 text-red-600" />
+                        )}
+                      </div>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      onClick={() => openEditRateModal(rate)}
+                      className="px-2 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRate(rate)}
+                      className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 rounded hover:bg-red-100"
+                    >
+                      Delete
+                    </button>
                   </div>
 
                   <div className="space-y-3">
@@ -554,64 +575,6 @@ export default function ExchangeRatesPage() {
           </div>
         </div>
 
-        {/* Rate History Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">USD/INR Rate History (7 Days)</h2>
-              <Calendar className="h-5 w-5 text-gray-400" />
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="space-y-3">
-              {rateHistory.map((history, index) => {
-                const prevRate = index < rateHistory.length - 1 ? rateHistory[index + 1].rate : history.rate
-                const change = history.rate - prevRate
-                const changePercent = ((change / prevRate) * 100)
-
-                return (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <div className="text-center min-w-[80px]">
-                        <p className="text-xs text-gray-600">
-                          {new Date(history.date).toLocaleDateString('en-IN', { weekday: 'short' })}
-                        </p>
-                        <p className="font-semibold text-gray-900">
-                          {new Date(history.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                        </p>
-                      </div>
-                      <div className="h-12 w-px bg-gray-300" />
-                      <div>
-                        <p className="text-xs text-gray-600">Exchange Rate</p>
-                        <p className="text-xl font-bold text-gray-900">{history.rate.toFixed(4)}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-xs text-gray-600">Change</p>
-                        <p className={`font-semibold ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {change >= 0 ? '+' : ''}{change.toFixed(4)} ({changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%)
-                        </p>
-                      </div>
-                      <div className={`p-2 rounded-lg ${change >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                        {change >= 0 ? (
-                          <TrendingUp className="h-5 w-5 text-green-600" />
-                        ) : change < 0 ? (
-                          <TrendingDown className="h-5 w-5 text-red-600" />
-                        ) : (
-                          <CheckCircle className="h-5 w-5 text-gray-600" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
         {/* Rate Update Alerts */}
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-sm border border-yellow-200 p-3">
           <div className="flex items-start gap-2">
@@ -639,6 +602,104 @@ export default function ExchangeRatesPage() {
           </div>
         </div>
       </div>
+
+      {showRateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+              {editingRateId ? 'Edit Exchange Rate' : 'Add Exchange Rate'}
+            </h3>
+            {formError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {formError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">From Currency</label>
+                  <input
+                    type="text"
+                    value={rateForm.fromCurrency}
+                    onChange={(e) => setRateForm({ ...rateForm, fromCurrency: e.target.value })}
+                    placeholder="USD"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">To Currency</label>
+                  <input
+                    type="text"
+                    value={rateForm.toCurrency}
+                    onChange={(e) => setRateForm({ ...rateForm, toCurrency: e.target.value })}
+                    placeholder="INR"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Rate</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={rateForm.rate}
+                  onChange={(e) => setRateForm({ ...rateForm, rate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Effective Date</label>
+                  <input
+                    type="date"
+                    value={rateForm.effectiveDate}
+                    onChange={(e) => setRateForm({ ...rateForm, effectiveDate: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Type</label>
+                  <select
+                    value={rateForm.type}
+                    onChange={(e) => setRateForm({ ...rateForm, type: e.target.value as ExchangeRate['type'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="spot">Spot</option>
+                    <option value="forward">Forward</option>
+                    <option value="historical">Historical</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Source</label>
+                <input
+                  type="text"
+                  value={rateForm.source}
+                  onChange={(e) => setRateForm({ ...rateForm, source: e.target.value })}
+                  placeholder="RBI"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowRateModal(false)}
+                disabled={submitting}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitRate}
+                disabled={submitting}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                {submitting ? 'Saving...' : editingRateId ? 'Update Rate' : 'Add Rate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

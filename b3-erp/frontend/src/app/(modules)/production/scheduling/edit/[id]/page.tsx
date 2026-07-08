@@ -97,7 +97,9 @@ const ProductionSchedulingEditPage = () => {
   const scheduleId = params?.id as string;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [formMessage, setFormMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [selectedWOs, setSelectedWOs] = useState<string[]>([]);
   const [availableWOs, setAvailableWOs] = useState<WorkOrder[]>([]);
@@ -116,10 +118,12 @@ const ProductionSchedulingEditPage = () => {
   useEffect(() => {
     const fetchScheduleData = async () => {
       setLoading(true);
+      setLoadError(null);
 
-      // Empty skeleton used only to keep the JSX from crashing on missing
-      // arrays before the backend row is merged in. No sample display data.
-      const mockData: ScheduleData = {
+      // Empty skeleton used only to defensively backfill fields the backend row
+      // does not provide, so the JSX never crashes on a missing array. This is
+      // NOT sample display data.
+      const emptySkeleton: ScheduleData = {
         id: scheduleId,
         scheduleId: "",
         period: "",
@@ -132,8 +136,6 @@ const ProductionSchedulingEditPage = () => {
         constraints: [],
       };
 
-      const mockAvailableWOs: WorkOrder[] = [];
-
       try {
         const lines = await ProductionOrphanService.getScheduleLines();
         const raw: any = Array.isArray(lines)
@@ -141,38 +143,40 @@ const ProductionSchedulingEditPage = () => {
           : null;
 
         if (raw && typeof raw === "object") {
-          // Merge defensively over the mock fallback: keep mock arrays/values
-          // for any field the backend row does not provide.
+          // Merge defensively over the empty skeleton: backfill only the shape
+          // (arrays/defaults) for fields the backend row does not provide.
           const merged: ScheduleData = {
-            ...mockData,
-            id: raw.id !== undefined ? String(raw.id) : mockData.id,
-            scheduleId: raw.scheduleId ?? mockData.scheduleId,
-            period: raw.period ?? mockData.period,
-            startDate: raw.startDate ?? mockData.startDate,
-            endDate: raw.endDate ?? mockData.endDate,
-            status: raw.status ?? mockData.status,
-            schedulingMethod: raw.schedulingMethod ?? mockData.schedulingMethod,
+            ...emptySkeleton,
+            id: raw.id !== undefined ? String(raw.id) : emptySkeleton.id,
+            scheduleId: raw.scheduleCode ?? raw.scheduleId ?? emptySkeleton.scheduleId,
+            period: raw.period ?? emptySkeleton.period,
+            startDate: raw.plannedStart ?? raw.startDate ?? emptySkeleton.startDate,
+            endDate: raw.plannedEnd ?? raw.endDate ?? emptySkeleton.endDate,
+            status: raw.status ?? emptySkeleton.status,
+            schedulingMethod: raw.schedulingMethod ?? emptySkeleton.schedulingMethod,
             workOrders: Array.isArray(raw.workOrders)
               ? raw.workOrders
-              : mockData.workOrders,
+              : emptySkeleton.workOrders,
             workCenters: Array.isArray(raw.workCenters)
               ? raw.workCenters
-              : mockData.workCenters,
+              : emptySkeleton.workCenters,
             constraints: Array.isArray(raw.constraints)
               ? raw.constraints
-              : mockData.constraints,
+              : emptySkeleton.constraints,
           };
           setScheduleData(merged);
+          setAvailableWOs([]);
         } else {
-          setScheduleData(mockData);
+          // No matching row from a successful fetch: treat as not found.
+          setLoadError("Schedule not found.");
+          setScheduleData(null);
         }
       } catch (err) {
-        console.error("Failed to load schedule line", err);
-        setScheduleData(mockData);
+        setLoadError(err instanceof Error ? err.message : "Failed to load schedule.");
+        setScheduleData(null);
+      } finally {
+        setLoading(false);
       }
-
-      setAvailableWOs(mockAvailableWOs);
-      setLoading(false);
     };
 
     if (scheduleId) {
@@ -232,18 +236,18 @@ const ProductionSchedulingEditPage = () => {
   const handleSave = async () => {
     if (!scheduleData) return;
     setSaving(true);
+    setFormMessage(null);
     try {
-      // The service exposes no updateScheduleLine, so we persist via
-      // createScheduleLine carrying the id in the body. The backend upserts
-      // on the provided id.
-      await ProductionOrphanService.createScheduleLine({
+      await ProductionOrphanService.updateScheduleLine(scheduleId, {
         ...scheduleData,
         id: scheduleId,
       } as any);
       router.push("/production/scheduling");
     } catch (err) {
-      console.error("Failed to save schedule", err);
-      alert("Failed to save schedule. Please try again.");
+      setFormMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to save schedule. Please try again.",
+      });
     } finally {
       setSaving(false);
     }
@@ -251,25 +255,27 @@ const ProductionSchedulingEditPage = () => {
 
   const handlePublish = async () => {
     if (conflictDetected) {
-      alert(
-        "Cannot publish schedule with conflicts. Please resolve conflicts first."
-      );
+      setFormMessage({
+        type: "error",
+        text: "Cannot publish schedule with conflicts. Please resolve conflicts first.",
+      });
       return;
     }
     if (!scheduleData) return;
     setSaving(true);
+    setFormMessage(null);
     try {
-      // No dedicated update endpoint: persist the published state via
-      // createScheduleLine with the id in the body.
-      await ProductionOrphanService.createScheduleLine({
+      await ProductionOrphanService.updateScheduleLine(scheduleId, {
         ...scheduleData,
         id: scheduleId,
         status: "published",
       } as any);
       router.push("/production/scheduling");
     } catch (err) {
-      console.error("Failed to publish schedule", err);
-      alert("Failed to publish schedule. Please try again.");
+      setFormMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to publish schedule. Please try again.",
+      });
     } finally {
       setSaving(false);
     }
@@ -277,9 +283,19 @@ const ProductionSchedulingEditPage = () => {
 
   const handleAutoSchedule = async () => {
     setAutoScheduling(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    alert("Auto-scheduling completed! Review the optimized schedule.");
-    setAutoScheduling(false);
+    setFormMessage(null);
+    // schedule-lines has no optimize route (optimize is only on
+    // production-schedules). Re-run local conflict detection over the current
+    // edits as an in-place scheduling review.
+    try {
+      detectConflicts();
+      setFormMessage({
+        type: "success",
+        text: "Schedule reviewed. Conflicts re-evaluated against current assignments.",
+      });
+    } finally {
+      setAutoScheduling(false);
+    }
   };
 
   const handleAddWO = (woId: string) => {
@@ -365,9 +381,15 @@ const ProductionSchedulingEditPage = () => {
   if (!scheduleData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <X className="w-16 h-16 text-red-500 mb-2" />
-          <p className="text-xl text-gray-800">Schedule not found</p>
+        <div className="flex flex-col items-center text-center">
+          <AlertTriangle className="w-16 h-16 text-red-500 mb-2" />
+          <p className="text-xl text-gray-800">{loadError || "Schedule not found"}</p>
+          <button
+            onClick={() => router.push("/production/scheduling")}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Back to Schedules
+          </button>
         </div>
       </div>
     );
@@ -425,6 +447,18 @@ const ProductionSchedulingEditPage = () => {
             </button>
           </div>
         </div>
+
+        {formMessage && (
+          <div
+            className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+              formMessage.type === "success"
+                ? "border-green-200 bg-green-50 text-green-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {formMessage.text}
+          </div>
+        )}
 
         {/* Conflict Alert */}
         {conflictDetected && (

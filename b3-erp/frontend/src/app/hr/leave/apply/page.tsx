@@ -117,6 +117,8 @@ export default function ApplyLeavePage() {
   const [emergencyContact, setEmergencyContact] = useState('');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Calculate days
   const calculatedDays = useMemo(() => {
@@ -157,36 +159,57 @@ export default function ApplyLeavePage() {
     return calculatedDays > selectedBalance.balance;
   }, [calculatedDays, selectedBalance]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!canSubmit) return;
+    if (!canSubmit || isSubmitting) return;
 
-    // Simulate submission
-    console.log('Submitting leave application:', {
-      leaveType: selectedLeaveType,
-      durationType,
-      fromDate,
-      toDate,
-      days: calculatedDays,
-      reason,
-      emergencyContact,
-      attachedFile
-    });
+    // Resolve the backend leaveTypeId from the selected code.
+    const leaveTypeId =
+      leaveTypes.find((lt) => lt.code === selectedLeaveType)?.id ?? '';
+    if (!leaveTypeId) {
+      setSubmitError('Unable to resolve the selected leave type. Please retry.');
+      return;
+    }
+    // Resolve employee id from the loaded balances for the selected type.
+    const employeeId = selectedBalance?.employeeId ?? '';
+    if (!employeeId) {
+      setSubmitError('Unable to resolve your employee record. Please contact HR.');
+      return;
+    }
 
-    setShowSuccessMessage(true);
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await LeaveService.applyLeave({
+        employeeId,
+        leaveTypeId,
+        startDate: fromDate,
+        endDate: toDate,
+        reason,
+        ...(emergencyContact ? { emergencyContact } : {}),
+      } as any);
 
-    // Reset form
-    setTimeout(() => {
-      setSelectedLeaveType('');
-      setDurationType('full-day');
-      setFromDate('');
-      setToDate('');
-      setReason('');
-      setEmergencyContact('');
-      setAttachedFile(null);
-      setShowSuccessMessage(false);
-    }, 3000);
+      setShowSuccessMessage(true);
+
+      // Reset form
+      setTimeout(() => {
+        setSelectedLeaveType('');
+        setDurationType('full-day');
+        setFromDate('');
+        setToDate('');
+        setReason('');
+        setEmergencyContact('');
+        setAttachedFile(null);
+        setShowSuccessMessage(false);
+      }, 3000);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Failed to submit leave application',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,6 +238,11 @@ export default function ApplyLeavePage() {
       {loadError && (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
           {loadError}
+        </div>
+      )}
+      {submitError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
+          {submitError}
         </div>
       )}
 
@@ -499,15 +527,15 @@ export default function ApplyLeavePage() {
           <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
             <button
               type="submit"
-              disabled={!canSubmit || exceedsBalance}
+              disabled={!canSubmit || exceedsBalance || isSubmitting}
               className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors ${
-                canSubmit && !exceedsBalance
+                canSubmit && !exceedsBalance && !isSubmitting
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
               <Send className="w-4 h-4" />
-              Submit Application
+              {isSubmitting ? 'Submitting…' : 'Submit Application'}
             </button>
             <button
               type="button"

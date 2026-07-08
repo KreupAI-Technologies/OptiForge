@@ -71,6 +71,8 @@ export default function EmployeeProfilesPage() {
   const [profiles, setProfiles] = useState<EmployeeProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,263 +156,30 @@ export default function EmployeeProfilesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
-  // Mock data for employee profiles
-  const mockProfiles: EmployeeProfile[] = [
-    {
-      id: 'EP001',
-      employeeCode: 'KMF2020001',
-      name: 'Rajesh Kumar Sharma',
-      designation: 'Production Manager',
-      department: 'Production',
-      email: 'rajesh.sharma@company.com',
-      phone: '+91 98765 43210',
-      location: 'Plant A - Floor 1',
-      joiningDate: '2020-01-15',
-      dateOfBirth: '1985-06-12',
-      gender: 'male',
-      maritalStatus: 'married',
-      bloodGroup: 'O+',
-      address: '123, Nehru Nagar, Sector 12',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400001',
-      emergencyContact: {
-        name: 'Priya Sharma',
-        relationship: 'Wife',
-        phone: '+91 98765 43211'
-      },
-      education: [
-        { degree: 'B.Tech Mechanical Engineering', institution: 'IIT Bombay', year: '2007' },
-        { degree: 'MBA Operations', institution: 'XLRI Jamshedpur', year: '2012' }
-      ],
-      experience: [
-        { company: 'ABC Industries', position: 'Assistant Manager', duration: '2012-2015' },
-        { company: 'XYZ Manufacturing', position: 'Senior Engineer', duration: '2015-2020' }
-      ],
-      skills: ['Production Planning', 'Quality Control', 'Lean Manufacturing', 'Six Sigma'],
-      certifications: ['Six Sigma Black Belt', 'PMP Certified', 'ISO 9001 Lead Auditor'],
-      reportingTo: 'Suresh Patel (VP Operations)',
-      employeeType: 'permanent',
-      workMode: 'onsite',
-      shift: 'Day Shift (6 AM - 2 PM)',
-      probationStatus: 'completed',
-      status: 'active',
-      avatar: 'RKS',
-      aadharNumber: '1234-5678-9012',
-      panNumber: 'ABCDE1234F',
-      pfNumber: 'MH/MUM/123456/000001',
-      esiNumber: '1234567890',
-      bankAccount: {
-        accountNumber: '1234567890123456',
-        ifsc: 'HDFC0001234',
-        bankName: 'HDFC Bank'
-      }
-    },
-    {
-      id: 'EP002',
-      employeeCode: 'KMF2019002',
-      name: 'Meera Nair',
-      designation: 'Quality Control Head',
-      department: 'Quality',
-      email: 'meera.nair@company.com',
-      phone: '+91 98765 43212',
-      location: 'Quality Lab - Building B',
-      joiningDate: '2019-06-20',
-      dateOfBirth: '1988-03-25',
-      gender: 'female',
-      maritalStatus: 'single',
-      bloodGroup: 'A+',
-      address: '456, Gandhi Road, Sector 8',
-      city: 'Pune',
-      state: 'Maharashtra',
-      pincode: '411001',
-      emergencyContact: {
-        name: 'Lakshmi Nair',
-        relationship: 'Mother',
-        phone: '+91 98765 43213'
-      },
-      education: [
-        { degree: 'M.Sc Chemistry', institution: 'University of Pune', year: '2011' }
-      ],
-      experience: [
-        { company: 'Quality Labs Pvt Ltd', position: 'QC Analyst', duration: '2011-2019' }
-      ],
-      skills: ['Quality Assurance', 'ISO Standards', 'Lab Management', 'Analytical Testing'],
-      certifications: ['ISO 9001 Auditor', 'Quality Management Specialist'],
-      reportingTo: 'Vijay Deshmukh (VP Quality)',
-      employeeType: 'permanent',
-      workMode: 'onsite',
-      shift: 'General Shift (9 AM - 6 PM)',
-      probationStatus: 'completed',
-      status: 'active',
-      avatar: 'MN',
-      aadharNumber: '2345-6789-0123',
-      panNumber: 'BCDEF2345G',
-      pfNumber: 'MH/PUN/234567/000002'
-    },
-    {
-      id: 'EP003',
-      employeeCode: 'KMF2021003',
-      name: 'Arun Patel',
-      designation: 'Senior Software Engineer',
-      department: 'IT',
-      email: 'arun.patel@company.com',
-      phone: '+91 98765 43214',
-      location: 'IT Department - 3rd Floor',
-      joiningDate: '2021-03-10',
-      dateOfBirth: '1992-09-15',
-      gender: 'male',
-      maritalStatus: 'married',
-      bloodGroup: 'B+',
-      address: '789, Tech Park, Whitefield',
-      city: 'Bangalore',
-      state: 'Karnataka',
-      pincode: '560066',
-      emergencyContact: {
-        name: 'Sneha Patel',
-        relationship: 'Wife',
-        phone: '+91 98765 43215'
-      },
-      education: [
-        { degree: 'B.Tech Computer Science', institution: 'NIT Trichy', year: '2014' }
-      ],
-      experience: [
-        { company: 'TCS', position: 'Software Engineer', duration: '2014-2018' },
-        { company: 'Infosys', position: 'Senior Developer', duration: '2018-2021' }
-      ],
-      skills: ['Java', 'Spring Boot', 'React', 'AWS', 'DevOps'],
-      certifications: ['AWS Solutions Architect', 'Oracle Certified Java Professional'],
-      reportingTo: 'Rahul Verma (IT Manager)',
-      employeeType: 'permanent',
-      workMode: 'hybrid',
-      shift: 'Flexible Hours',
-      probationStatus: 'completed',
-      status: 'active',
-      avatar: 'AP',
-      aadharNumber: '3456-7890-1234',
-      panNumber: 'CDEFG3456H'
-    },
-    {
-      id: 'EP004',
-      employeeCode: 'KMF2022004',
-      name: 'Kavita Desai',
-      designation: 'HR Executive',
-      department: 'Human Resources',
-      email: 'kavita.desai@company.com',
-      phone: '+91 98765 43216',
-      location: 'HR Department - 2nd Floor',
-      joiningDate: '2022-01-05',
-      dateOfBirth: '1994-11-20',
-      gender: 'female',
-      maritalStatus: 'single',
-      bloodGroup: 'AB+',
-      address: '321, MG Road, Andheri',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400053',
-      emergencyContact: {
-        name: 'Ramesh Desai',
-        relationship: 'Father',
-        phone: '+91 98765 43217'
-      },
-      education: [
-        { degree: 'MBA HR', institution: 'TISS Mumbai', year: '2018' }
-      ],
-      experience: [
-        { company: 'Wipro', position: 'HR Associate', duration: '2018-2022' }
-      ],
-      skills: ['Recruitment', 'Employee Engagement', 'Performance Management', 'HRIS'],
-      certifications: ['SHRM-CP', 'PHR Certified'],
-      reportingTo: 'Sunita Rao (HR Manager)',
-      employeeType: 'permanent',
-      workMode: 'onsite',
-      shift: 'General Shift (9 AM - 6 PM)',
-      probationStatus: 'ongoing',
-      status: 'active',
-      avatar: 'KD'
-    },
-    {
-      id: 'EP005',
-      employeeCode: 'KMF2023005',
-      name: 'Vikram Singh',
-      designation: 'Production Supervisor',
-      department: 'Production',
-      email: 'vikram.singh@company.com',
-      phone: '+91 98765 43218',
-      location: 'Plant A - Floor 2',
-      joiningDate: '2023-02-15',
-      dateOfBirth: '1990-05-08',
-      gender: 'male',
-      maritalStatus: 'married',
-      bloodGroup: 'O-',
-      address: '654, Industrial Area, Phase 2',
-      city: 'Gurgaon',
-      state: 'Haryana',
-      pincode: '122015',
-      emergencyContact: {
-        name: 'Anjali Singh',
-        relationship: 'Wife',
-        phone: '+91 98765 43219'
-      },
-      education: [
-        { degree: 'Diploma Mechanical Engineering', institution: 'Government Polytechnic', year: '2010' }
-      ],
-      experience: [
-        { company: 'Hero MotoCorp', position: 'Production Assistant', duration: '2010-2023' }
-      ],
-      skills: ['Production Monitoring', 'Team Management', 'Safety Compliance'],
-      certifications: ['Industrial Safety Certificate'],
-      reportingTo: 'Rajesh Kumar Sharma (Production Manager)',
-      employeeType: 'permanent',
-      workMode: 'onsite',
-      shift: 'Night Shift (10 PM - 6 AM)',
-      probationStatus: 'ongoing',
-      status: 'active',
-      avatar: 'VS'
-    },
-    {
-      id: 'EP006',
-      employeeCode: 'KMF2023006',
-      name: 'Priya Menon',
-      designation: 'Accounts Assistant',
-      department: 'Finance',
-      email: 'priya.menon@company.com',
-      phone: '+91 98765 43220',
-      location: 'Finance Department - 1st Floor',
-      joiningDate: '2023-06-01',
-      dateOfBirth: '1996-01-30',
-      gender: 'female',
-      maritalStatus: 'single',
-      bloodGroup: 'A-',
-      address: '987, Lake View, Koramangala',
-      city: 'Bangalore',
-      state: 'Karnataka',
-      pincode: '560034',
-      emergencyContact: {
-        name: 'Suresh Menon',
-        relationship: 'Father',
-        phone: '+91 98765 43221'
-      },
-      education: [
-        { degree: 'B.Com', institution: 'Christ University', year: '2017' },
-        { degree: 'CA Inter', institution: 'ICAI', year: '2019' }
-      ],
-      experience: [
-        { company: 'KPMG', position: 'Audit Associate', duration: '2017-2023' }
-      ],
-      skills: ['Accounting', 'Tally', 'GST', 'Financial Reporting'],
-      certifications: ['Tally Certified', 'GST Practitioner'],
-      reportingTo: 'Amit Shah (Finance Manager)',
-      employeeType: 'contract',
-      workMode: 'hybrid',
-      shift: 'General Shift (9 AM - 6 PM)',
-      probationStatus: 'not_applicable',
-      status: 'active',
-      avatar: 'PM'
-    },
-  ];
+  const handleCreateProfile = async (data: any) => {
+    setActionError(null);
+    try {
+      await HrPagesService.createEmployee({
+        employeeCode: data.employeeCode,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        dateOfBirth: data.dateOfBirth,
+        gender: String(data.gender || '').toUpperCase(),
+        personalEmail: data.email,
+        mobileNumber: data.phone,
+        departmentId: data.department,
+        designationId: data.designation,
+        joiningDate: data.joiningDate,
+        currentAddress: data.address || data.currentAddress || undefined,
+      });
+      setIsAddModalOpen(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create employee profile');
+    }
+  };
 
   const departments = ['all', 'Production', 'Quality', 'IT', 'Human Resources', 'Finance', 'Logistics', 'Research', 'Safety'];
   const designations = ['all', 'Production Manager', 'Quality Control Head', 'Senior Software Engineer', 'HR Executive', 'Production Supervisor', 'Accounts Assistant'];
@@ -553,6 +322,11 @@ export default function EmployeeProfilesPage() {
       {loadError && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
         </div>
       )}
 
@@ -986,13 +760,7 @@ export default function EmployeeProfilesPage() {
       <AddEmployeeProfileModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('New employee profile data:', data);
-          setIsAddModalOpen(false);
-
-          // Show success message
-          alert(`Employee Profile Created Successfully!\n\nEmployee Code: ${data.employeeCode}\nName: ${data.firstName} ${data.lastName}\nDepartment: ${data.department}\nDesignation: ${data.designation}\n\nThe employee profile has been added to the system.`);
-        }}
+        onSubmit={handleCreateProfile}
       />
     </div>
   );

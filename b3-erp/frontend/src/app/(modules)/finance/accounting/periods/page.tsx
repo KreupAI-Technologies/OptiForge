@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { FinanceService } from '@/services/finance.service';
 import {
   Plus,
@@ -82,17 +81,18 @@ export default function FinancialPeriodsPage() {
     return 'Month';
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [processingPeriod, setProcessingPeriod] = useState<string | null>(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      {
         const [rawYears, rawPeriods] = await Promise.all([
           FinanceService.getFinancialYears(),
           FinanceService.getFinancialPeriods(),
         ]);
-        if (cancelled) return;
 
         const periodsList = Array.isArray(rawPeriods) ? rawPeriods : [];
 
@@ -139,23 +139,51 @@ export default function FinancialPeriodsPage() {
 
         const current = years.find((y) => y.isCurrent) ?? years[0];
         if (current) setSelectedYear((prev) => prev || current.yearCode);
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e?.message || 'Failed to load financial periods');
-          setFinancialYears([]);
-          setPeriods([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load financial periods');
+      setFinancialYears([]);
+      setPeriods([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [showAccrualsModal, setShowAccrualsModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showNewYearModal, setShowNewYearModal] = useState(false);
+  const [newYear, setNewYear] = useState({ yearCode: '', yearName: '', startDate: '', endDate: '' });
+  const [creatingYear, setCreatingYear] = useState(false);
+
+  const handleCreateYear = async () => {
+    if (!newYear.yearCode || !newYear.startDate || !newYear.endDate) {
+      setActionMessage({ type: 'error', text: 'Year code, start date and end date are required.' });
+      return;
+    }
+    setCreatingYear(true);
+    setActionMessage(null);
+    try {
+      await FinanceService.createFinancialYear({
+        yearCode: newYear.yearCode,
+        yearName: newYear.yearName || newYear.yearCode,
+        startDate: newYear.startDate,
+        endDate: newYear.endDate,
+      });
+      setShowNewYearModal(false);
+      setNewYear({ yearCode: '', yearName: '', startDate: '', endDate: '' });
+      setActionMessage({ type: 'success', text: `Financial year ${newYear.yearCode} created.` });
+      await loadData();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to create financial year.' });
+    } finally {
+      setCreatingYear(false);
+    }
+  };
 
   const [checklistStatus, setChecklistStatus] = useState({
     inventoryValuation: 'pending' as 'completed' | 'pending' | 'in-progress',
@@ -213,6 +241,31 @@ export default function FinancialPeriodsPage() {
     alert('Management review submitted successfully!');
   };
 
+  // Close/open a period. No dedicated close endpoint exists, so we PATCH the
+  // status via updateFinancialPeriod (status enum: Open | Closed | Locked).
+  const handleSetPeriodStatus = async (
+    period: FinancialPeriod,
+    newStatus: 'Open' | 'Closed',
+  ) => {
+    const verb = newStatus === 'Closed' ? 'close' : 'reopen';
+    if (!confirm(`Are you sure you want to ${verb} period "${period.periodName}"?`)) return;
+
+    setProcessingPeriod(period.id);
+    setActionMessage(null);
+    try {
+      await FinanceService.updateFinancialPeriod(period.id, { status: newStatus });
+      setActionMessage({ type: 'success', text: `Period "${period.periodName}" ${newStatus === 'Closed' ? 'closed' : 'reopened'}.` });
+      await loadData();
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : `Failed to ${verb} period.`,
+      });
+    } finally {
+      setProcessingPeriod(null);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 to-purple-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
@@ -223,13 +276,22 @@ export default function FinancialPeriodsPage() {
               <div className="flex items-center gap-3">
                 {loading && <span className="text-sm text-gray-500">Loading…</span>}
                 {error && <span className="text-sm text-red-600">{error}</span>}
-                <Link
-                  href="/finance/accounting/periods"
+                {actionMessage && (
+                  <span
+                    className={`text-sm ${
+                      actionMessage.type === 'success' ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {actionMessage.text}
+                  </span>
+                )}
+                <button
+                  onClick={() => setShowNewYearModal(true)}
                   className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"
                 >
                   <Plus className="w-5 h-5" />
                   <span className="font-semibold">New Financial Year</span>
-                </Link>
+                </button>
               </div>
             </div>
 
@@ -429,16 +491,20 @@ export default function FinancialPeriodsPage() {
                           </button>
                           {period.status === 'Open' && (
                             <button
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-
+                              onClick={() => handleSetPeriodStatus(period, 'Closed')}
+                              disabled={processingPeriod === period.id}
+                              title="Close Period"
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Lock className="w-4 h-4" />
                             </button>
                           )}
                           {period.status === 'Closed' && (
                             <button
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
-
+                              onClick={() => handleSetPeriodStatus(period, 'Open')}
+                              disabled={processingPeriod === period.id}
+                              title="Reopen Period"
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Unlock className="w-4 h-4" />
                             </button>
@@ -859,6 +925,84 @@ export default function FinancialPeriodsPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Financial Year Modal */}
+      {showNewYearModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-3 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-7 h-7" />
+                <h2 className="text-xl font-bold">New Financial Year</h2>
+              </div>
+              <button
+                onClick={() => setShowNewYearModal(false)}
+                className="text-white hover:bg-purple-700 p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year Code *</label>
+                <input
+                  type="text"
+                  value={newYear.yearCode}
+                  onChange={(e) => setNewYear({ ...newYear, yearCode: e.target.value })}
+                  placeholder="FY2026"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year Name</label>
+                <input
+                  type="text"
+                  value={newYear.yearName}
+                  onChange={(e) => setNewYear({ ...newYear, yearName: e.target.value })}
+                  placeholder="Financial Year 2026"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+                  <input
+                    type="date"
+                    value={newYear.startDate}
+                    onChange={(e) => setNewYear({ ...newYear, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
+                  <input
+                    type="date"
+                    value={newYear.endDate}
+                    onChange={(e) => setNewYear({ ...newYear, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 px-3 py-2 flex justify-end gap-3 border-t">
+              <button
+                onClick={() => setShowNewYearModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateYear}
+                disabled={creatingYear}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4" />
+                {creatingYear ? 'Creating...' : 'Create Year'}
+              </button>
             </div>
           </div>
         </div>

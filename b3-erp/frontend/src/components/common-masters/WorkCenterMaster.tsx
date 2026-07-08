@@ -70,6 +70,7 @@ interface WorkCenter {
 export default function WorkCenterMaster() {
   const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchWorkCenters();
@@ -78,6 +79,7 @@ export default function WorkCenterMaster() {
   const fetchWorkCenters = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const data = await manufacturingMastersService.getAllWorkCenters('1');
 
       const mapped: WorkCenter[] = data.map((wc: BackendWorkCenter) => ({
@@ -132,8 +134,9 @@ export default function WorkCenterMaster() {
         }
       }));
       setWorkCenters(mapped);
-    } catch (error) {
-      console.error('Error fetching work centers:', error);
+    } catch (err) {
+      console.error('Error fetching work centers:', err);
+      setError('Failed to load work centers. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -219,12 +222,41 @@ export default function WorkCenterMaster() {
     });
   }, [workCenters, searchTerm, filterType, filterStatus]);
 
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[300px]">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Clock className="h-5 w-5 animate-spin" />
+          <span>Loading work centers...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          <span>{error}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 ">
       <div className="mb-3">
         <h2 className="text-2xl font-bold mb-2">Work Center Master</h2>
         <p className="text-gray-600">Manage production work centers and resources</p>
       </div>
+
+      {workCenters.length === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3 flex items-center gap-3 text-blue-700">
+          <Factory className="h-5 w-5" />
+          <span>No work centers found.</span>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b border-gray-200">

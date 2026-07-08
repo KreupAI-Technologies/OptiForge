@@ -400,21 +400,46 @@ export default function ShopfloorTerminalPage() {
     }
   };
 
+  // Resolve the shop-floor-control record id to target for operation/downtime writes.
+  const resolveShopFloorRecordId = (): string | null => {
+    const activeRecord =
+      shopFloorRecords.find((r) => r?.status === 'active' || r?.isActive) ?? shopFloorRecords[0];
+    const recordId = activeRecord?.id ?? activeRecord?._id;
+    return recordId ? String(recordId) : null;
+  };
+
   // Complete Operation
-  const handleCompleteOperation = () => {
+  const handleCompleteOperation = async () => {
     if (!activeJob) return;
 
-    const confirm = window.confirm(
+    const confirmed = window.confirm(
       `Complete operation?\n\nProduced: ${goodPartsCount}\nRejected: ${rejectCount}\nRework: ${reworkCount}`
     );
+    if (!confirmed) return;
 
-    if (confirm) {
+    const recordId = resolveShopFloorRecordId();
+    if (!recordId) {
+      alert('No shop-floor-control record available to complete the operation against.');
+      return;
+    }
+
+    try {
+      await ProductionOrphanService.completeShopFloorOperation(recordId, {
+        ...getModalContext(),
+        goodQuantity: goodPartsCount,
+        rejectQuantity: rejectCount,
+        reworkQuantity: reworkCount,
+        completedAt: new Date().toISOString(),
+      });
       setTotalProduced(totalProduced + goodPartsCount);
       setTotalRejections(totalRejections + rejectCount);
       setActiveJob(null);
       setScreen('dashboard');
       playAudioFeedback('success');
-      alert('Operation completed successfully!');
+      await loadShopFloorControl();
+    } catch (err) {
+      console.error('Error completing operation:', err);
+      alert('Failed to complete operation. Please try again.');
     }
   };
 
@@ -436,16 +461,36 @@ export default function ShopfloorTerminalPage() {
   };
 
   // End Downtime
-  const handleEndDowntime = () => {
+  const handleEndDowntime = async () => {
     if (!downtimeReason || !downtimeSubReason) {
       alert('Please select downtime reason');
       return;
     }
 
-    setTotalDowntime(totalDowntime + downtimeElapsed);
-    setScreen('activeJob');
-    playAudioFeedback('success');
-    alert(`Downtime logged: ${downtimeElapsed} minutes`);
+    const recordId = resolveShopFloorRecordId();
+    if (!recordId) {
+      alert('No shop-floor-control record available to log downtime against.');
+      return;
+    }
+
+    try {
+      await ProductionOrphanService.reportShopFloorDowntime(recordId, {
+        ...getModalContext(),
+        reason: downtimeReason,
+        subReason: downtimeSubReason,
+        remarks: downtimeRemarks,
+        durationMinutes: downtimeElapsed,
+        startedAt: downtimeStartTime,
+        reportedAt: new Date().toISOString(),
+      });
+      setTotalDowntime(totalDowntime + downtimeElapsed);
+      setScreen('activeJob');
+      playAudioFeedback('success');
+      await loadShopFloorControl();
+    } catch (err) {
+      console.error('Error logging downtime:', err);
+      alert('Failed to log downtime. Please try again.');
+    }
   };
 
   // Material Request
@@ -457,15 +502,17 @@ export default function ShopfloorTerminalPage() {
   };
 
   // Submit Material Request
+  // NEEDS BACKEND: there is no material-request-from-floor endpoint on the allowed
+  // orphan service (createMaterialRequirement is an MRP planning concept, not a
+  // floor-triggered pull request). TODO wire once a shop-floor material-request API exists.
   const handleSubmitMaterialRequest = () => {
     if (!requestedMaterial || requestQuantity <= 0) {
       alert('Please select material and enter quantity');
       return;
     }
 
-    alert(`Material request submitted!\n\nMaterial: ${requestedMaterial}\nQuantity: ${requestQuantity}\nUrgency: ${requestUrgency.toUpperCase()}`);
+    alert('Material request could not be submitted: no shop-floor material-request endpoint is available yet.');
     setScreen('activeJob');
-    playAudioFeedback('success');
   };
 
   // End Shift
@@ -474,8 +521,9 @@ export default function ShopfloorTerminalPage() {
   };
 
   // Confirm End Shift
+  // NEEDS BACKEND: no shift-end / attendance endpoint on the allowed orphan service.
+  // For now this just closes the operator session locally. TODO wire to a shift API.
   const handleConfirmEndShift = () => {
-    alert('Shift ended. Thank you!');
     handleLogout();
   };
 
@@ -490,30 +538,48 @@ export default function ShopfloorTerminalPage() {
     setIsQualityAlertOpen(true);
   };
 
-  const handleQualityAlertSubmit = (alertData: QualityAlertData) => {
-    // No quality-alert endpoint exists on the allowed orphan service, so record
-    // the alert optimistically in local state (append to the alerts array).
-    setLocalAlerts((prev) => [
-      ...prev,
-      { type: 'quality-alert', createdAt: new Date().toISOString(), ...getModalContext(), data: alertData },
-    ]);
-    setIsQualityAlertOpen(false);
-    alert('Quality Alert raised successfully. Supervisor has been notified.');
+  const handleQualityAlertSubmit = async (alertData: QualityAlertData) => {
+    // Raise the quality alert as an andon-line event (andon-lines endpoint exists).
+    try {
+      await ProductionOrphanService.createAndonLine({
+        type: 'quality-alert',
+        ...getModalContext(),
+        data: alertData,
+        createdAt: new Date().toISOString(),
+      });
+      setLocalAlerts((prev) => [
+        ...prev,
+        { type: 'quality-alert', createdAt: new Date().toISOString(), ...getModalContext(), data: alertData },
+      ]);
+      setIsQualityAlertOpen(false);
+    } catch (err) {
+      console.error('Error raising quality alert:', err);
+      alert('Failed to raise quality alert. Please try again.');
+    }
   };
 
   const handleCallSupervisor = () => {
     setIsSupervisorCallOpen(true);
   };
 
-  const handleSupervisorCallSubmit = (request: SupervisorCallData) => {
-    // No "request supervisor" endpoint exists on the allowed orphan service, so
-    // record the request optimistically in local state (append to the alerts array).
-    setLocalAlerts((prev) => [
-      ...prev,
-      { type: 'supervisor-call', createdAt: new Date().toISOString(), ...getModalContext(), data: request },
-    ]);
-    setIsSupervisorCallOpen(false);
-    alert('Supervisor has been notified. Estimated response time: ' + (request.priority === 'emergency' ? '2-3 minutes' : request.priority === 'urgent' ? '5-10 minutes' : '15-30 minutes'));
+  const handleSupervisorCallSubmit = async (request: SupervisorCallData) => {
+    // Raise the supervisor call as an andon-line event (andon-lines endpoint exists).
+    try {
+      await ProductionOrphanService.createAndonLine({
+        type: 'supervisor-call',
+        ...getModalContext(),
+        data: request,
+        createdAt: new Date().toISOString(),
+      });
+      setLocalAlerts((prev) => [
+        ...prev,
+        { type: 'supervisor-call', createdAt: new Date().toISOString(), ...getModalContext(), data: request },
+      ]);
+      setIsSupervisorCallOpen(false);
+    } catch (err) {
+      console.error('Error calling supervisor:', err);
+      alert('Failed to notify supervisor. Please try again.');
+    }
   };
 
   const handleQuickDowntime = () => {

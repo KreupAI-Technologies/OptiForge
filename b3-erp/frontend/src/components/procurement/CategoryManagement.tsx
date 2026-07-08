@@ -9,6 +9,7 @@ import {
   AlertTriangle, Award
 } from 'lucide-react';
 import { procurementCategoryService } from '@/services/procurement-category.service';
+import { exportToCsv } from '@/lib/export';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -44,36 +45,35 @@ const CategoryManagement: React.FC = () => {
   // domain backend). Backend returns raw ORM shape; map onto the Category
   // model. Renders fine with an empty array until the table is seeded.
   const [categories, setCategories] = useState<Category[]>([]);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadCategories = React.useCallback(async () => {
+    try {
+      const raw = (await procurementCategoryService.getCategories()) as any[];
+      const mapped: Category[] = raw.map((c) => ({
+        id: c.id,
+        name: c.name ?? '',
+        description: c.description ?? '',
+        budget: Number(c.budget ?? 0),
+        spent: Number(c.spent ?? 0),
+        suppliers: Number(c.suppliers ?? 0),
+        items: Number(c.items ?? 0),
+        status: (c.status ?? 'active') as Category['status'],
+        manager: c.manager ?? '',
+        priority: (c.priority ?? 'medium') as Category['priority'],
+        savingsTarget: Number(c.savingsTarget ?? 0),
+        actualSavings: Number(c.actualSavings ?? 0),
+      }));
+      setCategories(mapped);
+    } catch {
+      setCategories([]);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const raw = (await procurementCategoryService.getCategories()) as any[];
-        const mapped: Category[] = raw.map((c) => ({
-          id: c.id,
-          name: c.name ?? '',
-          description: c.description ?? '',
-          budget: Number(c.budget ?? 0),
-          spent: Number(c.spent ?? 0),
-          suppliers: Number(c.suppliers ?? 0),
-          items: Number(c.items ?? 0),
-          status: (c.status ?? 'active') as Category['status'],
-          manager: c.manager ?? '',
-          priority: (c.priority ?? 'medium') as Category['priority'],
-          savingsTarget: Number(c.savingsTarget ?? 0),
-          actualSavings: Number(c.actualSavings ?? 0),
-        }));
-        if (!cancelled) setCategories(mapped);
-      } catch {
-        if (!cancelled) setCategories([]);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadCategories();
+  }, [loadCategories]);
 
   // Mock data - Category performance
   const categoryPerformance = [
@@ -379,128 +379,42 @@ ${Math.random() > 0.7 ? '⚠ Single source dependency on critical items\n' : ''}
 [Export Analytics] [Schedule Report] [Deep Dive] [Close]`);
   };
 
-  const handleDeleteCategory = (category: Category) => {
-    console.log('Deleting category:', category.id);
-    alert(`Delete Category: ${category.name}
-
-⚠ WARNING: This action cannot be undone!
-
-Impact Analysis:
-
-📦 CURRENT USAGE:
-• Active Items: ${category.items}
-• Open Purchase Orders: ${Math.floor(Math.random() * 10 + 5)}
-• Active Contracts: ${Math.floor(Math.random() * 5 + 2)}
-• Suppliers Assigned: ${category.suppliers}
-
-💰 FINANCIAL IMPACT:
-• Allocated Budget: $${category.budget.toLocaleString()}
-• Spent YTD: $${category.spent.toLocaleString()}
-• Committed (POs): $${Math.floor(Math.random() * 50000 + 10000).toLocaleString()}
-
-⚠ DEPENDENCIES:
-• Linked Departments: ${Math.floor(Math.random() * 5 + 2)}
-• Approval Workflows: ${Math.floor(Math.random() * 3 + 1)} active
-• Reports & Dashboards: ${Math.floor(Math.random() * 8 + 3)}
-
-DELETION OPTIONS:
-
-○ SOFT DELETE (Recommended)
-  - Mark as inactive
-  - Retain all historical data
-  - Can be reactivated later
-  - No data loss
-
-○ ARCHIVE
-  - Move to archive
-  - Data available for reporting
-  - Cannot be reactivated
-  - Preserves audit trail
-
-○ HARD DELETE (Not Recommended)
-  - Permanently delete
-  - Cannot be recovered
-  - Historical data lost
-  - Requires executive approval
-
-BEFORE DELETING:
-☐ Close all open purchase orders
-☐ Reassign active items to other categories
-☐ Notify category manager (${category.manager})
-☐ Notify suppliers
-☐ Update approval workflows
-☐ Archive reports and data
-
-Alternative Actions:
-• Merge with another category
-• Mark as inactive but keep data
-• Transfer ownership to another manager
-
-[Soft Delete] [Archive] [Cancel]
-
-⚠ Hard deletion requires executive approval and cannot be performed from this screen.`);
+  const handleDeleteCategory = async (category: Category) => {
+    if (!confirm(`Delete category "${category.name}"? This removes it from the procurement category list.`)) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementCategoryService.deleteCategory(category.id);
+      await loadCategories();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to delete ${category.name}`);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleExportReport = () => {
-    console.log('Exporting category report...');
-    alert(`Export Category Report
-
-EXPORT OPTIONS:
-
-1. CATEGORY SUMMARY (PDF)
-   • All ${categories.length} categories overview
-   • Budget vs. spend comparison
-   • Savings performance
-   • Supplier distribution
-   • Executive summary format
-
-2. DETAILED ANALYSIS (Excel)
-   • Category-by-category breakdown
-   • Monthly trend data
-   • Supplier assignments
-   • Item listings
-   • Variance analysis
-   • Pivot tables included
-
-3. PERFORMANCE DASHBOARD (PowerPoint)
-   • Visual charts and graphs
-   • KPI scorecards
-   • Trend analysis
-   • Ready for presentations
-   • Executive summary slides
-
-4. DATA EXPORT (CSV)
-   • Raw data export
-   • All fields included
-   • For custom analysis
-   • Import into other systems
-
-DATE RANGE:
-○ Current Quarter
-○ Year to Date
-○ Last 12 Months
-○ Custom: [From __/__/__] to [__/__/__]
-
-INCLUDE:
-☑ Budget information
-☑ Supplier details
-☑ Savings metrics
-☑ Performance trends
-☑ Category managers
-☑ Item details
-☐ Cost breakdowns
-☐ Compliance data
-
-FILTERS:
-• Status: [All ▼]
-• Priority: [All ▼]
-• Manager: [All ▼]
-
-RECIPIENTS:
-• Email to: [Enter emails]
-• Schedule: [One-time ▼]
-
-[Generate Export] [Schedule Recurring] [Cancel]`);
+    if (!categories.length) {
+      setActionError('No categories to export.');
+      return;
+    }
+    exportToCsv(
+      `procurement-categories-${new Date().toISOString().slice(0, 10)}.csv`,
+      categories.map((c) => ({
+        name: c.name,
+        description: c.description,
+        manager: c.manager,
+        status: c.status,
+        priority: c.priority,
+        budget: c.budget,
+        spent: c.spent,
+        utilizationPct: c.budget ? ((c.spent / c.budget) * 100).toFixed(1) : '0',
+        suppliers: c.suppliers,
+        items: c.items,
+        savingsTarget: c.savingsTarget,
+        actualSavings: c.actualSavings,
+      })),
+    );
   };
 
   const handleManageStrategies = () => {
@@ -758,6 +672,12 @@ Integration:
 
   return (
     <div className="p-6">
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</div>
+      )}
+      {actionBusy && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">Processing...</div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <div className="flex justify-between items-center">
@@ -1207,7 +1127,8 @@ Integration:
                         </button>
                         <button
                           onClick={() => handleDeleteCategory(category)}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 bg-red-50 rounded-lg hover:bg-red-100 text-sm transition-colors"
+                          disabled={actionBusy}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 bg-red-50 rounded-lg hover:bg-red-100 text-sm transition-colors disabled:opacity-50"
                           title="Delete Category"
                         >
                           <Trash2 className="w-4 h-4 text-red-600" />

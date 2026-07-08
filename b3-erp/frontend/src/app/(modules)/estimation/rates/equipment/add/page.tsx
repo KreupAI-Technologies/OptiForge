@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Wrench, DollarSign, Settings, AlertCircle, Calculator } from 'lucide-react'
 import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
@@ -10,6 +10,7 @@ const companyId = 'default-company-id'
 export default function AddEquipmentRatePage() {
   const router = useRouter()
 
+  const [submitting, setSubmitting] = useState(false)
   const [equipmentCode, setEquipmentCode] = useState('')
   const [equipmentName, setEquipmentName] = useState('')
   const [category, setCategory] = useState('')
@@ -90,28 +91,27 @@ export default function AddEquipmentRatePage() {
       return
     }
 
+    setSubmitting(true)
     try {
-      await estimationResourceRateService.createResourceRate(companyId, {
-        rateType: 'Equipment',
+      await estimationResourceRateService.createEquipmentRate(companyId, {
         code: equipmentCode,
         name: equipmentName,
         category,
-        unit: 'Hour',
         currency: 'INR',
-        standardRate: parseFloat(hourlyRate),
-        isActive: status === 'active',
-        effectiveFrom: effectiveFrom || undefined,
-        description: specifications || undefined,
-        // Equipment-specific extras spread onto the payload
+        hourlyRate: parseFloat(hourlyRate),
         dailyRate: parseFloat(calculateDailyRate()),
         weeklyRate: parseFloat(calculateWeeklyRate()),
         monthlyRate: parseFloat(calculateMonthlyRate()),
+        isActive: status === 'active',
+        description: specifications || undefined,
+        // Equipment-specific extras spread onto the payload
         dailyMultiplier: parseFloat(dailyMultiplier),
         weeklyMultiplier: parseFloat(weeklyMultiplier),
         monthlyMultiplier: parseFloat(monthlyMultiplier),
         operatorIncluded,
         fuelIncluded,
         minimumHours: parseInt(minimumHours),
+        effectiveFrom: effectiveFrom || undefined,
         status,
         notes,
         specifications,
@@ -120,7 +120,9 @@ export default function AddEquipmentRatePage() {
       router.push('/estimation/rates/equipment')
     } catch (error) {
       console.error('Failed to create equipment rate:', error)
-      alert('Failed to save equipment rate. Please try again.')
+      alert(error instanceof Error ? error.message : 'Failed to save equipment rate. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -143,10 +145,11 @@ export default function AddEquipmentRatePage() {
           </div>
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={submitting}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            Save Rate
+            {submitting ? 'Saving...' : 'Save Rate'}
           </button>
         </div>
       </div>
@@ -562,10 +565,11 @@ export default function AddEquipmentRatePage() {
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={submitting}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              Save Rate
+              {submitting ? 'Saving...' : 'Save Rate'}
             </button>
           </div>
         </div>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { exportToCsv } from '@/lib/export';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -40,32 +41,44 @@ export default function PreventiveMaintenancePage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterFrequency, setFilterFrequency] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<PreventiveMaintenance | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const emptyForm = {
+    equipmentCode: '',
+    equipmentName: '',
+    taskType: 'inspection',
+    frequency: 'monthly',
+    nextDue: '',
+    estimatedDuration: 1,
+    assignedTo: '',
+    priority: 'medium',
+    status: 'scheduled',
+  };
+  const [form, setForm] = useState<Record<string, any>>(emptyForm);
 
   const [maintenanceTasks, setMaintenanceTasks] = useState<PreventiveMaintenance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await ProductionOrphanService.getPreventiveMaintenance()) as any[];
-        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
-          ...d,
-          id: String(d?.id ?? i),
-        })) as unknown as PreventiveMaintenance[];
-        if (!cancelled) setMaintenanceTasks(mapped);
-      } catch (err: any) {
-        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await ProductionOrphanService.getPreventiveMaintenance()) as any[];
+      const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+        ...d,
+        id: String(d?.id ?? i),
+      })) as unknown as PreventiveMaintenance[];
+      setMaintenanceTasks(mapped);
+    } catch (err: any) {
+      setLoadError(err?.message ?? 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const filteredTasks = maintenanceTasks.filter(task => {
     const matchesSearch =
@@ -116,32 +129,124 @@ export default function PreventiveMaintenancePage() {
     }
   };
 
-  const handleStartTask = (task: PreventiveMaintenance) => {
-    if (confirm(`Start preventive maintenance task ${task.id} for ${task.equipmentName}?`)) {
-      alert(`Task ${task.id} started! Progress tracking enabled.`);
+  const handleStartTask = async (task: PreventiveMaintenance) => {
+    if (!confirm(`Start preventive maintenance task ${task.id} for ${task.equipmentName}?`)) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.updatePreventiveMaintenance(task.id, { status: 'in_progress' });
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to start task');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleEditTask = (task: PreventiveMaintenance) => {
-    alert(`Edit task ${task.id} - Feature coming soon!`);
+    setEditingTask(task);
+    setForm({
+      equipmentCode: task.equipmentCode ?? '',
+      equipmentName: task.equipmentName ?? '',
+      taskType: task.taskType ?? 'inspection',
+      frequency: task.frequency ?? 'monthly',
+      nextDue: task.nextDue ?? '',
+      estimatedDuration: task.estimatedDuration ?? 1,
+      assignedTo: task.assignedTo ?? '',
+      priority: task.priority ?? 'medium',
+      status: task.status ?? 'scheduled',
+    });
+    setShowAddModal(true);
   };
 
-  const handleDeleteTask = (task: PreventiveMaintenance) => {
-    if (confirm(`Delete preventive maintenance task ${task.id}?`)) {
-      alert(`Task ${task.id} deleted successfully!`);
+  const handleDeleteTask = async (task: PreventiveMaintenance) => {
+    if (!confirm(`Delete preventive maintenance task ${task.id}?`)) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await ProductionOrphanService.deletePreventiveMaintenance(task.id);
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to delete task');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleExport = () => {
-    alert('Exporting preventive maintenance schedule to Excel...');
+    exportToCsv(
+      `preventive-maintenance-${new Date().toISOString().slice(0, 10)}`,
+      filteredTasks,
+      [
+        { key: 'id', label: 'Task ID' },
+        { key: 'equipmentCode', label: 'Equipment Code' },
+        { key: 'equipmentName', label: 'Equipment Name' },
+        { key: 'taskType', label: 'Task Type' },
+        { key: 'frequency', label: 'Frequency' },
+        { key: 'lastCompleted', label: 'Last Completed' },
+        { key: 'nextDue', label: 'Next Due' },
+        { key: 'estimatedDuration', label: 'Duration (h)' },
+        { key: 'assignedTo', label: 'Assigned To' },
+        { key: 'status', label: 'Status' },
+        { key: 'priority', label: 'Priority' },
+      ],
+    );
   };
 
   const handleAddNew = () => {
+    setEditingTask(null);
+    setForm(emptyForm);
     setShowAddModal(true);
+  };
+
+  const handleSubmitForm = async () => {
+    if (!form.equipmentCode?.trim() || !form.equipmentName?.trim()) {
+      setActionError('Please fill equipment code and name.');
+      return;
+    }
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      const payload = {
+        ...form,
+        estimatedDuration: Number(form.estimatedDuration) || 0,
+      };
+      if (editingTask) {
+        await ProductionOrphanService.updatePreventiveMaintenance(editingTask.id, payload);
+      } else {
+        await ProductionOrphanService.createPreventiveMaintenance(payload);
+      }
+      setShowAddModal(false);
+      setEditingTask(null);
+      setForm(emptyForm);
+      await load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Failed to save schedule');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading preventive maintenance…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {actionError && !showAddModal && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -366,27 +471,121 @@ export default function PreventiveMaintenancePage() {
         </div>
       </div>
 
-      {/* Add Modal Placeholder */}
+      {/* Add / Edit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-3 w-full max-w-2xl">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Add New Preventive Maintenance Schedule</h2>
-            <p className="text-gray-600 mb-2">Form fields will be added here...</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-lg p-3 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {editingTask ? `Edit Schedule ${editingTask.id}` : 'Add New Preventive Maintenance Schedule'}
+            </h2>
+            {actionError && (
+              <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {actionError}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Equipment Code</label>
+                <input
+                  type="text"
+                  value={form.equipmentCode}
+                  onChange={(e) => setForm({ ...form, equipmentCode: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Equipment Name</label>
+                <input
+                  type="text"
+                  value={form.equipmentName}
+                  onChange={(e) => setForm({ ...form, equipmentName: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Task Type</label>
+                <select
+                  value={form.taskType}
+                  onChange={(e) => setForm({ ...form, taskType: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="inspection">Inspection</option>
+                  <option value="lubrication">Lubrication</option>
+                  <option value="calibration">Calibration</option>
+                  <option value="replacement">Replacement</option>
+                  <option value="cleaning">Cleaning</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Frequency</label>
+                <select
+                  value={form.frequency}
+                  onChange={(e) => setForm({ ...form, frequency: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Next Due</label>
+                <input
+                  type="date"
+                  value={form.nextDue}
+                  onChange={(e) => setForm({ ...form, nextDue: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Est. Duration (h)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.estimatedDuration}
+                  onChange={(e) => setForm({ ...form, estimatedDuration: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Assigned To</label>
+                <input
+                  type="text"
+                  value={form.assignedTo}
+                  onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+            </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                onClick={() => { setShowAddModal(false); setEditingTask(null); setActionError(null); }}
+                disabled={submitting}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('New preventive maintenance schedule created!');
-                  setShowAddModal(false);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={handleSubmitForm}
+                disabled={submitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                Create Schedule
+                {submitting ? 'Saving…' : editingTask ? 'Save Changes' : 'Create Schedule'}
               </button>
             </div>
           </div>

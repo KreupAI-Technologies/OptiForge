@@ -63,6 +63,9 @@ export default function CPQQuotesApprovalsPage() {
   const [approvals, setApprovals] = useState<QuoteApproval[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -123,29 +126,60 @@ export default function CPQQuotesApprovalsPage() {
     setIsApproveRejectModalOpen(true)
   }
 
-  const handleSubmitApprovalDecision = (comments: string, conditions?: string) => {
+  const handleSubmitApprovalDecision = async (comments: string, conditions?: string) => {
     if (!selectedApproval) return
 
-    const currentUser = 'Current User' // In real app, get from auth context
+    const targetId = selectedApproval.id
     const newStatus = approvalAction === 'approve' ? 'approved' : 'rejected'
+    const commentText = conditions ? `${comments}\nConditions: ${conditions}` : comments
 
-    setApprovals(approvals.map(a =>
-      a.id === selectedApproval.id ? {
-        ...a,
-        status: newStatus as 'approved' | 'rejected',
-        approvers: a.approvers.map(approver =>
-          approver.status === 'pending' ? {
-            ...approver,
-            status: approvalAction === 'approve' ? 'approved' : 'rejected',
-            comments: conditions ? `${comments}\nConditions: ${conditions}` : comments,
-            date: new Date().toISOString()
-          } : approver
-        )
-      } : a
-    ))
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      // Record the reviewer's comment first (best-effort), then the decision.
+      if (commentText.trim()) {
+        await cpqApprovalService.addComment(targetId, commentText)
+      }
+      const updated = await cpqApprovalService.decide(targetId, newStatus)
+      if (!updated) {
+        throw new Error('Approval decision could not be saved. Please try again.')
+      }
 
-    setIsApproveRejectModalOpen(false)
-    setSelectedApproval(null)
+      // Reflect the persisted status locally without a full reload.
+      setApprovals((prev) =>
+        prev.map((a) =>
+          a.id === targetId
+            ? {
+                ...a,
+                status: updated.status ?? newStatus,
+                approvers: a.approvers.map((approver) =>
+                  approver.status === 'pending'
+                    ? {
+                        ...approver,
+                        status: newStatus,
+                        comments: commentText || approver.comments,
+                        date: new Date().toISOString(),
+                      }
+                    : approver,
+                ),
+              }
+            : a,
+        ),
+      )
+
+      setActionSuccess(
+        `Quote ${selectedApproval.quoteNumber} ${newStatus} successfully.`,
+      )
+      setIsApproveRejectModalOpen(false)
+      setSelectedApproval(null)
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to submit approval decision',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleViewHistory = (approval: QuoteApproval) => {
@@ -293,6 +327,24 @@ export default function CPQQuotesApprovalsPage() {
       {!isLoading && !loadError && approvals.length === 0 && (
         <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
           No approval requests found.
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <CheckCircle className="h-4 w-4" />
+          {actionSuccess}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
+      {isSubmitting && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Submitting decision…
         </div>
       )}
       {/* Action Buttons */}

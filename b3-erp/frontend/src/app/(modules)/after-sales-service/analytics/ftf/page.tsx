@@ -95,17 +95,23 @@ export default function FTFAnalyticsPage() {
     }
 
     return filtered;
-  }, [searchTerm, selectedStatus, selectedRegion, selectedCategory, sortBy]);
+  }, [searchTerm, selectedStatus, selectedRegion, selectedCategory, sortBy, mockFTFRecords]);
 
+  const hasRecords = mockFTFRecords.length > 0;
+  const ftfCount = mockFTFRecords.filter(r => r.ftfStatus).length;
   const stats = {
     total: mockFTFRecords.length,
-    ftf: mockFTFRecords.filter(r => r.ftfStatus).length,
+    ftf: ftfCount,
     notFtf: mockFTFRecords.filter(r => !r.ftfStatus).length,
-    ftfRate: ((mockFTFRecords.filter(r => r.ftfStatus).length / mockFTFRecords.length) * 100).toFixed(1),
-    avgResolutionTime: (mockFTFRecords.reduce((sum, r) => sum + r.resolutionTime, 0) / mockFTFRecords.length).toFixed(0),
-    bestPerformer: mockFTFRecords.reduce((best, current) => (current.resolutionTime < best.resolutionTime ? current : best)),
-    quickestTime: Math.min(...mockFTFRecords.map(r => r.resolutionTime)),
-    slowestTime: Math.max(...mockFTFRecords.map(r => r.resolutionTime))
+    ftfRate: hasRecords ? ((ftfCount / mockFTFRecords.length) * 100).toFixed(1) : '0.0',
+    avgResolutionTime: hasRecords
+      ? (mockFTFRecords.reduce((sum, r) => sum + r.resolutionTime, 0) / mockFTFRecords.length).toFixed(0)
+      : '0',
+    bestPerformer: hasRecords
+      ? mockFTFRecords.reduce((best, current) => (current.resolutionTime < best.resolutionTime ? current : best))
+      : null,
+    quickestTime: hasRecords ? Math.min(...mockFTFRecords.map(r => r.resolutionTime)) : 0,
+    slowestTime: hasRecords ? Math.max(...mockFTFRecords.map(r => r.resolutionTime)) : 0
   };
 
   const regionStats = regions.map(region => {
@@ -217,8 +223,8 @@ export default function FTFAnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
           <p className="text-sm font-medium text-gray-600 mb-3">Best Performing Technician</p>
-          <p className="text-lg font-bold text-gray-900">{stats.bestPerformer.technician}</p>
-          <p className="text-xs text-gray-600 mt-2">{stats.bestPerformer.region} • {stats.bestPerformer.resolutionTime} min</p>
+          <p className="text-lg font-bold text-gray-900">{stats.bestPerformer?.technician ?? '—'}</p>
+          <p className="text-xs text-gray-600 mt-2">{stats.bestPerformer ? `${stats.bestPerformer.region} • ${stats.bestPerformer.resolutionTime} min` : 'No records'}</p>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">

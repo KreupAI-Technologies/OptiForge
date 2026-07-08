@@ -234,29 +234,37 @@ export default function BrandMaster() {
     setActiveTab('basic');
   };
 
-  const handleDeleteBrand = (id: string) => {
-    if (confirm('Are you sure you want to delete this brand?')) {
-      setBrands(brands.filter(brand => brand.id !== id));
+  const handleDeleteBrand = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this brand?')) return;
+    try {
+      await commonMastersService.deleteBrand(id);
+      await loadBrands();
+    } catch (error) {
+      console.error('Failed to delete brand:', error);
+      alert('Failed to delete brand.');
     }
   };
 
-  const handleSaveBrand = (brandData: any) => {
-    if (editingBrand) {
-      setBrands(brands.map(brand =>
-        brand.id === editingBrand.id
-          ? { ...brand, ...brandData, updatedAt: new Date().toISOString().split('T')[0] }
-          : brand
-      ));
-    } else {
-      const newBrand: Brand = {
-        id: Date.now().toString(),
-        ...brandData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setBrands([...brands, newBrand]);
+  const handleSaveBrand = async (brandData: any) => {
+    try {
+      const isActive = brandData.status ? brandData.status === 'active' : true;
+      if (editingBrand) {
+        await commonMastersService.updateBrand(editingBrand.id, {
+          name: brandData.name,
+          isActive,
+        });
+      } else {
+        await commonMastersService.createBrand({
+          name: brandData.name,
+          companyId,
+        });
+      }
+      setShowModal(false);
+      await loadBrands();
+    } catch (error) {
+      console.error('Failed to save brand:', error);
+      alert('Failed to save brand.');
     }
-    setShowModal(false);
   };
 
   const getStatusBadge = (status: string) => {

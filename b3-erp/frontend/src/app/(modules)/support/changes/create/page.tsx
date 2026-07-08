@@ -37,6 +37,9 @@ interface SystemOption {
 export default function CreateChange() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
   const [formData, setFormData] = useState<ChangeRequest>({
     title: '',
     type: 'Normal',
@@ -112,6 +115,9 @@ export default function CreateChange() {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
     try {
       const scheduledStart = formData.implementationDate
         ? (formData.implementationTime
@@ -131,10 +137,11 @@ export default function CreateChange() {
         backoutPlan: formData.rollbackPlan,
         scheduledStart,
       } as any)
+      setSubmitSuccess(true)
       router.push('/support/changes/scheduled')
     } catch (err) {
-      console.error('Failed to submit change request:', err)
-      alert('Failed to submit change request. Please try again.')
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit change request. Please try again.')
+      setSubmitting(false)
     }
   }
 
@@ -651,12 +658,20 @@ export default function CreateChange() {
           ) : (
             <button
               onClick={handleSubmit}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              disabled={submitting || submitSuccess}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Submit Change Request
+              {submitting ? 'Submitting…' : submitSuccess ? 'Submitted' : 'Submit Change Request'}
             </button>
           )}
         </div>
+
+        {submitError && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {submitError}
+          </div>
+        )}
       </div>
     </div>
   )

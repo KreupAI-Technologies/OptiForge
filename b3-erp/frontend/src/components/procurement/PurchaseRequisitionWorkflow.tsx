@@ -68,6 +68,7 @@ import {
 
 interface Requisition {
   id: string
+  prNumber: string
   title: string
   requestor: string
   department: string
@@ -114,46 +115,46 @@ export default function PurchaseRequisitionWorkflow() {
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Mock data
   const [requisitions, setRequisitions] = useState<Requisition[]>([])
 
-  useEffect(() => {
-    let cancelled = false
+  const loadRequisitions = async () => {
     const statusMap: Record<string, Requisition['status']> = {
-      DRAFT: 'draft', SUBMITTED: 'pending', PENDING_APPROVAL: 'pending', APPROVED: 'approved',
-      REJECTED: 'rejected', CONVERTED: 'ordered', ORDERED: 'ordered', RECEIVED: 'received',
+      DRAFT: 'draft', SUBMITTED: 'pending', PENDING_APPROVAL: 'pending',
+      'PENDING APPROVAL': 'pending', APPROVED: 'approved',
+      REJECTED: 'rejected', CONVERTED: 'ordered', 'CONVERTED TO PO': 'ordered',
+      ORDERED: 'ordered', RECEIVED: 'received',
     }
     const priorityMap: Record<string, Requisition['priority']> = {
       LOW: 'low', MEDIUM: 'medium', HIGH: 'high', URGENT: 'urgent',
     }
-    const load = async () => {
-      try {
-        const res = await purchaseRequisitionService.getAllRequisitions()
-        const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
-        if (!cancelled && list.length) {
-          setRequisitions(list.map((r: any, idx: number): Requisition => ({
-            id: r.prNumber ?? r.id ?? `PR-${idx + 1}`,
-            title: r.title ?? '—',
-            requestor: r.requestedBy ?? r.requestorName ?? '—',
-            department: r.department ?? '—',
-            date: (r.createdAt ?? r.requestDate ?? '').toString().slice(0, 10),
-            dueDate: (r.requiredDate ?? '').toString().slice(0, 10),
-            priority: priorityMap[String(r.priority ?? '').toUpperCase()] ?? 'medium',
-            status: statusMap[String(r.status ?? '').toUpperCase()] ?? 'draft',
-            totalAmount: Number(r.estimatedTotal ?? r.totalAmount ?? 0),
-            items: Array.isArray(r.items) ? r.items.length : Number(r.itemCount ?? 0),
-            approvalLevel: Number(r.approvalLevel ?? 1),
-            currentApprover: r.currentApprover ?? '—',
-            category: r.category ?? '—',
-            supplier: r.suggestedVendor ?? undefined,
-          })))
-        }
-      } catch {
-        // keep sample data on error
-      }
+    try {
+      const res = await purchaseRequisitionService.getAllRequisitions()
+      const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
+      setRequisitions(list.map((r: any, idx: number): Requisition => ({
+        id: r.id ?? r.prNumber ?? `PR-${idx + 1}`,
+        prNumber: r.prNumber ?? r.id ?? `PR-${idx + 1}`,
+        title: r.title ?? '—',
+        requestor: r.requestedByName ?? r.requestedBy ?? r.requestorName ?? '—',
+        department: r.department ?? '—',
+        date: (r.createdAt ?? r.requestDate ?? '').toString().slice(0, 10),
+        dueDate: (r.requiredDate ?? '').toString().slice(0, 10),
+        priority: priorityMap[String(r.priority ?? '').toUpperCase()] ?? 'medium',
+        status: statusMap[String(r.status ?? '').toUpperCase()] ?? 'draft',
+        totalAmount: Number(r.estimatedTotal ?? r.totalAmount ?? 0),
+        items: Array.isArray(r.items) ? r.items.length : Number(r.itemCount ?? 0),
+        approvalLevel: Number(r.approvalLevel ?? 1),
+        currentApprover: r.approvedByName ?? r.currentApprover ?? '—',
+        category: r.category ?? '—',
+        supplier: r.suggestedVendor ?? undefined,
+      })))
+    } catch {
+      // leave list empty on error
     }
-    load()
-    return () => { cancelled = true }
+  }
+
+  useEffect(() => {
+    loadRequisitions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const requisitionItems: RequisitionItem[] = [
@@ -556,7 +557,7 @@ export default function PurchaseRequisitionWorkflow() {
                     {requisitions.map((req) => (
                       <tr key={req.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
-                          <span className="font-medium text-blue-600">{req.id}</span>
+                          <span className="font-medium text-blue-600">{req.prNumber}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div>
@@ -910,7 +911,7 @@ export default function PurchaseRequisitionWorkflow() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="text-sm font-medium text-gray-500">{req.id}</span>
+                          <span className="text-sm font-medium text-gray-500">{req.prNumber}</span>
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                             req.priority === 'urgent' ? 'bg-red-100 text-red-700' :
                             req.priority === 'high' ? 'bg-orange-100 text-orange-700' :
