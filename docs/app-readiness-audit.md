@@ -2,6 +2,17 @@
 
 _Generated: 2026-07-08 · branch `main` · HEAD `1db4e41a` · scope: `b3-erp/frontend` (1671 pages, 1670 routes)._
 
+> ## ⏳ Remediation progress — branch `feat/readiness-fixes` (in progress)
+>
+> **Criterion iii (404s): live user-facing 404s eliminated.** Broken internal routes **110 → 26**, and all 26 residual are verified **non-live**: unmounted feature-scaffold components (CommandPalette, GlobalSearch, QuickAccessButtons, ShopFloorLayout, VoiceCommands, MobileBottomNav, procurement KeyboardShortcuts — never rendered anywhere), false positives (`/estimation/*/view/` routes exist via string-concat; FinancialIntegrations `path:` are API-catalog display strings), and the `_finance_deprecated` tree. `tsc --noEmit` clean (0 errors) at every commit.
+> - Wave 1: 8 broken Sidebar links repointed (live nav now 0 broken; MegaMenu already clean).
+> - Wave 2/3: **56 missing view/edit/detail/hub pages built**, wired to existing services (added minimal getById/update methods where absent), loading/error/empty states, no mock/fallback data. Plus report-drill-down / wizard / `/accounts→/finance` / `/after-sales→/after-sales-service` repoints.
+> - Verification loop is reproducible: `node scripts/route-audit.mjs` and `node scripts/check-live-nav.mjs`.
+>
+> **Remaining:** Wave 4 (backend Prisma/API for the ~63 `[BE]` items in [pending-backend-work.md](./pending-backend-work.md)) and Wave 5 (mock-data pages + stub handlers). Optional cleanup: delete the unmounted feature-scaffold components (they carry placeholder links + demo data but render nowhere).
+>
+> ---
+
 Audited against three release criteria:
 
 1. **API-backed** — every page pulls from the backend; no mock/fallback/hardcoded data.

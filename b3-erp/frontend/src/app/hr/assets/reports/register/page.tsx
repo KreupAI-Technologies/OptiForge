@@ -23,7 +23,7 @@ interface AssetRegister {
 export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [mockData, setMockData] = useState<AssetRegister[]>([]);
+  const [reportData, setReportData] = useState<AssetRegister[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -49,11 +49,11 @@ export default function Page() {
           status: r.status as AssetRegister['status'],
           condition: r.condition as AssetRegister['condition'],
         }));
-        if (!cancelled) setMockData(mapped);
+        if (!cancelled) setReportData(mapped);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load asset register');
-          setMockData([]);
+          setReportData([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -65,18 +65,18 @@ export default function Page() {
     };
   }, []);
 
-  const filteredData = mockData.filter(asset => {
+  const filteredData = reportData.filter(asset => {
     if (selectedCategory !== 'all' && asset.category !== selectedCategory) return false;
     if (selectedStatus !== 'all' && asset.status !== selectedStatus) return false;
     return true;
   });
 
   const stats = {
-    totalAssets: mockData.length,
-    totalValue: mockData.reduce((sum, asset) => sum + asset.purchaseCost, 0),
-    active: mockData.filter(a => a.status === 'active').length,
-    maintenance: mockData.filter(a => a.status === 'maintenance').length,
-    retired: mockData.filter(a => a.status === 'retired').length
+    totalAssets: reportData.length,
+    totalValue: reportData.reduce((sum, asset) => sum + asset.purchaseCost, 0),
+    active: reportData.filter(a => a.status === 'active').length,
+    maintenance: reportData.filter(a => a.status === 'maintenance').length,
+    retired: reportData.filter(a => a.status === 'retired').length
   };
 
   const statusColors = {

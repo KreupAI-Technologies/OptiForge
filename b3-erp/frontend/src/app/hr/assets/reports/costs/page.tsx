@@ -15,7 +15,7 @@ interface CostSummary {
 
 export default function Page() {
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
-  const [mockData, setMockData] = useState<CostSummary[]>([]);
+  const [reportData, setReportData] = useState<CostSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -34,11 +34,11 @@ export default function Page() {
           monthlyAvg: Number(r.monthlyAvg),
           trend: r.trend as CostSummary['trend'],
         }));
-        if (!cancelled) setMockData(mapped);
+        if (!cancelled) setReportData(mapped);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load asset cost report');
-          setMockData([]);
+          setReportData([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -51,7 +51,7 @@ export default function Page() {
   }, []);
 
   const stats = useMemo(() => {
-    const totals = mockData.reduce((acc, item) => ({
+    const totals = reportData.reduce((acc, item) => ({
       purchase: acc.purchase + item.purchaseCost,
       maintenance: acc.maintenance + item.maintenanceCost,
       total: acc.total + item.totalCost
@@ -59,9 +59,9 @@ export default function Page() {
 
     return {
       ...totals,
-      monthlyAvg: mockData.reduce((sum, item) => sum + item.monthlyAvg, 0)
+      monthlyAvg: reportData.reduce((sum, item) => sum + item.monthlyAvg, 0)
     };
-  }, [mockData]);
+  }, [reportData]);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -125,7 +125,7 @@ export default function Page() {
       </div>
 
       <div className="space-y-2">
-        {mockData.map((item, index) => (
+        {reportData.map((item, index) => (
           <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">

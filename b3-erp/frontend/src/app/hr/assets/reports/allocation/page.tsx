@@ -15,7 +15,7 @@ interface AllocationSummary {
 
 export default function Page() {
   const [selectedLocation, setSelectedLocation] = useState('all');
-  const [mockData, setMockData] = useState<AllocationSummary[]>([]);
+  const [reportData, setReportData] = useState<AllocationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -34,11 +34,11 @@ export default function Page() {
           maintenance: Number(r.maintenance),
           utilization: Number(r.utilization),
         }));
-        if (!cancelled) setMockData(mapped);
+        if (!cancelled) setReportData(mapped);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load asset allocation report');
-          setMockData([]);
+          setReportData([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -51,7 +51,7 @@ export default function Page() {
   }, []);
 
   const stats = useMemo(() => {
-    const totals = mockData.reduce((acc, item) => ({
+    const totals = reportData.reduce((acc, item) => ({
       total: acc.total + item.total,
       allocated: acc.allocated + item.allocated,
       available: acc.available + item.available,
@@ -62,7 +62,7 @@ export default function Page() {
       ...totals,
       utilizationRate: ((totals.allocated / totals.total) * 100).toFixed(1)
     };
-  }, [mockData]);
+  }, [reportData]);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -133,7 +133,7 @@ export default function Page() {
       </div>
 
       <div className="space-y-2">
-        {mockData.map((item, index) => (
+        {reportData.map((item, index) => (
           <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
