@@ -427,6 +427,15 @@ const CreditManagement = () => {
           </div>
         </div>
 
+        {isLoading && (
+          <p className="text-center text-gray-500 py-4">Loading credit profiles...</p>
+        )}
+        {loadError && !isLoading && (
+          <p className="text-center text-red-600 py-4">{loadError}</p>
+        )}
+        {!isLoading && !loadError && customers.length === 0 && (
+          <p className="text-center text-gray-500 py-4">No customer credit profiles found.</p>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>

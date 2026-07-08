@@ -455,3 +455,64 @@ WHERE NOT EXISTS (SELECT 1 FROM "finance_integrations" WHERE "name" = 'Stripe Pa
 INSERT INTO "finance_integrations" ("id", "name", "type", "provider", "status", "connection_type", "frequency", "last_sync", "data_flow", "version", "endpoint")
 SELECT gen_random_uuid(), 'QuickBooks Online', 'accounting', 'Intuit', 'active', 'api', 'hourly', now(), 'bidirectional', '4.2.0', 'https://api.quickbooks.com/v3'
 WHERE NOT EXISTS (SELECT 1 FROM "finance_integrations" WHERE "name" = 'QuickBooks Online');
+
+-- ============================================================================
+-- Seed rows so the multi-currency, credit and investments pages render data.
+-- All idempotent (guarded by NOT EXISTS) and scoped to the default company so
+-- the FinanceExtrasService company_id filter returns them.
+-- ============================================================================
+
+-- Exchange rates (finance/exchange-rates -> /finance/multi-currency)
+INSERT INTO "finance_exchange_rates" ("id", "company_id", "from_currency", "to_currency", "rate", "previous_rate", "effective_date", "source", "type", "is_active")
+SELECT gen_random_uuid(), 'default-company-id', 'USD', 'INR', 83.250000, 83.100000, CURRENT_DATE, 'RBI Reference', 'spot', true
+WHERE NOT EXISTS (SELECT 1 FROM "finance_exchange_rates" WHERE "from_currency" = 'USD' AND "to_currency" = 'INR');
+
+INSERT INTO "finance_exchange_rates" ("id", "company_id", "from_currency", "to_currency", "rate", "previous_rate", "effective_date", "source", "type", "is_active")
+SELECT gen_random_uuid(), 'default-company-id', 'EUR', 'INR', 90.400000, 90.150000, CURRENT_DATE, 'RBI Reference', 'spot', true
+WHERE NOT EXISTS (SELECT 1 FROM "finance_exchange_rates" WHERE "from_currency" = 'EUR' AND "to_currency" = 'INR');
+
+INSERT INTO "finance_exchange_rates" ("id", "company_id", "from_currency", "to_currency", "rate", "previous_rate", "effective_date", "source", "type", "is_active")
+SELECT gen_random_uuid(), 'default-company-id', 'GBP', 'INR', 105.600000, 105.900000, CURRENT_DATE, 'RBI Reference', 'spot', true
+WHERE NOT EXISTS (SELECT 1 FROM "finance_exchange_rates" WHERE "from_currency" = 'GBP' AND "to_currency" = 'INR');
+
+INSERT INTO "finance_exchange_rates" ("id", "company_id", "from_currency", "to_currency", "rate", "previous_rate", "effective_date", "source", "type", "is_active")
+SELECT gen_random_uuid(), 'default-company-id', 'AED', 'INR', 22.660000, 22.610000, CURRENT_DATE, 'RBI Reference', 'spot', true
+WHERE NOT EXISTS (SELECT 1 FROM "finance_exchange_rates" WHERE "from_currency" = 'AED' AND "to_currency" = 'INR');
+
+-- Credit limits (finance/credit-limits -> /finance/credit)
+INSERT INTO "finance_credit_limits" ("id", "company_id", "customer_name", "credit_limit", "credit_used", "payment_terms", "credit_rating", "risk_category", "status", "on_hold", "review_date", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'Sterling Hotels Pvt Ltd', 5000000.00, 3200000.00, 'Net 45', 'A', 'low', 'active', false, CURRENT_DATE + INTERVAL '90 days', 'Long-standing hospitality client'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_credit_limits" WHERE "customer_name" = 'Sterling Hotels Pvt Ltd');
+
+INSERT INTO "finance_credit_limits" ("id", "company_id", "customer_name", "credit_limit", "credit_used", "payment_terms", "credit_rating", "risk_category", "status", "on_hold", "review_date", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'Metro Catering Services', 2500000.00, 2350000.00, 'Net 30', 'B', 'medium', 'active', false, CURRENT_DATE + INTERVAL '60 days', 'Nearing credit ceiling'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_credit_limits" WHERE "customer_name" = 'Metro Catering Services');
+
+INSERT INTO "finance_credit_limits" ("id", "company_id", "customer_name", "credit_limit", "credit_used", "payment_terms", "credit_rating", "risk_category", "status", "on_hold", "review_date", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'Coastal Resorts Group', 8000000.00, 1200000.00, 'Net 60', 'A', 'low', 'active', false, CURRENT_DATE + INTERVAL '120 days', 'Healthy utilisation'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_credit_limits" WHERE "customer_name" = 'Coastal Resorts Group');
+
+INSERT INTO "finance_credit_limits" ("id", "company_id", "customer_name", "credit_limit", "credit_used", "payment_terms", "credit_rating", "risk_category", "status", "on_hold", "review_date", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'Urban Kitchen Solutions', 1500000.00, 1500000.00, 'Net 30', 'C', 'high', 'active', true, CURRENT_DATE + INTERVAL '15 days', 'On hold - limit exhausted'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_credit_limits" WHERE "customer_name" = 'Urban Kitchen Solutions');
+
+-- Investments (finance/investments -> /finance/investments)
+INSERT INTO "finance_investments" ("id", "company_id", "name", "investment_type", "principal_amount", "current_value", "interest_rate", "start_date", "maturity_date", "institution", "status", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'HDFC Fixed Deposit - 2024', 'fixed_deposit', 10000000.00, 10725000.00, 7.2500, CURRENT_DATE - INTERVAL '365 days', CURRENT_DATE + INTERVAL '365 days', 'HDFC Bank', 'active', 'Two-year corporate FD'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_investments" WHERE "name" = 'HDFC Fixed Deposit - 2024');
+
+INSERT INTO "finance_investments" ("id", "company_id", "name", "investment_type", "principal_amount", "current_value", "interest_rate", "start_date", "maturity_date", "institution", "status", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'SBI Liquid Mutual Fund', 'mutual_fund', 5000000.00, 5320000.00, 6.4000, CURRENT_DATE - INTERVAL '180 days', NULL, 'SBI Mutual Fund', 'active', 'Short-term liquidity parking'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_investments" WHERE "name" = 'SBI Liquid Mutual Fund');
+
+INSERT INTO "finance_investments" ("id", "company_id", "name", "investment_type", "principal_amount", "current_value", "interest_rate", "start_date", "maturity_date", "institution", "status", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'Govt of India Treasury Bill', 'treasury_bill', 3000000.00, 3082000.00, 6.9000, CURRENT_DATE - INTERVAL '90 days', CURRENT_DATE + INTERVAL '91 days', 'RBI', 'active', '182-day T-bill'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_investments" WHERE "name" = 'Govt of India Treasury Bill');
+
+INSERT INTO "finance_investments" ("id", "company_id", "name", "investment_type", "principal_amount", "current_value", "interest_rate", "start_date", "maturity_date", "institution", "status", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'ICICI Corporate Bond', 'bond', 7500000.00, 7912000.00, 8.1500, CURRENT_DATE - INTERVAL '400 days', CURRENT_DATE + INTERVAL '700 days', 'ICICI Bank', 'active', 'AAA-rated corporate bond'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_investments" WHERE "name" = 'ICICI Corporate Bond');
+
+INSERT INTO "finance_investments" ("id", "company_id", "name", "investment_type", "principal_amount", "current_value", "interest_rate", "start_date", "maturity_date", "institution", "status", "notes")
+SELECT gen_random_uuid(), 'default-company-id', 'Axis Recurring Deposit', 'recurring_deposit', 2400000.00, 2510000.00, 6.7500, CURRENT_DATE - INTERVAL '240 days', CURRENT_DATE + INTERVAL '120 days', 'Axis Bank', 'matured', 'Matured, awaiting reinvestment'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_investments" WHERE "name" = 'Axis Recurring Deposit');
