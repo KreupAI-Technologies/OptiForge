@@ -18,6 +18,8 @@ import { SupportHardwareAsset } from './entities/support-hardware-asset.entity';
 import { SupportSoftwareAsset } from './entities/support-software-asset.entity';
 import { SupportScheduledChange } from './entities/support-scheduled-change.entity';
 import { OmnichannelInteraction } from './entities/omnichannel-interaction.entity';
+import { SupportReportSchedule } from './entities/support-report-schedule.entity';
+import { SupportCustomReport } from './entities/support-custom-report.entity';
 import { SupportAutomationRuleController } from './controllers/support-automation-rule.controller';
 import { SupportFaqController } from './controllers/support-faq.controller';
 import { SupportTicketCategoryController } from './controllers/support-ticket-category.controller';
@@ -36,6 +38,8 @@ import { SupportSoftwareAssetController } from './controllers/support-software-a
 import { SupportScheduledChangeController } from './controllers/support-scheduled-change.controller';
 import { OmnichannelInteractionController } from './controllers/omnichannel-interaction.controller';
 import { ITILController } from './controllers/itil.controller';
+import { SupportReportScheduleController } from './controllers/support-report-schedule.controller';
+import { SupportCustomReportController } from './controllers/support-custom-report.controller';
 import { SupportAutomationRuleService } from './services/support-automation-rule.service';
 import { SupportFaqService } from './services/support-faq.service';
 import { SupportTicketCategoryService } from './services/support-ticket-category.service';
@@ -53,6 +57,8 @@ import { SupportHardwareAssetService } from './services/support-hardware-asset.s
 import { SupportSoftwareAssetService } from './services/support-software-asset.service';
 import { SupportScheduledChangeService } from './services/support-scheduled-change.service';
 import { OmnichannelInteractionService } from './services/omnichannel-interaction.service';
+import { SupportReportScheduleService } from './services/support-report-schedule.service';
+import { SupportCustomReportService } from './services/support-custom-report.service';
 import { AIResponsesService } from './services/ai-responses.service';
 import { BacklogService } from './services/backlog.service';
 import { ChannelRoutingService } from './services/channel-routing.service';
@@ -87,6 +93,8 @@ import { SupportController } from './support.controller';
       SupportSoftwareAsset,
       SupportScheduledChange,
       OmnichannelInteraction,
+      SupportReportSchedule,
+      SupportCustomReport,
     ]),
   ],
   controllers: [
@@ -110,6 +118,8 @@ import { SupportController } from './support.controller';
     SupportSoftwareAssetController,
     SupportScheduledChangeController,
     OmnichannelInteractionController,
+    SupportReportScheduleController,
+    SupportCustomReportController,
     ITILController,
     SupportController,
   ],
@@ -131,6 +141,8 @@ import { SupportController } from './support.controller';
     SupportSoftwareAssetService,
     SupportScheduledChangeService,
     OmnichannelInteractionService,
+    SupportReportScheduleService,
+    SupportCustomReportService,
     AIResponsesService,
     BacklogService,
     ChannelRoutingService,

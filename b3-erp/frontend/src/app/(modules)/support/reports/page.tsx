@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Download, Calendar, Clock, BarChart3, Filter, Plus, Play, Settings, Eye, TrendingUp } from 'lucide-react'
+import { FileText, Download, Calendar, Clock, BarChart3, Filter, Plus, Play, Settings, Eye, TrendingUp, Trash2, Loader2 } from 'lucide-react'
 import { supportPagesService } from '@/services/support-pages.service'
 import EmptyState from '@/components/ui/EmptyState'
 
@@ -21,11 +21,23 @@ interface Report {
 interface ScheduledReport {
   id: string
   reportName: string
-  schedule: string
-  nextRun: string
-  recipients: string[]
+  reportType: string
+  frequency: string
+  time: string
   format: string
-  active: boolean
+  recipients: string[]
+  isActive: boolean
+  nextRunAt?: string | null
+}
+
+interface CustomReport {
+  id: string
+  name: string
+  description?: string
+  dataSource: string
+  columns: string[]
+  chartType?: string | null
+  createdAt?: string
 }
 
 export default function SupportReports() {
@@ -34,6 +46,147 @@ export default function SupportReports() {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // --- Scheduled Reports state ---
+  const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>([])
+  const [schedLoading, setSchedLoading] = useState(false)
+  const [schedError, setSchedError] = useState<string | null>(null)
+  const [showSchedForm, setShowSchedForm] = useState(false)
+  const [schedSaving, setSchedSaving] = useState(false)
+  const [schedForm, setSchedForm] = useState({ reportName: '', frequency: 'weekly', format: 'pdf', recipients: '' })
+
+  // --- Custom Reports state ---
+  const [customReports, setCustomReports] = useState<CustomReport[]>([])
+  const [customLoading, setCustomLoading] = useState(false)
+  const [customError, setCustomError] = useState<string | null>(null)
+  const [customSaving, setCustomSaving] = useState(false)
+  const [customForm, setCustomForm] = useState({ name: '', dataSource: 'tickets', columns: '', chartType: 'bar' })
+
+  const loadSchedules = () => {
+    setSchedLoading(true)
+    supportPagesService
+      .getReportSchedules()
+      .then((rows) => {
+        setScheduledReports(
+          (Array.isArray(rows) ? rows : []).map((r: any) => ({
+            id: String(r?.id),
+            reportName: r?.reportName ?? 'Untitled',
+            reportType: r?.reportType ?? '',
+            frequency: r?.frequency ?? 'weekly',
+            time: r?.time ?? '09:00',
+            format: r?.format ?? 'pdf',
+            recipients: Array.isArray(r?.recipients) ? r.recipients : [],
+            isActive: Boolean(r?.isActive),
+            nextRunAt: r?.nextRunAt ?? null,
+          })),
+        )
+        setSchedError(null)
+      })
+      .catch(() => setSchedError('Unable to load scheduled reports.'))
+      .finally(() => setSchedLoading(false))
+  }
+
+  const loadCustomReports = () => {
+    setCustomLoading(true)
+    supportPagesService
+      .getCustomReports()
+      .then((rows) => {
+        setCustomReports(
+          (Array.isArray(rows) ? rows : []).map((r: any) => ({
+            id: String(r?.id),
+            name: r?.name ?? 'Untitled',
+            description: r?.description ?? '',
+            dataSource: r?.dataSource ?? '',
+            columns: Array.isArray(r?.columns) ? r.columns : [],
+            chartType: r?.chartType ?? null,
+            createdAt: r?.createdAt,
+          })),
+        )
+        setCustomError(null)
+      })
+      .catch(() => setCustomError('Unable to load custom reports.'))
+      .finally(() => setCustomLoading(false))
+  }
+
+  useEffect(() => {
+    if (activeTab === 'scheduled') loadSchedules()
+    if (activeTab === 'custom') loadCustomReports()
+  }, [activeTab])
+
+  const handleCreateSchedule = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!schedForm.reportName.trim()) return
+    setSchedSaving(true)
+    try {
+      await supportPagesService.createReportSchedule({
+        reportName: schedForm.reportName.trim(),
+        reportType: schedForm.reportName.trim(),
+        frequency: schedForm.frequency,
+        format: schedForm.format,
+        recipients: schedForm.recipients
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      })
+      setSchedForm({ reportName: '', frequency: 'weekly', format: 'pdf', recipients: '' })
+      setShowSchedForm(false)
+      loadSchedules()
+    } catch {
+      setSchedError('Failed to create schedule.')
+    } finally {
+      setSchedSaving(false)
+    }
+  }
+
+  const handleToggleSchedule = async (r: ScheduledReport) => {
+    try {
+      await supportPagesService.toggleReportSchedule(r.id, !r.isActive)
+      loadSchedules()
+    } catch {
+      setSchedError('Failed to update schedule.')
+    }
+  }
+
+  const handleDeleteSchedule = async (id: string) => {
+    try {
+      await supportPagesService.deleteReportSchedule(id)
+      loadSchedules()
+    } catch {
+      setSchedError('Failed to delete schedule.')
+    }
+  }
+
+  const handleCreateCustomReport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!customForm.name.trim()) return
+    setCustomSaving(true)
+    try {
+      await supportPagesService.createCustomReport({
+        name: customForm.name.trim(),
+        dataSource: customForm.dataSource,
+        columns: customForm.columns
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        chartType: customForm.chartType || null,
+      })
+      setCustomForm({ name: '', dataSource: 'tickets', columns: '', chartType: 'bar' })
+      loadCustomReports()
+    } catch {
+      setCustomError('Failed to save custom report.')
+    } finally {
+      setCustomSaving(false)
+    }
+  }
+
+  const handleDeleteCustomReport = async (id: string) => {
+    try {
+      await supportPagesService.deleteCustomReport(id)
+      loadCustomReports()
+    } catch {
+      setCustomError('Failed to delete custom report.')
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -70,54 +223,6 @@ export default function SupportReports() {
     }
   }, [])
 
-  const scheduledReports: ScheduledReport[] = [
-    {
-      id: '1',
-      reportName: 'Ticket Volume Analysis',
-      schedule: 'Daily at 9:00 AM',
-      nextRun: '2024-10-22 09:00',
-      recipients: ['support-leads@company.com', 'managers@company.com'],
-      format: 'PDF',
-      active: true
-    },
-    {
-      id: '2',
-      reportName: 'SLA Compliance Dashboard',
-      schedule: 'Daily at 8:00 AM',
-      nextRun: '2024-10-22 08:00',
-      recipients: ['qa-team@company.com', 'management@company.com'],
-      format: 'Excel',
-      active: true
-    },
-    {
-      id: '3',
-      reportName: 'Team Performance Report',
-      schedule: 'Every Monday at 6:00 PM',
-      nextRun: '2024-10-28 18:00',
-      recipients: ['team-leads@company.com', 'hr@company.com'],
-      format: 'PDF',
-      active: true
-    },
-    {
-      id: '4',
-      reportName: 'Executive Summary Dashboard',
-      schedule: 'Every Monday at 6:00 AM',
-      nextRun: '2024-10-28 06:00',
-      recipients: ['executives@company.com', 'cio@company.com'],
-      format: 'PowerPoint',
-      active: true
-    },
-    {
-      id: '5',
-      reportName: 'Customer Satisfaction Analysis',
-      schedule: 'Every Friday at 7:00 AM',
-      nextRun: '2024-10-25 07:00',
-      recipients: ['customer-success@company.com', 'support-leads@company.com'],
-      format: 'PDF',
-      active: true
-    }
-  ]
-
   const categories = ['All', 'Operations', 'Performance', 'Compliance', 'Customer', 'Executive']
 
   const filteredReports = reports.filter(report => 
@@ -141,7 +246,7 @@ export default function SupportReports() {
     },
     {
       label: 'Scheduled Reports',
-      value: scheduledReports.filter(r => r.active).length,
+      value: scheduledReports.filter(r => r.isActive).length,
       change: `${scheduledReports.length} total`,
       icon: Calendar,
       color: 'purple'
@@ -400,6 +505,95 @@ export default function SupportReports() {
         {/* Scheduled Reports Tab */}
         {activeTab === 'scheduled' && (
           <div className="p-6 space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-600">Automated report delivery schedules</div>
+              <button
+                onClick={() => setShowSchedForm((s) => !s)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                {showSchedForm ? 'Cancel' : 'New Schedule'}
+              </button>
+            </div>
+
+            {schedError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{schedError}</div>
+            )}
+
+            {showSchedForm && (
+              <form onSubmit={handleCreateSchedule} className="bg-gray-50 border border-gray-200 rounded-lg p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Report Name</label>
+                  <input
+                    value={schedForm.reportName}
+                    onChange={(e) => setSchedForm({ ...schedForm, reportName: e.target.value })}
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="e.g. Weekly SLA Compliance"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Frequency</label>
+                  <select
+                    value={schedForm.frequency}
+                    onChange={(e) => setSchedForm({ ...schedForm, frequency: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Format</label>
+                  <select
+                    value={schedForm.format}
+                    onChange={(e) => setSchedForm({ ...schedForm, format: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="pdf">PDF</option>
+                    <option value="excel">Excel</option>
+                    <option value="powerpoint">PowerPoint</option>
+                    <option value="csv">CSV</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Recipients (comma-separated)</label>
+                  <input
+                    value={schedForm.recipients}
+                    onChange={(e) => setSchedForm({ ...schedForm, recipients: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="a@co.com, b@co.com"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={schedSaving}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {schedSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Create Schedule
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {schedLoading && (
+              <div className="text-sm text-gray-500 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading schedules…
+              </div>
+            )}
+
+            {!schedLoading && scheduledReports.length === 0 && (
+              <EmptyState
+                icon={Calendar}
+                title="No scheduled reports"
+                description="Create a schedule to automate report delivery to recipients."
+              />
+            )}
+
             {scheduledReports.map((scheduled) => (
               <div key={scheduled.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="flex items-start justify-between mb-2">
@@ -407,21 +601,26 @@ export default function SupportReports() {
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900">{scheduled.reportName}</h3>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        scheduled.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                        scheduled.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {scheduled.active ? 'Active' : 'Paused'}
+                        {scheduled.isActive ? 'Active' : 'Paused'}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-600">{scheduled.schedule}</div>
+                    <div className="text-sm text-gray-600 capitalize">{scheduled.frequency} at {scheduled.time}</div>
                   </div>
                   <div className="flex gap-2">
-                    <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                      <Settings className="h-4 w-4 text-gray-600" />
-                      <span className="text-gray-700">Settings</span>
+                    <button
+                      onClick={() => handleToggleSchedule(scheduled)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                    >
+                      <span className="text-gray-700">{scheduled.isActive ? 'Pause' : 'Activate'}</span>
                     </button>
-                    <button className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2">
-                      <Play className="h-4 w-4" />
-                      Run Now
+                    <button
+                      onClick={() => handleDeleteSchedule(scheduled.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                      <span className="text-red-700">Delete</span>
                     </button>
                   </div>
                 </div>
@@ -429,16 +628,18 @@ export default function SupportReports() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Next Run</div>
-                    <div className="text-sm font-medium text-blue-600">{scheduled.nextRun}</div>
+                    <div className="text-sm font-medium text-blue-600">{scheduled.nextRunAt ?? '—'}</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Format</div>
-                    <div className="text-sm font-medium text-gray-900">{scheduled.format}</div>
+                    <div className="text-sm font-medium text-gray-900 uppercase">{scheduled.format}</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Recipients ({scheduled.recipients.length})</div>
                     <div className="text-xs text-gray-700">
-                      {scheduled.recipients[0]}{scheduled.recipients.length > 1 && `, +${scheduled.recipients.length - 1} more`}
+                      {scheduled.recipients.length > 0
+                        ? `${scheduled.recipients[0]}${scheduled.recipients.length > 1 ? `, +${scheduled.recipients.length - 1} more` : ''}`
+                        : '—'}
                     </div>
                   </div>
                 </div>
@@ -449,44 +650,113 @@ export default function SupportReports() {
 
         {/* Custom Report Builder Tab */}
         {activeTab === 'custom' && (
-          <div className="p-6">
-            <div className="w-full">
-              <div className="text-center py-12">
-                <Settings className="h-16 w-16 text-gray-400 mb-2" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Custom Report Builder</h3>
-                <p className="text-gray-600 mb-3">Create custom reports with your own metrics, filters, and visualizations</p>
-                
-                <div className="bg-gray-50 rounded-lg p-3 text-left space-y-2">
-                  <h4 className="font-semibold text-gray-900">Build Your Report:</h4>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    <li className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs">1</div>
-                      Select data sources (Tickets, SLA, Analytics, etc.)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs">2</div>
-                      Choose metrics and KPIs to include
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs">3</div>
-                      Apply filters (date range, priority, category, team)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs">4</div>
-                      Select visualizations (charts, tables, graphs)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs">5</div>
-                      Configure output format and schedule
-                    </li>
-                  </ul>
-                </div>
-
-                <button className="mt-6 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
-                  Start Building
-                </button>
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Builder form */}
+            <form onSubmit={handleCreateCustomReport} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Settings className="h-5 w-5 text-blue-600" /> Build a Report
+              </h3>
+              {customError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{customError}</div>
+              )}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Report Name</label>
+                <input
+                  value={customForm.name}
+                  onChange={(e) => setCustomForm({ ...customForm, name: e.target.value })}
+                  required
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="e.g. High-priority ticket trend"
+                />
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Data Source</label>
+                <select
+                  value={customForm.dataSource}
+                  onChange={(e) => setCustomForm({ ...customForm, dataSource: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="tickets">Tickets</option>
+                  <option value="sla">SLA</option>
+                  <option value="analytics">Analytics</option>
+                  <option value="csat">CSAT</option>
+                  <option value="agents">Agents</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Columns (comma-separated)</label>
+                <input
+                  value={customForm.columns}
+                  onChange={(e) => setCustomForm({ ...customForm, columns: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="priority, status, createdAt"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Chart Type</label>
+                <select
+                  value={customForm.chartType}
+                  onChange={(e) => setCustomForm({ ...customForm, chartType: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="bar">Bar</option>
+                  <option value="line">Line</option>
+                  <option value="pie">Pie</option>
+                  <option value="table">Table</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={customSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2 disabled:opacity-60"
+              >
+                {customSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Save Report
+              </button>
+            </form>
+
+            {/* Saved reports */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-900">Saved Reports</h3>
+              {customLoading && (
+                <div className="text-sm text-gray-500 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                </div>
+              )}
+              {!customLoading && customReports.length === 0 && (
+                <EmptyState
+                  icon={FileText}
+                  title="No custom reports yet"
+                  description="Use the builder to define and save your first custom report."
+                />
+              )}
+              {customReports.map((cr) => (
+                <div key={cr.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{cr.name}</h4>
+                      <div className="text-xs text-gray-500 mt-1">
+                        <span className="capitalize">{cr.dataSource}</span>
+                        {cr.chartType && <span> · {cr.chartType} chart</span>}
+                        {cr.columns.length > 0 && <span> · {cr.columns.length} columns</span>}
+                      </div>
+                      {cr.columns.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {cr.columns.map((c, i) => (
+                            <span key={i} className="text-xs px-2 py-0.5 bg-white border border-gray-300 rounded">{c}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteCustomReport(cr.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

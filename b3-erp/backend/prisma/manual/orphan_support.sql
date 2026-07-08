@@ -631,3 +631,51 @@ VALUES
   ('TKT-SLA-004','TKT-SLA-004','phone','Gamma Foods','Login issue','User cannot authenticate','high','incident','resolved',true,false,'company-1'),
   ('TKT-SLA-005','TKT-SLA-005','email','Delta Diner','Report not generating','Monthly report stuck','medium','incident','open',false,true,'company-1')
 ON CONFLICT ("ticketNumber","companyId") DO NOTHING;
+
+-- ============================================================================
+-- Scheduled Reports  (entity: SupportReportSchedule)
+-- Backs the "Scheduled Reports" tab on /support/reports. Idempotent/additive.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "support_report_schedules" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "reportName" varchar NOT NULL,
+  "reportType" varchar NOT NULL,
+  "frequency" varchar NOT NULL DEFAULT 'weekly',
+  "dayOfWeek" varchar,
+  "time" varchar NOT NULL DEFAULT '09:00',
+  "format" varchar NOT NULL DEFAULT 'pdf',
+  "recipients" jsonb NOT NULL DEFAULT '[]',
+  "isActive" boolean NOT NULL DEFAULT true,
+  "lastRunAt" timestamp,
+  "nextRunAt" timestamp,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_report_schedules" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_support_report_schedules_company"
+  ON "support_report_schedules" ("companyId");
+
+-- ============================================================================
+-- Custom Reports  (entity: SupportCustomReport)
+-- Backs the "Custom Report Builder" tab on /support/reports. Idempotent/additive.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "support_custom_reports" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "name" varchar NOT NULL,
+  "description" text,
+  "dataSource" varchar NOT NULL,
+  "columns" jsonb NOT NULL DEFAULT '[]',
+  "filters" jsonb NOT NULL DEFAULT '[]',
+  "chartType" varchar,
+  "isShared" boolean NOT NULL DEFAULT false,
+  "createdBy" varchar,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_custom_reports" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_support_custom_reports_company"
+  ON "support_custom_reports" ("companyId");
