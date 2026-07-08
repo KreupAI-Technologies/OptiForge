@@ -1,14 +1,36 @@
 ﻿'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Wrench } from 'lucide-react'
+import { ArrowLeft, Wrench, Ticket, Activity, ShieldCheck, CalendarClock, Loader2, AlertCircle } from 'lucide-react'
 import { LiveSLATracking, TechnicianRouting, SparePartsIntegration, ServiceDispatch, AutomatedEscalations, SelfServicePortal, CustomerFeedbackLoop } from '@/components/after-sales-service'
+import { AfterSalesPagesService, AfterSalesOverviewStats } from '@/services/after-sales-pages.service'
 
 type TabId = 'sla' | 'routing' | 'parts' | 'dispatch' | 'escalations' | 'feedback';
 
 export default function AfterSalesAdvancedFeaturesPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>('sla');
+  const [stats, setStats] = useState<AfterSalesOverviewStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  // Live after-sales summary KPIs from the overview endpoint
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setStatsLoading(true);
+      setStatsError(null);
+      try {
+        const overview = await AfterSalesPagesService.overview();
+        if (!cancelled) setStats(overview?.stats ?? null);
+      } catch (err) {
+        if (!cancelled) setStatsError(err instanceof Error ? err.message : 'Failed to load after-sales metrics');
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const tabs = [
     { id: 'sla' as TabId, label: 'Live SLA' },
     { id: 'routing' as TabId, label: 'Technician Routing' },
@@ -63,6 +85,60 @@ export default function AfterSalesAdvancedFeaturesPage() {
             ))}
           </div>
         </div>
+
+        {/* Live After-Sales KPIs */}
+        {statsLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-500 bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading after-sales metrics…
+          </div>
+        ) : statsError ? (
+          <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-2xl p-5">
+            <AlertCircle className="h-4 w-4" /> {statsError}
+          </div>
+        ) : stats ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Total Tickets</p>
+                  <p className="text-3xl font-black text-slate-900 mt-1">{stats.totalTickets}</p>
+                  <p className="text-xs text-slate-500 mt-1">{stats.openTickets} open</p>
+                </div>
+                <Ticket className="h-8 w-8 text-blue-500" />
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Active Service Calls</p>
+                  <p className="text-3xl font-black text-emerald-600 mt-1">{stats.activeServiceCalls}</p>
+                  <p className="text-xs text-slate-500 mt-1">in progress</p>
+                </div>
+                <Activity className="h-8 w-8 text-emerald-500" />
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Warranty Claims</p>
+                  <p className="text-3xl font-black text-purple-600 mt-1">{stats.warrantyClaimsThisMonth}</p>
+                  <p className="text-xs text-slate-500 mt-1">this month</p>
+                </div>
+                <ShieldCheck className="h-8 w-8 text-purple-500" />
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Scheduled Visits</p>
+                  <p className="text-3xl font-black text-orange-600 mt-1">{stats.scheduledVisits}</p>
+                  <p className="text-xs text-slate-500 mt-1">upcoming field jobs</p>
+                </div>
+                <CalendarClock className="h-8 w-8 text-orange-500" />
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="transition-all duration-300">
           {renderContent()}

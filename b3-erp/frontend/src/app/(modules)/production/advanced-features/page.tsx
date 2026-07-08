@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Cpu, ClipboardCheck, BarChart3, Wrench, GitBranch, Monitor } from 'lucide-react';
+import { Calendar, Cpu, ClipboardCheck, BarChart3, Wrench, GitBranch, Monitor, ClipboardList, Gauge, Factory, Loader2, AlertCircle } from 'lucide-react';
 import {
   FiniteScheduling,
   MESIntegration,
@@ -11,6 +11,8 @@ import {
   Traceability,
   ShopFloorControl,
 } from '@/components/production';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { productionSettingsService } from '@/services/production/production-settings.service';
 
 type TabId = 'scheduling' | 'mes' | 'quality' | 'oee' | 'maintenance' | 'traceability' | 'shopfloor';
 
@@ -31,8 +33,58 @@ const tabs: Tab[] = [
   { id: 'shopfloor', label: 'Shop Floor Control', icon: Monitor, component: ShopFloorControl },
 ];
 
+interface ProductionKpis {
+  workOrders: number
+  inProgress: number
+  avgOee: number | null
+  productionLines: number
+}
+
 export default function ProductionAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<TabId>('scheduling');
+  const [kpis, setKpis] = useState<ProductionKpis | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [kpiError, setKpiError] = useState<string | null>(null);
+
+  // Live production KPIs from the production module
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setKpiLoading(true);
+      setKpiError(null);
+      try {
+        const [workOrders, oeeRecords, lines] = await Promise.all([
+          ProductionOrphanService.getWorkOrders().catch(() => [] as any[]),
+          ProductionOrphanService.getOeeRecords().catch(() => [] as any[]),
+          productionSettingsService.findAllProductionLines().catch(() => [] as any[]),
+        ]);
+        if (cancelled) return;
+        const woArr = Array.isArray(workOrders) ? workOrders : [];
+        const inProgress = woArr.filter((w: any) => {
+          const s = String(w?.status ?? '').toLowerCase();
+          return s === 'in_progress' || s === 'in-progress' || s === 'released' || s === 'active';
+        }).length;
+        const oeeArr = Array.isArray(oeeRecords) ? oeeRecords : [];
+        const oeeVals = oeeArr
+          .map((r: any) => Number(r?.oee ?? r?.oeePercentage ?? r?.overallOee))
+          .filter((n: number) => Number.isFinite(n));
+        const avgOee = oeeVals.length
+          ? Math.round((oeeVals.reduce((a: number, b: number) => a + b, 0) / oeeVals.length) * 10) / 10
+          : null;
+        setKpis({
+          workOrders: woArr.length,
+          inProgress,
+          avgOee,
+          productionLines: Array.isArray(lines) ? lines.length : 0,
+        });
+      } catch (err) {
+        if (!cancelled) setKpiError(err instanceof Error ? err.message : 'Failed to load production metrics');
+      } finally {
+        if (!cancelled) setKpiLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -61,6 +113,58 @@ export default function ProductionAdvancedFeaturesPage() {
           <p className="text-gray-600">
             MES-grade capabilities: scheduling, real-time monitoring, quality management, and OEE analytics
           </p>
+        </div>
+
+        {/* Live Production KPIs */}
+        <div className="px-3">
+          {kpiLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 bg-white shadow-sm p-3">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading production metrics…
+            </div>
+          ) : kpiError ? (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 p-3">
+              <AlertCircle className="h-4 w-4" /> {kpiError}
+            </div>
+          ) : kpis ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Work Orders</p>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.workOrders}</p>
+                  </div>
+                  <ClipboardList className="h-7 w-7 text-blue-500" />
+                </div>
+              </div>
+              <div className="bg-white shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">In Progress</p>
+                    <p className="text-2xl font-bold text-green-600">{kpis.inProgress}</p>
+                  </div>
+                  <Wrench className="h-7 w-7 text-green-500" />
+                </div>
+              </div>
+              <div className="bg-white shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Avg OEE</p>
+                    <p className="text-2xl font-bold text-purple-600">{kpis.avgOee != null ? `${kpis.avgOee}%` : '—'}</p>
+                  </div>
+                  <Gauge className="h-7 w-7 text-purple-500" />
+                </div>
+              </div>
+              <div className="bg-white shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Production Lines</p>
+                    <p className="text-2xl font-bold text-orange-600">{kpis.productionLines}</p>
+                  </div>
+                  <Factory className="h-7 w-7 text-orange-500" />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="bg-white shadow-lg overflow-hidden">

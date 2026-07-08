@@ -8,7 +8,10 @@ import {
   Users,
   FileEdit,
   MessageSquare,
-  Rocket
+  Rocket,
+  Flag,
+  Loader2,
+  AlertCircle
 } from 'lucide-react'
 
 import {
@@ -19,6 +22,7 @@ import {
   ChangeControl,
   StakeholderCommunication
 } from '@/components/projects'
+import { projectManagementService } from '@/services/ProjectManagementService'
 
 interface Tab {
   id: string
@@ -27,8 +31,52 @@ interface Tab {
   component: React.ComponentType
 }
 
+interface PortfolioKpis {
+  projects: number
+  activeProjects: number
+  milestones: number
+  resources: number
+}
+
 export default function ProjectsAdvancedFeatures() {
   const [activeTab, setActiveTab] = useState<string>('health')
+  const [kpis, setKpis] = useState<PortfolioKpis | null>(null)
+  const [kpiLoading, setKpiLoading] = useState(true)
+  const [kpiError, setKpiError] = useState<string | null>(null)
+
+  // Live portfolio KPIs from project-management endpoints
+  useEffect(() => {
+    let cancelled = false
+    const loadKpis = async () => {
+      setKpiLoading(true)
+      setKpiError(null)
+      try {
+        const [plans, milestones, resources] = await Promise.all([
+          projectManagementService.listProjectPlans().catch(() => [] as any[]),
+          projectManagementService.listAllMilestones().catch(() => [] as any[]),
+          projectManagementService.listAllResources().catch(() => [] as any[]),
+        ])
+        if (cancelled) return
+        const planArr = Array.isArray(plans) ? plans : []
+        const activeProjects = planArr.filter((p: any) => {
+          const s = String(p?.status ?? '').toLowerCase()
+          return s === 'in_execution' || s === 'approved' || s === 'active'
+        }).length
+        setKpis({
+          projects: planArr.length,
+          activeProjects,
+          milestones: Array.isArray(milestones) ? milestones.length : 0,
+          resources: Array.isArray(resources) ? resources.length : 0,
+        })
+      } catch (err) {
+        if (!cancelled) setKpiError(err instanceof Error ? err.message : 'Failed to load portfolio KPIs')
+      } finally {
+        if (!cancelled) setKpiLoading(false)
+      }
+    }
+    loadKpis()
+    return () => { cancelled = true }
+  }, [])
 
   const tabs: Tab[] = [
     { id: 'health', label: 'Project Health', icon: Gauge, component: ProjectHealthScoring },
@@ -69,6 +117,58 @@ export default function ProjectsAdvancedFeatures() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Live Portfolio KPIs */}
+        <div className="px-3">
+          {kpiLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 bg-white shadow-sm rounded-lg p-3">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading portfolio metrics…
+            </div>
+          ) : kpiError ? (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+              <AlertCircle className="h-4 w-4" /> {kpiError}
+            </div>
+          ) : kpis ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Project Plans</p>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.projects}</p>
+                  </div>
+                  <Rocket className="h-7 w-7 text-blue-500" />
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Active Projects</p>
+                    <p className="text-2xl font-bold text-green-600">{kpis.activeProjects}</p>
+                  </div>
+                  <Gauge className="h-7 w-7 text-green-500" />
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Milestones</p>
+                    <p className="text-2xl font-bold text-purple-600">{kpis.milestones}</p>
+                  </div>
+                  <Flag className="h-7 w-7 text-purple-500" />
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Resources</p>
+                    <p className="text-2xl font-bold text-orange-600">{kpis.resources}</p>
+                  </div>
+                  <Users className="h-7 w-7 text-orange-500" />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Tab Navigation */}

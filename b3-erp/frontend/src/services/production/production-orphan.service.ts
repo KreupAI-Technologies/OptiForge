@@ -162,6 +162,12 @@ export const ProductionOrphanService = {
   // GET production/work-order (backs work-orders/completed|progress|pending|tracking)
   getWorkOrders: () => request<any[]>('/production/work-order'),
 
+  // GET production/work-center (backs settings — work-center counts)
+  getWorkCenters: () => request<any[]>('/production/work-center'),
+
+  // GET production/routing (backs settings — routing/template counts)
+  getRoutings: () => request<any[]>('/production/routing'),
+
   // GET production/bom (backs bom/versions|comparison|multi-level)
   getBoms: () => request<any[]>('/production/bom'),
 
