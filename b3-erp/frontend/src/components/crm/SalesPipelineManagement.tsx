@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, DollarSign, Target, Award, Users, Calendar, BarChart3, ArrowRight, ChevronDown, Briefcase, TrendingDown, AlertTriangle } from 'lucide-react';
 import { crmService, asArray } from '@/services/crm.service';
+import CrmDataState from './CrmDataState';
 
 export interface Deal {
   id: string;
@@ -45,6 +46,7 @@ const stages = [
 export default function SalesPipelineManagement() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedStage, setSelectedStage] = useState<string>('all');
   const [draggedDeal, setDraggedDeal] = useState<Deal | null>(null);
 
@@ -66,9 +68,9 @@ export default function SalesPipelineManagement() {
           daysInStage: Number(o.daysInStage ?? 0),
           lastActivity: o.lastActivity ?? o.updatedAt ?? '',
         }));
-        if (mounted) setDeals(mapped);
+        if (mounted) { setDeals(mapped); setError(null); }
       } catch (e) {
-        if (mounted) setDeals([]);
+        if (mounted) { setDeals([]); setError(e instanceof Error ? e.message : 'Failed to load pipeline'); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -130,6 +132,14 @@ export default function SalesPipelineManagement() {
         </h2>
         <p className="text-gray-600 mt-1">Drag-and-drop pipeline with weighted forecasting and deal velocity tracking</p>
       </div>
+
+      <CrmDataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && deals.length === 0}
+        loadingText="Loading pipeline…"
+        emptyText="No opportunities found in the pipeline."
+      />
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2">

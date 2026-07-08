@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Phone, Mail, Calendar, CheckCircle2, MessageSquare, FileText, Clock, TrendingUp, Users, Target, Bell } from 'lucide-react';
 import { crmService, asArray } from '@/services/crm.service';
+import CrmDataState from './CrmDataState';
 
 export interface Activity {
   id: string;
@@ -45,6 +46,7 @@ const statusColors = {
 export default function ActivityManagementTracking() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [realTimeUpdate, setRealTimeUpdate] = useState(0);
@@ -77,9 +79,9 @@ export default function ActivityManagementTracking() {
           emailOpened: a.emailOpened ?? undefined,
           timestamp: a.createdAt ?? a.updatedAt ?? '',
         }));
-        if (mounted) setActivities(mapped);
+        if (mounted) { setActivities(mapped); setError(null); }
       } catch (e) {
-        if (mounted) setActivities([]);
+        if (mounted) { setActivities([]); setError(e instanceof Error ? e.message : 'Failed to load activities'); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -113,6 +115,14 @@ export default function ActivityManagementTracking() {
         </h2>
         <p className="text-gray-600 mt-1">Email tracking, call logging, meeting scheduling with comprehensive activity timeline</p>
       </div>
+
+      <CrmDataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && activities.length === 0}
+        loadingText="Loading activities…"
+        emptyText="No activities found."
+      />
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2">

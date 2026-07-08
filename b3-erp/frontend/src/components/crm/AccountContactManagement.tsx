@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, Users, User, Star, Mail, Phone, MapPin, Briefcase, Award, TrendingUp, Shield, AlertCircle } from 'lucide-react';
 import { crmService, asArray } from '@/services/crm.service';
+import CrmDataState from './CrmDataState';
 
 export interface Contact {
   id: string;
@@ -51,6 +52,7 @@ export default function AccountContactManagement() {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [viewMode, setViewMode] = useState<'hierarchy' | 'contacts'>('hierarchy');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -85,9 +87,9 @@ export default function AccountContactManagement() {
           dealValue: Number(c.dealValue ?? 0),
           lastActivity: c.lastActivity ?? c.updatedAt ?? '',
         }));
-        if (mounted) setAccounts(mapped);
+        if (mounted) { setAccounts(mapped); setError(null); }
       } catch (e) {
-        if (mounted) setAccounts([]);
+        if (mounted) { setAccounts([]); setError(e instanceof Error ? e.message : 'Failed to load accounts'); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -114,6 +116,14 @@ export default function AccountContactManagement() {
         </h2>
         <p className="text-gray-600 mt-1">Hierarchical account relationships with decision-maker mapping and buying committee tracking</p>
       </div>
+
+      <CrmDataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && accounts.length === 0}
+        loadingText="Loading accounts…"
+        emptyText="No accounts found."
+      />
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
