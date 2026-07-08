@@ -1,17 +1,58 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Upload, FileText, Check, Loader2, AlertCircle, ScanText } from 'lucide-react';
 import Link from 'next/link';
+import {
+    advancedFeaturesService,
+    type OcrDocument,
+    type OcrStats,
+} from '@/services/advanced-features.service';
+
+const STATUS_STYLES: Record<string, string> = {
+    completed: 'bg-green-100 text-green-700',
+    processing: 'bg-blue-100 text-blue-700',
+    queued: 'bg-gray-100 text-gray-700',
+    failed: 'bg-red-100 text-red-700',
+};
 
 export default function OCRPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'success'>('idle');
 
+    const [documents, setDocuments] = useState<OcrDocument[]>([]);
+    const [stats, setStats] = useState<OcrStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const [list, s] = await Promise.all([
+                    advancedFeaturesService.listOcrDocuments(),
+                    advancedFeaturesService.ocrStats(),
+                ]);
+                if (cancelled) return;
+                setDocuments(list.data);
+                setStats(s);
+            } catch (e) {
+                if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load OCR documents');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const handleUpload = () => {
         setIsUploading(true);
         setUploadStatus('processing');
-        // Simulate processing
+        // Simulated client-side processing (upload/extraction pipeline not yet backed).
         setTimeout(() => {
             setIsUploading(false);
             setUploadStatus('success');
@@ -33,8 +74,24 @@ export default function OCRPage() {
                 </div>
             </div>
 
+            {/* Live status counts */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+                {[
+                    { label: 'Total', value: stats?.total ?? 0 },
+                    { label: 'Completed', value: stats?.completed ?? 0 },
+                    { label: 'Processing', value: stats?.processing ?? 0 },
+                    { label: 'Queued', value: stats?.queued ?? 0 },
+                    { label: 'Failed', value: stats?.failed ?? 0 },
+                ].map((k) => (
+                    <div key={k.label} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                        <p className="text-2xl font-bold text-gray-900">{loading ? '—' : k.value}</p>
+                        <p className="text-sm text-gray-600 mt-1">{k.label}</p>
+                    </div>
+                ))}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                {/* Upload Section */}
+                {/* Upload Section (simulated demo) */}
                 <div className="lg:col-span-1">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
                         <h2 className="text-lg font-bold text-gray-900 mb-2">Upload Document</h2>
@@ -79,108 +136,67 @@ export default function OCRPage() {
                     </div>
                 </div>
 
-                {/* Results Section */}
+                {/* Processed documents (live) */}
                 <div className="lg:col-span-2">
-                    {uploadStatus === 'success' ? (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
-                            <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-green-100 rounded-lg">
-                                        <FileText className="w-6 h-6 text-green-600" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-bold text-gray-900">Extraction Results</h2>
-                                        <p className="text-sm text-gray-500">invoice_oct_2025.pdf</p>
-                                    </div>
-                                </div>
-                                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                                    Confidence: 98.5%
-                                </span>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+                        <div className="flex items-center gap-3 mb-3 border-b border-gray-100 pb-4">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <FileText className="w-6 h-6 text-blue-600" />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-3 mb-3">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Vendor Name</label>
-                                    <div className="p-2 bg-gray-50 rounded border border-gray-200 text-gray-900 font-medium">
-                                        Acme Industrial Supplies Ltd.
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Invoice Number</label>
-                                    <div className="p-2 bg-gray-50 rounded border border-gray-200 text-gray-900 font-medium">
-                                        INV-2025-8892
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Date</label>
-                                    <div className="p-2 bg-gray-50 rounded border border-gray-200 text-gray-900 font-medium">
-                                        Oct 24, 2025
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Total Amount</label>
-                                    <div className="p-2 bg-gray-50 rounded border border-gray-200 text-gray-900 font-medium">
-                                        $4,250.00
-                                    </div>
-                                </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900">Processed Documents</h2>
+                                <p className="text-sm text-gray-500">Recent OCR extraction jobs</p>
                             </div>
+                        </div>
 
+                        {loading ? (
+                            <div className="flex items-center justify-center gap-2 text-gray-500 py-16">
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Loading documents…</span>
+                            </div>
+                        ) : error ? (
+                            <div className="flex flex-col items-center justify-center text-center py-16">
+                                <AlertCircle className="w-8 h-8 text-red-500 mb-2" />
+                                <p className="text-red-700 font-medium">{error}</p>
+                                <p className="text-sm text-gray-500 mt-1">Please try again later.</p>
+                            </div>
+                        ) : documents.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center text-center py-16">
+                                <ScanText className="w-8 h-8 text-gray-400 mb-2" />
+                                <p className="text-gray-900 font-medium">No documents processed yet</p>
+                                <p className="text-sm text-gray-500 mt-1">Upload an invoice or receipt to get started.</p>
+                            </div>
+                        ) : (
                             <div className="border rounded-lg overflow-hidden">
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-gray-50 border-b border-gray-200">
                                         <tr>
-                                            <th className="px-4 py-2 font-medium text-gray-700">Item Description</th>
-                                            <th className="px-4 py-2 font-medium text-gray-700 text-right">Qty</th>
-                                            <th className="px-4 py-2 font-medium text-gray-700 text-right">Unit Price</th>
-                                            <th className="px-4 py-2 font-medium text-gray-700 text-right">Total</th>
+                                            <th className="px-4 py-2 font-medium text-gray-700">File</th>
+                                            <th className="px-4 py-2 font-medium text-gray-700">Type</th>
+                                            <th className="px-4 py-2 font-medium text-gray-700">Status</th>
+                                            <th className="px-4 py-2 font-medium text-gray-700 text-right">Confidence</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        <tr>
-                                            <td className="px-4 py-2 text-gray-900">Industrial Lubricant 50L</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">2</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">$500.00</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">$1,000.00</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="px-4 py-2 text-gray-900">Safety Gloves (Pack of 100)</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">5</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">$50.00</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">$250.00</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="px-4 py-2 text-gray-900">CNC Drill Bits Set</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">1</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">$3,000.00</td>
-                                            <td className="px-4 py-2 text-gray-900 text-right">$3,000.00</td>
-                                        </tr>
+                                        {documents.map((doc) => (
+                                            <tr key={doc.id}>
+                                                <td className="px-4 py-2 text-gray-900">{doc.fileName}</td>
+                                                <td className="px-4 py-2 text-gray-600 capitalize">{doc.docType.replace(/_/g, ' ')}</td>
+                                                <td className="px-4 py-2">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[doc.status] ?? STATUS_STYLES.queued}`}>
+                                                        {doc.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-2 text-gray-900 text-right">
+                                                    {doc.status === 'completed' ? `${Math.round((doc.confidence ?? 0) * 100)}%` : '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
-
-                            <div className="mt-6 flex justify-end gap-3">
-                                <button
-                                    onClick={() => setUploadStatus('idle')}
-                                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                                >
-                                    Discard
-                                </button>
-                                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                                    Approve & Save
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 flex flex-col items-center justify-center text-center h-full min-h-[400px]">
-                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-2">
-                                <ScanText className="w-8 h-8 text-gray-400" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Document Selected</h3>
-                            <p className="text-gray-500 max-w-sm">
-                                Upload an invoice or receipt to automatically extract data using our advanced OCR engine.
-                            </p>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
