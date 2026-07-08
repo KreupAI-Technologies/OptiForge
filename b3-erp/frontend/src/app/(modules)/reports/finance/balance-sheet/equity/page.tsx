@@ -59,7 +59,7 @@ function EquityDetailContent() {
                             {equity.map((item) => (
                                 <ClickableTableRow
                                     key={item.id}
-                                    onClick={() => router.push(`/accounts/ledger/${item.id}`)}
+                                    onClick={() => router.push(`/finance/ledger/${item.id}`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{item.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{item.name}</td>

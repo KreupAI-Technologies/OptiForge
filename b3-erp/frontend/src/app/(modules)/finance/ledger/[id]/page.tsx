@@ -164,7 +164,7 @@ export default function AccountLedgerPage() {
                             {transactions.map((tx) => (
                                 <ClickableTableRow
                                     key={tx.id}
-                                    onClick={() => router.push(`/accounts/journal/${tx.id}`)}
+                                    onClick={() => router.push(`/finance/journal/${tx.id}`)}
                                 >
                                     <td className="px-4 py-3 text-sm">{tx.date}</td>
                                     <td className="px-4 py-3 text-sm font-medium text-blue-600">{tx.id}</td>

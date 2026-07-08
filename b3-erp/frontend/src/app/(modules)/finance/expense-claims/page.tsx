@@ -35,7 +35,7 @@ export default function ExpenseClaimsPage() {
     const fetchClaims = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/accounts/expense-claims');
+            const response = await fetch('/api/finance/expense-claims');
             const data = await response.json();
             if (data.success) {
                 setClaims(data.data);
@@ -194,7 +194,7 @@ export default function ExpenseClaimsPage() {
                                                 {getStatusBadge(claim.status)}
                                             </td>
                                             <td className="px-4 py-3 text-center">
-                                                <Link href={`/accounts/expense-claims/${claim.id}`}>
+                                                <Link href={`/finance/expense-claims/${claim.id}`}>
                                                     <Button size="sm" variant="outline">
                                                         View
                                                     </Button>

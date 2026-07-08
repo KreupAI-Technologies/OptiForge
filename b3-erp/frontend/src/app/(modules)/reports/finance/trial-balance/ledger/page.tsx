@@ -72,7 +72,7 @@ function LedgerContent() {
                             {transactionsWithBalance.map((txn) => (
                                 <ClickableTableRow
                                     key={txn.id}
-                                    onClick={() => router.push(`/accounts/journal/${txn.id}`)}
+                                    onClick={() => router.push(`/finance/journal/${txn.id}`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{txn.date}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{txn.id}</td>

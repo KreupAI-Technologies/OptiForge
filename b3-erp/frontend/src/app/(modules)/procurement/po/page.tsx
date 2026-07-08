@@ -396,7 +396,7 @@ export default function PurchaseOrdersPage() {
                   <td className="px-3 py-2">
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={() => router.push(`/procurement/po/view/${po.id}`)}
+                        onClick={() => router.push(`/procurement/purchase-orders/view/${po.id}`)}
                         className="flex items-center space-x-1 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-sm font-medium"
 
                       >

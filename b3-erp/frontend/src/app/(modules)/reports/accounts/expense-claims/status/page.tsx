@@ -23,7 +23,7 @@ function ExpenseClaimsStatusContent() {
             setIsLoading(true);
             setLoadError(null);
             try {
-                const raw = await fetchDomainList<any>('api/accounts/expense-claims');
+                const raw = await fetchDomainList<any>('api/finance/expense-claims');
                 const mapped = raw.map((r: any) => ({
                     id: r.claimNumber ?? r.id,
                     employee: r.employeeName ?? '',
@@ -60,7 +60,7 @@ function ExpenseClaimsStatusContent() {
             breadcrumbs={[
                 { label: 'Reports', href: '/reports' },
                 { label: 'Accounts', href: '/reports' },
-                { label: 'Expense Claims', href: '/reports/accounts/expense-claims' },
+                { label: 'Expense Claims', href: '/reports/finance/expense-claims' },
                 { label: 'Details' }
             ]}
         >
