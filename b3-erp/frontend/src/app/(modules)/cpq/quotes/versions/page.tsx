@@ -107,7 +107,7 @@ export default function CPQQuotesVersionsPage() {
   }
 
   const handleCopyVersion = (version: QuoteVersion) => {
-    router.push(`/cpq/quotes/builder?copyFrom=${version.id}`)
+    router.push(`/cpq/quotes/create?copyFrom=${version.id}`)
   }
 
   const handleExport = () => {
@@ -597,7 +597,7 @@ export default function CPQQuotesVersionsPage() {
         onCreateNew={() => {
           if (selectedVersion) {
             setIsViewModalOpen(false)
-            router.push(`/cpq/quotes/builder?basedOn=${selectedVersion.id}`)
+            router.push(`/cpq/quotes/create?basedOn=${selectedVersion.id}`)
           }
         }}
       />

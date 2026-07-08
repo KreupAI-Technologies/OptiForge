@@ -126,7 +126,7 @@ export default function OpportunityDetailPage() {
       message: 'Navigating to quote creation from opportunity...',
       variant: 'info'
     })
-    router.push(`/sales/quotes/create?opportunity=${opportunity.id}`)
+    router.push(`/cpq/quotes/create?opportunity=${opportunity.id}`)
   }
 
   const handleCreateOrder = () => {

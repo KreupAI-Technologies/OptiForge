@@ -60,7 +60,7 @@ function ExpenseClaimsStatusContent() {
             breadcrumbs={[
                 { label: 'Reports', href: '/reports' },
                 { label: 'Accounts', href: '/reports' },
-                { label: 'Expense Claims', href: '/reports/finance/expense-claims' },
+                { label: 'Expense Claims', href: '/reports/accounts/expense-claims' },
                 { label: 'Details' }
             ]}
         >
@@ -87,7 +87,7 @@ function ExpenseClaimsStatusContent() {
                             {filteredClaims.map((claim) => (
                                 <ClickableTableRow
                                     key={claim.id}
-                                    onClick={() => router.push(`/accounts/expenses/${claim.id}`)}
+                                    onClick={() => router.push(`/finance/expense-claims`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{claim.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{claim.employee}</td>

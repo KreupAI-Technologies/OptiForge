@@ -171,7 +171,7 @@ export default function PettyCashReport() {
                             {data.recentTransactions.map((txn) => (
                                 <ClickableTableRow
                                     key={txn.id}
-                                    onClick={() => router.push(`/accounts/petty-cash/${txn.id}`)}
+                                    onClick={() => router.push(`/finance/petty-cash`)}
                                 >
                                     <td className="px-4 py-3 text-sm">{new Date(txn.date).toLocaleDateString()}</td>
                                     <td className="px-4 py-3 text-sm">{txn.description}</td>

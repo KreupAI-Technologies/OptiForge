@@ -134,7 +134,7 @@ export default function BankReconciliationReport() {
                             {data.unmatched.map((txn) => (
                                 <ClickableTableRow
                                     key={txn.id}
-                                    onClick={() => router.push(`/accounts/transactions/${txn.id}`)}
+                                    onClick={() => router.push(`/finance/general-ledger`)}
                                 >
                                     <td className="px-4 py-3 text-sm">{new Date(txn.date).toLocaleDateString()}</td>
                                     <td className="px-4 py-3 text-sm">{txn.description}</td>

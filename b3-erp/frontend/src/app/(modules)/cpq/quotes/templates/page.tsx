@@ -237,7 +237,7 @@ export default function CPQQuotesTemplatesPage() {
       setIsUseModalOpen(false)
       // Navigate to the newly created quote when we have an id.
       if (created?.id) {
-        router.push(`/cpq/quotes/builder?id=${created.id}`)
+        router.push(`/cpq/quotes/create?id=${created.id}`)
       } else {
         await loadTemplates()
       }

@@ -73,7 +73,7 @@ function WorkCenterContent() {
                             {workCenters.map((wc) => (
                                 <ClickableTableRow
                                     key={wc.id}
-                                    onClick={() => router.push(`/production/work-centers/${wc.id}`)}
+                                    onClick={() => router.push(`/production/scheduling/resources`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{wc.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{wc.name}</td>

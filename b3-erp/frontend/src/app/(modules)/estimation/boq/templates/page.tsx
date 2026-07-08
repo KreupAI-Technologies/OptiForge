@@ -49,7 +49,7 @@ export default function BOQTemplatesPage() {
   }
 
   const handleUseTemplate = (templateId: string) => {
-    router.push(`/estimation/boq/create?template=${templateId}`)
+    router.push(`/estimation/boq/add?template=${templateId}`)
   }
 
   const handleExportTemplate = (template: BOQTemplate) => {

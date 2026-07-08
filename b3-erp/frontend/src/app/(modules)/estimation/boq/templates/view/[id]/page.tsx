@@ -112,7 +112,7 @@ export default function ViewBOQTemplate() {
   };
 
   const handleUse = () => {
-    router.push(`/estimation/boq/create?template=${templateId}`);
+    router.push(`/estimation/boq/add?template=${templateId}`);
   };
 
   const handleExport = () => {

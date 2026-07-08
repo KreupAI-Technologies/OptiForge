@@ -164,7 +164,7 @@ export default function BankAccountsPage() {
                                     </div>
                                 </div>
 
-                                <Link href={`/accounts/banks/${account.id}`}>
+                                <Link href={`/finance/banks`}>
                                     <Button variant="outline" className="w-full">
                                         View Details
                                     </Button>

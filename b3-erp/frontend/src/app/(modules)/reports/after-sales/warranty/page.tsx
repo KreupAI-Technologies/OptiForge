@@ -127,7 +127,7 @@ export default function WarrantyClaimsReport() {
                             {data.byProduct.map((prod) => (
                                 <ClickableTableRow
                                     key={prod.id}
-                                    onClick={() => router.push(`/after-sales/warranty-claims/${prod.id}`)}
+                                    onClick={() => router.push(`/after-sales-service/warranties`)}
                                 >
                                     <td className="px-4 py-3 text-sm font-medium text-blue-600">{prod.product}</td>
                                     <td className="px-4 py-3 text-center"><Badge variant="outline">{prod.claims}</Badge></td>

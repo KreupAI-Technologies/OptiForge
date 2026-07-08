@@ -105,19 +105,19 @@ export default function ExpenseClaimsReport() {
                     title="Total Claims"
                     value={data.totalClaims.toString()}
                     color="blue"
-                    onClick={() => router.push('/reports/finance/expense-claims/status?status=All')}
+                    onClick={() => router.push('/reports/accounts/expense-claims/status?status=All')}
                 />
                 <ClickableKPICard
                     title="Total Amount"
                     value={`$${(data.totalAmount / 1000).toFixed(0)}K`}
                     color="green"
-                    onClick={() => router.push('/reports/finance/expense-claims/status?status=All')}
+                    onClick={() => router.push('/reports/accounts/expense-claims/status?status=All')}
                 />
                 <ClickableKPICard
                     title="Pending"
                     value={data.pendingClaims.toString()}
                     color="orange"
-                    onClick={() => router.push('/reports/finance/expense-claims/status?status=Submitted')}
+                    onClick={() => router.push('/reports/accounts/expense-claims/status?status=Submitted')}
                 />
                 <ClickableKPICard
                     title="Avg Processing"
@@ -133,7 +133,7 @@ export default function ExpenseClaimsReport() {
                     <CardContent>
                         <div className="space-y-3">
                             {data.byStatus.map((item, idx) => (
-                                <div key={idx} className="cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => router.push(`/reports/finance/expense-claims/status?status=${item.status}`)}>
+                                <div key={idx} className="cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => router.push(`/reports/accounts/expense-claims/status?status=${item.status}`)}>
                                     <div className="flex justify-between mb-2">
                                         <Badge variant="outline">{item.status}</Badge>
                                         <span className="text-sm"><span className="font-semibold">{item.count} claims</span><span className="text-gray-500 ml-2">(${(item.amount / 1000).toFixed(0)}K)</span></span>
@@ -152,7 +152,7 @@ export default function ExpenseClaimsReport() {
                     <CardContent>
                         <div className="space-y-3">
                             {data.byCategory.map((item) => (
-                                <div key={item.id} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => router.push(`/reports/finance/expense-claims/status?category=${item.category}`)}>
+                                <div key={item.id} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => router.push(`/reports/accounts/expense-claims/status?category=${item.category}`)}>
                                     <span className="font-medium">{item.category}</span>
                                     <div className="flex items-center gap-3">
                                         <div className="w-24 bg-gray-200 rounded-full h-2">

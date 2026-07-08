@@ -87,7 +87,7 @@ function PettyCashTransactionsContent() {
                             {filteredTransactions.map((txn) => (
                                 <ClickableTableRow
                                     key={txn.id}
-                                    onClick={() => router.push(`/accounts/petty-cash/${txn.id}`)}
+                                    onClick={() => router.push(`/finance/petty-cash`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{txn.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{new Date(txn.date).toLocaleDateString()}</td>

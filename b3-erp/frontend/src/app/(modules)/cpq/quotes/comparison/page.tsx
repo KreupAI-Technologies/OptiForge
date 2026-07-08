@@ -147,7 +147,7 @@ export default function CPQQuotesComparisonPage() {
   const handleSelectWinner = () => {
     const winningQuote = selectedQuoteObjects[0]
     if (confirm(`Mark ${winningQuote.quoteNumber} ${winningQuote.version} as the winning quote?`)) {
-      router.push(`/cpq/quotes/builder?id=${winningQuote.id}`)
+      router.push(`/cpq/quotes/create?id=${winningQuote.id}`)
     }
   }
 
