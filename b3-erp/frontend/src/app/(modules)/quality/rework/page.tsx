@@ -33,6 +33,7 @@ interface ProjectInfo {
 
 interface ReworkItem {
     id: string;
+    dbId: string;
     defectId: string;
     component: string;
     defectType: string;
@@ -57,6 +58,7 @@ export default function ReworkLoopPage() {
     const [reworkItems, setReworkItems] = useState<ReworkItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
 
     // Load projects
     useEffect(() => {
@@ -100,6 +102,7 @@ export default function ReworkLoopPage() {
                 const list = Array.isArray(raw) ? raw : [];
                 const mapped: ReworkItem[] = list.map((r) => ({
                     id: String(r?.reworkCode ?? r?.id ?? ''),
+                    dbId: String(r?.id ?? ''),
                     defectId: r?.defectId ?? '',
                     component: r?.component ?? '',
                     defectType: r?.defectType ?? '',
@@ -130,14 +133,33 @@ export default function ReworkLoopPage() {
         toast({ title: 'Project Selected', description: `Viewing rework items for ${project.name}` });
     };
 
-    const handleStatusChange = (id: string, newStatus: ReworkItem['status']) => {
-        setReworkItems(reworkItems.map(item =>
-            item.id === id ? { ...item, status: newStatus } : item
-        ));
-        toast({
-            title: 'Status Updated',
-            description: `Rework item ${id} moved to ${newStatus}`,
-        });
+    const handleStatusChange = async (item: ReworkItem, newStatus: ReworkItem['status']) => {
+        if (updatingId) return;
+        if (!item.dbId) {
+            toast({ title: 'Error', description: 'Missing rework item identifier', variant: 'destructive' });
+            return;
+        }
+        setUpdatingId(item.id);
+        const previousStatus = item.status;
+        // Optimistic update
+        setReworkItems((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: newStatus } : r)));
+        try {
+            await QualityService.updateReworkItem(item.dbId, { status: newStatus });
+            toast({
+                title: 'Status Updated',
+                description: `Rework item ${item.id} moved to ${newStatus}`,
+            });
+        } catch (err) {
+            // Roll back on failure
+            setReworkItems((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: previousStatus } : r)));
+            toast({
+                title: 'Error',
+                description: err instanceof Error ? err.message : 'Failed to update rework status',
+                variant: 'destructive',
+            });
+        } finally {
+            setUpdatingId(null);
+        }
     };
 
     const filteredProjects = projects.filter(p =>
@@ -357,9 +379,14 @@ export default function ReworkLoopPage() {
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
-                                                                onClick={() => handleStatusChange(item.id, 'In Rework')}
+                                                                disabled={updatingId === item.id}
+                                                                onClick={() => handleStatusChange(item, 'In Rework')}
                                                             >
-                                                                <Wrench className="h-4 w-4 mr-1" />
+                                                                {updatingId === item.id ? (
+                                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                                ) : (
+                                                                    <Wrench className="h-4 w-4 mr-1" />
+                                                                )}
                                                                 Start
                                                             </Button>
                                                         )}
@@ -367,9 +394,14 @@ export default function ReworkLoopPage() {
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
-                                                                onClick={() => handleStatusChange(item.id, 'Re-inspection')}
+                                                                disabled={updatingId === item.id}
+                                                                onClick={() => handleStatusChange(item, 'Re-inspection')}
                                                             >
-                                                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                                {updatingId === item.id ? (
+                                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                                ) : (
+                                                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                                )}
                                                                 Send to QC
                                                             </Button>
                                                         )}

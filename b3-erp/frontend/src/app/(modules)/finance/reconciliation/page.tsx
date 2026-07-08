@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { FinanceService } from '@/services/finance.service';
+import { toast } from '@/hooks/use-toast';
 
 interface Transaction {
     id: string;
@@ -23,6 +24,10 @@ export default function BankReconciliationPage() {
     const [selectedAccount, setSelectedAccount] = useState<string>('');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [autoMatching, setAutoMatching] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    const [matchingId, setMatchingId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchAccounts();
@@ -36,6 +41,7 @@ export default function BankReconciliationPage() {
 
     const fetchAccounts = async () => {
         try {
+            setLoadError(null);
             // Bank/reconcilable accounts come from the chart of accounts.
             const raw = (await FinanceService.getChartOfAccounts()) as any[];
             const bankAccounts = (raw || [])
@@ -49,6 +55,7 @@ export default function BankReconciliationPage() {
             setAccounts(bankAccounts);
         } catch (error) {
             console.error('Failed to fetch accounts:', error);
+            setLoadError('Failed to load bank accounts. Please try again.');
             setAccounts([]);
         }
     };
@@ -56,20 +63,21 @@ export default function BankReconciliationPage() {
     const fetchUnreconciledTransactions = async () => {
         try {
             setLoading(true);
-            const raw = (await FinanceService.getAccountTransactions(selectedAccount)) as any;
-            const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? raw?.transactions ?? []);
-            const mapped: Transaction[] = rows.map((t) => ({
+            setLoadError(null);
+            const rows = await FinanceService.getUnreconciledBankTransactions(selectedAccount);
+            const mapped: Transaction[] = (rows || []).map((t: any) => ({
                 id: String(t.id),
                 transactionDate: t.transactionDate ?? t.date ?? '',
                 description: t.description ?? t.narration ?? '',
                 debit: Number(t.debitAmount ?? t.debit ?? 0),
                 credit: Number(t.creditAmount ?? t.credit ?? 0),
                 balance: Number(t.balance ?? 0),
-                reconciled: Boolean(t.isMatched ?? t.reconciled ?? false),
+                reconciled: Boolean(t.reconciled ?? t.isMatched ?? false),
             }));
             setTransactions(mapped);
         } catch (error) {
             console.error('Failed to fetch transactions:', error);
+            setLoadError('Failed to load transactions for this account.');
             setTransactions([]);
         } finally {
             setLoading(false);
@@ -77,16 +85,75 @@ export default function BankReconciliationPage() {
     };
 
     const handleAutoMatch = async () => {
+        if (!selectedAccount) return;
         try {
-            setLoading(true);
-            const result: any = await FinanceService.runAutoMatch(selectedAccount);
-            const matched = result?.matched ?? result?.data?.matched ?? 0;
-            alert(`Auto-matched ${matched} transactions`);
-            fetchUnreconciledTransactions();
+            setAutoMatching(true);
+            const result = await FinanceService.autoMatchBankAccount(selectedAccount);
+            toast({
+                title: 'Auto-match complete',
+                description: `Auto-matched ${result.matched} transaction(s).`,
+                variant: 'success',
+            });
+            await fetchUnreconciledTransactions();
         } catch (error) {
             console.error('Auto-match failed:', error);
+            toast({
+                title: 'Auto-match failed',
+                description: error instanceof Error ? error.message : 'Unable to run auto-match.',
+                variant: 'destructive',
+            });
         } finally {
-            setLoading(false);
+            setAutoMatching(false);
+        }
+    };
+
+    const handleManualMatch = async (transactionId: string) => {
+        if (!selectedAccount) return;
+        const journalEntryId = typeof window !== 'undefined'
+            ? window.prompt('Enter the journal entry ID to match this transaction to:')
+            : null;
+        if (!journalEntryId) return;
+        try {
+            setMatchingId(transactionId);
+            await FinanceService.matchBankTransaction({ transactionId, journalEntryId });
+            toast({ title: 'Matched', description: 'Transaction matched successfully.', variant: 'success' });
+            await fetchUnreconciledTransactions();
+        } catch (error) {
+            console.error('Manual match failed:', error);
+            toast({
+                title: 'Match failed',
+                description: error instanceof Error ? error.message : 'Unable to match transaction.',
+                variant: 'destructive',
+            });
+        } finally {
+            setMatchingId(null);
+        }
+    };
+
+    const handleExportReport = async () => {
+        if (!selectedAccount) return;
+        try {
+            setExporting(true);
+            const report = await FinanceService.getReconciliationReport(selectedAccount);
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `reconciliation-report-${selectedAccount}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast({ title: 'Report exported', description: 'Reconciliation report downloaded.', variant: 'success' });
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast({
+                title: 'Export failed',
+                description: error instanceof Error ? error.message : 'Unable to export report.',
+                variant: 'destructive',
+            });
+        } finally {
+            setExporting(false);
         }
     };
 
@@ -108,16 +175,24 @@ export default function BankReconciliationPage() {
                     <p className="text-gray-600">Match bank transactions with journal entries</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleAutoMatch} disabled={!selectedAccount || loading}>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Auto Match
+                    <Button variant="outline" onClick={handleAutoMatch} disabled={!selectedAccount || autoMatching}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${autoMatching ? 'animate-spin' : ''}`} />
+                        {autoMatching ? 'Matching...' : 'Auto Match'}
                     </Button>
-                    <Button variant="outline" disabled={!selectedAccount}>
+                    <Button variant="outline" onClick={handleExportReport} disabled={!selectedAccount || exporting}>
                         <Download className="mr-2 h-4 w-4" />
-                        Export Report
+                        {exporting ? 'Exporting...' : 'Export Report'}
                     </Button>
                 </div>
             </div>
+
+            {/* Error banner */}
+            {loadError && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{loadError}</span>
+                </div>
+            )}
 
             {/* Account Selection */}
             <Card className="mb-3">
@@ -125,24 +200,28 @@ export default function BankReconciliationPage() {
                     <CardTitle>Select Bank Account</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        {accounts.map((account) => (
-                            <Card
-                                key={account.id}
-                                className={`cursor-pointer transition-all ${selectedAccount === account.id
-                                        ? 'ring-2 ring-blue-500 bg-blue-50'
-                                        : 'hover:shadow-md'
-                                    }`}
-                                onClick={() => setSelectedAccount(account.id)}
-                            >
-                                <CardContent className="pt-4">
-                                    <div className="font-semibold">{account.accountName}</div>
-                                    <div className="text-sm text-gray-600">{account.bankName}</div>
-                                    <div className="text-xs text-gray-500 mt-1">{account.accountNumber}</div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                    {accounts.length === 0 ? (
+                        <div className="text-center py-6 text-gray-500">No bank accounts available.</div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            {accounts.map((account) => (
+                                <Card
+                                    key={account.id}
+                                    className={`cursor-pointer transition-all ${selectedAccount === account.id
+                                            ? 'ring-2 ring-blue-500 bg-blue-50'
+                                            : 'hover:shadow-md'
+                                        }`}
+                                    onClick={() => setSelectedAccount(account.id)}
+                                >
+                                    <CardContent className="pt-4">
+                                        <div className="font-semibold">{account.accountName}</div>
+                                        <div className="text-sm text-gray-600">{account.bankName}</div>
+                                        <div className="text-xs text-gray-500 mt-1">{account.accountNumber}</div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -236,8 +315,13 @@ export default function BankReconciliationPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
-                                                    <Button size="sm" variant="outline">
-                                                        Match
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={txn.reconciled || matchingId === txn.id}
+                                                        onClick={() => handleManualMatch(txn.id)}
+                                                    >
+                                                        {matchingId === txn.id ? 'Matching...' : 'Match'}
                                                     </Button>
                                                 </td>
                                             </tr>

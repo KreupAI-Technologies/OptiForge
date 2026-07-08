@@ -68,6 +68,7 @@ export default function CreditManagementPage() {
   const [customers, setCustomers] = useState<CreditCustomer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   // Map raw credit-limit records from the API into the CreditCustomer shape
   // the JSX reads. Computes availableCredit + utilization % here.
@@ -167,6 +168,25 @@ export default function CreditManagementPage() {
       await loadCustomers()
     } catch (e: any) {
       setError(e?.message || 'Failed to release credit hold')
+    }
+  }
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    setError(null)
+    try {
+      const res = await FinanceService.exportFinancialReport({
+        reportType: 'credit-limits',
+        format: 'excel',
+        filters: { status: statusFilter, riskRating: riskFilter, search: searchQuery },
+      })
+      if (res?.downloadUrl) {
+        window.open(res.downloadUrl, '_blank')
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to export credit report')
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -356,9 +376,13 @@ export default function CreditManagementPage() {
               </select>
             </div>
 
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download className="h-4 w-4" />
-              Export
+              {isExporting ? 'Exporting…' : 'Export'}
             </button>
           </div>
         </div>

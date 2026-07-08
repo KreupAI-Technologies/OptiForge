@@ -27,6 +27,8 @@ import {
 import { StepIndicator, Step } from '@/components/ui/StepIndicator';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { inspectionService, type CreateInspectionDto } from '@/services/inspection.service';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 interface ChecklistItem {
   id: string;
@@ -132,11 +134,14 @@ const FIELD_HELP = {
 
 export default function NewInspectionEnhancedPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<InspectionFormData>(getInitialForm);
   const [initialForm, setInitialForm] = useState<InspectionFormData | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const steps: Step[] = [
     { id: '1', label: 'Basic Info', description: 'Type & priority' },
@@ -274,24 +279,36 @@ export default function NewInspectionEnhancedPage() {
 
   const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
+    if (submitting) return;
+    setSubmitting(true);
     try {
-      await inspectionService.createInspection(buildPayload());
+      const created = await inspectionService.createInspection(buildPayload());
+      await inspectionService.submitInspection(created.id);
       clearDraft();
-      alert('Inspection scheduled successfully!');
+      toast({ title: 'Inspection scheduled', description: `${created.inspectionNumber ?? 'Inspection'} submitted for review.` });
       router.push('/quality/inspections');
     } catch (err) {
       console.error('Error scheduling inspection:', err);
-      alert('Failed to schedule inspection');
+      toast({ title: 'Error', description: 'Failed to schedule inspection', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSaveDraft = async () => {
+    if (savingDraft) return;
+    setSavingDraft(true);
     try {
-      await inspectionService.createInspection(buildPayload());
+      const created = await inspectionService.createInspection(buildPayload());
+      clearDraft();
+      toast({ title: 'Draft saved', description: `${created.inspectionNumber ?? 'Inspection'} saved as draft.` });
+      router.push('/quality/inspections');
     } catch (err) {
       console.error('Error saving inspection draft:', err);
+      toast({ title: 'Error', description: 'Failed to save draft', variant: 'destructive' });
+    } finally {
+      setSavingDraft(false);
     }
-    router.push('/quality/inspections');
   };
 
   const handleCancel = () => {
@@ -734,16 +751,19 @@ export default function NewInspectionEnhancedPage() {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button onClick={handleSaveDraft} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Save Draft</button>
+          <button onClick={handleSaveDraft} disabled={savingDraft || submitting} className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">
+            {savingDraft && <Loader2 className="h-4 w-4 animate-spin" />}
+            <span>Save Draft</span>
+          </button>
           {currentStep < 4 ? (
             <button onClick={nextStep} className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
               <span>Next</span>
               <ChevronRight className="h-5 w-5" />
             </button>
           ) : (
-            <button onClick={handleSubmit} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-              <Send className="h-5 w-5" />
-              <span>Schedule Inspection</span>
+            <button onClick={handleSubmit} disabled={submitting || savingDraft} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed">
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+              <span>{submitting ? 'Scheduling…' : 'Schedule Inspection'}</span>
             </button>
           )}
         </div>

@@ -80,6 +80,8 @@ export default function QCApprovalsPage() {
     const [approvals, setApprovals] = useState<QCApproval[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [loading, setLoading] = useState(false);
+    const [actioningId, setActioningId] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
     // Load projects
     useEffect(() => {
@@ -151,7 +153,39 @@ export default function QCApprovalsPage() {
         return () => {
             cancelled = true;
         };
-    }, [selectedProject, toast]);
+    }, [selectedProject, toast, reloadKey]);
+
+    const handleApprove = async (approval: QCApproval) => {
+        if (actioningId) return;
+        setActioningId(approval.id);
+        try {
+            await InspectionService.approveInspection(approval.id);
+            toast({ title: 'Inspection Approved', description: `${approval.inspectionId} approved.` });
+            setReloadKey((k) => k + 1);
+        } catch (error) {
+            console.error('Failed to approve inspection:', error);
+            toast({ title: 'Error', description: 'Failed to approve inspection', variant: 'destructive' });
+        } finally {
+            setActioningId(null);
+        }
+    };
+
+    const handleReject = async (approval: QCApproval) => {
+        if (actioningId) return;
+        const reason = typeof window !== 'undefined' ? window.prompt('Reason for rejection:') : '';
+        if (reason === null) return;
+        setActioningId(approval.id);
+        try {
+            await InspectionService.rejectInspection(approval.id, undefined, reason || 'Rejected at QC approval gate');
+            toast({ title: 'Inspection Rejected', description: `${approval.inspectionId} rejected.` });
+            setReloadKey((k) => k + 1);
+        } catch (error) {
+            console.error('Failed to reject inspection:', error);
+            toast({ title: 'Error', description: 'Failed to reject inspection', variant: 'destructive' });
+        } finally {
+            setActioningId(null);
+        }
+    };
 
     const handleProjectSelect = (project: ProjectInfo) => {
         setSelectedProject(project);
@@ -380,6 +414,37 @@ export default function QCApprovalsPage() {
                                             {approval.remarks && (
                                                 <div className={`border rounded p-2 text-sm ${approval.status === 'Approved' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                                                     <strong>Remarks:</strong> {approval.remarks}
+                                                </div>
+                                            )}
+                                            {approval.status === 'Pending Approval' && (
+                                                <div className="flex gap-2 mt-3">
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-green-600 hover:bg-green-700"
+                                                        disabled={actioningId === approval.id}
+                                                        onClick={() => handleApprove(approval)}
+                                                    >
+                                                        {actioningId === approval.id ? (
+                                                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                                        ) : (
+                                                            <CheckCircle className="w-4 h-4 mr-1" />
+                                                        )}
+                                                        Approve
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-red-600 border-red-300 hover:bg-red-50"
+                                                        disabled={actioningId === approval.id}
+                                                        onClick={() => handleReject(approval)}
+                                                    >
+                                                        {actioningId === approval.id ? (
+                                                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                                        ) : (
+                                                            <XCircle className="w-4 h-4 mr-1" />
+                                                        )}
+                                                        Reject
+                                                    </Button>
                                                 </div>
                                             )}
                                         </div>

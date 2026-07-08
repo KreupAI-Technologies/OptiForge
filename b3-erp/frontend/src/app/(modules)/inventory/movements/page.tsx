@@ -71,6 +71,12 @@ const InventoryMovementsPage = () => {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
+  // Write-action feedback (submitting / success / error) shared across the
+  // receive / issue / return / edit handlers.
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -223,6 +229,9 @@ const InventoryMovementsPage = () => {
   }
 
   const handleReceiveStockSubmit = async (data: any) => {
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
     try {
       const today = new Date().toISOString().slice(0, 10)
       const items: any[] = (data.items ?? [data])
@@ -243,9 +252,12 @@ const InventoryMovementsPage = () => {
       }
       await inventoryService.createStockEntry(payload)
       setIsReceiveOpen(false)
+      setActionSuccess('Stock receipt recorded successfully.')
       setRefreshKey((k) => k + 1)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to receive stock.')
+      setActionError(err instanceof Error ? err.message : 'Failed to receive stock.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -254,6 +266,9 @@ const InventoryMovementsPage = () => {
   }
 
   const handleIssueStockSubmit = async (data: any) => {
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
     try {
       const today = new Date().toISOString().slice(0, 10)
       const items: any[] = (data.items ?? [data])
@@ -274,9 +289,12 @@ const InventoryMovementsPage = () => {
       }
       await inventoryService.createStockEntry(payload)
       setIsIssueOpen(false)
+      setActionSuccess('Stock issue recorded successfully.')
       setRefreshKey((k) => k + 1)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to issue stock.')
+      setActionError(err instanceof Error ? err.message : 'Failed to issue stock.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -285,6 +303,9 @@ const InventoryMovementsPage = () => {
   }
 
   const handleRecordReturnSubmit = async (data: any) => {
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
     try {
       const today = new Date().toISOString().slice(0, 10)
       const items: any[] = (data.items ?? [data])
@@ -308,9 +329,12 @@ const InventoryMovementsPage = () => {
       }
       await inventoryService.createStockEntry(payload)
       setIsReturnOpen(false)
+      setActionSuccess('Stock return recorded successfully.')
       setRefreshKey((k) => k + 1)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to record return.')
+      setActionError(err instanceof Error ? err.message : 'Failed to record return.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -362,11 +386,17 @@ const InventoryMovementsPage = () => {
   const handleEditMovement = async (movement: InventoryMovement) => {
     const nextRemarks = window.prompt('Update remarks for this movement:', movement.remarks)
     if (nextRemarks === null || nextRemarks === movement.remarks) return
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
     try {
       await inventoryService.updateStockEntry(movement.id, { remarks: nextRemarks })
+      setActionSuccess('Movement updated successfully.')
       setRefreshKey((k) => k + 1)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update movement.')
+      setActionError(err instanceof Error ? err.message : 'Failed to update movement.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -376,6 +406,23 @@ const InventoryMovementsPage = () => {
         {loadError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
             {loadError}
+          </div>
+        )}
+        {actionError && (
+          <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            <span>{actionError}</span>
+            <button onClick={() => setActionError(null)} className="text-red-500 hover:text-red-700">×</button>
+          </div>
+        )}
+        {actionSuccess && (
+          <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+            <span>{actionSuccess}</span>
+            <button onClick={() => setActionSuccess(null)} className="text-green-500 hover:text-green-700">×</button>
+          </div>
+        )}
+        {isSubmitting && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+            Saving movement…
           </div>
         )}
         {isLoading && (
@@ -429,21 +476,24 @@ const InventoryMovementsPage = () => {
           <div className="flex gap-3">
             <button
               onClick={handleReceiveStock}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Package className="w-4 h-4" />
               Receive Stock
             </button>
             <button
               onClick={handleIssueStock}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
               Issue Stock
             </button>
             <button
               onClick={handleRecordReturn}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RotateCcw className="w-4 h-4" />
               Record Return

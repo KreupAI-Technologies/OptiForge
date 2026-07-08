@@ -38,6 +38,10 @@ export default function ReorderOptimizationPage() {
   const [reorderResult, setReorderResult] = useState<ReorderAnalysisData | null>(null);
 
   const [reorderData, setReorderData] = useState<ReorderPointData[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   // Map a raw "item below reorder" record from the API into the page's shape.
   const mapReorderItem = (raw: any): ReorderPointData => {
@@ -66,12 +70,16 @@ export default function ReorderOptimizationPage() {
     };
   };
 
+  const loadReorderData = async (warehouseId?: string) => {
+    const res = await inventoryService.getReorderAnalysis(warehouseId);
+    const items = Array.isArray(res?.itemsBelowReorder) ? res.itemsBelowReorder : [];
+    setReorderData(items.map(mapReorderItem));
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        const res = await inventoryService.getReorderAnalysis();
-        const items = Array.isArray(res?.itemsBelowReorder) ? res.itemsBelowReorder : [];
-        setReorderData(items.map(mapReorderItem));
+        await loadReorderData();
       } catch (err) {
         console.error('Failed to load reorder analysis', err);
         setReorderData([]);
@@ -102,15 +110,55 @@ export default function ReorderOptimizationPage() {
     return 'text-green-600';
   };
 
-  const handleApplyAll = () => {
-    const itemsToUpdate = reorderData.filter(item => item.status !== 'optimal').length;
-    if (confirm(`Apply suggested ROP values to ${itemsToUpdate} item(s)?`)) {
-      alert(`Updated ${itemsToUpdate} reorder points successfully!`);
+  const handleApplyAll = async () => {
+    const itemsToUpdate = reorderData.filter(item => item.status !== 'optimal');
+    if (itemsToUpdate.length === 0) {
+      setActionError(null);
+      setActionSuccess('All reorder points are already optimal — nothing to apply.');
+      return;
+    }
+    if (!confirm(`Apply suggested ROP values to ${itemsToUpdate.length} item(s)?`)) {
+      return;
+    }
+    setIsSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const results = await Promise.allSettled(
+        itemsToUpdate.map((item) =>
+          inventoryService.updateReorderParameters(item.id, {
+            reorderPoint: item.suggestedROP,
+            safetyStock: item.safetyStock,
+            serviceLevel: item.serviceLevel,
+          })
+        )
+      );
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      await loadReorderData();
+      if (failed > 0) {
+        setActionError(`Updated ${itemsToUpdate.length - failed} of ${itemsToUpdate.length} item(s); ${failed} failed.`);
+      } else {
+        setActionSuccess(`Updated ${itemsToUpdate.length} reorder point(s) successfully.`);
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to apply reorder points.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleRecalculate = () => {
-    alert('Recalculating reorder points based on latest data...');
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await loadReorderData();
+      setActionSuccess('Reorder analysis refreshed with the latest data.');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to recalculate reorder points.');
+    } finally {
+      setIsRecalculating(false);
+    }
   };
 
   const handleReorderGenerate = async (config: any) => {
@@ -152,6 +200,16 @@ export default function ReorderOptimizationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+          {actionSuccess}
+        </div>
+      )}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -172,10 +230,11 @@ export default function ReorderOptimizationPage() {
           </button>
           <button
             onClick={handleRecalculate}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            disabled={isRecalculating}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-60"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span>Recalculate</span>
+            <RefreshCw className={`w-4 h-4 ${isRecalculating ? 'animate-spin' : ''}`} />
+            <span>{isRecalculating ? 'Recalculating…' : 'Recalculate'}</span>
           </button>
           <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
             <Download className="w-4 h-4" />
@@ -183,10 +242,11 @@ export default function ReorderOptimizationPage() {
           </button>
           <button
             onClick={handleApplyAll}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            <span>Apply Suggestions</span>
+            <span>{isSubmitting ? 'Applying…' : 'Apply Suggestions'}</span>
           </button>
         </div>
       </div>

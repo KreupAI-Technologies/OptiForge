@@ -56,6 +56,7 @@ export default function MyCAPAsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
   // Load projects
   useEffect(() => {
@@ -119,6 +120,36 @@ export default function MyCAPAsPage() {
     setSelectedProject(project);
     router.push(`/quality/capa/my?projectId=${project.id}`);
     toast({ title: 'Project Selected', description: `Viewing your CAPAs for ${project.name}` });
+  };
+
+  const handleStartWorking = async (capa: CAPA) => {
+    if (actioningId) return;
+    setActioningId(capa.id);
+    try {
+      await CAPAService.implementCAPA(capa.id, currentUser);
+      toast({ title: 'CAPA Started', description: `${capa.capaNumber ?? capa.id} moved to implementation.` });
+      await loadCAPAs();
+    } catch (error) {
+      console.error('Failed to start CAPA:', error);
+      toast({ title: 'Error', description: 'Failed to start CAPA', variant: 'destructive' });
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleSubmitForVerification = async (capa: CAPA) => {
+    if (actioningId) return;
+    setActioningId(capa.id);
+    try {
+      await CAPAService.verifyCAPA(capa.id, currentUser, true);
+      toast({ title: 'Submitted for Verification', description: `${capa.capaNumber ?? capa.id} moved to verification.` });
+      await loadCAPAs();
+    } catch (error) {
+      console.error('Failed to submit CAPA for verification:', error);
+      toast({ title: 'Error', description: 'Failed to submit CAPA for verification', variant: 'destructive' });
+    } finally {
+      setActioningId(null);
+    }
   };
 
   const filteredProjects = projects.filter(p =>
@@ -466,14 +497,32 @@ export default function MyCAPAsPage() {
                             View Details
                           </Button>
                           {[CAPAStatus.INITIATED, CAPAStatus.APPROVED].includes(capa.status) && (
-                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                              <PlayCircle className="w-4 h-4 mr-1" />
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700"
+                              disabled={actioningId === capa.id}
+                              onClick={() => handleStartWorking(capa)}
+                            >
+                              {actioningId === capa.id ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <PlayCircle className="w-4 h-4 mr-1" />
+                              )}
                               Start Working
                             </Button>
                           )}
                           {[CAPAStatus.IN_PROGRESS, CAPAStatus.IMPLEMENTATION].includes(capa.status) && (
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              disabled={actioningId === capa.id}
+                              onClick={() => handleSubmitForVerification(capa)}
+                            >
+                              {actioningId === capa.id ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4 mr-1" />
+                              )}
                               Submit for Verification
                             </Button>
                           )}

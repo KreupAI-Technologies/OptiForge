@@ -56,89 +56,147 @@ export default function BudgetsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await FinanceService.getBudgets()) as any[];
-        const typeMap: Record<string, Budget['budgetType']> = {
-          'Operating Budget': 'Operating',
-          'Capital Budget': 'Capital',
-          'Cash Budget': 'Operating',
-          'Master Budget': 'Operating',
-          Operating: 'Operating',
-          Capital: 'Capital',
-          Project: 'Project',
-          Department: 'Department',
-          Revenue: 'Revenue',
-        };
-        const statusMap: Record<string, Budget['status']> = {
-          Draft: 'Draft',
-          Submitted: 'Draft',
-          Approved: 'Approved',
-          Active: 'Active',
-          Closed: 'Closed',
-          Revised: 'Active',
-        };
-        const mapped: Budget[] = raw.map((b) => ({
-          id: b.id,
-          budgetCode: b.budgetCode,
-          budgetName: b.budgetName,
-          fiscalYear: b.fiscalYear ?? '',
-          department: b.department ?? '',
-          costCenter: b.costCenter ?? '',
-          budgetType: typeMap[b.budgetType] ?? 'Operating',
-          totalBudget: Number(b.totalBudget ?? 0),
-          allocated: Number(b.allocated ?? b.totalBudget ?? 0),
-          spent: Number(b.spent ?? 0),
-          remaining: Number(b.remaining ?? 0),
-          variance: Number(b.variance ?? 0),
-          variancePercent: Number(b.variancePercent ?? 0),
-          status: statusMap[b.status] ?? 'Draft',
-          startDate: b.startDate ?? '',
-          endDate: b.endDate ?? '',
-          approvedBy: b.approvedBy ?? undefined,
-          approvedDate: b.approvedDate ?? undefined,
-          revisions: Number(b.revisions ?? 0),
-        }));
-        if (!cancelled) setBudgets(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load budgets');
-          setBudgets([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  // Create / edit modal state
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    budgetName: '',
+    budgetCode: '',
+    fiscalYear: '',
+    department: '',
+    costCenter: '',
+    budgetType: 'Operating' as Budget['budgetType'],
+    totalBudget: '',
+    startDate: '',
+    endDate: '',
+  });
+
+  const load = React.useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await FinanceService.getBudgets()) as any[];
+      const typeMap: Record<string, Budget['budgetType']> = {
+        'Operating Budget': 'Operating',
+        'Capital Budget': 'Capital',
+        'Cash Budget': 'Operating',
+        'Master Budget': 'Operating',
+        Operating: 'Operating',
+        Capital: 'Capital',
+        Project: 'Project',
+        Department: 'Department',
+        Revenue: 'Revenue',
+      };
+      const statusMap: Record<string, Budget['status']> = {
+        Draft: 'Draft',
+        Submitted: 'Draft',
+        Approved: 'Approved',
+        Active: 'Active',
+        Locked: 'Locked',
+        Closed: 'Closed',
+        Revised: 'Active',
+      };
+      const mapped: Budget[] = raw.map((b) => ({
+        id: b.id,
+        budgetCode: b.budgetCode,
+        budgetName: b.budgetName,
+        fiscalYear: b.fiscalYear ?? '',
+        department: b.department ?? '',
+        costCenter: b.costCenter ?? '',
+        budgetType: typeMap[b.budgetType] ?? 'Operating',
+        totalBudget: Number(b.totalBudget ?? 0),
+        allocated: Number(b.allocated ?? b.totalBudget ?? 0),
+        spent: Number(b.spent ?? 0),
+        remaining: Number(b.remaining ?? 0),
+        variance: Number(b.variance ?? 0),
+        variancePercent: Number(b.variancePercent ?? 0),
+        status: statusMap[b.status] ?? 'Draft',
+        startDate: b.startDate ?? '',
+        endDate: b.endDate ?? '',
+        approvedBy: b.approvedBy ?? undefined,
+        approvedDate: b.approvedDate ?? undefined,
+        revisions: Number(b.revisions ?? 0),
+      }));
+      setBudgets(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load budgets');
+      setBudgets([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   // Handler Functions
+  const resetForm = () => {
+    setForm({
+      budgetName: '',
+      budgetCode: '',
+      fiscalYear: '',
+      department: '',
+      costCenter: '',
+      budgetType: 'Operating',
+      totalBudget: '',
+      startDate: '',
+      endDate: '',
+    });
+  };
+
   const handleCreateBudget = () => {
-    setIsCreating(true);
-    setTimeout(() => {
-      setIsCreating(false);
-      alert(
-        'Create Budget Dialog\n\n' +
-        'In production, this would open a dialog/form to create a new budget with fields:\n' +
-        '- Budget Code (auto-generated)\n' +
-        '- Budget Name\n' +
-        '- Fiscal Year\n' +
-        '- Department & Cost Center\n' +
-        '- Budget Type (Operating/Capital/Project/Department/Revenue)\n' +
-        '- Total Budget Amount\n' +
-        '- Start Date & End Date\n' +
-        '- Description\n' +
-        '- Budget Line Items\n\n' +
-        'The new budget would be created with "Draft" status for review and approval.'
-      );
-    }, 300);
+    setEditingId(null);
+    resetForm();
+    setFormError(null);
+    setShowModal(true);
+  };
+
+  const handleSubmitBudget = async () => {
+    if (!form.budgetName.trim() || !form.totalBudget) {
+      setFormError('Budget name and total budget are required.');
+      return;
+    }
+    const payload: any = {
+      budgetName: form.budgetName.trim(),
+      budgetCode: form.budgetCode.trim() || undefined,
+      fiscalYear: form.fiscalYear.trim() || undefined,
+      department: form.department.trim() || undefined,
+      costCenter: form.costCenter.trim() || undefined,
+      budgetType: form.budgetType,
+      totalBudget: Number(form.totalBudget),
+      startDate: form.startDate || undefined,
+      endDate: form.endDate || undefined,
+    };
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      if (editingId) {
+        await FinanceService.updateBudget(editingId, payload);
+      } else {
+        await FinanceService.createBudget(payload);
+      }
+      setShowModal(false);
+      await load();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save budget');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBudget = async (budget: Budget) => {
+    if (!window.confirm(`Delete budget "${budget.budgetName}"? This cannot be undone.`)) return;
+    setActionError(null);
+    try {
+      await FinanceService.deleteBudget(budget.id);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete budget');
+    }
   };
 
   const handleExportBudgets = () => {
@@ -236,105 +294,67 @@ export default function BudgetsPage() {
 
   const handleEditBudget = (budget: Budget) => {
     if (budget.status === 'Locked' || budget.status === 'Closed') {
-      alert(
-        `Cannot Edit Budget\n\n` +
-        `Budget "${budget.budgetName}" is ${budget.status.toLowerCase()} and cannot be edited.\n\n` +
-        `To make changes:\n` +
-        `- For Locked budgets: Unlock the budget first\n` +
-        `- For Closed budgets: Create a new budget or contact admin`
+      setActionError(
+        `Budget "${budget.budgetName}" is ${budget.status.toLowerCase()} and cannot be edited. Unlock it first.`,
       );
       return;
     }
-
-    alert(
-      `Edit Budget\n\n` +
-      `Editing: ${budget.budgetName}\n` +
-      `Current Status: ${budget.status}\n\n` +
-      `In production, this would:\n` +
-      `- Navigate to edit form (/finance/budgeting/budgets/${budget.id}/edit)\n` +
-      `- Or open an edit dialog with all budget fields\n` +
-      `- Allow modification of budget amounts and line items\n` +
-      `- Create a new revision (Rev ${budget.revisions + 1})\n` +
-      `- Require re-approval if significantly changed\n` +
-      `- Track all changes in audit log`
-    );
+    setEditingId(budget.id);
+    setForm({
+      budgetName: budget.budgetName,
+      budgetCode: budget.budgetCode,
+      fiscalYear: budget.fiscalYear,
+      department: budget.department,
+      costCenter: budget.costCenter,
+      budgetType: budget.budgetType,
+      totalBudget: String(budget.totalBudget),
+      startDate: budget.startDate ? String(budget.startDate).slice(0, 10) : '',
+      endDate: budget.endDate ? String(budget.endDate).slice(0, 10) : '',
+    });
+    setFormError(null);
+    setShowModal(true);
   };
 
-  const handleCopyBudget = (budget: Budget) => {
-    const confirmed = window.confirm(
-      `Copy Budget\n\n` +
-      `Do you want to create a copy of "${budget.budgetName}"?\n\n` +
-      `This will create a new budget with:\n` +
-      `- Same structure and line items\n` +
-      `- Same budget amounts and allocations\n` +
-      `- New budget code (auto-generated)\n` +
-      `- Status: Draft\n` +
-      `- Current dates updated\n\n` +
-      `You can then modify the copied budget as needed.`
-    );
-
-    if (confirmed) {
-      setTimeout(() => {
-        alert(
-          `Budget Copied Successfully\n\n` +
-          `Original: ${budget.budgetCode}\n` +
-          `New Copy: BUD-${new Date().getFullYear()}-COPY-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}\n\n` +
-          `The new budget has been created with "Draft" status.\n` +
-          `You can now edit it to adjust amounts, dates, and other details.`
-        );
-      }, 300);
+  const handleCopyBudget = async (budget: Budget) => {
+    if (!window.confirm(`Create a copy of "${budget.budgetName}" as a new Draft budget?`)) return;
+    setActionError(null);
+    try {
+      await FinanceService.createBudget({
+        budgetName: `${budget.budgetName} (Copy)`,
+        fiscalYear: budget.fiscalYear || undefined,
+        department: budget.department || undefined,
+        costCenter: budget.costCenter || undefined,
+        budgetType: budget.budgetType,
+        totalBudget: budget.totalBudget,
+        startDate: budget.startDate || undefined,
+        endDate: budget.endDate || undefined,
+        status: 'Draft',
+      });
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to copy budget');
     }
   };
 
-  const handleLockBudget = (budget: Budget) => {
-    const confirmed = window.confirm(
-      `Lock Budget\n\n` +
-      `Are you sure you want to lock "${budget.budgetName}"?\n\n` +
-      `Locking the budget will:\n` +
-      `- Prevent any further modifications\n` +
-      `- Freeze all budget amounts\n` +
-      `- Require unlock to make changes\n` +
-      `- Continue tracking spending\n\n` +
-      `This is typically done at period-end or when budget is finalized.`
-    );
-
-    if (confirmed) {
-      setTimeout(() => {
-        alert(
-          `Budget Locked\n\n` +
-          `Budget "${budget.budgetName}" has been locked successfully.\n\n` +
-          `Status changed: ${budget.status} → Locked\n` +
-          `Locked by: Current User\n` +
-          `Locked on: ${new Date().toLocaleString()}\n\n` +
-          `The budget is now read-only. Use the unlock action to allow modifications.`
-        );
-      }, 300);
+  const handleLockBudget = async (budget: Budget) => {
+    if (!window.confirm(`Lock budget "${budget.budgetName}"? It will become read-only.`)) return;
+    setActionError(null);
+    try {
+      await FinanceService.updateBudget(budget.id, { status: 'Locked' });
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to lock budget');
     }
   };
 
-  const handleUnlockBudget = (budget: Budget) => {
-    const confirmed = window.confirm(
-      `Unlock Budget\n\n` +
-      `Are you sure you want to unlock "${budget.budgetName}"?\n\n` +
-      `Unlocking the budget will:\n` +
-      `- Allow modifications to budget amounts\n` +
-      `- Enable editing of line items\n` +
-      `- Change status from Locked to Active\n` +
-      `- Log the unlock action\n\n` +
-      `Note: This action requires appropriate permissions.`
-    );
-
-    if (confirmed) {
-      setTimeout(() => {
-        alert(
-          `Budget Unlocked\n\n` +
-          `Budget "${budget.budgetName}" has been unlocked successfully.\n\n` +
-          `Status changed: Locked → Active\n` +
-          `Unlocked by: Current User\n` +
-          `Unlocked on: ${new Date().toLocaleString()}\n\n` +
-          `The budget can now be modified. Changes will create a new revision.`
-        );
-      }, 300);
+  const handleUnlockBudget = async (budget: Budget) => {
+    if (!window.confirm(`Unlock budget "${budget.budgetName}"?`)) return;
+    setActionError(null);
+    try {
+      await FinanceService.updateBudget(budget.id, { status: 'Active' });
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to unlock budget');
     }
   };
 
@@ -457,11 +477,10 @@ export default function BudgetsPage() {
           </div>
           <button
             onClick={handleCreateBudget}
-            disabled={isCreating}
-            className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg"
           >
             <Plus className="w-5 h-5" />
-            {isCreating ? 'Creating...' : 'Create Budget'}
+            Create Budget
           </button>
         </div>
 
@@ -475,6 +494,12 @@ export default function BudgetsPage() {
           <div className="flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             <AlertCircle className="h-4 w-4" />
             {loadError}
+          </div>
+        )}
+        {actionError && (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <span className="flex items-center gap-2"><AlertCircle className="h-4 w-4" />{actionError}</span>
+            <button onClick={() => setActionError(null)} className="text-red-300 hover:text-red-100">✕</button>
           </div>
         )}
 
@@ -724,6 +749,13 @@ export default function BudgetsPage() {
                               <Lock className="w-4 h-4 text-gray-400" />
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDeleteBudget(budget)}
+                            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                            title="Delete Budget"
+                          >
+                            <XCircle className="w-4 h-4 text-red-400" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -779,6 +811,127 @@ export default function BudgetsPage() {
           </div>
         )}
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-800 p-6 shadow-2xl">
+            <h3 className="mb-4 text-lg font-semibold text-white">
+              {editingId ? 'Edit Budget' : 'Create Budget'}
+            </h3>
+            {formError && (
+              <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {formError}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs font-medium text-gray-400">Budget Name *</label>
+                <input
+                  type="text"
+                  value={form.budgetName}
+                  onChange={(e) => setForm({ ...form, budgetName: e.target.value })}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Budget Code</label>
+                <input
+                  type="text"
+                  value={form.budgetCode}
+                  onChange={(e) => setForm({ ...form, budgetCode: e.target.value })}
+                  placeholder="Auto if blank"
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Fiscal Year</label>
+                <input
+                  type="text"
+                  value={form.fiscalYear}
+                  onChange={(e) => setForm({ ...form, fiscalYear: e.target.value })}
+                  placeholder="2025-26"
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Department</label>
+                <input
+                  type="text"
+                  value={form.department}
+                  onChange={(e) => setForm({ ...form, department: e.target.value })}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Cost Center</label>
+                <input
+                  type="text"
+                  value={form.costCenter}
+                  onChange={(e) => setForm({ ...form, costCenter: e.target.value })}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Budget Type</label>
+                <select
+                  value={form.budgetType}
+                  onChange={(e) => setForm({ ...form, budgetType: e.target.value as Budget['budgetType'] })}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="Operating">Operating</option>
+                  <option value="Capital">Capital</option>
+                  <option value="Project">Project</option>
+                  <option value="Department">Department</option>
+                  <option value="Revenue">Revenue</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Total Budget *</label>
+                <input
+                  type="number"
+                  value={form.totalBudget}
+                  onChange={(e) => setForm({ ...form, totalBudget: e.target.value })}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Start Date</label>
+                <input
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">End Date</label>
+                <input
+                  type="date"
+                  value={form.endDate}
+                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowModal(false)}
+                disabled={submitting}
+                className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitBudget}
+                disabled={submitting}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {submitting ? 'Saving...' : editingId ? 'Update Budget' : 'Create Budget'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

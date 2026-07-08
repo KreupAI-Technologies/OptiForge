@@ -92,14 +92,21 @@ export default function CreateReplenishmentPage() {
     return 'text-green-600';
   };
 
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // NEEDS BACKEND: there is no replenishment-request create endpoint. The item
+  // picker sources from stock-balances (no reorder-suggestion id to approve or
+  // convert to a PR), so a free-form request cannot be honestly persisted yet.
+  // Validation is kept; the submit button is disabled until a create API exists.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem || !formData.quantity) {
-      alert('Please select an item and enter quantity');
+      setFormError('Please select an item and enter a quantity.');
       return;
     }
-    alert('Replenishment request created successfully!');
-    router.push('/inventory/replenishment');
+    setFormError(
+      'Cannot submit: no replenishment-request create endpoint is available yet. This requires backend support.'
+    );
   };
 
   const handleCancel = () => {
@@ -327,13 +334,27 @@ export default function CreateReplenishmentPage() {
             </div>
           </div>
 
+          {formError && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              {formError}
+            </div>
+          )}
+
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+            <strong>Not yet available:</strong> submitting a replenishment request needs a
+            backend create endpoint (NEEDS BACKEND). The form and validation are ready; the
+            Create button is disabled until that API exists.
+          </div>
+
           <div className="flex gap-3">
             <button
               type="submit"
-              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
+              disabled
+              title="Create not supported yet (NEEDS BACKEND)"
+              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
             >
               <Save className="w-5 h-5" />
-              Create Request
+              Create Request (TODO: needs backend)
             </button>
             <button
               type="button"

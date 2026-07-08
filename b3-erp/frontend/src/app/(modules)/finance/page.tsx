@@ -80,6 +80,7 @@ import {
   QuickReceiptModal
 } from '@/components/finance/FinanceDashboardModals';
 import { FinanceService, FinanceDashboardStats } from '@/services/finance.service';
+import { toast } from '@/hooks/use-toast';
 
 // Dashboard skeleton loader component
 function DashboardSkeleton() {
@@ -312,15 +313,61 @@ export default function FinanceDashboard() {
     setModals({ ...modals, [modalName]: false });
   };
 
-  const handleModalAction = (action: string, data: any) => {
-    console.log(`Action: ${action}`, data);
-    // Here you would typically make API calls
-    // For now, we'll just close the modal
-    Object.keys(modals).forEach(key => {
-      if (modals[key as keyof typeof modals]) {
-        closeModal(key);
-      }
+  const [submitting, setSubmitting] = useState(false);
+
+  const closeAllModals = () => {
+    setModals({
+      viewCashPosition: false,
+      viewReceivables: false,
+      viewPayables: false,
+      viewProfit: false,
+      searchTransactions: false,
+      recentActivities: false,
+      quickJournal: false,
+      quickPayment: false,
+      quickReceipt: false,
     });
+  };
+
+  // Wire quick-create modal submits to the real finance services, then refresh the dashboard.
+  const handleModalAction = async (action: string, data: Record<string, unknown>) => {
+    if (submitting) return;
+    // Search is a read-only filter action; nothing to persist.
+    if (action === 'search') {
+      closeModal('searchTransactions');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      switch (action) {
+        case 'createJournal':
+          await FinanceService.createJournalEntry(data);
+          toast({ title: 'Journal entry created', variant: 'success' });
+          break;
+        case 'createPayment':
+          await FinanceService.createPayment({ ...data, direction: (data as any)?.direction ?? 'Outgoing' });
+          toast({ title: 'Payment recorded', variant: 'success' });
+          break;
+        case 'createReceipt':
+          await FinanceService.createPayment({ ...data, direction: (data as any)?.direction ?? 'Incoming' });
+          toast({ title: 'Receipt recorded', variant: 'success' });
+          break;
+        default:
+          break;
+      }
+      closeAllModals();
+      await refreshData();
+    } catch (err) {
+      console.error(`Action ${action} failed:`, err);
+      toast({
+        title: 'Action failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const quickActions = [
@@ -337,16 +384,8 @@ export default function FinanceDashboard() {
     { name: 'Trial Balance', description: 'Account balances verification', href: '/finance/accounting/trial-balance', icon: BookOpen },
   ];
 
-  // Use transactions from dashboard data or fallback to default
-  const recentTransactions = dashboardData?.recentTransactions?.length
-    ? dashboardData.recentTransactions
-    : [
-        { id: 1, type: 'Journal Entry', number: 'JE-2025-045', date: '2025-10-18', amount: 125000, status: 'Posted' },
-        { id: 2, type: 'Payment', number: 'PMT-2025-132', date: '2025-10-18', amount: -85000, status: 'Processed' },
-        { id: 3, type: 'Invoice', number: 'INV-2025-289', date: '2025-10-17', amount: 245000, status: 'Sent' },
-        { id: 4, type: 'Receipt', number: 'RCT-2025-156', date: '2025-10-17', amount: 180000, status: 'Reconciled' },
-        { id: 5, type: 'Journal Entry', number: 'JE-2025-044', date: '2025-10-16', amount: 65000, status: 'Posted' },
-      ];
+  // Recent transactions come from live dashboard data; empty array renders the empty state.
+  const recentTransactions = dashboardData?.recentTransactions ?? [];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -709,6 +748,11 @@ export default function FinanceDashboard() {
                 </Link>
               </div>
               <div className="space-y-3">
+                {recentTransactions.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    No recent transactions to display.
+                  </div>
+                )}
                 {recentTransactions.map((transaction) => (
                   <div
                     key={transaction.id}

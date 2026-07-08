@@ -35,62 +35,60 @@ export default function JournalEntriesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const loadEntries = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Backend returns { data, total, ... } with JournalEntry ORM shape
+      // (type/status/source enums, entryDate as Date, lines[]); map to GLEntry.
+      const res = (await JournalService.getAllJournalEntries({ limit: 100 })) as any;
+      const raw: any[] = Array.isArray(res) ? res : (res?.data ?? []);
+      const typeMap: Record<string, GLEntry['entryType']> = {
+        STANDARD: 'Manual', MANUAL: 'Manual',
+        ADJUSTING: 'Adjustment', ADJUSTMENT: 'Adjustment',
+        CLOSING: 'Closing', OPENING: 'Opening',
+        REVERSING: 'Reversal', REVERSAL: 'Reversal',
+        SYSTEM: 'System', RECURRING: 'System',
+      };
+      const statusMap: Record<string, GLEntry['status']> = {
+        DRAFT: 'Draft', PENDING_APPROVAL: 'Draft', APPROVED: 'Draft',
+        POSTED: 'Posted', REVERSED: 'Reversed', CANCELLED: 'Draft',
+      };
+      const mapped: GLEntry[] = raw.map((e) => {
+        const dateVal = e.entryDate ? String(e.entryDate).split('T')[0] : '';
+        const postVal = e.postedAt ?? e.postingDate;
+        return {
+          id: String(e.id ?? e.entryNumber ?? ''),
+          entryNumber: e.entryNumber ?? '',
+          entryDate: dateVal,
+          postingDate: postVal ? String(postVal).split('T')[0] : undefined,
+          entryType: typeMap[String(e.source ?? e.type ?? '').toUpperCase()]
+            ?? typeMap[String(e.type ?? '').toUpperCase()]
+            ?? 'Manual',
+          description: e.description ?? '',
+          referenceNumber: e.reference ?? e.referenceNumber ?? '',
+          totalDebit: Number(e.totalDebit ?? 0),
+          totalCredit: Number(e.totalCredit ?? 0),
+          status: statusMap[String(e.status ?? '').toUpperCase()] ?? 'Draft',
+          createdBy: e.submittedBy ?? e.createdBy ?? '',
+          postedBy: e.postedBy ?? undefined,
+          linesCount: Array.isArray(e.lines) ? e.lines.length : Number(e.linesCount ?? 0),
+        };
+      });
+      setEntries(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load journal entries');
+      setEntries([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        // Backend returns { data, total, ... } with JournalEntry ORM shape
-        // (type/status/source enums, entryDate as Date, lines[]); map to GLEntry.
-        const res = (await JournalService.getAllJournalEntries({ limit: 100 })) as any;
-        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? []);
-        const typeMap: Record<string, GLEntry['entryType']> = {
-          STANDARD: 'Manual', MANUAL: 'Manual',
-          ADJUSTING: 'Adjustment', ADJUSTMENT: 'Adjustment',
-          CLOSING: 'Closing', OPENING: 'Opening',
-          REVERSING: 'Reversal', REVERSAL: 'Reversal',
-          SYSTEM: 'System', RECURRING: 'System',
-        };
-        const statusMap: Record<string, GLEntry['status']> = {
-          DRAFT: 'Draft', PENDING_APPROVAL: 'Draft', APPROVED: 'Draft',
-          POSTED: 'Posted', REVERSED: 'Reversed', CANCELLED: 'Draft',
-        };
-        const mapped: GLEntry[] = raw.map((e) => {
-          const dateVal = e.entryDate ? String(e.entryDate).split('T')[0] : '';
-          const postVal = e.postedAt ?? e.postingDate;
-          return {
-            id: String(e.id ?? e.entryNumber ?? ''),
-            entryNumber: e.entryNumber ?? '',
-            entryDate: dateVal,
-            postingDate: postVal ? String(postVal).split('T')[0] : undefined,
-            entryType: typeMap[String(e.source ?? e.type ?? '').toUpperCase()]
-              ?? typeMap[String(e.type ?? '').toUpperCase()]
-              ?? 'Manual',
-            description: e.description ?? '',
-            referenceNumber: e.reference ?? e.referenceNumber ?? '',
-            totalDebit: Number(e.totalDebit ?? 0),
-            totalCredit: Number(e.totalCredit ?? 0),
-            status: statusMap[String(e.status ?? '').toUpperCase()] ?? 'Draft',
-            createdBy: e.submittedBy ?? e.createdBy ?? '',
-            postedBy: e.postedBy ?? undefined,
-            linesCount: Array.isArray(e.lines) ? e.lines.length : Number(e.linesCount ?? 0),
-          };
-        });
-        if (!cancelled) setEntries(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load journal entries');
-          setEntries([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -154,40 +152,40 @@ export default function JournalEntriesPage() {
     }
 
     setProcessingEntry(entryId);
-
-    // Simulate API call
-    setTimeout(() => {
-      setEntries(
-        entries.map((entry) =>
-          entry.id === entryId
-            ? { ...entry, status: 'Posted', postingDate: new Date().toISOString().split('T')[0], postedBy: 'Current User' }
-            : entry
-        )
-      );
+    setActionMessage(null);
+    try {
+      await JournalService.postJournalEntry(entryId);
+      setActionMessage({ type: 'success', text: 'Entry posted successfully.' });
+      await loadEntries();
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to post entry.',
+      });
+    } finally {
       setProcessingEntry(null);
-      alert('Entry posted successfully!');
-    }, 1500);
+    }
   };
 
-  const handleUnpostEntry = async (entryId: string) => {
-    if (!confirm('Are you sure you want to unpost this entry?')) {
-      return;
-    }
+  // Posted entries are reversed (there is no "unpost"); creates a reversing entry.
+  const handleReverseEntry = async (entryId: string) => {
+    const reason = prompt('Enter a reason for reversing this posted entry:');
+    if (reason === null) return;
 
     setProcessingEntry(entryId);
-
-    // Simulate API call
-    setTimeout(() => {
-      setEntries(
-        entries.map((entry) =>
-          entry.id === entryId
-            ? { ...entry, status: 'Draft', postingDate: undefined, postedBy: undefined }
-            : entry
-        )
-      );
+    setActionMessage(null);
+    try {
+      await JournalService.reverseJournalEntry(entryId, new Date(), reason || 'Reversal');
+      setActionMessage({ type: 'success', text: 'Entry reversed successfully.' });
+      await loadEntries();
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to reverse entry.',
+      });
+    } finally {
       setProcessingEntry(null);
-      alert('Entry unposted successfully!');
-    }, 1500);
+    }
   };
 
   const handleExport = () => {
@@ -368,6 +366,22 @@ export default function JournalEntriesPage() {
               No journal entries found.
             </div>
           )}
+          {actionMessage && (
+            <div
+              className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+                actionMessage.type === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}
+            >
+              {actionMessage.type === 'success' ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              {actionMessage.text}
+            </div>
+          )}
           {/* Table */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -474,7 +488,8 @@ export default function JournalEntriesPage() {
                             )}
                             {entry.status === 'Posted' && (
                               <button
-                                onClick={() => handleUnpostEntry(entry.id)}
+                                onClick={() => handleReverseEntry(entry.id)}
+                                title="Reverse Entry"
                                 disabled={isProcessing}
                                 className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
 

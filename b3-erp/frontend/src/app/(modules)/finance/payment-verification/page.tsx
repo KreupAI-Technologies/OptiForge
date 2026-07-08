@@ -67,6 +67,8 @@ export default function PaymentVerificationPage() {
     // Page data state
     const [verifications, setVerifications] = useState<PaymentVerification[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [actionId, setActionId] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
         loadProjects();
@@ -76,6 +78,7 @@ export default function PaymentVerificationPage() {
     const loadVerifications = async () => {
         try {
             const rows = await PaymentService.getVerificationQueue();
+            setLoadError(null);
             setVerifications(
                 (rows || []).map((r) => ({
                     id: r.id,
@@ -92,9 +95,38 @@ export default function PaymentVerificationPage() {
                     notes: r.notes,
                 }))
             );
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error loading verifications:', error);
+            setLoadError(error?.message || 'Failed to load payment verification queue');
             setVerifications([]);
+        }
+    };
+
+    const handleVerify = async (id: string) => {
+        setActionId(id);
+        try {
+            await PaymentService.approvePayment(id);
+            toast({ title: 'Payment Verified', description: 'Payment has been verified and approved.' });
+            await loadVerifications();
+        } catch (error: any) {
+            toast({ title: 'Verification Failed', description: error?.message || 'Could not verify payment', variant: 'destructive' });
+        } finally {
+            setActionId(null);
+        }
+    };
+
+    const handleReject = async (id: string) => {
+        const reason = typeof window !== 'undefined' ? window.prompt('Reason for rejecting / marking this payment as bounced:') : '';
+        if (reason === null) return;
+        setActionId(id);
+        try {
+            await PaymentService.markBounced(id, reason || undefined);
+            toast({ title: 'Payment Rejected', description: 'Payment has been marked as bounced.' });
+            await loadVerifications();
+        } catch (error: any) {
+            toast({ title: 'Rejection Failed', description: error?.message || 'Could not reject payment', variant: 'destructive' });
+        } finally {
+            setActionId(null);
         }
     };
 
@@ -396,11 +428,53 @@ export default function PaymentVerificationPage() {
                                                 <strong>Note:</strong> {ver.notes}
                                             </div>
                                         )}
+
+                                        {/* Actions */}
+                                        {(ver.status === 'Pending Verification' || ver.status === 'Sales Notified') && (
+                                            <div className="flex gap-2 mt-3">
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-green-600 hover:bg-green-700"
+                                                    disabled={actionId === ver.id}
+                                                    onClick={() => handleVerify(ver.id)}
+                                                >
+                                                    {actionId === ver.id ? (
+                                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                                    ) : (
+                                                        <CheckCircle className="w-4 h-4 mr-1" />
+                                                    )}
+                                                    Verify
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="border-red-300 text-red-700 hover:bg-red-50"
+                                                    disabled={actionId === ver.id}
+                                                    onClick={() => handleReject(ver.id)}
+                                                >
+                                                    <XCircle className="w-4 h-4 mr-1" />
+                                                    Reject / Bounced
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         );
                     })}
+
+                    {loadError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" />
+                            {loadError}
+                        </div>
+                    )}
+
+                    {!loadError && filteredVerifications.length === 0 && (
+                        <div className="bg-white border rounded-lg p-8 text-center text-gray-500">
+                            No payment verifications found.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

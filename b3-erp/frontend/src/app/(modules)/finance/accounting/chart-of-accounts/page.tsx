@@ -24,10 +24,12 @@ import {
 
 // TypeScript Interfaces
 interface Account {
+  id: string;
   code: string;
   name: string;
   type: 'Assets' | 'Liabilities' | 'Equity' | 'Income' | 'Expenses';
   parentCode?: string;
+  parentId?: string;
   balance: number;
   debitBalance: number;
   creditBalance: number;
@@ -38,6 +40,15 @@ interface Account {
   hasChildren: boolean;
 }
 
+// Map the page's display type back to the backend AccountType enum.
+const PAGE_TYPE_TO_ENUM: Record<Account['type'], string> = {
+  Assets: 'ASSET',
+  Liabilities: 'LIABILITY',
+  Equity: 'EQUITY',
+  Income: 'REVENUE',
+  Expenses: 'EXPENSE',
+};
+
 
 export default function ChartOfAccountsPage() {
   const router = useRouter();
@@ -45,53 +56,57 @@ export default function ChartOfAccountsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        // Backend returns raw ORM shape (accountCode/accountName/accountType/
-        // parentAccountId); map it to the page's Account model.
-        const raw = (await FinanceService.getChartOfAccounts()) as any[];
-        const idToCode = new Map(raw.map((a) => [a.id, a.accountCode]));
-        const typeMap: Record<string, Account['type']> = {
-          Asset: 'Assets', Assets: 'Assets',
-          Liability: 'Liabilities', Liabilities: 'Liabilities',
-          Equity: 'Equity',
-          Income: 'Income', Revenue: 'Income',
-          Expense: 'Expenses', Expenses: 'Expenses',
-        };
-        const parents = new Set(
-          raw.filter((a) => a.parentAccountId).map((a) => idToCode.get(a.parentAccountId)),
-        );
-        const mapped: Account[] = raw.map((a) => ({
-          code: a.accountCode,
-          name: a.accountName,
-          type: typeMap[a.accountType] ?? 'Assets',
-          parentCode: a.parentAccountId ? idToCode.get(a.parentAccountId) : undefined,
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadAccounts = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Backend returns raw ORM shape (accountCode/accountName/accountType/
+      // parentAccountId); map it to the page's Account model.
+      const raw = (await FinanceService.getChartOfAccounts()) as any[];
+      const idToCode = new Map(raw.map((a) => [a.id, a.accountCode]));
+      const typeMap: Record<string, Account['type']> = {
+        Asset: 'Assets', Assets: 'Assets', ASSET: 'Assets',
+        Liability: 'Liabilities', Liabilities: 'Liabilities', LIABILITY: 'Liabilities',
+        Equity: 'Equity', EQUITY: 'Equity',
+        Income: 'Income', Revenue: 'Income', REVENUE: 'Income',
+        Expense: 'Expenses', Expenses: 'Expenses', EXPENSE: 'Expenses',
+      };
+      const parents = new Set(
+        raw.filter((a) => a.parentAccountId ?? a.parentId).map((a) => idToCode.get(a.parentAccountId ?? a.parentId)),
+      );
+      const mapped: Account[] = raw.map((a) => {
+        const parentRef = a.parentAccountId ?? a.parentId;
+        return {
+          id: String(a.id ?? ''),
+          code: a.accountCode ?? a.code,
+          name: a.accountName ?? a.name,
+          type: typeMap[a.accountType ?? a.type] ?? 'Assets',
+          parentCode: parentRef ? idToCode.get(parentRef) : undefined,
+          parentId: parentRef ? String(parentRef) : undefined,
           balance: Number(a.currentBalance ?? a.balance ?? 0),
           debitBalance: Number(a.debitBalance ?? 0),
           creditBalance: Number(a.creditBalance ?? 0),
-          isActive: a.isActive ?? true,
+          isActive: (a.isActive ?? (a.status ? a.status === 'ACTIVE' : true)),
           description: a.description ?? undefined,
           level: a.level ?? 0,
-          hasChildren: parents.has(a.accountCode),
-        }));
-        if (!cancelled) setAccounts(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load chart of accounts');
-          setAccounts([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+          hasChildren: parents.has(a.accountCode ?? a.code),
+        };
+      });
+      setAccounts(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load chart of accounts');
+      setAccounts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -105,7 +120,99 @@ export default function ChartOfAccountsPage() {
   const [isToggleStatusModalOpen, setIsToggleStatusModalOpen] = useState(false);
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+
+  // ----- Write handlers (wired to FinanceService) -----
+  const handleCreateAccount = async (data: any) => {
+    setIsSubmitting(true);
+    setActionMessage(null);
+    try {
+      const parent = accounts.find((a) => a.code === data.parentAccount);
+      await FinanceService.createAccount({
+        code: String(data.code),
+        name: String(data.name),
+        type: (PAGE_TYPE_TO_ENUM[data.type as Account['type']] ?? 'ASSET') as any,
+        parentId: parent?.id || undefined,
+        description: data.description || undefined,
+        currency: data.currency || undefined,
+        isReconcilable: data.reconciliationEnabled ?? undefined,
+      });
+      setIsAddModalOpen(false);
+      setActionMessage({ type: 'success', text: `Account ${data.code} created.` });
+      await loadAccounts();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to create account.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateAccount = async (data: any) => {
+    if (!selectedAccount?.id) {
+      setActionMessage({ type: 'error', text: 'Cannot update: missing account id.' });
+      return;
+    }
+    setIsSubmitting(true);
+    setActionMessage(null);
+    try {
+      await FinanceService.updateAccount(selectedAccount.id, {
+        name: data.name,
+        description: data.description,
+        status: data.isActive === false ? ('INACTIVE' as any) : ('ACTIVE' as any),
+      });
+      setIsEditModalOpen(false);
+      setActionMessage({ type: 'success', text: `Account ${selectedAccount.code} updated.` });
+      await loadAccounts();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to update account.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!selectedAccount?.id) {
+      setActionMessage({ type: 'error', text: 'Cannot update status: missing account id.' });
+      return;
+    }
+    setIsSubmitting(true);
+    setActionMessage(null);
+    try {
+      await FinanceService.updateAccount(selectedAccount.id, {
+        status: (selectedAccount.isActive ? 'INACTIVE' : 'ACTIVE') as any,
+      });
+      setIsToggleStatusModalOpen(false);
+      setActionMessage({
+        type: 'success',
+        text: `Account ${selectedAccount.code} ${selectedAccount.isActive ? 'deactivated' : 'activated'}.`,
+      });
+      await loadAccounts();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to change status.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!selectedAccount?.id) {
+      setActionMessage({ type: 'error', text: 'Cannot delete: missing account id.' });
+      return;
+    }
+    setIsSubmitting(true);
+    setActionMessage(null);
+    try {
+      await FinanceService.deleteAccount(selectedAccount.id);
+      setIsDeleteModalOpen(false);
+      setActionMessage({ type: 'success', text: `Account ${selectedAccount.code} deleted.` });
+      await loadAccounts();
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to delete account.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Build tree structure
   const buildTree = (accounts: Account[]): Account[] => {
@@ -277,6 +384,16 @@ export default function ChartOfAccountsPage() {
                   {account.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                 </button>
               )}
+              <button
+                onClick={() => {
+                  setSelectedAccount(account);
+                  setIsDeleteModalOpen(true);
+                }}
+                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                title="Delete Account"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -309,6 +426,22 @@ export default function ChartOfAccountsPage() {
           {!isLoading && !loadError && accounts.length === 0 && (
             <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
               No accounts found.
+            </div>
+          )}
+          {actionMessage && (
+            <div
+              className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+                actionMessage.type === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}
+            >
+              {actionMessage.type === 'success' ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              {actionMessage.text}
             </div>
           )}
           {/* Action Bar */}
@@ -484,10 +617,7 @@ export default function ChartOfAccountsPage() {
       <AddAccountModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onCreate={(data: any) => {
-          console.log('Creating account:', data);
-          setIsAddModalOpen(false);
-        }}
+        onCreate={handleCreateAccount}
       />
 
       <ViewAccountDetailsModal
@@ -500,21 +630,15 @@ export default function ChartOfAccountsPage() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         account={selectedAccount}
-        onSave={(data: any) => {
-          console.log('Updating account:', data);
-          setIsEditModalOpen(false);
-        }}
+        onSave={handleUpdateAccount}
       />
 
       <ToggleAccountStatusModal
         isOpen={isToggleStatusModalOpen}
         onClose={() => setIsToggleStatusModalOpen(false)}
         account={selectedAccount}
-        currentStatus={selectedAccount?.isActive ?? true}
-        onConfirm={() => {
-          console.log('Toggling account status');
-          setIsToggleStatusModalOpen(false);
-        }}
+        currentStatus={selectedAccount?.isActive ? 'active' : 'inactive'}
+        onConfirm={handleToggleStatus}
       />
 
       <BulkImportAccountsModal
@@ -534,6 +658,49 @@ export default function ChartOfAccountsPage() {
           setIsExportModalOpen(false);
         }}
       />
+
+      {/* Delete Account Confirmation */}
+      {isDeleteModalOpen && selectedAccount && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-3 py-2 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Delete Account</h2>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="text-white hover:text-gray-200">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
+                <AlertCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-900">Delete this account?</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    Account: <strong>{selectedAccount.code} - {selectedAccount.name}</strong>
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">
+                This action cannot be undone. Accounts with posted transactions may be rejected by the server.
+              </p>
+            </div>
+            <div className="bg-gray-50 px-3 py-2 flex justify-end space-x-3 border-t">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

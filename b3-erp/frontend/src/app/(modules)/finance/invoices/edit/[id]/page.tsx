@@ -97,64 +97,45 @@ export default function EditInvoicePage() {
     }).finally(() => setCustomersLoading(false));
   }, []);
 
-  // Pre-populated with existing invoice data (mock default)
-  const [formData, setFormData] = useState<InvoiceFormData>({
-    invoiceNumber: 'INV-2024-00125',
-    customer: 'Tata Steel Limited',
-    customerGST: '27AAACT2727Q1ZV',
-    invoiceDate: '2024-10-01',
-    dueDate: '2024-10-31',
-    poReference: 'PO-TATA-2024-0892',
+  // Empty starting form — populated from the real invoice record on load.
+  const emptyForm = (): InvoiceFormData => ({
+    invoiceNumber: '',
+    customer: '',
+    customerGST: '',
+    invoiceDate: '',
+    dueDate: '',
+    poReference: '',
     paymentTerms: 'Net 30',
-    billingAddress: {
-      street: 'Tata Centre, 43 Jawaharlal Nehru Road',
-      city: 'Kolkata',
-      state: 'West Bengal',
-      pincode: '700071',
-    },
-    shippingAddress: {
-      street: 'Tata Steel Plant, Adityapur Industrial Area',
-      city: 'Jamshedpur',
-      state: 'Jharkhand',
-      pincode: '831013',
-    },
+    billingAddress: { street: '', city: '', state: 'Maharashtra', pincode: '' },
+    shippingAddress: { street: '', city: '', state: 'Maharashtra', pincode: '' },
     lineItems: [
-      {
-        id: '1',
-        item: 'High-Grade Steel Plates (IS 2062)',
-        description: 'E250 Grade steel plates for industrial construction, thickness 12mm',
-        hsn: '7208',
-        quantity: '500',
-        unitPrice: '4500',
-        taxRate: '18',
-        taxType: 'CGST+SGST',
-      },
-      {
-        id: '2',
-        item: 'Structural Steel Beams (ISMB 300)',
-        description: 'I-Section beams for structural framework, length 12m',
-        hsn: '7216',
-        quantity: '100',
-        unitPrice: '3500',
-        taxRate: '18',
-        taxType: 'CGST+SGST',
-      },
+      { id: '1', item: '', description: '', hsn: '', quantity: '1', unitPrice: '0', taxRate: '18', taxType: 'CGST+SGST' },
     ],
     discountType: 'amount',
-    discountValue: '50000',
-    notes: 'Please make payment within 30 days. Bank details: HDFC Bank, A/C: 50200012345678, IFSC: HDFC0001234',
-    termsConditions: '1. Payment due within 30 days\n2. Late payment subject to 2% monthly interest\n3. Goods once sold cannot be returned\n4. Subject to West Bengal jurisdiction',
+    discountValue: '0',
+    notes: '',
+    termsConditions: '',
   });
+
+  const [formData, setFormData] = useState<InvoiceFormData>(emptyForm);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fetch the real invoice record and prefill form if found
   useEffect(() => {
     if (!invoiceId) return;
     let cancelled = false;
+    setIsLoading(true);
+    setLoadError(null);
     FinanceService.getInvoice(invoiceId)
       .then((raw: any) => {
-        if (cancelled || !raw) return;
+        if (cancelled) return;
+        if (!raw) {
+          setLoadError('Invoice not found.');
+          return;
+        }
         const record: any = raw;
-        const mappedLineItems = Array.isArray(record.lineItems)
+        const mappedLineItems = Array.isArray(record.lineItems) && record.lineItems.length > 0
           ? record.lineItems.map((li: any, idx: number) => ({
               id: String(li.id ?? idx + 1),
               item: String(li.item ?? li.productName ?? ''),
@@ -171,8 +152,8 @@ export default function EditInvoicePage() {
           invoiceNumber: record.invoiceNumber ?? prev.invoiceNumber,
           customer: record.customer ?? record.customerName ?? prev.customer,
           customerGST: record.customerGST ?? prev.customerGST,
-          invoiceDate: record.invoiceDate ?? prev.invoiceDate,
-          dueDate: record.dueDate ?? prev.dueDate,
+          invoiceDate: (record.invoiceDate ?? prev.invoiceDate ?? '').toString().slice(0, 10),
+          dueDate: (record.dueDate ?? prev.dueDate ?? '').toString().slice(0, 10),
           poReference: record.poReference ?? record.poNumber ?? prev.poReference,
           paymentTerms: record.paymentTerms ?? prev.paymentTerms,
           billingAddress: record.billingAddress ?? prev.billingAddress,
@@ -184,8 +165,11 @@ export default function EditInvoicePage() {
           termsConditions: record.termsConditions ?? record.terms ?? prev.termsConditions,
         }));
       })
-      .catch(() => {
-        /* keep existing form defaults on load failure */
+      .catch((err: any) => {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load invoice.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -330,6 +314,17 @@ export default function EditInvoicePage() {
               </div>
             </div>
           </div>
+
+          {isLoading && (
+            <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+              Loading invoice…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
 
           {/* Form */}
           <div className="space-y-3">

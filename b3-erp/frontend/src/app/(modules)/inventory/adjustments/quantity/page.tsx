@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { inventoryService, AdjustmentReason } from '@/services/InventoryService';
 import {
   TrendingUp,
@@ -15,7 +14,8 @@ import {
   Filter,
   Download,
   Eye,
-  BarChart3
+  BarChart3,
+  AlertCircle
 } from 'lucide-react';
 
 interface QuantityAdjustment {
@@ -39,7 +39,6 @@ interface QuantityAdjustment {
 }
 
 export default function QuantityAdjustmentsPage() {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
@@ -94,7 +93,7 @@ export default function QuantityAdjustmentsPage() {
         ],
       };
       await inventoryService.createStockAdjustment(payload);
-      router.push('/inventory/adjustments');
+      await loadAdjustments();
     } catch (e) {
       console.error('Failed to create stock adjustment', e);
       alert('Failed to create stock adjustment. Please try again.');
@@ -103,102 +102,75 @@ export default function QuantityAdjustmentsPage() {
     }
   };
 
-  const [adjustments, setAdjustments] = useState<QuantityAdjustment[]>([
-    {
-      id: 1,
-      adjustmentNumber: 'QTY-ADJ-001',
-      date: '2025-01-15',
-      warehouse: 'Main Warehouse',
-      itemCode: 'ITM-001',
-      itemName: 'Steel Plate 10mm',
-      category: 'Raw Material',
-      currentQty: 150,
-      adjustedQty: 145,
-      adjustment: -5,
-      adjustmentType: 'decrease',
-      unitValue: 2500,
-      valueImpact: -12500,
-      reason: 'Physical Count Variance',
-      createdBy: 'John Smith',
-      status: 'approved',
-      batchNumber: 'BATCH-2025-001'
-    },
-    {
-      id: 2,
-      adjustmentNumber: 'QTY-ADJ-002',
-      date: '2025-01-17',
-      warehouse: 'Assembly Plant',
-      itemCode: 'ITM-005',
-      itemName: 'Hydraulic Pump',
-      category: 'Component',
-      currentQty: 42,
-      adjustedQty: 45,
-      adjustment: 3,
-      adjustmentType: 'increase',
-      unitValue: 8500,
-      valueImpact: 25500,
-      reason: 'System Error Correction',
-      createdBy: 'Sarah Johnson',
-      status: 'approved',
-      batchNumber: 'BATCH-2025-003'
-    },
-    {
-      id: 3,
-      adjustmentNumber: 'QTY-ADJ-003',
-      date: '2025-01-18',
-      warehouse: 'FG Store',
-      itemCode: 'FG-008',
-      itemName: 'Excavator Model EX200',
-      category: 'Finished Goods',
-      currentQty: 8,
-      adjustedQty: 12,
-      adjustment: 4,
-      adjustmentType: 'increase',
-      unitValue: 450000,
-      valueImpact: 1800000,
-      reason: 'Cycle Count Adjustment',
-      createdBy: 'Robert Lee',
-      status: 'approved'
-    },
-    {
-      id: 4,
-      adjustmentNumber: 'QTY-ADJ-004',
-      date: '2025-01-19',
-      warehouse: 'Main Warehouse',
-      itemCode: 'ITM-012',
-      itemName: 'Bearing Assembly',
-      category: 'Component',
-      currentQty: 225,
-      adjustedQty: 218,
-      adjustment: -7,
-      adjustmentType: 'decrease',
-      unitValue: 1200,
-      valueImpact: -8400,
-      reason: 'Physical Count Variance',
-      createdBy: 'Emily Chen',
-      status: 'draft',
-      batchNumber: 'BATCH-2025-005'
-    },
-    {
-      id: 5,
-      adjustmentNumber: 'QTY-ADJ-005',
-      date: '2025-01-20',
-      warehouse: 'Assembly Plant',
-      itemCode: 'ITM-018',
-      itemName: 'Control Panel',
-      category: 'Component',
-      currentQty: 65,
-      adjustedQty: 68,
-      adjustment: 3,
-      adjustmentType: 'increase',
-      unitValue: 12000,
-      valueImpact: 36000,
-      reason: 'Receipt Not Recorded',
-      createdBy: 'Mike Davis',
-      status: 'approved',
-      batchNumber: 'BATCH-2025-007'
+  const [adjustments, setAdjustments] = useState<QuantityAdjustment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadAdjustments = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await inventoryService.getStockAdjustments()) as any[];
+      const statusMap: Record<string, QuantityAdjustment['status']> = {
+        Draft: 'draft', DRAFT: 'draft',
+        Approved: 'approved', APPROVED: 'approved', Posted: 'approved',
+        Rejected: 'rejected', REJECTED: 'rejected',
+      };
+      const toDate = (d: any): string => (d ? String(d).split('T')[0] : '');
+      // Flatten each adjustment's lines into one row per item.
+      const rows: QuantityAdjustment[] = [];
+      let seq = 0;
+      for (const a of raw) {
+        const lines: any[] = Array.isArray(a.lines) ? a.lines : Array.isArray(a.items) ? a.items : [];
+        const header = {
+          adjustmentNumber: a.adjustmentNumber ?? '',
+          date: toDate(a.adjustmentDate),
+          warehouse: a.warehouseName ?? a.warehouseId ?? '-',
+          createdBy: a.createdByName ?? a.createdBy ?? '-',
+          status: statusMap[a.status] ?? 'draft',
+          reason: a.referenceType ?? '-',
+        };
+        if (lines.length === 0) continue;
+        for (const l of lines) {
+          const current = Number(l.systemQuantity ?? l.currentQuantity ?? 0);
+          const adjusted = Number(l.physicalQuantity ?? l.adjustedQuantity ?? 0);
+          const adjustment = Number(l.adjustmentQuantity ?? l.difference ?? adjusted - current);
+          const unitValue = Number(l.unitValue ?? l.unitCost ?? 0);
+          const valueImpact = Number(l.costImpact ?? l.adjustmentValue ?? adjustment * unitValue);
+          rows.push({
+            id: ++seq,
+            adjustmentNumber: header.adjustmentNumber,
+            date: header.date,
+            warehouse: header.warehouse,
+            itemCode: l.itemCode ?? '',
+            itemName: l.itemName ?? '',
+            category: l.category ?? '-',
+            currentQty: current,
+            adjustedQty: adjusted,
+            adjustment,
+            adjustmentType: adjustment < 0 ? 'decrease' : 'increase',
+            unitValue,
+            valueImpact,
+            reason: l.adjustmentReason ?? header.reason,
+            createdBy: header.createdBy,
+            status: header.status,
+            batchNumber: l.batchNumber ?? l.batchNo ?? undefined,
+          });
+        }
+      }
+      setAdjustments(rows);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load quantity adjustments');
+      setAdjustments([]);
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadAdjustments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -247,6 +219,24 @@ export default function QuantityAdjustmentsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading quantity adjustments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && adjustments.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No quantity adjustments found.
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

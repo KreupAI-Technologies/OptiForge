@@ -56,8 +56,13 @@ export default function LowStockPage() {
   const [lowStockModalItems, setLowStockModalItems] = useState<LowStockItemModal[]>([]);
 
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const loadLowStock = useCallback(async () => {
+    setLoadError(null);
     try {
       // Primary source: reorder analysis (items below reorder level).
       const res = await inventoryService.getReorderAnalysis();
@@ -106,6 +111,7 @@ export default function LowStockPage() {
       setLowStockItems(mapped);
     } catch (err) {
       console.error('Failed to load low-stock items', err);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load low-stock items');
       setLowStockItems([]);
     }
   }, []);
@@ -286,13 +292,19 @@ export default function LowStockPage() {
   };
 
   const handleQuickAdjust = async (data: QuickAdjustmentData) => {
+    setIsSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
     try {
       await inventoryService.createStockAdjustment(data);
+      setIsQuickAdjustOpen(false);
+      setActionSuccess('Stock adjustment submitted successfully.');
+      await loadLowStock();
     } catch (err) {
       console.error('Failed to submit stock adjustment', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to submit stock adjustment.');
     } finally {
-      setIsQuickAdjustOpen(false);
-      loadLowStock();
+      setIsSubmitting(false);
     }
   };
 
@@ -331,6 +343,29 @@ export default function LowStockPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-red-500 hover:text-red-700">×</button>
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+          <span>{actionSuccess}</span>
+          <button onClick={() => setActionSuccess(null)} className="text-green-500 hover:text-green-700">×</button>
+        </div>
+      )}
+      {isSubmitting && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Saving…
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -554,7 +589,12 @@ export default function LowStockPage() {
         isOpen={isViewDetailsOpen}
         onClose={() => setIsViewDetailsOpen(false)}
         item={selectedItem}
-        onEdit={() => alert('Edit not implemented')}
+        onEdit={() => {
+          // No dedicated edit modal on the low-stock view; route the edit
+          // intent to the Quick Adjust flow for the already-selected item.
+          setIsViewDetailsOpen(false);
+          setIsQuickAdjustOpen(true);
+        }}
         onAdjust={() => {
           setIsViewDetailsOpen(false);
           setIsQuickAdjustOpen(true);

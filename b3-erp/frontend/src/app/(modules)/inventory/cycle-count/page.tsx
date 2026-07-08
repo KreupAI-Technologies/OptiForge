@@ -297,95 +297,23 @@ export default function CycleCountPage() {
   };
 
   // Modal handlers
-  const handleCreateSchedule = (data: CycleCountSchedule) => {
-    // No backend mutation endpoint yet; optimistic local update.
-    if (data) {
-      const newCount: CycleCount = {
-        id: `local-${Date.now()}`,
-        countNumber: data.scheduleId || `CC-${Date.now()}`,
-        warehouse: data.warehouse || 'Unknown Warehouse',
-        zone: data.zones?.[0] || 'Unknown Zone',
-        countType: 'Full',
-        scheduledDate: data.startDate || new Date().toISOString().split('T')[0],
-        assignedTo: data.assignedTo || 'Unassigned',
-        itemsToCount: 0,
-        itemsCounted: 0,
-        variancesFound: 0,
-        status: 'scheduled',
-        accuracy: 0,
-      };
-      setCycleCounts((prev) => [...prev, newCount]);
-    }
+  // NEEDS BACKEND: cycle-count is read-only. There is NO create-schedule /
+  // start-session / save-count / complete write endpoint. These handlers are
+  // wired to their (disabled) modals so the UI compiles, but they intentionally
+  // do NOT mutate local state to fake success against a non-existent endpoint.
+  const handleCreateSchedule = (_data: CycleCountSchedule) => {
+    // TODO(NEEDS BACKEND): POST /inventory/cycle-counts to persist a schedule.
     setIsCreateScheduleModalOpen(false);
   };
 
-  const handleStartSession = (data: CycleCountSession) => {
-    // No backend mutation endpoint yet; optimistic local update.
-    if (data) {
-      const newCount: CycleCount = {
-        id: `local-${Date.now()}`,
-        countNumber: data.sessionId,
-        warehouse: data.warehouse,
-        zone: data.zones?.[0] || 'Unknown Zone',
-        countType: 'ABC', // Default, should be from form
-        scheduledDate: data.countDate,
-        assignedTo: data.assignedTo,
-        itemsToCount: data.totalItems ?? 0,
-        itemsCounted: data.countedItems ?? 0,
-        variancesFound: data.discrepancies ?? 0,
-        status: 'in-progress',
-        accuracy: 0
-      };
-      setCycleCounts((prev) => [...prev, newCount]);
-    }
+  const handleStartSession = (_data: CycleCountSession) => {
+    // TODO(NEEDS BACKEND): POST /inventory/cycle-counts/:id/start to begin a session.
     setIsStartSessionModalOpen(false);
   };
 
-  const handleUpdateCount = (itemId: string, countedQuantity: number, notes?: string) => {
-    // No backend mutation endpoint yet; optimistic local update.
-    if (selectedSession) {
-      const updatedItems = selectedSession.items.map(item => {
-        if (item.itemId === itemId) {
-          const variance = countedQuantity - item.expectedQuantity;
-          const variancePercentage = item.expectedQuantity > 0
-            ? (variance / item.expectedQuantity) * 100
-            : 0;
-
-          return {
-            ...item,
-            countedQuantity,
-            variance,
-            variancePercentage,
-            status: (Math.abs(variancePercentage) > 5 ? 'discrepancy' : 'counted') as 'pending' | 'counted' | 'verified' | 'discrepancy',
-            notes: notes || item.notes,
-            countedBy: selectedSession.assignedTo,
-            countedDate: new Date().toISOString().split('T')[0]
-          };
-        }
-        return item;
-      });
-
-      const countedItems = updatedItems.filter(item => item.countedQuantity > 0).length;
-      const discrepancies = updatedItems.filter(item => item.status === 'discrepancy').length;
-      const progress = Math.round((countedItems / updatedItems.length) * 100);
-
-      const updatedSession: CycleCountSession = {
-        ...selectedSession,
-        items: updatedItems,
-        countedItems,
-        discrepancies,
-        progress
-      };
-
-      setSelectedSession(updatedSession);
-
-      // Update the main cycleCounts array
-      setCycleCounts(cycleCounts.map(count =>
-        count.countNumber === selectedSession.sessionId
-          ? { ...count, itemsCounted: countedItems, variancesFound: discrepancies }
-          : count
-      ));
-    }
+  const handleUpdateCount = (_itemId: string, _countedQuantity: number, _notes?: string) => {
+    // TODO(NEEDS BACKEND): PUT /inventory/cycle-counts/:id/items to persist counts.
+    setIsPerformCountModalOpen(false);
   };
 
   const handleViewDetails = async (count: CycleCount) => {
@@ -393,24 +321,6 @@ export default function CycleCountPage() {
     const session = convertToSession(count, items);
     setSelectedSession(session);
     setIsViewDetailsModalOpen(true);
-  };
-
-  const handleCompleteSession = () => {
-    // No backend mutation endpoint yet; optimistic local update.
-    if (selectedSession) {
-      // Update the status in cycleCounts
-      setCycleCounts(cycleCounts.map(count =>
-        count.countNumber === selectedSession.sessionId
-          ? { ...count, status: 'completed' }
-          : count
-      ));
-
-      // Update selected session status
-      setSelectedSession({
-        ...selectedSession,
-        status: 'completed'
-      });
-    }
   };
 
   const handleViewVarianceAnalysis = () => {
@@ -454,9 +364,12 @@ export default function CycleCountPage() {
         </div>
         <div className="flex items-center space-x-3">
           {inProgressSession && (
+            // NEEDS BACKEND: no perform-count / save-count write endpoint exists.
             <button
-              onClick={() => handlePerformCount(inProgressSession)}
-              className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center space-x-2"
+              type="button"
+              disabled
+              title="Recording physical counts requires a backend endpoint that is not yet available."
+              className="px-4 py-2 bg-cyan-600 text-white rounded-lg flex items-center space-x-2 opacity-50 cursor-not-allowed"
             >
               <ClipboardList className="w-4 h-4" />
               <span>Perform Count</span>
@@ -474,16 +387,24 @@ export default function CycleCountPage() {
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
+          {/* NEEDS BACKEND: cycle-count write endpoints (start session /
+              schedule / perform-count / reconcile) do not exist yet — the
+              cycle-count API is read-only. Disabled to avoid fabricating
+              success against a non-existent endpoint. */}
           <button
-            onClick={() => setIsStartSessionModalOpen(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center space-x-2"
+            type="button"
+            disabled
+            title="Starting a cycle-count session requires a backend endpoint that is not yet available."
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center space-x-2 opacity-50 cursor-not-allowed"
           >
             <Play className="w-4 h-4" />
             <span>Start Session</span>
           </button>
           <button
-            onClick={() => setIsCreateScheduleModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            type="button"
+            disabled
+            title="Scheduling a cycle count requires a backend endpoint that is not yet available."
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 opacity-50 cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
             <span>Schedule Count</span>
@@ -768,11 +689,12 @@ export default function CycleCountPage() {
         onUpdateCount={handleUpdateCount}
       />
 
+      {/* onComplete intentionally omitted — no complete-session write endpoint
+          exists (NEEDS BACKEND). Variance analysis is read-only. */}
       <ViewSessionDetailsModal
         isOpen={isViewDetailsModalOpen}
         onClose={() => setIsViewDetailsModalOpen(false)}
         session={selectedSession}
-        onComplete={handleCompleteSession}
         onViewVariance={handleViewVarianceAnalysis}
       />
 

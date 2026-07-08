@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { FinanceService } from '@/services/finance.service';
 import {
@@ -62,63 +62,61 @@ export default function VendorBillsPage() {
   const [expandedBill, setExpandedBill] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Mock data
-  const billStats = {
-    totalBills: 142,
-    pendingApproval: 12,
-    approved: 48,
-    overdue: 8,
-    totalAmount: 8750000,
-    paidAmount: 5280000,
-    pendingAmount: 3470000
-  };
-
   const [vendorBills, setVendorBills] = useState<VendorBill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await FinanceService.getInvoices({ invoiceType: 'Purchase Invoice' });
-        const mapped: VendorBill[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
-          billId: r.id ?? '',
-          billNumber: r.invoiceNumber ?? '',
-          vendorId: r.partyId ?? '',
-          vendorName: r.partyName ?? '',
-          billDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '',
-          dueDate: r.dueDate ? String(r.dueDate).slice(0, 10) : '',
-          poNumber: r.referenceNumber ?? undefined,
-          grnNumber: undefined,
-          subtotal: Number(r.subtotal ?? 0),
-          taxAmount: Number(r.taxAmount ?? 0),
-          totalAmount: Number(r.totalAmount ?? 0),
-          paidAmount: Number(r.paidAmount ?? 0),
-          balanceAmount: Number(r.balanceAmount ?? (Number(r.totalAmount ?? 0) - Number(r.paidAmount ?? 0))),
-          status: (r.status ?? 'draft').toString().toLowerCase().replace(/\s+/g, '_') as VendorBill['status'],
-          paymentTerms: r.paymentTerms ?? '',
-          currency: r.currency ?? 'INR',
-          description: r.notes ?? r.description ?? '',
-          category: r.category ?? '',
-          attachments: Number(r.attachments ?? 0),
-          createdBy: r.createdBy ?? '',
-          createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
-        }));
-        if (!cancelled) setVendorBills(mapped);
-      } catch (e) {
-        if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : 'Failed to load bills');
-          setVendorBills([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+  const loadBills = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await FinanceService.getInvoices({ invoiceType: 'Purchase Invoice' });
+      const mapped: VendorBill[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+        billId: r.id ?? '',
+        billNumber: r.invoiceNumber ?? '',
+        vendorId: r.partyId ?? '',
+        vendorName: r.partyName ?? '',
+        billDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '',
+        dueDate: r.dueDate ? String(r.dueDate).slice(0, 10) : '',
+        poNumber: r.referenceNumber ?? undefined,
+        grnNumber: undefined,
+        subtotal: Number(r.subtotal ?? 0),
+        taxAmount: Number(r.taxAmount ?? 0),
+        totalAmount: Number(r.totalAmount ?? 0),
+        paidAmount: Number(r.paidAmount ?? 0),
+        balanceAmount: Number(r.balanceAmount ?? (Number(r.totalAmount ?? 0) - Number(r.paidAmount ?? 0))),
+        status: (r.status ?? 'draft').toString().toLowerCase().replace(/\s+/g, '_') as VendorBill['status'],
+        paymentTerms: r.paymentTerms ?? '',
+        currency: r.currency ?? 'INR',
+        description: r.notes ?? r.description ?? '',
+        category: r.category ?? '',
+        attachments: Number(r.attachments ?? 0),
+        createdBy: r.createdBy ?? '',
+        createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+      }));
+      setVendorBills(mapped);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load bills');
+      setVendorBills([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadBills();
+  }, [loadBills]);
+
+  // Stats derived from live bills (no fabricated numbers)
+  const billStats = {
+    totalBills: vendorBills.length,
+    pendingApproval: vendorBills.filter(b => b.status === 'pending_approval').length,
+    approved: vendorBills.filter(b => b.status === 'approved').length,
+    overdue: vendorBills.filter(b => b.status === 'overdue').length,
+    totalAmount: vendorBills.reduce((s, b) => s + b.totalAmount, 0),
+    paidAmount: vendorBills.reduce((s, b) => s + b.paidAmount, 0),
+    pendingAmount: vendorBills.reduce((s, b) => s + b.balanceAmount, 0),
+  };
 
 
   const getStatusColor = (status: string) => {
@@ -202,10 +200,20 @@ export default function VendorBillsPage() {
     }, 500);
   };
 
-  const handleDeleteBill = (billId: string, billNumber: string) => {
+  const [deletingBillId, setDeletingBillId] = useState<string | null>(null);
+
+  const handleDeleteBill = async (billId: string, billNumber: string) => {
     const confirmDelete = confirm(`Are you sure you want to delete bill ${billNumber}?\n\nThis action cannot be undone. The bill will be permanently removed from the system.`);
-    if (confirmDelete) {
-      alert(`Bill ${billNumber} would be deleted.\n\nNote: This is a demo. In production, this would:\n- Mark the bill as deleted in the database\n- Update related transactions\n- Log the deletion in audit trail\n- Send notifications if configured`);
+    if (!confirmDelete) return;
+    setDeletingBillId(billId);
+    setLoadError(null);
+    try {
+      await FinanceService.deleteInvoice(billId);
+      await loadBills();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : `Failed to delete bill ${billNumber}`);
+    } finally {
+      setDeletingBillId(null);
     }
   };
 

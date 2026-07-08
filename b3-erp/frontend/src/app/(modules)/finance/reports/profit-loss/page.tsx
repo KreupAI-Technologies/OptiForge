@@ -17,6 +17,45 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { FinancialReportsService } from '@/services/financial-reports.service';
+import { toast } from '@/hooks/use-toast';
+
+// Resolve the current filter period into a concrete { startDate, endDate } range.
+function resolvePeriodRange(period: string): { startDate: Date; endDate: Date } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  switch (period) {
+    case 'last-month':
+      return { startDate: new Date(y, m - 1, 1), endDate: new Date(y, m, 0) };
+    case 'current-quarter': {
+      const qStart = Math.floor(m / 3) * 3;
+      return { startDate: new Date(y, qStart, 1), endDate: new Date(y, qStart + 3, 0) };
+    }
+    case 'last-quarter': {
+      const qStart = Math.floor(m / 3) * 3 - 3;
+      return { startDate: new Date(y, qStart, 1), endDate: new Date(y, qStart + 3, 0) };
+    }
+    case 'current-year':
+      return { startDate: new Date(y, 0, 1), endDate: new Date(y, 11, 31) };
+    case 'last-year':
+      return { startDate: new Date(y - 1, 0, 1), endDate: new Date(y - 1, 11, 31) };
+    case 'current-month':
+    default:
+      return { startDate: new Date(y, m, 1), endDate: new Date(y, m + 1, 0) };
+  }
+}
+
+// Trigger a browser download for a Blob returned by the export service.
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
 
 export default function ProfitLossPage() {
   const [period, setPeriod] = useState('current-month');
@@ -31,6 +70,7 @@ export default function ProfitLossPage() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const INITIAL_PL_DATA = {
     revenue: {
@@ -164,353 +204,93 @@ export default function ProfitLossPage() {
     );
   };
 
-  // Handler for Print button - Opens browser print dialog
+  // Handler for Print button - opens the browser print dialog.
   const handlePrint = async () => {
     try {
       setIsPrinting(true);
-
-      // Show print preparation message
-      const preparingMsg = document.createElement('div');
-      preparingMsg.innerHTML = `
-        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                    background: white; padding: 30px; border-radius: 12px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 10000;
-                    text-align: center; min-width: 350px;">
-          <div style="font-size: 18px; font-weight: bold; color: #1f2937; margin-bottom: 10px;">
-            📄 Preparing Print Preview
-          </div>
-          <div style="font-size: 14px; color: #6b7280;">
-            Loading Profit & Loss Statement for printing...
-          </div>
-        </div>
-        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.5); z-index: 9999;"></div>
-      `;
-      document.body.appendChild(preparingMsg);
-
-      // Simulate preparation time
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Remove preparation message
-      document.body.removeChild(preparingMsg);
-
-      // Show print options dialog
-      const printOptions = window.confirm(
-        `📄 PRINT PROFIT & LOSS STATEMENT\n\n` +
-        `Report Details:\n` +
-        `• Period: October 2025 (Current Month)\n` +
-        `• Net Profit: ${formatCurrency(netProfit.current)}\n` +
-        `• Total Revenue: ${formatCurrency(totalRevenue.current)}\n` +
-        `• Comparison: ${showComparison ? 'Enabled' : 'Disabled'}\n\n` +
-        `Print Options Available:\n` +
-        `✓ Portrait or Landscape orientation\n` +
-        `✓ Include/exclude comparison data\n` +
-        `✓ Color or black & white\n` +
-        `✓ Page headers and footers\n\n` +
-        `Click OK to open print dialog or Cancel to return`
-      );
-
-      if (printOptions) {
-        // Open browser print dialog
-        window.print();
-
-        // Show success message after print dialog closes
-        setTimeout(() => {
-          alert(
-            `✅ PRINT OPERATION COMPLETED\n\n` +
-            `The print dialog has been processed.\n\n` +
-            `If you printed the document:\n` +
-            `• Check your printer queue\n` +
-            `• Verify page orientation and margins\n` +
-            `• Ensure all financial data is legible\n\n` +
-            `Note: For best results, use landscape orientation and fit to page.`
-          );
-        }, 500);
-      } else {
-        alert('Print operation cancelled by user.');
-      }
+      window.print();
     } catch (error) {
       console.error('Print error:', error);
-      alert(
-        `❌ PRINT ERROR\n\n` +
-        `Failed to initiate print operation.\n` +
-        `Error: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
-        `Please try again or contact support if the issue persists.`
-      );
+      toast({
+        title: 'Print failed',
+        description: error instanceof Error ? error.message : 'Unable to open print dialog',
+        variant: 'destructive',
+      });
     } finally {
       setIsPrinting(false);
     }
   };
 
-  // Handler for Share button - Shows share options dialog
+  // Handler for Share button - copies a link to the current report view.
   const handleShare = async () => {
     try {
       setIsSharing(true);
-
-      // Show loading state
-      await new Promise(resolve => setTimeout(resolve, 600));
-
-      // Generate shareable link (simulated)
-      const shareableLink = `https://b3-erp.com/reports/pl/${Date.now()}`;
-
-      // Show comprehensive share options
-      const shareMessage =
-        `📊 SHARE PROFIT & LOSS STATEMENT\n\n` +
-        `Report Details:\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `Period: October 2025\n` +
-        `Net Profit: ${formatCurrency(netProfit.current)}\n` +
-        `Net Margin: ${((netProfit.current / totalRevenue.current) * 100).toFixed(2)}%\n` +
-        `Total Revenue: ${formatCurrency(totalRevenue.current)}\n\n` +
-        `SHARING OPTIONS:\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `1️⃣ EMAIL TO RECIPIENTS\n` +
-        `   • Send to stakeholders (CFO, CEO, Board)\n` +
-        `   • Include executive summary\n` +
-        `   • Attach PDF version\n` +
-        `   • CC: finance@company.com\n\n` +
-        `2️⃣ GENERATE SHAREABLE LINK\n` +
-        `   • Secure, time-limited access\n` +
-        `   • Password protected option\n` +
-        `   • View-only permissions\n` +
-        `   • Link expires in 7 days\n` +
-        `   • URL: ${shareableLink}\n\n` +
-        `3️⃣ SCHEDULE AUTOMATED DELIVERY\n` +
-        `   • Monthly distribution to finance team\n` +
-        `   • Quarterly reports to executives\n` +
-        `   • Year-end summaries to auditors\n` +
-        `   • Custom schedule available\n\n` +
-        `4️⃣ DOWNLOAD FOR EXTERNAL SHARING\n` +
-        `   • Export as PDF with watermark\n` +
-        `   • Excel format with formulas\n` +
-        `   • PowerPoint summary slides\n` +
-        `   • CSV data export\n\n` +
-        `5️⃣ INTERNAL COLLABORATION\n` +
-        `   • Post to company dashboard\n` +
-        `   • Share in Teams/Slack channel\n` +
-        `   • Add to financial reports portal\n` +
-        `   • Notify finance department\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `📋 Shareable link copied to clipboard!\n` +
-        `🔒 All shares are tracked and secured\n` +
-        `📧 Email notifications will be sent`;
-
-      alert(shareMessage);
-
-      // Simulate copying link to clipboard
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        try {
-          await navigator.clipboard.writeText(shareableLink);
-          setTimeout(() => {
-            alert(
-              `✅ SHARE LINK COPIED!\n\n` +
-              `The shareable link has been copied to your clipboard:\n` +
-              `${shareableLink}\n\n` +
-              `Link Features:\n` +
-              `• Valid for 7 days\n` +
-              `• View-only access\n` +
-              `• No login required\n` +
-              `• Mobile friendly\n` +
-              `• Tracking enabled\n\n` +
-              `You can now paste and share this link via:\n` +
-              `• Email\n` +
-              `• Messaging apps\n` +
-              `• Internal communications\n` +
-              `• Collaborative platforms`
-            );
-          }, 500);
-        } catch (err) {
-          console.log('Clipboard access not available');
-        }
+      const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: 'Link copied', description: 'Report link copied to clipboard.', variant: 'success' });
+      } else {
+        toast({ title: 'Share', description: shareUrl });
       }
     } catch (error) {
       console.error('Share error:', error);
-      alert(
-        `❌ SHARE ERROR\n\n` +
-        `Failed to generate share options.\n` +
-        `Error: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
-        `Please try again or contact support.`
-      );
+      toast({
+        title: 'Share failed',
+        description: error instanceof Error ? error.message : 'Unable to copy link',
+        variant: 'destructive',
+      });
     } finally {
       setIsSharing(false);
     }
   };
 
-  // Handler for Export PDF button - Generates and downloads PDF
+  // Handler for Export PDF button - fetches a real PDF from the reports service and downloads it.
   const handleExportPDF = async () => {
     try {
       setIsExporting(true);
-
-      // Show export progress
-      const progressMsg = document.createElement('div');
-      progressMsg.innerHTML = `
-        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                    background: white; padding: 30px; border-radius: 12px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 10000;
-                    text-align: center; min-width: 400px;">
-          <div style="font-size: 18px; font-weight: bold; color: #1f2937; margin-bottom: 15px;">
-            📄 Generating PDF Export
-          </div>
-          <div style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
-            Creating comprehensive Profit & Loss statement...
-          </div>
-          <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
-            <div style="background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-                        height: 100%; width: 0%; animation: progress 2s ease-in-out forwards;">
-            </div>
-          </div>
-          <div style="font-size: 12px; color: #9ca3af; margin-top: 15px;">
-            Including financial data, charts, and analysis...
-          </div>
-        </div>
-        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.5); z-index: 9999;"></div>
-        <style>
-          @keyframes progress {
-            0% { width: 0%; }
-            50% { width: 70%; }
-            100% { width: 100%; }
-          }
-        </style>
-      `;
-      document.body.appendChild(progressMsg);
-
-      // Simulate PDF generation time
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Remove progress message
-      document.body.removeChild(progressMsg);
-
-      // Generate filename with date
-      const date = new Date();
-      const dateStr = date.toISOString().split('T')[0];
-      const timestamp = date.getTime();
-      const filename = `Profit_Loss_Statement_${period}_${dateStr}_${timestamp}.pdf`;
-
-      // Create a simulated PDF blob (in production, this would be actual PDF generation)
-      const pdfContent = `
-PROFIT & LOSS STATEMENT
-Manufacturing ERP System
-Generated: ${date.toLocaleString()}
-
-Period: October 2025 (${period})
-
-FINANCIAL SUMMARY
-═══════════════════════════════════════════
-
-Total Revenue:           ${formatCurrency(totalRevenue.current)}
-Cost of Goods Sold:      ${formatCurrency(totalCOGS.current)}
-Gross Profit:            ${formatCurrency(grossProfit.current)}
-Operating Expenses:      ${formatCurrency(totalOperatingExpenses.current)}
-Operating Profit (EBIT): ${formatCurrency(operatingProfit.current)}
-Financial Expenses:      ${formatCurrency(totalFinancialExpenses.current)}
-Net Profit:              ${formatCurrency(netProfit.current)}
-
-PROFITABILITY RATIOS
-═══════════════════════════════════════════
-
-Gross Profit Margin:     ${((grossProfit.current / totalRevenue.current) * 100).toFixed(2)}%
-Operating Profit Margin: ${((operatingProfit.current / totalRevenue.current) * 100).toFixed(2)}%
-Net Profit Margin:       ${((netProfit.current / totalRevenue.current) * 100).toFixed(2)}%
-
-DETAILED BREAKDOWN
-═══════════════════════════════════════════
-
-Revenue:
-  - Domestic Sales:      ${formatCurrency(plData.revenue.domesticSales.current)}
-  - Export Sales:        ${formatCurrency(plData.revenue.exportSales.current)}
-  - Other Income:        ${formatCurrency(plData.revenue.otherIncome.current)}
-
-Cost of Goods Sold:
-  - Raw Materials:       ${formatCurrency(plData.cogs.rawMaterials.current)}
-  - Direct Labor:        ${formatCurrency(plData.cogs.directLabor.current)}
-  - Manufacturing OH:    ${formatCurrency(plData.cogs.manufacturingOverhead.current)}
-
-Operating Expenses:
-  - Administrative:      ${formatCurrency(calculateTotal(plData.operatingExpenses.administrative).current)}
-  - Selling:             ${formatCurrency(calculateTotal(plData.operatingExpenses.selling).current)}
-
-Financial Expenses:
-  - Interest Expense:    ${formatCurrency(plData.financialExpenses.interestExpense.current)}
-  - Bank Charges:        ${formatCurrency(plData.financialExpenses.bankCharges.current)}
-  - Depreciation:        ${formatCurrency(plData.financialExpenses.depreciation.current)}
-
-${showComparison ? `
-PERIOD COMPARISON
-═══════════════════════════════════════════
-
-Revenue Change:          ${formatCurrency(totalRevenue.current - totalRevenue.previous)} (${calculateChange(totalRevenue.current, totalRevenue.previous).toFixed(1)}%)
-Gross Profit Change:     ${formatCurrency(grossProfit.current - grossProfit.previous)} (${calculateChange(grossProfit.current, grossProfit.previous).toFixed(1)}%)
-Operating Profit Change: ${formatCurrency(operatingProfit.current - operatingProfit.previous)} (${calculateChange(operatingProfit.current, operatingProfit.previous).toFixed(1)}%)
-Net Profit Change:       ${formatCurrency(netProfit.current - netProfit.previous)} (${calculateChange(netProfit.current, netProfit.previous).toFixed(1)}%)
-` : ''}
-
-═══════════════════════════════════════════
-Report generated by B3 Manufacturing ERP
-Confidential - For authorized use only
-═══════════════════════════════════════════
-      `;
-
-      // Create blob and download
-      const blob = new Blob([pdfContent], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      // Show detailed success message
-      setTimeout(() => {
-        alert(
-          `✅ PDF EXPORT SUCCESSFUL!\n\n` +
-          `File Details:\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `📄 Filename: ${filename}\n` +
-          `📊 Report Type: Profit & Loss Statement\n` +
-          `📅 Period: October 2025 (${period})\n` +
-          `💰 Net Profit: ${formatCurrency(netProfit.current)}\n` +
-          `📈 Net Margin: ${((netProfit.current / totalRevenue.current) * 100).toFixed(2)}%\n\n` +
-          `Export Contents:\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `✓ Complete financial statement\n` +
-          `✓ Revenue breakdown (Domestic, Export, Other)\n` +
-          `✓ Cost of Goods Sold details\n` +
-          `✓ Operating expenses analysis\n` +
-          `✓ Financial expenses summary\n` +
-          `✓ Profitability ratios\n` +
-          `${showComparison ? '✓ Period-over-period comparison\n' : ''}\n` +
-          `✓ Key performance indicators\n` +
-          `✓ Management summary\n\n` +
-          `File Location:\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `The PDF has been downloaded to your default downloads folder.\n\n` +
-          `Next Steps:\n` +
-          `• Review the financial data\n` +
-          `• Share with stakeholders\n` +
-          `• Archive for compliance\n` +
-          `• Present in management meetings\n\n` +
-          `📁 Check your Downloads folder for the file.`
-        );
-      }, 500);
-
+      const range = resolvePeriodRange(period);
+      const blob = await FinancialReportsService.exportToPdf('profit-loss', {
+        startDate: range.startDate,
+        endDate: range.endDate,
+        comparePeriod: showComparison,
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadBlob(blob, `Profit_Loss_Statement_${period}_${dateStr}.pdf`);
+      toast({ title: 'Export complete', description: 'Profit & Loss PDF downloaded.', variant: 'success' });
     } catch (error) {
       console.error('Export error:', error);
-      alert(
-        `❌ PDF EXPORT ERROR\n\n` +
-        `Failed to generate PDF export.\n` +
-        `Error: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
-        `Troubleshooting:\n` +
-        `• Check browser permissions\n` +
-        `• Ensure sufficient disk space\n` +
-        `• Verify popup blockers are disabled\n` +
-        `• Try exporting again\n\n` +
-        `If the issue persists, please contact support.`
-      );
+      toast({
+        title: 'PDF export failed',
+        description: error instanceof Error ? error.message : 'Unable to generate PDF',
+        variant: 'destructive',
+      });
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // Handler for Export Excel button - fetches a real spreadsheet from the reports service.
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const range = resolvePeriodRange(period);
+      const blob = await FinancialReportsService.exportToExcel('profit-loss', {
+        startDate: range.startDate,
+        endDate: range.endDate,
+        comparePeriod: showComparison,
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadBlob(blob, `Profit_Loss_Statement_${period}_${dateStr}.xlsx`);
+      toast({ title: 'Export complete', description: 'Profit & Loss spreadsheet downloaded.', variant: 'success' });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: 'Excel export failed',
+        description: error instanceof Error ? error.message : 'Unable to generate spreadsheet',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExportingExcel(false);
     }
   };
 
@@ -697,8 +477,28 @@ Confidential - For authorized use only
               <Download className={`w-5 h-5 ${isExporting ? 'animate-bounce' : ''}`} />
               <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
             </button>
+            <button
+              onClick={handleExportExcel}
+              disabled={isExportingExcel}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white transition-colors ${
+                isExportingExcel
+                  ? 'bg-green-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+              }`}
+            >
+              <Download className={`w-5 h-5 ${isExportingExcel ? 'animate-bounce' : ''}`} />
+              <span>{isExportingExcel ? 'Exporting...' : 'Export Excel'}</span>
+            </button>
           </div>
         </div>
+
+        {/* Load error banner (data fetch failed) */}
+        {loadError && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <ArrowDownRight className="w-4 h-4 shrink-0" />
+            <span>Failed to load live report data: {loadError}. Showing last available figures.</span>
+          </div>
+        )}
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">

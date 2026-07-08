@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { inventoryService } from '@/services/InventoryService';
 import {
   CheckCircle,
@@ -18,6 +18,7 @@ import {
 
 interface ApprovalItem {
   id: number;
+  backendId?: string;
   adjustmentNumber: string;
   submittedDate: string;
   submittedBy: string;
@@ -39,100 +40,64 @@ export default function AdjustmentApprovalsPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('pending');
 
-  const [approvals, setApprovals] = useState<ApprovalItem[]>([
-    {
-      id: 1,
-      adjustmentNumber: 'ADJ-2025-002',
-      submittedDate: '2025-01-17',
-      submittedBy: 'Sarah Johnson',
-      warehouse: 'Assembly Plant',
-      adjustmentType: 'write-off',
-      itemsCount: 3,
-      valueImpact: 45000,
-      impactType: 'decrease',
-      reason: 'Damaged Goods',
-      priority: 'high',
-      status: 'pending'
-    },
-    {
-      id: 2,
-      adjustmentNumber: 'ADJ-2025-005',
-      submittedDate: '2025-01-20',
-      submittedBy: 'Mike Davis',
-      warehouse: 'Assembly Plant',
-      adjustmentType: 'write-off',
-      itemsCount: 6,
-      valueImpact: 32000,
-      impactType: 'decrease',
-      reason: 'Obsolete Inventory',
-      priority: 'medium',
-      status: 'under-review',
-      approver: 'Emily Chen',
-      reviewDate: '2025-01-21'
-    },
-    {
-      id: 3,
-      adjustmentNumber: 'ADJ-2025-007',
-      submittedDate: '2025-01-21',
-      submittedBy: 'Robert Lee',
-      warehouse: 'Main Warehouse',
-      adjustmentType: 'quantity',
-      itemsCount: 4,
-      valueImpact: 28000,
-      impactType: 'increase',
-      reason: 'Cycle Count Adjustment',
-      priority: 'low',
-      status: 'pending'
-    },
-    {
-      id: 4,
-      adjustmentNumber: 'ADJ-2025-008',
-      submittedDate: '2025-01-21',
-      submittedBy: 'John Smith',
-      warehouse: 'FG Store',
-      adjustmentType: 'value',
-      itemsCount: 7,
-      valueImpact: 52000,
-      impactType: 'decrease',
-      reason: 'Market Price Correction',
-      priority: 'high',
-      status: 'pending'
-    },
-    {
-      id: 5,
-      adjustmentNumber: 'ADJ-2025-001',
-      submittedDate: '2025-01-15',
-      submittedBy: 'John Smith',
-      warehouse: 'Main Warehouse',
-      adjustmentType: 'quantity',
-      itemsCount: 5,
-      valueImpact: 25000,
-      impactType: 'increase',
-      reason: 'Physical Count Variance',
-      priority: 'medium',
-      status: 'approved',
-      approver: 'Mike Davis',
-      reviewDate: '2025-01-16',
-      comments: 'Verified against physical count records. Approved.'
-    },
-    {
-      id: 6,
-      adjustmentNumber: 'ADJ-2025-006',
-      submittedDate: '2025-01-20',
-      submittedBy: 'Sarah Johnson',
-      warehouse: 'FG Store',
-      adjustmentType: 'quantity',
-      itemsCount: 4,
-      valueImpact: 8500,
-      impactType: 'increase',
-      reason: 'Cycle Count Adjustment',
-      priority: 'low',
-      status: 'rejected',
-      approver: 'Emily Chen',
-      reviewDate: '2025-01-20',
-      comments: 'Insufficient documentation. Please provide cycle count report.'
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actioningId, setActioningId] = useState<number | null>(null);
+
+  const loadApprovals = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await inventoryService.getStockAdjustments()) as any[];
+      const typeMap: Record<string, ApprovalItem['adjustmentType']> = {
+        Quantity: 'quantity', QUANTITY: 'quantity', 'Physical Inventory': 'quantity', 'Cycle Count': 'quantity',
+        Value: 'value', VALUE: 'value', Revaluation: 'value',
+        WriteOff: 'write-off', 'Write-Off': 'write-off', 'Write Off': 'write-off', WRITE_OFF: 'write-off', Damage: 'write-off',
+      };
+      const statusMap: Record<string, ApprovalItem['status']> = {
+        PendingApproval: 'pending', PENDING_APPROVAL: 'pending', Pending: 'pending', Submitted: 'pending',
+        UnderReview: 'under-review', 'Under Review': 'under-review',
+        Approved: 'approved', APPROVED: 'approved', Posted: 'approved',
+        Rejected: 'rejected', REJECTED: 'rejected',
+      };
+      const toDate = (d: any): string => (d ? String(d).split('T')[0] : '');
+      const mapped: ApprovalItem[] = raw
+        .map((a, idx) => {
+          const total = Number(a.totalAdjustmentValue ?? 0);
+          const status = statusMap[a.status] ?? 'pending';
+          return {
+            id: idx + 1,
+            backendId: a.id != null ? String(a.id) : undefined,
+            adjustmentNumber: a.adjustmentNumber ?? '',
+            submittedDate: toDate(a.submittedAt ?? a.adjustmentDate),
+            submittedBy: a.submittedByName ?? a.createdByName ?? a.createdBy ?? '-',
+            warehouse: a.warehouseName ?? a.warehouseId ?? '-',
+            adjustmentType: typeMap[a.adjustmentType] ?? 'quantity',
+            itemsCount: Number(a.itemsCount ?? (Array.isArray(a.lines) ? a.lines.length : Array.isArray(a.items) ? a.items.length : 0)),
+            valueImpact: Math.abs(total),
+            impactType: total < 0 ? 'decrease' : 'increase',
+            reason: a.referenceType ?? a.approvalRemarks ?? '-',
+            priority: (Math.abs(total) >= 50000 ? 'high' : Math.abs(total) >= 20000 ? 'medium' : 'low') as ApprovalItem['priority'],
+            status,
+            approver: a.approvedByName ?? undefined,
+            reviewDate: toDate(a.approvedAt) || undefined,
+            comments: a.approvalRemarks ?? undefined,
+          };
+        });
+      setApprovals(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load adjustment approvals');
+      setApprovals([]);
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadApprovals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -178,30 +143,39 @@ export default function AdjustmentApprovalsPage() {
   const handleApprove = async (id: number) => {
     const target = approvals.find(a => a.id === id);
     if (!target) return;
+    if (!target.backendId) {
+      alert('Cannot approve: missing adjustment identifier.');
+      return;
+    }
+    if (actioningId !== null) return;
+    setActioningId(id);
     try {
-      await inventoryService.approveStockAdjustment(target.adjustmentNumber);
-      setApprovals(approvals.map(approval =>
-        approval.id === id
-          ? { ...approval, status: 'approved' as const, approver: 'Current User', reviewDate: new Date().toISOString().split('T')[0] }
-          : approval
-      ));
+      await inventoryService.approveStockAdjustment(target.backendId);
+      await loadApprovals();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to approve adjustment.');
+    } finally {
+      setActioningId(null);
     }
   };
 
   const handleReject = async (id: number) => {
     const target = approvals.find(a => a.id === id);
     if (!target) return;
+    if (!target.backendId) {
+      alert('Cannot reject: missing adjustment identifier.');
+      return;
+    }
+    if (actioningId !== null) return;
+    const reason = window.prompt('Reason for rejection (optional):') ?? undefined;
+    setActioningId(id);
     try {
-      await inventoryService.rejectStockAdjustment(target.adjustmentNumber);
-      setApprovals(approvals.map(approval =>
-        approval.id === id
-          ? { ...approval, status: 'rejected' as const, approver: 'Current User', reviewDate: new Date().toISOString().split('T')[0] }
-          : approval
-      ));
+      await inventoryService.rejectStockAdjustment(target.backendId, reason);
+      await loadApprovals();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to reject adjustment.');
+    } finally {
+      setActioningId(null);
     }
   };
 
@@ -230,6 +204,24 @@ export default function AdjustmentApprovalsPage() {
           <p className="text-gray-600 mt-1">Review and approve inventory adjustments</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading adjustment approvals…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && approvals.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No adjustments awaiting review.
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -387,14 +379,16 @@ export default function AdjustmentApprovalsPage() {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleApprove(approval.id)}
-                          className="text-green-600 hover:text-green-800 flex items-center space-x-1"
+                          disabled={actioningId !== null}
+                          className="text-green-600 hover:text-green-800 flex items-center space-x-1 disabled:opacity-50"
                         >
                           <CheckCircle className="w-4 h-4" />
                           <span>Approve</span>
                         </button>
                         <button
                           onClick={() => handleReject(approval.id)}
-                          className="text-red-600 hover:text-red-800 flex items-center space-x-1"
+                          disabled={actioningId !== null}
+                          className="text-red-600 hover:text-red-800 flex items-center space-x-1 disabled:opacity-50"
                         >
                           <XCircle className="w-4 h-4" />
                           <span>Reject</span>

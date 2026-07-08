@@ -795,6 +795,47 @@ export class FinanceService {
     });
   }
 
+  // --------------------------------------------------------------------------
+  // Live bank-reconciliation endpoints (accounts module — /api/accounts/reconciliation)
+  // These back the reconciliation workbench page. Envelopes: { success, data }.
+  // --------------------------------------------------------------------------
+  static async getUnreconciledBankTransactions(bankAccountId: string): Promise<any[]> {
+    const res = await this.request<any>(
+      `/api/accounts/reconciliation/unreconciled/${bankAccountId}`,
+    );
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  static async autoMatchBankAccount(bankAccountId: string): Promise<{ matched: number }> {
+    const res = await this.request<any>(
+      `/api/accounts/reconciliation/auto-match/${bankAccountId}`,
+      { method: 'POST' },
+    );
+    const matched = res?.data?.matched ?? res?.matched ?? 0;
+    return { matched };
+  }
+
+  static async matchBankTransaction(data: {
+    transactionId: string;
+    journalEntryId: string;
+  }): Promise<any> {
+    return this.request('/api/accounts/reconciliation/match', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getReconciliationReport(
+    bankAccountId: string,
+    month?: string,
+  ): Promise<any> {
+    const q = month ? `?month=${encodeURIComponent(month)}` : '';
+    const res = await this.request<any>(
+      `/api/accounts/reconciliation/report/${bankAccountId}${q}`,
+    );
+    return res?.data ?? res;
+  }
+
   // Statutory Reporting
   static async getStatutoryComplianceReport(params: {
     companyId: string;
@@ -1160,6 +1201,10 @@ export class FinanceService {
     return this.request<any>(`/finance/invoices/${id}`);
   }
 
+  static async deleteInvoice(id: string): Promise<void> {
+    await this.request<void>(`/finance/invoices/${id}`, { method: 'DELETE' });
+  }
+
   // Payables (AP vendor accounts) list
   static async getPayables(filters?: {
     status?: string;
@@ -1197,6 +1242,14 @@ export class FinanceService {
     });
   }
 
+  // Receivables (AR customer accounts) create
+  static async createReceivable(data: any): Promise<any> {
+    return this.request<any>('/finance/receivables', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Receivables (AR customer accounts) detail pages
   static async getReceivable(id: string): Promise<any> {
     return this.request<any>(`/finance/receivables/${id}`);
@@ -1205,6 +1258,14 @@ export class FinanceService {
   static async updateReceivable(id: string, data: any): Promise<any> {
     return this.request<any>(`/finance/receivables/${id}`, {
       method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Payables (AP vendor accounts) create
+  static async createPayable(data: any): Promise<any> {
+    return this.request<any>('/finance/payables', {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }

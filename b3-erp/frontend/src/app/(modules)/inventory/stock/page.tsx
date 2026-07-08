@@ -45,6 +45,10 @@ export default function StockPage() {
   const router = useRouter();
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -66,6 +70,7 @@ export default function StockPage() {
   const fetchStockData = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const balances = await inventoryService.getStockBalances();
       const mappedItems: StockItem[] = balances.map((balance) => {
         let status: StockItem['status'] = 'in_stock';
@@ -92,6 +97,8 @@ export default function StockPage() {
       setStockItems(mappedItems);
     } catch (error) {
       console.error('Failed to fetch stock data:', error);
+      setLoadError(error instanceof Error ? error.message : 'Failed to load stock balances');
+      setStockItems([]);
     } finally {
       setLoading(false);
     }
@@ -131,6 +138,9 @@ export default function StockPage() {
   };
 
   const handleAddItemSubmit = async (data: AddStockItemData) => {
+    setIsSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
     try {
       await inventoryService.createStockEntry({
         entryType: 'Material Receipt',
@@ -148,11 +158,14 @@ export default function StockPage() {
           },
         ],
       });
+      setIsAddItemOpen(false);
+      setActionSuccess('Stock item added successfully.');
+      await fetchStockData(); // Refresh data
     } catch (err) {
       console.error('Failed to create stock item', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to add stock item.');
     } finally {
-      setIsAddItemOpen(false);
-      fetchStockData(); // Refresh data
+      setIsSubmitting(false);
     }
   };
 
@@ -162,6 +175,9 @@ export default function StockPage() {
   };
 
   const handleEditItemSubmit = async (data: Partial<AddStockItemData>) => {
+    setIsSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
     try {
       if (selectedItem?.id) {
         await inventoryService.updateStockBalance(selectedItem.id, {
@@ -171,11 +187,14 @@ export default function StockPage() {
           valuationRate: data.costPrice,
         });
       }
+      setIsEditItemOpen(false);
+      setActionSuccess('Stock item updated successfully.');
+      await fetchStockData(); // Refresh data
     } catch (err) {
       console.error('Failed to update stock item', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to update stock item.');
     } finally {
-      setIsEditItemOpen(false);
-      fetchStockData(); // Refresh data
+      setIsSubmitting(false);
     }
   };
 
@@ -185,6 +204,9 @@ export default function StockPage() {
   };
 
   const handleQuickAdjustSubmit = async (data: QuickAdjustmentData) => {
+    setIsSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
     try {
       if (selectedItem) {
         const current = selectedItem.currentStock ?? 0;
@@ -214,11 +236,14 @@ export default function StockPage() {
           ],
         });
       }
+      setIsQuickAdjustOpen(false);
+      setActionSuccess('Stock adjustment submitted successfully.');
+      await fetchStockData(); // Refresh data
     } catch (err) {
       console.error('Failed to adjust stock', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to adjust stock.');
     } finally {
-      setIsQuickAdjustOpen(false);
-      fetchStockData(); // Refresh data
+      setIsSubmitting(false);
     }
   };
 
@@ -275,6 +300,28 @@ export default function StockPage() {
 
   return (
     <div className="w-full h-full px-3 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-red-500 hover:text-red-700">×</button>
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+          <span>{actionSuccess}</span>
+          <button onClick={() => setActionSuccess(null)} className="text-green-500 hover:text-green-700">×</button>
+        </div>
+      )}
+      {isSubmitting && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Saving…
+        </div>
+      )}
       {/* Stats */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">

@@ -32,6 +32,9 @@ export default function ReplenishmentRulesPage() {
   const [rules, setRules] = useState<ReplenishmentRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [busyRuleId, setBusyRuleId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,18 +133,53 @@ export default function ReplenishmentRulesPage() {
     }
   };
 
-  const handleToggleActive = (ruleId: string) => {
-    alert(`Toggle rule ${ruleId} active status`);
-  };
-
-  const handleEditRule = (ruleId: string) => {
-    alert(`Edit rule ${ruleId}`);
-  };
-
-  const handleDeleteRule = (ruleId: string) => {
-    if (confirm('Are you sure you want to delete this replenishment rule?')) {
-      alert(`Delete rule ${ruleId}`);
+  // A "rule" here maps 1:1 to a reorder item. Toggle/Edit persist via the reorder
+  // parameters endpoint (PUT /inventory/reorder/items/:id/parameters).
+  const handleToggleActive = async (ruleId: string) => {
+    const rule = rules.find((r) => r.id === ruleId);
+    if (!rule) return;
+    const nextActive = !rule.isActive;
+    setBusyRuleId(ruleId);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await inventoryService.updateReorderParameters(ruleId, { isActive: nextActive });
+      setRules((prev) => prev.map((r) => (r.id === ruleId ? { ...r, isActive: nextActive } : r)));
+      setActionSuccess(`Rule ${nextActive ? 'activated' : 'deactivated'}.`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update rule status.');
+    } finally {
+      setBusyRuleId(null);
     }
+  };
+
+  // No dedicated edit form/modal exists; persist the rule's current parameters
+  // (lead time / safety stock) via the reorder parameters endpoint.
+  const handleEditRule = async (ruleId: string) => {
+    const rule = rules.find((r) => r.id === ruleId);
+    if (!rule) return;
+    setBusyRuleId(ruleId);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await inventoryService.updateReorderParameters(ruleId, {
+        leadTimeDays: rule.leadTimeDays,
+        safetyStockDays: rule.safetyStockDays,
+        autoApprove: rule.autoApprove,
+        priority: rule.priority,
+      });
+      setActionSuccess('Rule parameters saved.');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to save rule parameters.');
+    } finally {
+      setBusyRuleId(null);
+    }
+  };
+
+  // NEEDS BACKEND: no rule/reorder-item DELETE endpoint exists.
+  const handleDeleteRule = (_ruleId: string) => {
+    setActionSuccess(null);
+    setActionError('Deleting a replenishment rule is not yet supported — no backend endpoint exists.');
   };
 
   return (
@@ -154,6 +192,16 @@ export default function ReplenishmentRulesPage() {
       {isLoading && (
         <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
           Loading rules…
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+          {actionSuccess}
         </div>
       )}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -326,7 +374,8 @@ export default function ReplenishmentRulesPage() {
               <div className="flex gap-2 ml-4">
                 <button
                   onClick={() => handleToggleActive(rule.id)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={busyRuleId === rule.id}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                   title={rule.isActive ? 'Deactivate' : 'Activate'}
                 >
                   {rule.isActive ? (
@@ -337,15 +386,16 @@ export default function ReplenishmentRulesPage() {
                 </button>
                 <button
                   onClick={() => handleEditRule(rule.id)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                 
+                  disabled={busyRuleId === rule.id}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                  title="Save rule parameters"
                 >
                   <Edit className="w-5 h-5 text-blue-600" />
                 </button>
                 <button
                   onClick={() => handleDeleteRule(rule.id)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                 
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors opacity-50 cursor-not-allowed"
+                  title="Delete not supported (no backend endpoint)"
                 >
                   <Trash2 className="w-5 h-5 text-red-600" />
                 </button>
