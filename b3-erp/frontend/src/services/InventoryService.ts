@@ -317,6 +317,36 @@ class InventoryService {
         return (response as any)?.data ?? response;
     }
 
+    async createCycleCount(body: {
+        title: string;
+        scheduledDate: string;
+        warehouseId: string;
+        warehouseName?: string;
+        locationId?: string;
+        abcClass?: string;
+        itemGroups?: string[];
+        assignedTo?: string;
+        remarks?: string;
+    }): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/cycle-counts`, body);
+        return (response as any)?.data ?? response;
+    }
+
+    async startCycleCount(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/cycle-counts/${id}/start`, {});
+        return (response as any)?.data ?? response;
+    }
+
+    async saveCycleCountItems(id: string, results: { itemId: string; actualQty: number }[]): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/cycle-counts/${id}/items`, { results });
+        return (response as any)?.data ?? response;
+    }
+
+    async completeCycleCount(id: string, results?: { itemId: string; actualQty: number }[]): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/cycle-counts/${id}/complete`, { results: results ?? [] });
+        return (response as any)?.data ?? response;
+    }
+
     // ---- Derived analytics (GET /inventory/analytics/*) ----
     async getAgingItems(warehouseId?: string): Promise<any> {
         const params = new URLSearchParams();

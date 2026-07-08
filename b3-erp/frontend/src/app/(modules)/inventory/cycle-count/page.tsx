@@ -60,6 +60,7 @@ export default function CycleCountPage() {
 
   // Selected data
   const [selectedSession, setSelectedSession] = useState<CycleCountSession | null>(null);
+  const [selectedCount, setSelectedCount] = useState<CycleCount | null>(null);
   const [selectedVarianceAnalysis, setSelectedVarianceAnalysis] = useState<CycleCountVarianceAnalysis | null>(null);
 
   const [cycleCounts, setCycleCounts] = useState<CycleCount[]>([]);
@@ -296,24 +297,62 @@ export default function CycleCountPage() {
     };
   };
 
-  // Modal handlers
-  // NEEDS BACKEND: cycle-count is read-only. There is NO create-schedule /
-  // start-session / save-count / complete write endpoint. These handlers are
-  // wired to their (disabled) modals so the UI compiles, but they intentionally
-  // do NOT mutate local state to fake success against a non-existent endpoint.
-  const handleCreateSchedule = (_data: CycleCountSchedule) => {
-    // TODO(NEEDS BACKEND): POST /inventory/cycle-counts to persist a schedule.
-    setIsCreateScheduleModalOpen(false);
+  // Modal handlers — wired to the live cycle-count write endpoints
+  // (POST /inventory/cycle-counts, POST :id/start, PUT :id/items, POST :id/complete).
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleCreateSchedule = async (data: CycleCountSchedule) => {
+    setActionError(null);
+    try {
+      await inventoryService.createCycleCount({
+        title: data.scheduleName,
+        scheduledDate: data.startDate,
+        warehouseId: data.warehouse,
+        warehouseName: data.warehouse,
+        abcClass: data.countType === 'abc-class' ? (data.itemCategories?.[0] || undefined) : undefined,
+        itemGroups: data.zones,
+        assignedTo: data.assignedTo,
+      });
+      setIsCreateScheduleModalOpen(false);
+      await fetchCycleCounts();
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to create cycle count schedule.');
+    }
   };
 
-  const handleStartSession = (_data: CycleCountSession) => {
-    // TODO(NEEDS BACKEND): POST /inventory/cycle-counts/:id/start to begin a session.
-    setIsStartSessionModalOpen(false);
+  const handleStartSession = async (data: CycleCountSession) => {
+    setActionError(null);
+    // sessionId maps to the plan's countNumber — resolve the real plan id.
+    const plan = cycleCounts.find((c) => c.countNumber === data.sessionId);
+    if (!plan) { setActionError('Could not resolve the plan to start.'); return; }
+    try {
+      await inventoryService.startCycleCount(plan.id);
+      setIsStartSessionModalOpen(false);
+      await fetchCycleCounts();
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to start cycle count session.');
+    }
   };
 
-  const handleUpdateCount = (_itemId: string, _countedQuantity: number, _notes?: string) => {
-    // TODO(NEEDS BACKEND): PUT /inventory/cycle-counts/:id/items to persist counts.
-    setIsPerformCountModalOpen(false);
+  const handleUpdateCount = async (itemId: string, countedQuantity: number, _notes?: string) => {
+    setActionError(null);
+    if (!selectedCount) { setActionError('No active plan selected.'); return; }
+    try {
+      await inventoryService.saveCycleCountItems(selectedCount.id, [{ itemId, actualQty: countedQuantity }]);
+      await fetchCycleCounts();
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to save count.');
+    }
+  };
+
+  const handleCompleteReconcile = async (count: CycleCount) => {
+    setActionError(null);
+    try {
+      await inventoryService.completeCycleCount(count.id);
+      await fetchCycleCounts();
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to complete and reconcile.');
+    }
   };
 
   const handleViewDetails = async (count: CycleCount) => {
@@ -344,6 +383,7 @@ export default function CycleCountPage() {
   const handlePerformCount = async (count: CycleCount) => {
     const items = await loadSessionItems(count);
     const session = convertToSession(count, items);
+    setSelectedCount(count);
     setSelectedSession(session);
     setIsPerformCountModalOpen(true);
   };
@@ -364,12 +404,11 @@ export default function CycleCountPage() {
         </div>
         <div className="flex items-center space-x-3">
           {inProgressSession && (
-            // NEEDS BACKEND: no perform-count / save-count write endpoint exists.
             <button
               type="button"
-              disabled
-              title="Recording physical counts requires a backend endpoint that is not yet available."
-              className="px-4 py-2 bg-cyan-600 text-white rounded-lg flex items-center space-x-2 opacity-50 cursor-not-allowed"
+              onClick={() => handlePerformCount(inProgressSession)}
+              title="Record physical counts for the in-progress session"
+              className="px-4 py-2 bg-cyan-600 text-white rounded-lg flex items-center space-x-2 hover:bg-cyan-700"
             >
               <ClipboardList className="w-4 h-4" />
               <span>Perform Count</span>
@@ -387,30 +426,32 @@ export default function CycleCountPage() {
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
-          {/* NEEDS BACKEND: cycle-count write endpoints (start session /
-              schedule / perform-count / reconcile) do not exist yet — the
-              cycle-count API is read-only. Disabled to avoid fabricating
-              success against a non-existent endpoint. */}
           <button
             type="button"
-            disabled
-            title="Starting a cycle-count session requires a backend endpoint that is not yet available."
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center space-x-2 opacity-50 cursor-not-allowed"
+            onClick={() => setIsStartSessionModalOpen(true)}
+            title="Start a counting session for a scheduled plan"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center space-x-2 hover:bg-indigo-700"
           >
             <Play className="w-4 h-4" />
             <span>Start Session</span>
           </button>
           <button
             type="button"
-            disabled
-            title="Scheduling a cycle count requires a backend endpoint that is not yet available."
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 opacity-50 cursor-not-allowed"
+            onClick={() => setIsCreateScheduleModalOpen(true)}
+            title="Schedule a new cycle count"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
             <span>Schedule Count</span>
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -625,15 +666,46 @@ export default function CycleCountPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewDetails(count);
-                      }}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      View Details
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(count);
+                        }}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        View Details
+                      </button>
+                      {count.status === 'in-progress' && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handlePerformCount(count); }}
+                            className="text-cyan-600 hover:text-cyan-800"
+                          >
+                            Count
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCompleteReconcile(count); }}
+                            className="text-purple-600 hover:text-purple-800"
+                          >
+                            Complete
+                          </button>
+                        </>
+                      )}
+                      {count.status === 'scheduled' && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setActionError(null);
+                            try { await inventoryService.startCycleCount(count.id); await fetchCycleCounts(); }
+                            catch (err: any) { setActionError(err?.message || 'Failed to start.'); }
+                          }}
+                          className="text-indigo-600 hover:text-indigo-800"
+                        >
+                          Start
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
