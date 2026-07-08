@@ -42,6 +42,7 @@ export default function Page() {
   const [rows, setRows] = useState<Feedback[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -87,13 +88,40 @@ export default function Page() {
     setShowRequestModal(true);
   };
 
-  const handleSubmitRequest = (e: React.FormEvent) => {
+  const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Feedback Request Sent",
-      description: `Feedback request has been sent to ${requestFormData.feedbackFrom} for ${requestFormData.employeeName}.`
-    });
-    setShowRequestModal(false);
+    setIsSubmitting(true);
+    try {
+      await HrTalentService.createProbation(
+        {
+          employeeCode: requestFormData.employeeCode,
+          employeeName: requestFormData.employeeName,
+          feedbackFrom: requestFormData.feedbackFrom,
+          feedbackType: requestFormData.feedbackType,
+          dueDate: requestFormData.dueDate,
+          message: requestFormData.message,
+          status: 'requested',
+        },
+        {
+          recordType: 'feedback',
+          employeeCode: requestFormData.employeeCode,
+          status: 'requested',
+        },
+      );
+      toast({
+        title: "Feedback Request Sent",
+        description: `Feedback request has been sent to ${requestFormData.feedbackFrom} for ${requestFormData.employeeName}.`
+      });
+      setShowRequestModal(false);
+    } catch (err) {
+      toast({
+        title: "Request Failed",
+        description: err instanceof Error ? err.message : 'Could not send the feedback request',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -393,10 +421,11 @@ export default function Page() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   <Send className="h-4 w-4" />
-                  Send Request
+                  {isSubmitting ? 'Sending…' : 'Send Request'}
                 </button>
               </div>
             </form>

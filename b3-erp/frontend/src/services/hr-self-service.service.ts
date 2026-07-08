@@ -324,4 +324,9 @@ export class HrSelfServiceService {
   static getTrainingPrograms(filters?: { category?: string; status?: string }) {
     return list<TrainingProgram>(`/hr/training-programs${qs({ ...filters })}`);
   }
+  // Reimbursement / expense-claim status transitions (approve/reject/process/pay)
+  // are applied via PUT — the controller has no dedicated action routes.
+  static updateExpenseClaim(id: string, payload: Partial<ExpenseClaim>) {
+    return putJson<ExpenseClaim>(`/hr/expense-claims/${id}`, payload);
+  }
 }

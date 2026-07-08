@@ -37,6 +37,7 @@ export default function Page() {
   const [rows, setRows] = useState<SettlementReimbursement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,11 +132,28 @@ export default function Page() {
     setShowDetailsModal(true);
   };
 
-  const handleApproveSettlement = (claim: SettlementReimbursement) => {
-    toast({
-      title: "Settlement Approved",
-      description: `Settlement for claim ${claim.claimNumber} has been approved`
-    });
+  const handleApproveSettlement = async (claim: SettlementReimbursement) => {
+    setIsSubmitting(true);
+    try {
+      await HrSelfServiceService.updateExpenseClaim(claim.id, {
+        status: 'processing',
+        netPayable: claim.netPayable,
+        approvedDate: new Date().toISOString(),
+      });
+      toast({
+        title: "Settlement Approved",
+        description: `Settlement for claim ${claim.claimNumber} has been approved`
+      });
+      setRows((prev) => prev.filter((r) => r.id !== claim.id));
+    } catch (err) {
+      toast({
+        title: "Settlement Failed",
+        description: err instanceof Error ? err.message : 'Could not approve the settlement',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleExportToExcel = () => {
@@ -646,9 +664,10 @@ export default function Page() {
                   handleApproveSettlement(selectedClaim);
                   setShowDetailsModal(false);
                 }}
-                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                disabled={isSubmitting}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-60"
               >
-                Approve Settlement
+                {isSubmitting ? 'Approving…' : 'Approve Settlement'}
               </button>
               <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
                 <Download className="h-4 w-4" />

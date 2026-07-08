@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Save, BookOpen, Users, Clock, Trash2, Layout } from 'lucide-react';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface Module {
   id: string;
@@ -30,6 +29,8 @@ export default function CreateProgramPage() {
     duration: '',
     type: 'video'
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAddModule = () => {
     if (!newModule.title || !newModule.duration) return;
@@ -49,19 +50,21 @@ export default function CreateProgramPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
+    setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/hr/training-programs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          companyId: 'default-company-id'
-        })
+      await HrPagesService.createTrainingProgram({
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        mode: formData.type,
+        department: formData.audienceMap.join(', '),
+        status: 'active',
       });
-      if (!res.ok) throw new Error('Request failed');
       router.back();
-    } catch {
-      alert('Failed to save. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+      setSubmitting(false);
     }
   };
 
@@ -229,12 +232,18 @@ export default function CreateProgramPage() {
             </div>
           </div>
 
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
           <button
             type="submit"
-            className="w-full py-3 bg-purple-600 text-white font-medium rounded-xl hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-200"
+            disabled={submitting}
+            className="w-full py-3 bg-purple-600 text-white font-medium rounded-xl hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-200 disabled:opacity-60"
           >
             <Save className="h-5 w-5" />
-            Create Program
+            {submitting ? 'Creating…' : 'Create Program'}
           </button>
         </div>
       </form>

@@ -217,8 +217,42 @@ export class HrPagesService {
     });
   }
 
+  // ---- Training mutations (create/update) --------------------------------
+  static createTrainingProgram<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/training-programs', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+  static createTrainingEnrollment<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/training-enrollments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+  static updateTrainingEnrollment<T = any>(id: string, payload: Record<string, unknown>): Promise<T> {
+    return request<T>(`/hr/training-enrollments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+  static createSkillAssessment<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/skill-assessments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   /** Generic escape hatch for one-off endpoints. */
   static get<T = any[]>(path: string): Promise<T> {
     return request<T>(path.startsWith('/') ? path : `/${path}`);
+  }
+
+  // ---- Performance review mutations (create) -----------------------------
+  static createPerformanceReview<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/performance-reviews', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 }

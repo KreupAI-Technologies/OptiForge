@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import { useRouter } from 'next/navigation';
 import { Receipt, Upload, Plus, X, CreditCard, Wallet, Calendar, MapPin, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
@@ -54,6 +55,8 @@ export default function Page() {
 
   const [advanceAmount, setAdvanceAmount] = useState(15000);
   const [advanceUsed, setAdvanceUsed] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const totalExpenses = expenseItems.reduce((sum, item) => sum + item.amount, 0);
   const cashExpenses = expenseItems.filter(e => e.paymentMode === 'cash').reduce((sum, e) => sum + e.amount, 0);
@@ -123,12 +126,55 @@ export default function Page() {
     });
   };
 
-  const handleSubmitExpenses = () => {
-    toast({
-      title: "Expenses Submitted",
-      description: "Your travel expenses have been submitted for approval"
-    });
-    router.push('/hr/travel/expenses');
+  const handleSubmitExpenses = async () => {
+    if (expenseItems.length === 0) {
+      toast({ title: 'No expenses to submit', description: 'Add at least one expense item first.', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await HrExpensesService.createExpenseClaim({
+        kind: 'travel',
+        travelRequestId,
+        amount: totalExpenses,
+        advanceAmount,
+        cardExpenses,
+        netPayable,
+        itemsCount: expenseItems.length,
+        status: 'pending',
+        submittedDate: new Date().toISOString().split('T')[0],
+        items: expenseItems,
+      });
+      toast({ title: 'Expenses Submitted', description: 'Your travel expenses have been submitted for approval' });
+      router.push('/hr/travel/expenses');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit expenses.');
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await HrExpensesService.createExpenseClaim({
+        kind: 'travel',
+        travelRequestId,
+        amount: totalExpenses,
+        advanceAmount,
+        cardExpenses,
+        netPayable,
+        itemsCount: expenseItems.length,
+        status: 'draft',
+        items: expenseItems,
+      });
+      toast({ title: 'Draft Saved', description: 'Your travel expense claim has been saved as a draft' });
+      router.push('/hr/travel/expenses');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save draft.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -326,22 +372,32 @@ export default function Page() {
         </div>
       </div>
 
+      {submitError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</div>
+      )}
+
       {/* Submit Buttons */}
       <div className="flex gap-3">
         <button
           onClick={() => router.back()}
-          className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+          disabled={submitting}
+          className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium disabled:opacity-50"
         >
           Cancel
         </button>
-        <button className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium">
+        <button
+          onClick={handleSaveDraft}
+          disabled={submitting}
+          className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium disabled:opacity-60"
+        >
           Save as Draft
         </button>
         <button
           onClick={handleSubmitExpenses}
-          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+          disabled={submitting}
+          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
         >
-          Submit for Approval
+          {submitting ? 'Submitting…' : 'Submit for Approval'}
         </button>
       </div>
 

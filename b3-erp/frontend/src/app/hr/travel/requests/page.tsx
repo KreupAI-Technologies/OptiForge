@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plane, MapPin, Calendar, IndianRupee, Users, Clock, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/hooks/use-toast';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 
 interface TravelRequest {
   id: string;
@@ -38,66 +39,93 @@ export default function Page() {
   const [requests, setRequests] = useState<TravelRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrSelfServiceService.getTravelRequests();
+      const mapped: TravelRequest[] = raw.map((r) => ({
+        id: r.id,
+        requestNumber: r.requestNumber ?? '',
+        employeeCode: r.employeeCode ?? '',
+        employeeName: r.employeeName ?? '',
+        department: r.department ?? '',
+        designation: r.designation ?? '',
+        travelType: (r.travelType as TravelRequest['travelType']) ?? 'domestic',
+        purpose: r.purpose ?? '',
+        fromLocation: r.fromLocation ?? '',
+        toLocation: r.toLocation ?? '',
+        startDate: r.startDate ?? '',
+        endDate: r.endDate ?? '',
+        duration: Number(r.duration ?? 0),
+        estimatedCost: Number(r.estimatedCost ?? 0),
+        transportMode: 'flight',
+        accommodation: false,
+        advanceRequired: Number(r.advanceAmount ?? 0) > 0,
+        advanceAmount: r.advanceAmount != null ? Number(r.advanceAmount) : undefined,
+        status: (r.status as TravelRequest['status']) ?? 'pending',
+        submittedDate: r.submittedDate ?? undefined,
+        approver: r.approver ?? undefined,
+        approvedDate: r.approvedDate ?? undefined,
+        rejectionReason: r.rejectionReason ?? undefined,
+      }));
+      setRequests(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load travel requests');
+      setRequests([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrSelfServiceService.getTravelRequests();
-        const mapped: TravelRequest[] = raw.map((r) => ({
-          id: r.id,
-          requestNumber: r.requestNumber ?? '',
-          employeeCode: r.employeeCode ?? '',
-          employeeName: r.employeeName ?? '',
-          department: r.department ?? '',
-          designation: r.designation ?? '',
-          travelType: (r.travelType as TravelRequest['travelType']) ?? 'domestic',
-          purpose: r.purpose ?? '',
-          fromLocation: r.fromLocation ?? '',
-          toLocation: r.toLocation ?? '',
-          startDate: r.startDate ?? '',
-          endDate: r.endDate ?? '',
-          duration: Number(r.duration ?? 0),
-          estimatedCost: Number(r.estimatedCost ?? 0),
-          transportMode: 'flight',
-          accommodation: false,
-          advanceRequired: Number(r.advanceAmount ?? 0) > 0,
-          advanceAmount: r.advanceAmount != null ? Number(r.advanceAmount) : undefined,
-          status: (r.status as TravelRequest['status']) ?? 'pending',
-          submittedDate: r.submittedDate ?? undefined,
-          approver: r.approver ?? undefined,
-          approvedDate: r.approvedDate ?? undefined,
-          rejectionReason: r.rejectionReason ?? undefined,
-        }));
-        if (!cancelled) setRequests(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load travel requests');
-          setRequests([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mockRequests: TravelRequest[] = requests;
+  const handleSubmitRequest = async () => {
+    const fd = formRef.current ? new FormData(formRef.current) : null;
+    const val = (k: string) => (fd?.get(k)?.toString() ?? '');
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await HrExpensesService.createTravelRequest({
+        travelType: val('travelType') || 'domestic',
+        purpose: val('purpose'),
+        fromLocation: val('fromLocation'),
+        toLocation: val('toLocation'),
+        startDate: val('startDate'),
+        endDate: val('endDate'),
+        estimatedCost: Number(val('estimatedCost') || 0),
+        advanceAmount: Number(val('advanceAmount') || 0),
+        status: 'pending',
+        submittedDate: new Date().toISOString().split('T')[0],
+      });
+      toast({ title: 'Request Submitted', description: 'Your travel request has been submitted for approval' });
+      setShowAddModal(false);
+      formRef.current?.reset();
+      await load();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to submit request.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const filteredRequests = mockRequests.filter(r =>
+  const filteredRequests = requests.filter(r =>
     selectedStatus === 'all' || r.status === selectedStatus
   );
 
   const stats = {
-    total: mockRequests.length,
-    pending: mockRequests.filter(r => r.status === 'pending').length,
-    approved: mockRequests.filter(r => r.status === 'approved').length,
-    rejected: mockRequests.filter(r => r.status === 'rejected').length,
-    totalBudget: mockRequests.filter(r => r.status !== 'rejected').reduce((sum, r) => sum + r.estimatedCost, 0)
+    total: requests.length,
+    pending: requests.filter(r => r.status === 'pending').length,
+    approved: requests.filter(r => r.status === 'approved').length,
+    rejected: requests.filter(r => r.status === 'rejected').length,
+    totalBudget: requests.filter(r => r.status !== 'rejected').reduce((sum, r) => sum + r.estimatedCost, 0)
   };
 
   const statusColors = {
@@ -337,7 +365,10 @@ export default function Page() {
             </div>
 
             <div className="p-6">
-              <form className="space-y-3">
+              {saveError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>
+              )}
+              <form ref={formRef} className="space-y-3" onSubmit={(e) => { e.preventDefault(); handleSubmitRequest(); }}>
                 {/* Travel Type */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Travel Type</label>
@@ -357,6 +388,7 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Purpose of Travel</label>
                   <textarea
+                    name="purpose"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Describe the purpose of your travel..."
@@ -368,6 +400,7 @@ export default function Page() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">From Location</label>
                     <input
+                      name="fromLocation"
                       type="text"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Starting location"
@@ -376,6 +409,7 @@ export default function Page() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">To Location</label>
                     <input
+                      name="toLocation"
                       type="text"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Destination"
@@ -388,6 +422,7 @@ export default function Page() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
                     <input
+                      name="startDate"
                       type="date"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
@@ -395,6 +430,7 @@ export default function Page() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
                     <input
+                      name="endDate"
                       type="date"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
@@ -404,7 +440,7 @@ export default function Page() {
                 {/* Transport Mode */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Transport Mode</label>
-                  <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select name="transportMode" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="flight">Flight</option>
                     <option value="train">Train</option>
                     <option value="bus">Bus</option>
@@ -417,6 +453,7 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Estimated Cost (₹)</label>
                   <input
+                    name="estimatedCost"
                     type="number"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0"
@@ -426,11 +463,11 @@ export default function Page() {
                 {/* Additional Options */}
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" />
+                    <input name="accommodation" type="checkbox" className="w-4 h-4 text-blue-600 rounded" />
                     <span className="text-sm text-gray-700">Accommodation Required</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" />
+                    <input name="advanceRequired" type="checkbox" className="w-4 h-4 text-blue-600 rounded" />
                     <span className="text-sm text-gray-700">Advance Required</span>
                   </label>
                 </div>
@@ -439,6 +476,7 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Advance Amount (₹)</label>
                   <input
+                    name="advanceAmount"
                     type="number"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0"
@@ -449,6 +487,7 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Additional Notes</label>
                   <textarea
+                    name="notes"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Any additional information..."
@@ -460,21 +499,17 @@ export default function Page() {
             <div className="p-6 border-t border-gray-200 flex justify-end gap-3 sticky bottom-0 bg-white">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                disabled={saving}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  toast({
-                    title: "Request Submitted",
-                    description: "Your travel request has been submitted for approval"
-                  });
-                  setShowAddModal(false);
-                }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                onClick={handleSubmitRequest}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
               >
-                Submit Request
+                {saving ? 'Submitting…' : 'Submit Request'}
               </button>
             </div>
           </div>

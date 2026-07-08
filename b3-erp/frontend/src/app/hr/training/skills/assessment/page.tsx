@@ -38,57 +38,89 @@ interface Assessment {
 export default function AssessmentPage() {
   const [showNewAssessmentModal, setShowNewAssessmentModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState('All Roles');
-  const [mockAssessments, setMockAssessments] = useState<Assessment[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    employeeName: '',
+    category: 'Technical',
+    skillName: '',
+    score: 3,
+    feedback: '',
+  });
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await HrPagesService.skillAssessments()) as any[];
+      const statusMap: Record<string, string> = {
+        completed: 'Completed',
+        in_review: 'In Review',
+        'in-review': 'In Review',
+        pending: 'In Review',
+        needs_improvement: 'Needs Improvement',
+        'needs-improvement': 'Needs Improvement',
+      };
+      const mapped: Assessment[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+        id: r.id ?? '',
+        employee: r.employeeName ?? '',
+        role: r.category ?? '',
+        skill: r.skillName ?? r.skillCode ?? '',
+        score: Number(r.score ?? 0),
+        date: r.assessmentDate ?? '',
+        status: statusMap[String(r.status ?? '').toLowerCase()] ?? (r.status ?? 'In Review'),
+        reviewer: r.assessor ?? 'Pending',
+      }));
+      setAssessments(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load assessments');
+      setAssessments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.skillAssessments()) as any[];
-        const statusMap: Record<string, string> = {
-          completed: 'Completed',
-          in_review: 'In Review',
-          'in-review': 'In Review',
-          pending: 'In Review',
-          needs_improvement: 'Needs Improvement',
-          'needs-improvement': 'Needs Improvement',
-        };
-        const mapped: Assessment[] = (Array.isArray(raw) ? raw : []).map((r) => ({
-          id: r.id ?? '',
-          employee: r.employeeName ?? '',
-          role: r.category ?? '',
-          skill: r.skillName ?? r.skillCode ?? '',
-          score: Number(r.score ?? 0),
-          date: r.assessmentDate ?? '',
-          status: statusMap[String(r.status ?? '').toLowerCase()] ?? (r.status ?? 'In Review'),
-          reviewer: r.assessor ?? 'Pending',
-        }));
-        if (!cancelled) setMockAssessments(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load assessments');
-          setMockAssessments([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const total = mockAssessments.length;
-  const pendingReviews = mockAssessments.filter((a) => a.status !== 'Completed').length;
+  const handleSubmitAssessment = async () => {
+    if (!form.employeeName || !form.skillName) {
+      setSubmitError('Please provide an employee and a skill.');
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await HrPagesService.createSkillAssessment({
+        employeeName: form.employeeName,
+        category: form.category,
+        skillName: form.skillName,
+        score: form.score,
+        feedback: form.feedback,
+        assessmentDate: new Date().toISOString().split('T')[0],
+        status: 'pending',
+      });
+      setShowNewAssessmentModal(false);
+      setForm({ employeeName: '', category: 'Technical', skillName: '', score: 3, feedback: '' });
+      await load();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save assessment.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const total = assessments.length;
+  const pendingReviews = assessments.filter((a) => a.status !== 'Completed').length;
   const avgScore = total > 0
-    ? (mockAssessments.reduce((sum, a) => sum + a.score, 0) / total).toFixed(1)
+    ? (assessments.reduce((sum, a) => sum + a.score, 0) / total).toFixed(1)
     : '0.0';
-  const certifiedPros = mockAssessments.filter((a) => a.status === 'Completed' && a.score >= 4).length;
+  const certifiedPros = assessments.filter((a) => a.status === 'Completed' && a.score >= 4).length;
 
   const assessmentStats = [
     { title: 'Total Assessments', value: String(total), change: '', icon: ClipboardCheck, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -98,10 +130,10 @@ export default function AssessmentPage() {
   ];
 
   const skillDistribution = [
-    { name: 'Beginner', value: mockAssessments.filter((a) => a.score < 2).length, color: '#94a3b8' },
-    { name: 'Intermediate', value: mockAssessments.filter((a) => a.score >= 2 && a.score < 3.5).length, color: '#60a5fa' },
-    { name: 'Advanced', value: mockAssessments.filter((a) => a.score >= 3.5 && a.score < 4.5).length, color: '#818cf8' },
-    { name: 'Expert', value: mockAssessments.filter((a) => a.score >= 4.5).length, color: '#a78bfa' },
+    { name: 'Beginner', value: assessments.filter((a) => a.score < 2).length, color: '#94a3b8' },
+    { name: 'Intermediate', value: assessments.filter((a) => a.score >= 2 && a.score < 3.5).length, color: '#60a5fa' },
+    { name: 'Advanced', value: assessments.filter((a) => a.score >= 3.5 && a.score < 4.5).length, color: '#818cf8' },
+    { name: 'Expert', value: assessments.filter((a) => a.score >= 4.5).length, color: '#a78bfa' },
   ];
 
   const getScoreColor = (score: number) => {
@@ -206,7 +238,7 @@ export default function AssessmentPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {mockAssessments.map((assessment) => (
+                {assessments.map((assessment) => (
                   <tr key={assessment.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-3">
@@ -313,18 +345,29 @@ export default function AssessmentPage() {
             </div>
 
             <div className="space-y-2">
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                <select className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500">
-                  <option>Select Employee...</option>
-                  <option>Sarah Johnson</option>
-                  <option>David Smith</option>
-                </select>
+                <input
+                  type="text"
+                  value={form.employeeName}
+                  onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="Employee name"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Skill Category</label>
-                <select className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500">
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                >
                   <option>Technical</option>
                   <option>Soft Skills</option>
                   <option>Leadership</option>
@@ -333,12 +376,26 @@ export default function AssessmentPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Specific Skill</label>
-                <input type="text" className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500" placeholder="e.g. React.js" />
+                <input
+                  type="text"
+                  value={form.skillName}
+                  onChange={(e) => setForm({ ...form, skillName: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="e.g. React.js"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Proficiency Score (1-5)</label>
-                <input type="range" min="1" max="5" step="0.5" className="w-full accent-purple-600" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Proficiency Score (1-5): {form.score}</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  step="0.5"
+                  value={form.score}
+                  onChange={(e) => setForm({ ...form, score: Number(e.target.value) })}
+                  className="w-full accent-purple-600"
+                />
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>1 (Novice)</span>
                   <span>5 (Expert)</span>
@@ -347,25 +404,29 @@ export default function AssessmentPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea rows={3} className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"></textarea>
+                <textarea
+                  rows={3}
+                  value={form.feedback}
+                  onChange={(e) => setForm({ ...form, feedback: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                ></textarea>
               </div>
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
               <button
                 onClick={() => setShowNewAssessmentModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                disabled={submitting}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('Assessment Saved!');
-                  setShowNewAssessmentModal(false);
-                }}
-                className="px-4 py-2 bg-purple-600 rounded-lg text-sm font-medium text-white hover:bg-purple-700"
+                onClick={handleSubmitAssessment}
+                disabled={submitting}
+                className="px-4 py-2 bg-purple-600 rounded-lg text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
               >
-                Submit Assessment
+                {submitting ? 'Saving…' : 'Submit Assessment'}
               </button>
             </div>
           </div>

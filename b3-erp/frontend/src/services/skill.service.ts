@@ -519,15 +519,10 @@ export class SkillService {
     if (USE_MOCK_DATA) {
       return createMockSkill();
     }
-    try {
-      return await this.request<Skill>('/hr/skills', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      console.warn('API error creating skill, using mock data:', error);
-      return createMockSkill();
-    }
+    return this.request<Skill>('/hr/skills', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async updateSkill(id: string, data: UpdateSkillDto): Promise<Skill> {
@@ -546,15 +541,10 @@ export class SkillService {
     if (USE_MOCK_DATA) {
       return updateMockSkill();
     }
-    try {
-      return await this.request<Skill>(`/hr/skills/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      console.warn('API error updating skill, using mock data:', error);
-      return updateMockSkill();
-    }
+    return this.request<Skill>(`/hr/skills/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   static async deleteSkill(id: string): Promise<void> {
@@ -568,14 +558,9 @@ export class SkillService {
       deleteMockSkill();
       return;
     }
-    try {
-      await this.request<void>(`/hr/skills/${id}`, {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      console.warn('API error deleting skill, using mock data:', error);
-      deleteMockSkill();
-    }
+    await this.request<void>(`/hr/skills/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Proficiency Level Methods

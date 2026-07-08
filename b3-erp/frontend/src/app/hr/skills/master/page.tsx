@@ -24,7 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { SkillService, MOCK_SKILLS, MOCK_SKILL_CATEGORIES } from '@/services/skill.service';
+import { SkillService } from '@/services/skill.service';
 import { Skill, SkillCategory, SkillStatus, SkillType } from '@/types/skill';
 
 const getIconComponent = (iconName?: string) => {
@@ -52,6 +52,9 @@ export default function SkillsMasterPage() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
   const [statistics, setStatistics] = useState<{
@@ -85,6 +88,7 @@ export default function SkillsMasterPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [skillsData, categoriesData, stats] = await Promise.all([
         SkillService.getAllSkills(),
@@ -96,6 +100,7 @@ export default function SkillsMasterPage() {
       setStatistics(stats);
     } catch (error) {
       console.error('Error loading skills:', error);
+      setLoadError(error instanceof Error ? error.message : 'Failed to load skills.');
     } finally {
       setLoading(false);
     }
@@ -140,15 +145,18 @@ export default function SkillsMasterPage() {
     if (confirm('Are you sure you want to delete this skill?')) {
       try {
         await SkillService.deleteSkill(skillId);
-        loadData();
+        await loadData();
       } catch (error) {
         console.error('Error deleting skill:', error);
+        alert(error instanceof Error ? error.message : 'Failed to delete skill.');
       }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
+    setFormError(null);
     try {
       const data = {
         ...formData,
@@ -175,10 +183,12 @@ export default function SkillsMasterPage() {
         tags: '',
         requiresCertification: false,
       });
-      loadData();
+      await loadData();
     } catch (error) {
       console.error('Error saving skill:', error);
-      alert('Error saving skill. Please try again.');
+      setFormError(error instanceof Error ? error.message : 'Error saving skill. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -204,6 +214,13 @@ export default function SkillsMasterPage() {
         </h1>
         <p className="text-gray-600 mt-2">Manage organizational skills and capabilities</p>
       </div>
+
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
+          <span>{loadError}</span>
+          <button onClick={loadData} className="underline font-medium hover:text-red-900">Retry</button>
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -485,6 +502,11 @@ export default function SkillsMasterPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6">
+              {formError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -613,20 +635,23 @@ export default function SkillsMasterPage() {
               <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
                 <button
                   type="button"
+                  disabled={submitting}
                   onClick={() => {
                     setShowAddModal(false);
                     setSelectedSkill(null);
+                    setFormError(null);
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors flex items-center gap-2"
+                  disabled={submitting}
+                  className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors flex items-center gap-2 disabled:opacity-60"
                 >
                   {selectedSkill ? <Edit className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                  {selectedSkill ? 'Update Skill' : 'Add Skill'}
+                  {submitting ? 'Saving…' : selectedSkill ? 'Update Skill' : 'Add Skill'}
                 </button>
               </div>
             </form>

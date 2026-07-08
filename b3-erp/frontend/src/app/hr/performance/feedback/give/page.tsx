@@ -3,6 +3,16 @@
 import { useState, useEffect } from 'react';
 import { MessageSquare, Send, Users, Search, ThumbsUp, AlertCircle, Lightbulb } from 'lucide-react';
 import { HrTalentService } from '@/services/hr-talent.service';
+import { toast } from '@/hooks/use-toast';
+
+interface GivenFeedback {
+  id: string;
+  employee: string;
+  type: string;
+  category: string;
+  date: string;
+  preview: string;
+}
 
 interface Employee {
   id: string;
@@ -24,6 +34,18 @@ export default function GiveFeedbackPage() {
   const [rows, setRows] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recentFeedback, setRecentFeedback] = useState<GivenFeedback[]>([]);
+
+  const loadRecentFeedback = async () => {
+    try {
+      const given = await HrTalentService.getPerformance<GivenFeedback>('feedback-given');
+      setRecentFeedback(Array.isArray(given) ? given : []);
+    } catch {
+      setRecentFeedback([]);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -38,6 +60,7 @@ export default function GiveFeedbackPage() {
       } finally {
         if (!cancelled) setIsLoading(false);
       }
+      await loadRecentFeedback();
     })();
     return () => { cancelled = true; };
   }, []);
@@ -53,19 +76,48 @@ export default function GiveFeedbackPage() {
     setSearchTerm('');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedEmployee || !category || !feedbackText.trim()) {
-      alert('Please fill all required fields');
+      toast({ title: 'Please fill all required fields', variant: 'destructive' });
       return;
     }
 
-    alert('Feedback submitted successfully!');
-    // Reset form
-    setSelectedEmployee(null);
-    setFeedbackType('positive');
-    setCategory('');
-    setFeedbackText('');
-    setIsAnonymous(false);
+    setIsSubmitting(true);
+    try {
+      await HrTalentService.createPerformance(
+        {
+          employee: selectedEmployee.name,
+          employeeCode: selectedEmployee.code,
+          type: feedbackType,
+          category,
+          preview: feedbackText.trim(),
+          feedbackText: feedbackText.trim(),
+          isAnonymous,
+          date: new Date().toISOString().split('T')[0],
+        },
+        {
+          recordType: 'feedback-given',
+          employeeCode: selectedEmployee.code,
+          status: 'submitted',
+        },
+      );
+      toast({ title: 'Feedback submitted successfully!' });
+      // Reset form
+      setSelectedEmployee(null);
+      setFeedbackType('positive');
+      setCategory('');
+      setFeedbackText('');
+      setIsAnonymous(false);
+      await loadRecentFeedback();
+    } catch (err) {
+      toast({
+        title: 'Failed to submit feedback',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getFeedbackTypeIcon = (type: string) => {
@@ -295,10 +347,11 @@ export default function GiveFeedbackPage() {
           <div className="flex gap-3 pt-4 border-t border-gray-200">
             <button
               onClick={handleSubmit}
-              className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
-              Submit Feedback
+              {isSubmitting ? 'Submitting…' : 'Submit Feedback'}
             </button>
             <button
               onClick={() => {
@@ -322,21 +375,11 @@ export default function GiveFeedbackPage() {
           <Users className="h-5 w-5 text-teal-600" />
           Recent Feedback Given
         </h2>
+        {recentFeedback.length === 0 ? (
+          <p className="text-sm text-gray-500">No feedback given yet.</p>
+        ) : (
         <div className="space-y-3">
-          {[
-            {
-              id: '1', employee: 'Priya Patel', type: 'positive', category: 'Quality of Work',
-              date: '2024-10-20', preview: 'Excellent attention to detail in the quality inspection process...'
-            },
-            {
-              id: '2', employee: 'Amit Kumar', type: 'suggestion', category: 'Productivity',
-              date: '2024-10-18', preview: 'Consider using the new automated tool for faster production...'
-            },
-            {
-              id: '3', employee: 'Sneha Reddy', type: 'positive', category: 'Teamwork',
-              date: '2024-10-15', preview: 'Great collaboration during the production rush last week...'
-            }
-          ].map(feedback => (
+          {recentFeedback.map(feedback => (
             <div key={feedback.id} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -360,6 +403,7 @@ export default function GiveFeedbackPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Best Practices */}

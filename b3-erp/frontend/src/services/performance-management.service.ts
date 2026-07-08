@@ -826,6 +826,24 @@ export class PerformanceManagementService {
     return response.json();
   }
 
+  /**
+   * Create a performance review directly on the NestJS HR backend
+   * (POST /hr/performance-reviews). Accepts an arbitrary payload; the backend
+   * persists it as-is.
+   */
+  static async createHrPerformanceReview(data: Record<string, any>): Promise<any> {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const response = await fetch(`${base}/hr/performance-reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to create performance review (${response.status})`);
+    }
+    return response.json();
+  }
+
   // ========== Goals ==========
 
   static async getGoals(options?: {

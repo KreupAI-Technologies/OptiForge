@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import { Plane, Plus, Calendar, IndianRupee, User, MapPin, Edit2, Trash2, X, Save, AlertCircle, Download } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -40,25 +40,62 @@ export default function FlightBookingPage() {
   const [bookings, setBookings] = useState<FlightBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrExpensesService.getBookings('flight');
+      setBookings(Array.isArray(rows) ? (rows as any) : []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      setBookings([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrPagesService.travelRequests<any[]>();
-        if (!cancelled) setBookings(Array.isArray(rows) ? (rows as any) : []);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
-          setBookings([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSaveBooking = async () => {
+    const fd = formRef.current ? new FormData(formRef.current) : null;
+    const val = (k: string) => (fd?.get(k)?.toString() ?? '');
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await HrExpensesService.createBooking('flight', {
+        employeeCode: val('employeeCode'),
+        cardHolder: val('employeeName'),
+        merchantName: val('airline'),
+        transactionId: val('flightNumber') || val('pnr'),
+        location: `${val('fromAirport')} → ${val('toAirport')}`,
+        transactionDate: val('departureDate'),
+        transactionTime: val('departureTime'),
+        amount: Number(val('totalAmount') || 0),
+        status: val('ticketStatus') === 'cancelled' ? 'cancelled' : 'pending',
+        notes: [
+          `Flight ${val('flightNumber')} PNR ${val('pnr')}`,
+          val('bookingClass') ? `Class: ${val('bookingClass')}` : '',
+          val('seatNumber') ? `Seat: ${val('seatNumber')}` : '',
+          val('remarks'),
+        ].filter(Boolean).join(' | '),
+      });
+      toast({ title: 'Booking Added', description: 'Flight booking has been recorded successfully' });
+      setShowAddModal(false);
+      formRef.current?.reset();
+      await load();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save booking.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -371,20 +408,23 @@ export default function FlightBookingPage() {
             </div>
 
             <div className="p-6">
-              <form className="space-y-3">
+              {saveError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>
+              )}
+              <form ref={formRef} className="space-y-3" onSubmit={(e) => { e.preventDefault(); handleSaveBooking(); }}>
                 {/* Employee & Travel Request */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Travel Request ID</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="TR-2025-XXX" />
+                    <input name="travelRequestId" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="TR-2025-XXX" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Code</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="EMPXXX" />
+                    <input name="employeeCode" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="EMPXXX" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Name</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="employeeName" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
 
@@ -392,15 +432,15 @@ export default function FlightBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Airline</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Air India" />
+                    <input name="airline" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Air India" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Flight Number</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="AI 804" />
+                    <input name="flightNumber" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="AI 804" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">PNR</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ABC123" />
+                    <input name="pnr" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ABC123" />
                   </div>
                 </div>
 
@@ -408,11 +448,11 @@ export default function FlightBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">From (Airport)</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Mumbai (BOM)" />
+                    <input name="fromAirport" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Mumbai (BOM)" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">To (Airport)</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Delhi (DEL)" />
+                    <input name="toAirport" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Delhi (DEL)" />
                   </div>
                 </div>
 
@@ -420,19 +460,19 @@ export default function FlightBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Departure Date</label>
-                    <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="departureDate" type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Departure Time</label>
-                    <input type="time" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="departureTime" type="time" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Arrival Date</label>
-                    <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="arrivalDate" type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Arrival Time</label>
-                    <input type="time" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    <input name="arrivalTime" type="time" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
 
@@ -440,15 +480,15 @@ export default function FlightBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Base Fare (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input name="baseFare" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Taxes (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input name="taxes" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Total Amount (₹)</label>
-                    <input type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
+                    <input name="totalAmount" type="number" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="0" />
                   </div>
                 </div>
 
@@ -456,7 +496,7 @@ export default function FlightBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Class</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select name="bookingClass" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="economy">Economy</option>
                       <option value="premium-economy">Premium Economy</option>
                       <option value="business">Business</option>
@@ -465,7 +505,7 @@ export default function FlightBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Booking Source</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select name="bookingSource" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="corporate-agent">Corporate Agent</option>
                       <option value="airline-direct">Airline Direct</option>
                       <option value="online-portal">Online Portal</option>
@@ -474,7 +514,7 @@ export default function FlightBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Ticket Status</label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select name="ticketStatus" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="confirmed">Confirmed</option>
                       <option value="pending">Pending</option>
                       <option value="cancelled">Cancelled</option>
@@ -482,7 +522,7 @@ export default function FlightBookingPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Seat Number</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="12A" />
+                    <input name="seatNumber" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="12A" />
                   </div>
                 </div>
 
@@ -490,34 +530,32 @@ export default function FlightBookingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Agency Name</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Optional" />
+                    <input name="agencyName" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Optional" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Baggage Allowance</label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="15kg Check-in + 7kg Cabin" />
+                    <input name="baggageAllowance" type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="15kg Check-in + 7kg Cabin" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Remarks</label>
-                  <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={3} placeholder="Any additional notes..."></textarea>
+                  <textarea name="remarks" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows={3} placeholder="Any additional notes..."></textarea>
                 </div>
               </form>
             </div>
 
             <div className="p-6 border-t border-gray-200 flex justify-end gap-3 sticky bottom-0 bg-white">
-              <button onClick={() => setShowAddModal(false)} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium">
+              <button onClick={() => setShowAddModal(false)} disabled={saving} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium disabled:opacity-50">
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  toast({ title: "Booking Added", description: "Flight booking has been recorded successfully" });
-                  setShowAddModal(false);
-                }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+                onClick={handleSaveBooking}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                Save Booking
+                {saving ? 'Saving…' : 'Save Booking'}
               </button>
             </div>
           </div>
