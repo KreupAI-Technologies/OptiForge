@@ -5,7 +5,11 @@ _Detector: import-following (each `page.tsx` is scanned together with everything
 
 Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend somewhere in their tree, but also contain a stub-style handler** (`alert()`, `console.log('click'|'save'|…)`, `// TODO`/`FIXME`/`HACK`, or empty `onClick`) — the read side is usually live but at least one save/export/delete/submit action is a placeholder.
 
-**Total partially-wired pages: 391**
+> **RESOLVED on branch `feat/complete-partially-wired-pages` (2026-07-08, stacked on `feat/wire-67-not-wired-pages`).** All 391 pages had their **action/write side completed**: stub handlers (alert/console.log/empty onClick/TODO) wired to the real existing endpoints, `mock-data` fallback arrays removed (errors now surface honestly instead of silently falling back to fabricated rows), and TODO/not-implemented markers resolved. 10 module-group commits, both build gates green throughout (frontend `tsc --noEmit` 0 errors; backend `nest build` 0). Also fixed real bugs found along the way (inventory transfer status-enum, cpq wrong `/cpq/quote-templates` path, finance BankReconciliation Rules-of-Hooks). One backend gap closed directly: exposed common-masters currency/country write routes (service methods already existed).
+>
+> A meaningful subset of actions had **no backing endpoint at all** — these are genuinely net-new backend features (file upload/storage, PDF generation, statutory e-filing GST/TDS/Form-16, and a handful of PM pages served from in-memory stores). Those FE handlers are wired to the closest existing endpoint or surface an honest "not supported yet" message; the full list is in [`needs-backend-backlog.md`](./needs-backend-backlog.md). Building them is a separate net-new-backend effort (see `optiforge-fe-exceeds-backend`).
+
+**Total partially-wired pages: 391** — action side complete (see note above)
 **(Total scanned: 1671 · NOT_WIRED: 67 · PARTIAL: 391 · FULL: 1208 · DEPRECATED: 5)**
 
 ## Issue tags used
