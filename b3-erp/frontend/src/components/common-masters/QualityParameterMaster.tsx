@@ -41,6 +41,7 @@ interface QualityParameter {
 export default function QualityParameterMaster() {
   const [parameters, setParameters] = useState<QualityParameter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchParameters();
@@ -49,6 +50,7 @@ export default function QualityParameterMaster() {
   const fetchParameters = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const data = await manufacturingMastersService.getAllQualityParameters('1');
       const mapped: QualityParameter[] = data.map((p: BackendQualityParameter) => ({
         id: p.id,
@@ -78,8 +80,9 @@ export default function QualityParameterMaster() {
         }
       }));
       setParameters(mapped);
-    } catch (error) {
-      console.error('Error fetching quality parameters:', error);
+    } catch (err) {
+      console.error('Error fetching quality parameters:', err);
+      setError('Failed to load quality parameters. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -156,12 +159,41 @@ export default function QualityParameterMaster() {
     });
   }, [parameters, searchTerm, filterCategory, filterCriticality]);
 
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[300px]">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Activity className="h-5 w-5 animate-spin" />
+          <span>Loading quality parameters...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          <span>{error}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 ">
       <div className="mb-3">
         <h2 className="text-2xl font-bold mb-2">Quality Parameter Master</h2>
         <p className="text-gray-600">Manage quality control standards and inspection parameters</p>
       </div>
+
+      {parameters.length === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3 flex items-center gap-3 text-blue-700">
+          <Shield className="h-5 w-5" />
+          <span>No quality parameters found.</span>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b border-gray-200">

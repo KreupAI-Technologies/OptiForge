@@ -1,14 +1,52 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
+import {
   Database, Building2, Package, Users, DollarSign, Globe, UserCog, Factory,
   ArrowRight, TrendingUp, FileText, CheckCircle, Clock, Search
 } from 'lucide-react';
+import { manufacturingMastersService } from '@/services/manufacturing-masters.service';
 
 export default function CommonMastersPage() {
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Live count badges for key master endpoints. Keyed by the master's path.
+  const [liveCounts, setLiveCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const companyId = '1';
+      // Map each master path to a loader that returns its record count.
+      const loaders: Array<[string, () => Promise<{ length: number }>]> = [
+        ['/common-masters/work-center-master', () => manufacturingMastersService.getAllWorkCenters(companyId)],
+        ['/common-masters/routing-master', () => manufacturingMastersService.getAllRoutings(companyId)],
+        ['/common-masters/machine-master', () => manufacturingMastersService.getAllMachines(companyId)],
+        ['/common-masters/operation-master', () => manufacturingMastersService.getAllOperations(companyId)],
+        ['/common-masters/skill-master', () => manufacturingMastersService.getAllSkills(companyId)],
+        ['/common-masters/quality-parameter-master', () => manufacturingMastersService.getAllQualityParameters(companyId)],
+        ['/common-masters/batch-lot-master', () => manufacturingMastersService.getAllBatches(companyId)],
+      ];
+      const results = await Promise.all(
+        loaders.map(async ([path, fn]) => {
+          try {
+            const rows = await fn();
+            return [path, Array.isArray(rows) ? rows.length : 0] as const;
+          } catch {
+            return [path, -1] as const; // -1 => failed to load, badge hidden
+          }
+        }),
+      );
+      if (!cancelled) {
+        setLiveCounts(Object.fromEntries(results));
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Master category definitions with navigation
   const masterCategories = [
@@ -268,18 +306,28 @@ export default function CommonMastersPage() {
                     </div>
 
                     <div className="space-y-2">
-                      {category.masters.slice(0, 4).map((master, idx) => (
-                        <Link
-                          key={idx}
-                          href={master.path}
-                          className={`group flex items-center justify-between px-4 py-2 bg-white rounded-lg ${category.hoverBg} border border-gray-200 hover:border-gray-300 transition-all duration-200`}
-                        >
-                          <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                            {master.name}
-                          </span>
-                          <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-700 group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                      ))}
+                      {category.masters.slice(0, 4).map((master) => {
+                        const liveCount = liveCounts[master.path];
+                        return (
+                          <Link
+                            key={master.path}
+                            href={master.path}
+                            className={`group flex items-center justify-between px-4 py-2 bg-white rounded-lg ${category.hoverBg} border border-gray-200 hover:border-gray-300 transition-all duration-200`}
+                          >
+                            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                              {master.name}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {liveCount !== undefined && liveCount >= 0 && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                  {liveCount}
+                                </span>
+                              )}
+                              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-700 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 );
