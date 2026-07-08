@@ -27,6 +27,41 @@ export class CommonMastersController {
         return this.commonMastersService.findAllCurrencies();
     }
 
+    @Post('currencies')
+    createCurrency(@Body() data: { code: string; name: string; symbol?: string; decimalDigits?: number }) {
+        return this.commonMastersService.createCurrency({
+            code: data.code,
+            name: data.name,
+            symbol: data.symbol ?? data.code,
+            decimalDigits: data.decimalDigits,
+        });
+    }
+
+    @Put('currencies/:id')
+    updateCurrency(@Param('id') id: string, @Body() data: { code?: string; name?: string; symbol?: string; decimalDigits?: number; isActive?: boolean }) {
+        return this.commonMastersService.updateCurrency(id, data);
+    }
+
+    @Delete('currencies/:id')
+    deleteCurrency(@Param('id') id: string) {
+        return this.commonMastersService.deleteCurrency(id);
+    }
+
+    @Post('countries')
+    createCountry(@Body() data: { code: string; name: string; currency?: string; phoneCode?: string }) {
+        return this.commonMastersService.createCountry(data);
+    }
+
+    @Put('countries/:id')
+    updateCountry(@Param('id') id: string, @Body() data: { code?: string; name?: string; currency?: string; phoneCode?: string; isActive?: boolean }) {
+        return this.commonMastersService.updateCountry(id, data);
+    }
+
+    @Delete('countries/:id')
+    deleteCountry(@Param('id') id: string) {
+        return this.commonMastersService.deleteCountry(id);
+    }
+
     @Get('departments')
     findAllDepartments(@Query('companyId') companyId: string) {
         return this.commonMastersService.findAllDepartments(companyId);
