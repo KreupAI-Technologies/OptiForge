@@ -2,9 +2,24 @@
   "name": "manufacturing-os-root",
   "version": "1.0.0",
   "private": true,
+  "description": "Root orchestration for the dual-backend ManufacturingOS stack (Django platform + NestJS domain + Next.js frontend).",
   "scripts": {
-    "dev": "cd b3-erp && pnpm run dev",
-    "start": "cd b3-erp && pnpm run start",
-    "build": "cd b3-erp && pnpm run build"
+    "dev": "concurrently -k -n PLATFORM,DOMAIN,WEB -c magenta,blue,green \"npm:dev:platform\" \"npm:dev:domain\" \"npm:dev:web\"",
+    "dev:node": "concurrently -k -n DOMAIN,WEB -c blue,green \"npm:dev:domain\" \"npm:dev:web\"",
+    "dev:platform": "cd backend && .venv/bin/python manage.py runserver 0.0.0.0:8000",
+    "dev:domain": "cd b3-erp/backend && npm run start:dev",
+    "dev:web": "cd b3-erp/frontend && npm run dev",
+    "start": "npm run dev",
+    "build": "npm run build:domain && npm run build:web",
+    "build:domain": "cd b3-erp/backend && npm run build",
+    "build:web": "cd b3-erp/frontend && npm run build",
+    "install:all": "npm install && (cd b3-erp/backend && npm install) && (cd b3-erp/frontend && npm install)",
+    "db:manual": "cd b3-erp/backend && npm run db:manual",
+    "db:manual:status": "cd b3-erp/backend && npm run db:manual:status",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

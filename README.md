@@ -67,7 +67,32 @@ docker-compose up -d
 # NestJS:    http://localhost:3001
 ```
 
-To run components individually:
+### Run the whole stack from the repo root (no Docker)
+
+A root `package.json` orchestrates all three services with `concurrently`:
+
+```bash
+# One-time install (root + both backends + frontend deps)
+npm run install:all
+# (Django deps: cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt)
+
+# Start all three: Django (8000) + NestJS (3001) + Next.js (3000)
+npm run dev
+
+# Node-only (skip Django) — just NestJS + frontend
+npm run dev:node
+
+# Or a single service
+npm run dev:platform   # Django  — port 8000
+npm run dev:domain     # NestJS  — port 3001
+npm run dev:web        # Next.js — port 3000
+```
+
+`npm run build` builds the NestJS + Next.js projects. `npm run db:manual` /
+`db:manual:status` proxy the domain backend's Neon manual-migration scripts.
+The Django `dev:platform` script uses the existing `backend/.venv` interpreter.
+
+To run components fully by hand:
 
 ```bash
 # Django backend (OptiForge platform) — port 8000
