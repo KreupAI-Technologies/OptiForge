@@ -488,6 +488,7 @@ export interface ProjectTask {
     assignedTo?: string[];
     parentTaskId?: string;
     subtasks?: ProjectTask[];
+    dependencies?: string[];
 }
 
 export interface ProjectResource {
@@ -2341,6 +2342,21 @@ class ProjectManagementService {
         }
     }
 
+    async updatePmTemplate(id: string, data: Partial<PmTemplate>): Promise<PmTemplate | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/templates/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT template failed: ${res.status}`);
+            return (await res.json()) as PmTemplate;
+        } catch (error) {
+            console.error('Error updating PM template:', error);
+            return null;
+        }
+    }
+
     async deletePmTemplate(id: string): Promise<void> {
         try {
             await fetch(`${API_BASE_URL}/project-management/templates/${id}`, { method: 'DELETE' });
@@ -2445,6 +2461,21 @@ class ProjectManagementService {
             return (await res.json()) as PmDeliverable;
         } catch (error) {
             console.error('Error creating deliverable:', error);
+            return null;
+        }
+    }
+
+    async updateDeliverable(id: string, data: Partial<PmDeliverable>): Promise<PmDeliverable | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/deliverables/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT deliverable failed: ${res.status}`);
+            return (await res.json()) as PmDeliverable;
+        } catch (error) {
+            console.error('Error updating deliverable:', error);
             return null;
         }
     }

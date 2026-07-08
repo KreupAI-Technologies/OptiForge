@@ -101,25 +101,37 @@ export default function MaterialConsumptionPage() {
  const uniqueProjects = Array.from(new Set(mockConsumptions.map(m => m.projectId)));
 
  // Handler functions
- const handleAddConsumption = (data: any) => {
-  console.log('Adding consumption:', data);
-  setShowAddConsumptionModal(false);
-  // API call would go here
+ const [submitting, setSubmitting] = useState(false);
+ const runSave = async (fn: () => Promise<unknown>, onDone: () => void) => {
+  setSubmitting(true);
+  try {
+   const result = await fn();
+   if (result === null) throw new Error('Request failed');
+   loadConsumptions();
+   onDone();
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+  } finally {
+   setSubmitting(false);
+  }
  };
 
- const handleEditConsumption = (data: any) => {
-  console.log('Editing consumption:', data);
-  setShowEditModal(false);
-  setSelectedConsumption(null);
-  // API call would go here
- };
+ const handleAddConsumption = (data: any) => runSave(
+  () => projectManagementService.createMaterialConsumption(data),
+  () => setShowAddConsumptionModal(false),
+ );
+
+ const handleEditConsumption = (data: any) => runSave(
+  () => projectManagementService.updateMaterialConsumption(selectedConsumption!.id, data),
+  () => { setShowEditModal(false); setSelectedConsumption(null); },
+ );
 
  const handleViewDetails = (consumption: MaterialConsumption) => {
-  console.log('Viewing details:', consumption);
+  setSelectedConsumption(consumption);
  };
 
  const handleVarianceAnalysis = (consumption: MaterialConsumption) => {
-  console.log('Analyzing variance:', consumption);
+  setSelectedConsumption(consumption);
  };
 
  const handleApprove = async (data: any) => {
@@ -148,43 +160,35 @@ export default function MaterialConsumptionPage() {
   setSelectedConsumption(null);
  };
 
- const handleBulkUpload = (data: any) => {
-  console.log('Bulk uploading:', data);
+ const handleBulkUpload = (_data: any) => {
+  // NEEDS BACKEND: no bulk/import endpoint for material consumption; file parsing must be server-side.
+  alert('Bulk upload is not available yet — please add records individually.');
   setShowBulkUploadModal(false);
-  // API call would go here
  };
 
- const handleExport = (data: any) => {
+ const handleExport = (_data: any) => {
   exportToCsv('material-consumption', filteredConsumptions as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
-  // API call would go here
  };
 
- const handleReturn = (data: any) => {
-  console.log('Processing return:', selectedConsumption?.id, data);
-  setShowReturnModal(false);
-  setSelectedConsumption(null);
-  // API call would go here
- };
+ const handleReturn = (data: any) => runSave(
+  () => projectManagementService.updateMaterialConsumption(selectedConsumption!.id, data),
+  () => { setShowReturnModal(false); setSelectedConsumption(null); },
+ );
 
- const handleAdjustQuantity = (data: any) => {
-  console.log('Adjusting quantity:', selectedConsumption?.id, data);
-  setShowAdjustModal(false);
-  setSelectedConsumption(null);
-  // API call would go here
- };
+ const handleAdjustQuantity = (data: any) => runSave(
+  () => projectManagementService.updateMaterialConsumption(selectedConsumption!.id, data),
+  () => { setShowAdjustModal(false); setSelectedConsumption(null); },
+ );
 
- const handleAddComments = (data: any) => {
-  console.log('Adding comments:', selectedConsumption?.id, data);
-  setShowCommentsModal(false);
-  setSelectedConsumption(null);
-  // API call would go here
- };
+ const handleAddComments = (data: any) => runSave(
+  () => projectManagementService.updateMaterialConsumption(selectedConsumption!.id, data),
+  () => { setShowCommentsModal(false); setSelectedConsumption(null); },
+ );
 
- const handleGenerateVarianceReport = (data: any) => {
-  console.log('Generating variance report:', data);
+ const handleGenerateVarianceReport = (_data: any) => {
+  exportToCsv('material-variance-report', filteredConsumptions as unknown as Record<string, unknown>[]);
   setShowVarianceReportModal(false);
-  // API call would go here
  };
 
  // Helper functions to open modals with context

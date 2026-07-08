@@ -54,6 +54,12 @@ export class HrPagesService {
   static employees<T = any[]>(): Promise<T> {
     return request<T>('/hr/employees');
   }
+  static createEmployee<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/employees', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
   static departments<T = any[]>(): Promise<T> {
     return request<T>('/hr/departments');
   }
@@ -62,6 +68,42 @@ export class HrPagesService {
   }
   static teams<T = any[]>(): Promise<T> {
     return request<T>('/hr/teams');
+  }
+  static createDepartment<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/departments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+  static updateDepartment<T = any>(id: string, payload: Record<string, unknown>): Promise<T> {
+    return request<T>(`/hr/departments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+  static deleteDepartment<T = any>(id: string): Promise<T> {
+    return request<T>(`/hr/departments/${id}`, { method: 'DELETE' });
+  }
+  static createDesignation<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/designations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+  static updateDesignation<T = any>(id: string, payload: Record<string, unknown>): Promise<T> {
+    return request<T>(`/hr/designations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+  static deleteDesignation<T = any>(id: string): Promise<T> {
+    return request<T>(`/hr/designations/${id}`, { method: 'DELETE' });
+  }
+  static createTeam<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/teams', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   // ---- Leave -------------------------------------------------------------

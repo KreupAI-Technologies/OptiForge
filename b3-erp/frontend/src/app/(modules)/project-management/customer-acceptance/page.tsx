@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { exportToCsv } from '@/lib/export';
 import { FileCheck, CheckCircle, Clock, AlertTriangle, XCircle, Plus, Download, Eye, FileText, Edit, ListChecks, FileStack, Wrench, GraduationCap, Shield, PenTool, RefreshCw, Upload, FileOutput } from 'lucide-react';
 import { ScheduleAcceptanceModal, EditAcceptanceModal, UpdateCriteriaModal, UpdateDocumentationModal, AddPunchListItemsModal, UpdateTrainingStatusModal, UpdateWarrantyModal, SignAcceptanceModal, UpdateStatusModal, UploadAttachmentsModal, GenerateReportModal, ViewFullDetailsModal } from '@/components/project-management/CustomerAcceptanceModals';
 
@@ -79,11 +80,29 @@ export default function CustomerAcceptancePage() {
  const [showViewFullDetailsModal, setShowViewFullDetailsModal] = useState(false);
 
  const [mockAcceptances, setMockAcceptances] = useState<CustomerAcceptance[]>([]);
- useEffect(() => {
-   projectManagementService.listCustomerAcceptances().then((rows) => {
-     if (Array.isArray(rows)) setMockAcceptances(rows as unknown as CustomerAcceptance[]);
-   });
- }, []);
+ const [submitting, setSubmitting] = useState(false);
+ const loadAcceptances = async () => {
+   const rows = await projectManagementService.listCustomerAcceptances();
+   if (Array.isArray(rows)) setMockAcceptances(rows as unknown as CustomerAcceptance[]);
+ };
+ useEffect(() => { loadAcceptances(); }, []);
+
+ const runSave = async (fn: () => Promise<unknown>, onDone: () => void) => {
+   setSubmitting(true);
+   try {
+     const result = await fn();
+     if (result === null) throw new Error('Request failed');
+     await loadAcceptances();
+     onDone();
+   } catch (err) {
+     console.error('Customer acceptance save failed:', err);
+     alert(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+   } finally {
+     setSubmitting(false);
+   }
+ };
+ const updateSelected = (data: any) =>
+   projectManagementService.updateCustomerAcceptance(selectedAcceptance!.id, data);
 
  const stats = {
   totalAcceptances: mockAcceptances.length,
@@ -154,17 +173,50 @@ export default function CustomerAcceptancePage() {
   }
  };
 
- const handleSchedule = (data: any) => { console.log('Schedule:', data); setShowScheduleModal(false); };
- const handleEdit = (data: any) => { console.log('Edit:', data); setShowEditModal(false); setSelectedAcceptance(null); };
- const handleUpdateCriteria = (data: any) => { console.log('Update Criteria:', data); setShowUpdateCriteriaModal(false); setSelectedAcceptance(null); };
- const handleUpdateDocumentation = (data: any) => { console.log('Update Documentation:', data); setShowUpdateDocumentationModal(false); setSelectedAcceptance(null); };
- const handleAddPunchList = (data: any) => { console.log('Add Punch List:', data); setShowAddPunchListModal(false); setSelectedAcceptance(null); };
- const handleUpdateTraining = (data: any) => { console.log('Update Training:', data); setShowUpdateTrainingModal(false); setSelectedAcceptance(null); };
- const handleUpdateWarranty = (data: any) => { console.log('Update Warranty:', data); setShowUpdateWarrantyModal(false); setSelectedAcceptance(null); };
- const handleSign = (data: any) => { console.log('Sign:', data); setShowSignModal(false); setSelectedAcceptance(null); };
- const handleUpdateStatus = (data: any) => { console.log('Update Status:', data); setShowUpdateStatusModal(false); setSelectedAcceptance(null); };
- const handleUploadAttachments = (data: any) => { console.log('Upload Attachments:', data); setShowUploadAttachmentsModal(false); setSelectedAcceptance(null); };
- const handleGenerateReport = (data: any) => { console.log('Generate Report:', data); setShowGenerateReportModal(false); };
+ const handleSchedule = (data: any) => runSave(
+   () => projectManagementService.createCustomerAcceptance(data),
+   () => setShowScheduleModal(false),
+ );
+ const handleEdit = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowEditModal(false); setSelectedAcceptance(null); },
+ );
+ const handleUpdateCriteria = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateCriteriaModal(false); setSelectedAcceptance(null); },
+ );
+ const handleUpdateDocumentation = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateDocumentationModal(false); setSelectedAcceptance(null); },
+ );
+ const handleAddPunchList = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowAddPunchListModal(false); setSelectedAcceptance(null); },
+ );
+ const handleUpdateTraining = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateTrainingModal(false); setSelectedAcceptance(null); },
+ );
+ const handleUpdateWarranty = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateWarrantyModal(false); setSelectedAcceptance(null); },
+ );
+ const handleSign = (data: any) => runSave(
+   () => updateSelected({ ...data, status: 'Accepted' }),
+   () => { setShowSignModal(false); setSelectedAcceptance(null); },
+ );
+ const handleUpdateStatus = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateStatusModal(false); setSelectedAcceptance(null); },
+ );
+ const handleUploadAttachments = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUploadAttachmentsModal(false); setSelectedAcceptance(null); },
+ );
+ const handleGenerateReport = (_data: any) => {
+   exportToCsv('customer-acceptance-report', filteredAcceptances as unknown as Record<string, unknown>[]);
+   setShowGenerateReportModal(false);
+ };
  const openEditModal = (a: CustomerAcceptance) => { setSelectedAcceptance(a); setShowEditModal(true); };
  const openUpdateCriteriaModal = (a: CustomerAcceptance) => { setSelectedAcceptance(a); setShowUpdateCriteriaModal(true); };
  const openUpdateDocumentationModal = (a: CustomerAcceptance) => { setSelectedAcceptance(a); setShowUpdateDocumentationModal(true); };

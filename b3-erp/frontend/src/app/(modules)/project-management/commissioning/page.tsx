@@ -71,11 +71,30 @@ export default function CommissioningPage() {
  const [showViewFullDetailsModal, setShowViewFullDetailsModal] = useState(false);
 
  const [mockActivities, setMockActivities] = useState<CommissioningActivity[]>([]);
- useEffect(() => {
-   projectManagementService.listCommissioningActivities().then((rows) => {
-     if (Array.isArray(rows)) setMockActivities(rows as unknown as CommissioningActivity[]);
-   });
- }, []);
+ const [submitting, setSubmitting] = useState(false);
+ const loadActivities = async () => {
+   const rows = await projectManagementService.listCommissioningActivities();
+   if (Array.isArray(rows)) setMockActivities(rows as unknown as CommissioningActivity[]);
+ };
+ useEffect(() => { loadActivities(); }, []);
+
+ const runSave = async (
+   fn: () => Promise<unknown>,
+   onDone: () => void,
+ ) => {
+   setSubmitting(true);
+   try {
+     const result = await fn();
+     if (result === null) throw new Error('Request failed');
+     await loadActivities();
+     onDone();
+   } catch (err) {
+     console.error('Commissioning save failed:', err);
+     alert(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+   } finally {
+     setSubmitting(false);
+   }
+ };
 
  const stats = {
   totalActivities: mockActivities.length,
@@ -135,20 +154,59 @@ export default function CommissioningPage() {
   }
  };
 
- const handleSchedule = (data: any) => { console.log('Schedule:', data); setShowScheduleModal(false); };
- const handleEdit = (data: any) => { console.log('Edit:', data); setShowEditModal(false); setSelectedActivity(null); };
- const handleUpdateTestParameters = (data: any) => { console.log('Update Test Parameters:', data); setShowUpdateTestParametersModal(false); setSelectedActivity(null); };
- const handleUpdateChecklist = (data: any) => { console.log('Update Checklist:', data); setShowUpdateChecklistModal(false); setSelectedActivity(null); };
- const handleAddObservations = (data: any) => { console.log('Add Observations:', data); setShowAddObservationsModal(false); setSelectedActivity(null); };
- const handleUploadDocuments = (data: any) => { console.log('Upload Documents:', data); setShowUploadDocumentsModal(false); setSelectedActivity(null); };
- const handleUpdateStatus = (data: any) => { console.log('Update Status:', data); setShowUpdateStatusModal(false); setSelectedActivity(null); };
- const handleIssueCertificate = (data: any) => { console.log('Issue Certificate:', data); setShowIssueCertificateModal(false); setSelectedActivity(null); };
- const handleAssignEngineer = (data: any) => { console.log('Assign Engineer:', data); setShowAssignEngineerModal(false); setSelectedActivity(null); };
- const handleAddTestParameter = (data: any) => { console.log('Add Test Parameter:', data); setShowAddTestParameterModal(false); setSelectedActivity(null); };
- const handleGenerateReport = (data: any) => { console.log('Generate Report:', data); setShowGenerateReportModal(false); };
+ const updateSelected = (data: any) =>
+   projectManagementService.updateCommissioningActivity(selectedActivity!.id, data);
+
+ const handleSchedule = (data: any) => runSave(
+   () => projectManagementService.createCommissioningActivity(data),
+   () => setShowScheduleModal(false),
+ );
+ const handleEdit = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowEditModal(false); setSelectedActivity(null); },
+ );
+ const handleUpdateTestParameters = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateTestParametersModal(false); setSelectedActivity(null); },
+ );
+ const handleUpdateChecklist = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateChecklistModal(false); setSelectedActivity(null); },
+ );
+ const handleAddObservations = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowAddObservationsModal(false); setSelectedActivity(null); },
+ );
+ const handleUploadDocuments = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUploadDocumentsModal(false); setSelectedActivity(null); },
+ );
+ const handleUpdateStatus = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowUpdateStatusModal(false); setSelectedActivity(null); },
+ );
+ const handleIssueCertificate = (data: any) => runSave(
+   () => updateSelected({ ...data, certificateIssued: true }),
+   () => { setShowIssueCertificateModal(false); setSelectedActivity(null); },
+ );
+ const handleAssignEngineer = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowAssignEngineerModal(false); setSelectedActivity(null); },
+ );
+ const handleAddTestParameter = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowAddTestParameterModal(false); setSelectedActivity(null); },
+ );
+ const handleGenerateReport = (data: any) => { exportToCsv('commissioning-report', filteredActivities as unknown as Record<string, unknown>[]); setShowGenerateReportModal(false); };
  const handleExportData = (data: any) => { exportToCsv('commissioning-activities', filteredActivities as unknown as Record<string, unknown>[]); setShowExportDataModal(false); };
- const handleReschedule = (data: any) => { console.log('Reschedule:', data); setShowRescheduleModal(false); setSelectedActivity(null); };
- const handleAddDependencies = (data: any) => { console.log('Add Dependencies:', data); setShowAddDependenciesModal(false); setSelectedActivity(null); };
+ const handleReschedule = (data: any) => runSave(
+   () => updateSelected({ ...data, status: 'Rescheduled' }),
+   () => { setShowRescheduleModal(false); setSelectedActivity(null); },
+ );
+ const handleAddDependencies = (data: any) => runSave(
+   () => updateSelected(data),
+   () => { setShowAddDependenciesModal(false); setSelectedActivity(null); },
+ );
  const openEditModal = (a: CommissioningActivity) => { setSelectedActivity(a); setShowEditModal(true); };
  const openUpdateTestParametersModal = (a: CommissioningActivity) => { setSelectedActivity(a); setShowUpdateTestParametersModal(true); };
  const openUpdateChecklistModal = (a: CommissioningActivity) => { setSelectedActivity(a); setShowUpdateChecklistModal(true); };

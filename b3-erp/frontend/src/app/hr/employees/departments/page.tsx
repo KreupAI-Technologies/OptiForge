@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Building2, Plus, Users, TrendingUp, Search, Filter, X, MapPin, Phone, Mail, Edit, Trash2 } from 'lucide-react';
+import { Building2, Plus, Users, TrendingUp, Search, Filter, X, MapPin, Phone, Mail, Trash2 } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { AddDepartmentModal } from '@/components/hr/AddDepartmentModal';
@@ -25,54 +25,6 @@ interface Department {
   establishedDate: string;
 }
 
-const mockDepartments: Department[] = [
-  {
-    id: 'D001', code: 'PROD', name: 'Production', headOfDepartment: 'Vijay Patel', headEmail: 'vijay.patel@company.com',
-    headPhone: '+91 9876543210', location: 'Plant 1 - Ground Floor', employeeCount: 85, activeEmployees: 80, contractEmployees: 5,
-    avgSalary: 28500, budgetUtilization: 87, status: 'active', costCenter: 'CC-PROD-001', establishedDate: '2015-01-15'
-  },
-  {
-    id: 'D002', code: 'QC', name: 'Quality Control', headOfDepartment: 'Priya Desai', headEmail: 'priya.desai@company.com',
-    headPhone: '+91 9876543213', location: 'Plant 1 - First Floor', employeeCount: 25, activeEmployees: 23, contractEmployees: 2,
-    avgSalary: 32000, budgetUtilization: 72, status: 'active', costCenter: 'CC-QC-001', establishedDate: '2015-02-01'
-  },
-  {
-    id: 'D003', code: 'MAINT', name: 'Maintenance', headOfDepartment: 'Karthik Iyer', headEmail: 'karthik.iyer@company.com',
-    headPhone: '+91 9876543215', location: 'Plant 1 - Basement', employeeCount: 30, activeEmployees: 28, contractEmployees: 2,
-    avgSalary: 26000, budgetUtilization: 65, status: 'active', costCenter: 'CC-MAINT-001', establishedDate: '2015-01-20'
-  },
-  {
-    id: 'D004', code: 'STORE', name: 'Stores & Logistics', headOfDepartment: 'Anita Mehta', headEmail: 'anita.mehta@company.com',
-    headPhone: '+91 9876543222', location: 'Warehouse Block A', employeeCount: 20, activeEmployees: 18, contractEmployees: 2,
-    avgSalary: 24000, budgetUtilization: 68, status: 'active', costCenter: 'CC-STORE-001', establishedDate: '2015-03-10'
-  },
-  {
-    id: 'D005', code: 'HR', name: 'Human Resources', headOfDepartment: 'Kavita Singh', headEmail: 'kavita.singh@company.com',
-    headPhone: '+91 9876543203', location: 'Admin Building - 2nd Floor', employeeCount: 12, activeEmployees: 12, contractEmployees: 0,
-    avgSalary: 45000, budgetUtilization: 82, status: 'active', costCenter: 'CC-HR-001', establishedDate: '2015-01-10'
-  },
-  {
-    id: 'D006', code: 'FIN', name: 'Finance & Accounts', headOfDepartment: 'Meera Nair', headEmail: 'meera.nair@company.com',
-    headPhone: '+91 9876543202', location: 'Admin Building - 3rd Floor', employeeCount: 15, activeEmployees: 15, contractEmployees: 0,
-    avgSalary: 48000, budgetUtilization: 75, status: 'active', costCenter: 'CC-FIN-001', establishedDate: '2015-01-12'
-  },
-  {
-    id: 'D007', code: 'IT', name: 'Information Technology', headOfDepartment: 'Arjun Mehta', headEmail: 'arjun.mehta@company.com',
-    headPhone: '+91 9876543204', location: 'Admin Building - 1st Floor', employeeCount: 18, activeEmployees: 16, contractEmployees: 2,
-    avgSalary: 55000, budgetUtilization: 91, status: 'active', costCenter: 'CC-IT-001', establishedDate: '2016-06-01'
-  },
-  {
-    id: 'D008', code: 'SALES', name: 'Sales & Marketing', headOfDepartment: 'Rajesh Kumar', headEmail: 'rajesh.kumar@company.com',
-    headPhone: '+91 9876543225', location: 'Admin Building - Ground Floor', employeeCount: 22, activeEmployees: 20, contractEmployees: 2,
-    avgSalary: 38000, budgetUtilization: 88, status: 'active', costCenter: 'CC-SALES-001', establishedDate: '2015-04-15'
-  },
-  {
-    id: 'D009', code: 'R&D', name: 'Research & Development', headOfDepartment: 'Dr. Suresh Reddy', headEmail: 'suresh.reddy@company.com',
-    headPhone: '+91 9876543226', location: 'R&D Center', employeeCount: 8, activeEmployees: 8, contractEmployees: 0,
-    avgSalary: 62000, budgetUtilization: 70, status: 'active', costCenter: 'CC-RD-001', establishedDate: '2018-01-10'
-  }
-];
-
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,6 +34,9 @@ export default function DepartmentsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,7 +76,41 @@ export default function DepartmentsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const handleCreateDepartment = async (data: any) => {
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await HrPagesService.createDepartment({
+        code: data.code,
+        name: data.name,
+        description: data.description || undefined,
+        headOfDepartmentName: data.headOfDepartment || undefined,
+        location: data.location || undefined,
+        costCenter: data.costCenter || undefined,
+        budget: data.budgetAllocation ? Number(data.budgetAllocation) : undefined,
+        status: (data.status || 'active').toUpperCase(),
+      });
+      setIsAddModalOpen(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create department');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteDepartment = async (id: string) => {
+    if (!window.confirm('Delete this department? This cannot be undone.')) return;
+    setActionError(null);
+    try {
+      await HrPagesService.deleteDepartment(id);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete department');
+    }
+  };
 
   const filteredData = useMemo(() => {
     return departments.filter(dept => {
@@ -228,12 +217,13 @@ export default function DepartmentsPage() {
       accessor: 'id',
       sortable: false,
       align: 'right',
-      render: () => (
+      render: (_v, row) => (
         <div className="flex items-center justify-end gap-2">
-          <button className="p-1 text-blue-600 hover:text-blue-800">
-            <Edit className="w-4 h-4" />
-          </button>
-          <button className="p-1 text-red-600 hover:text-red-800">
+          <button
+            onClick={() => handleDeleteDepartment(row.id)}
+            className="p-1 text-red-600 hover:text-red-800"
+            title="Delete department"
+          >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -284,6 +274,11 @@ export default function DepartmentsPage() {
       {loadError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
         </div>
       )}
 
@@ -414,11 +409,7 @@ export default function DepartmentsPage() {
       <AddDepartmentModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('New department data:', data);
-          setIsAddModalOpen(false);
-          alert(`Department Created Successfully!\n\nDepartment: ${data.name} (${data.code})\nHead: ${data.headOfDepartment}\nLocation: ${data.location}\nCost Center: ${data.costCenter}`);
-        }}
+        onSubmit={handleCreateDepartment}
       />
     </div>
   );

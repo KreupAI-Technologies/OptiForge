@@ -38,6 +38,18 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 export class HrMovementsService {
   static async getTransfersPromotions(params?: {
     companyId?: string;
@@ -56,5 +68,15 @@ export class HrMovementsService {
       `/hr/transfers-promotions?${query.toString()}`,
     );
     return Array.isArray(data) ? data : [];
+  }
+
+  static async createTransferPromotion(
+    payload: Partial<EmployeeMovement> & { companyId?: string },
+  ): Promise<EmployeeMovement> {
+    return postJson<EmployeeMovement>('/hr/transfers-promotions', {
+      companyId: payload.companyId || 'company-1',
+      status: 'pending',
+      ...payload,
+    });
   }
 }

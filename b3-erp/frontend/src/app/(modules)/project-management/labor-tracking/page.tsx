@@ -139,16 +139,30 @@ export default function LaborTrackingPage() {
   };
 
   // Handler functions
-  const handleAddEntry = (data: any) => {
-    console.log('Adding labor entry:', data);
-    setShowAddModal(false);
+  const [submitting, setSubmitting] = useState(false);
+  const runSave = async (fn: () => Promise<unknown>, onDone: () => void) => {
+    setSubmitting(true);
+    try {
+      const result = await fn();
+      if (result === null) throw new Error('Request failed');
+      loadLaborEntries();
+      onDone();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleEditEntry = (data: any) => {
-    console.log('Editing labor entry:', data);
-    setShowEditModal(false);
-    setSelectedEntry(null);
-  };
+  const handleAddEntry = (data: any) => runSave(
+    () => projectManagementService.createLaborEntry(data),
+    () => setShowAddModal(false),
+  );
+
+  const handleEditEntry = (data: any) => runSave(
+    () => projectManagementService.updateLaborEntry(selectedEntry!.id, data),
+    () => { setShowEditModal(false); setSelectedEntry(null); },
+  );
 
   const handleApproveHours = async (data: any) => {
     if (selectedEntry) {
@@ -181,45 +195,46 @@ export default function LaborTrackingPage() {
     setSelectedEntry(null);
   };
 
-  const handleBulkUpload = (file: File) => {
-    console.log('Uploading file:', file.name);
+  const handleBulkUpload = (_file: File) => {
+    // NEEDS BACKEND: no bulk/import endpoint for labor entries; file parsing must be server-side.
+    alert('Bulk upload is not available yet — please add entries individually.');
     setShowBulkUploadModal(false);
   };
 
-  const handleExportReport = (data: any) => {
+  const handleExportReport = (_data: any) => {
     exportToCsv('labor-tracking', filteredEntries as unknown as Record<string, unknown>[]);
     setShowExportModal(false);
   };
 
-  const handleAssignWorkers = (data: any) => {
-    console.log('Assigning workers:', data);
-    setShowAssignWorkersModal(false);
-  };
+  const handleAssignWorkers = (data: any) => runSave(
+    () => projectManagementService.createLaborEntry(data),
+    () => setShowAssignWorkersModal(false),
+  );
 
   const handleCalculateCost = (_data: any) => {
     setShowCalculateCostModal(false);
     setSelectedEntry(null);
   };
 
-  const handleShiftSchedule = (data: any) => {
-    console.log('Creating shift schedule:', data);
-    setShowShiftScheduleModal(false);
-  };
+  const handleShiftSchedule = (data: any) => runSave(
+    () => projectManagementService.createLaborEntry(data),
+    () => setShowShiftScheduleModal(false),
+  );
 
-  const handleGenerateTimesheet = (data: any) => {
-    console.log('Generating timesheet:', data);
+  const handleGenerateTimesheet = (_data: any) => {
+    exportToCsv('labor-timesheet', filteredEntries as unknown as Record<string, unknown>[]);
     setShowTimesheetModal(false);
   };
 
-  const handleProductivityReport = (data: any) => {
-    console.log('Generating productivity report:', data);
+  const handleProductivityReport = (_data: any) => {
+    exportToCsv('labor-productivity-report', filteredEntries as unknown as Record<string, unknown>[]);
     setShowProductivityReportModal(false);
   };
 
-  const handleMarkAttendance = (data: any) => {
-    console.log('Marking attendance:', data);
-    setShowAttendanceModal(false);
-  };
+  const handleMarkAttendance = (data: any) => runSave(
+    () => projectManagementService.updateLaborEntry(selectedEntry!.id, data),
+    () => setShowAttendanceModal(false),
+  );
 
   const openEditModal = (entry: LaborEntry) => {
     setSelectedEntry(entry);

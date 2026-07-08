@@ -16,6 +16,23 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
+async function sendJson<T>(
+  path: string,
+  method: 'POST' | 'PUT' | 'DELETE',
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  const text = await res.text();
+  return (text ? JSON.parse(text) : {}) as T;
+}
+
 export interface AssetItem {
   id: string;
   companyId: string;
@@ -264,6 +281,20 @@ export class HrAssetsService {
   static async getAssetRequests(companyId = 'company-1'): Promise<AssetRequest[]> {
     const data = await getJson<AssetRequest[]>(`/hr/asset-requests?${cid(companyId)}`);
     return Array.isArray(data) ? data : [];
+  }
+
+  static async createAssetRequest(
+    payload: Partial<AssetRequest>,
+    companyId = 'company-1',
+  ): Promise<AssetRequest> {
+    return sendJson<AssetRequest>('/hr/asset-requests', 'POST', { companyId, ...payload });
+  }
+
+  static async updateAssetRequest(
+    id: string,
+    payload: Partial<AssetRequest>,
+  ): Promise<AssetRequest> {
+    return sendJson<AssetRequest>(`/hr/asset-requests/${id}`, 'PUT', payload);
   }
 
   static async getAssetTransfers(companyId = 'company-1'): Promise<AssetTransfer[]> {

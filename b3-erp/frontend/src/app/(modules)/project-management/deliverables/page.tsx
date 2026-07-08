@@ -64,43 +64,54 @@ export default function DeliverablesListPage() {
     const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
-    useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                setLoading(true);
-                const rows = await projectManagementService.listDeliverables();
-                if (!mounted) return;
-                const mapped: Deliverable[] = (Array.isArray(rows) ? rows : []).map((r: PmDeliverable) => ({
-                    id: r.id,
-                    deliverableNumber: r.deliverableNumber ?? '',
-                    deliverableName: r.deliverableName ?? '',
-                    projectNumber: r.projectNumber ?? '',
-                    projectName: r.projectName ?? '',
-                    type: (r.type as Deliverable['type']) ?? 'Documentation',
-                    description: r.description ?? '',
-                    assignedTo: r.assignedTo ?? '',
-                    plannedDate: r.plannedDate ?? '',
-                    actualDate: r.actualDate,
-                    status: (r.status as Deliverable['status']) ?? 'Not Started',
-                    progress: Number(r.progress ?? 0),
-                    dependencies: Array.isArray(r.dependencies) ? r.dependencies : [],
-                    quantity: Number(r.quantity ?? 0),
-                    unit: r.unit ?? '',
-                    notes: r.notes ?? '',
-                }));
-                setDeliverables(mapped);
-            } catch (e) {
-                if (!mounted) return;
-                setError('Failed to load deliverables');
-                setDeliverables([]);
-            } finally {
-                if (mounted) setLoading(false);
-            }
-        })();
-        return () => { mounted = false; };
-    }, []);
+    const loadDeliverables = async () => {
+        try {
+            setLoading(true);
+            const rows = await projectManagementService.listDeliverables();
+            const mapped: Deliverable[] = (Array.isArray(rows) ? rows : []).map((r: PmDeliverable) => ({
+                id: r.id,
+                deliverableNumber: r.deliverableNumber ?? '',
+                deliverableName: r.deliverableName ?? '',
+                projectNumber: r.projectNumber ?? '',
+                projectName: r.projectName ?? '',
+                type: (r.type as Deliverable['type']) ?? 'Documentation',
+                description: r.description ?? '',
+                assignedTo: r.assignedTo ?? '',
+                plannedDate: r.plannedDate ?? '',
+                actualDate: r.actualDate,
+                status: (r.status as Deliverable['status']) ?? 'Not Started',
+                progress: Number(r.progress ?? 0),
+                dependencies: Array.isArray(r.dependencies) ? r.dependencies : [],
+                quantity: Number(r.quantity ?? 0),
+                unit: r.unit ?? '',
+                notes: r.notes ?? '',
+            }));
+            setDeliverables(mapped);
+        } catch (e) {
+            setError('Failed to load deliverables');
+            setDeliverables([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { loadDeliverables(); }, []);
+
+    const runSave = async (fn: () => Promise<unknown>, onDone: () => void) => {
+        setSubmitting(true);
+        try {
+            const result = await fn();
+            if (result === null) throw new Error('Request failed');
+            await loadDeliverables();
+            onDone();
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
@@ -177,62 +188,60 @@ export default function DeliverablesListPage() {
     };
 
     // Modal handlers
-    const handleCreateDeliverable = (deliverable: any) => {
-        console.log('Creating deliverable:', deliverable);
-        setShowCreateDeliverable(false);
-    };
+    const updateSelected = (data: any) =>
+        projectManagementService.updateDeliverable(selectedDeliverable!.id, data);
 
-    const handleEditDeliverable = (deliverable: any) => {
-        console.log('Editing deliverable:', deliverable);
-        setShowEditDeliverable(false);
-        setSelectedDeliverable(null);
-    };
+    const handleCreateDeliverable = (deliverable: any) => runSave(
+        () => projectManagementService.createDeliverable(deliverable),
+        () => setShowCreateDeliverable(false),
+    );
 
-    const handleUploadDocument = (document: any) => {
-        console.log('Uploading document:', document);
+    const handleEditDeliverable = (deliverable: any) => runSave(
+        () => updateSelected(deliverable),
+        () => { setShowEditDeliverable(false); setSelectedDeliverable(null); },
+    );
+
+    const handleUploadDocument = (_document: any) => {
+        // NEEDS BACKEND: no document-upload endpoint for deliverables; multipart upload must be server-side.
+        alert('Document upload is not available yet.');
         setShowUploadDocument(false);
         setSelectedDeliverable(null);
     };
 
-    const handleReviewApproval = (decision: string, comments: string) => {
-        console.log('Review decision:', decision, comments);
-        setShowReviewApproval(false);
-        setSelectedDeliverable(null);
-    };
+    const handleReviewApproval = (decision: string, comments: string) => runSave(
+        () => updateSelected({ status: decision, notes: comments }),
+        () => { setShowReviewApproval(false); setSelectedDeliverable(null); },
+    );
 
-    const handleLinkToTasks = (tasks: string[]) => {
-        console.log('Linking tasks:', tasks);
-        setShowLinkToTasks(false);
-        setSelectedDeliverable(null);
-    };
+    const handleLinkToTasks = (tasks: string[]) => runSave(
+        () => updateSelected({ dependencies: tasks }),
+        () => { setShowLinkToTasks(false); setSelectedDeliverable(null); },
+    );
 
-    const handleQualityChecklist = (checklist: any) => {
-        console.log('Quality checklist:', checklist);
-        setShowQualityChecklist(false);
-        setSelectedDeliverable(null);
-    };
+    const handleQualityChecklist = (checklist: any) => runSave(
+        () => updateSelected(checklist),
+        () => { setShowQualityChecklist(false); setSelectedDeliverable(null); },
+    );
 
-    const handleStakeholderSignOff = (signOff: any) => {
-        console.log('Stakeholder sign-off:', signOff);
-        setShowStakeholderSignOff(false);
-        setSelectedDeliverable(null);
-    };
+    const handleStakeholderSignOff = (signOff: any) => runSave(
+        () => updateSelected(signOff),
+        () => { setShowStakeholderSignOff(false); setSelectedDeliverable(null); },
+    );
 
-    const handleApplyTemplate = (template: any) => {
-        console.log('Applying template:', template);
-        setShowTemplates(false);
-    };
+    const handleApplyTemplate = (template: any) => runSave(
+        () => projectManagementService.createDeliverable(template),
+        () => setShowTemplates(false),
+    );
 
-    const handleExport = (format: string) => {
+    const handleExport = (_format: string) => {
         exportToCsv('deliverables', filteredDeliverables as unknown as Record<string, unknown>[]);
         setShowExport(false);
     };
 
-    const handleDependencies = (dependencies: any) => {
-        console.log('Managing dependencies:', dependencies);
-        setShowDependencies(false);
-        setSelectedDeliverable(null);
-    };
+    const handleDependencies = (dependencies: any) => runSave(
+        () => updateSelected({ dependencies }),
+        () => { setShowDependencies(false); setSelectedDeliverable(null); },
+    );
 
     const openEditModal = (deliverable: Deliverable) => {
         setSelectedDeliverable(deliverable);

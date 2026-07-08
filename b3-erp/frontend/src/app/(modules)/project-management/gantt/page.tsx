@@ -72,7 +72,7 @@ export default function GanttChartPage() {
         progress: t.progress,
         isDisabled: false,
         project: t.parentTaskId,
-        dependencies: [], // TODO: Handle dependencies if API supports it
+        dependencies: Array.isArray(t.dependencies) ? t.dependencies : [],
         assignedTo: t.assignedTo,
         status: t.status,
         priority: t.priority,
@@ -126,7 +126,6 @@ export default function GanttChartPage() {
   }
 
   const handleTaskSelect = (task: Task, isSelected: boolean) => {
-    console.log('Task selected:', task.name, isSelected)
     if (isSelected) {
       setSelectedTask(task as GanttTask)
     } else {
@@ -135,7 +134,6 @@ export default function GanttChartPage() {
   }
 
   const handleExpanderClick = (task: Task) => {
-    console.log('Expander clicked:', task)
     setTasks((prevTasks) =>
       prevTasks.map((t) => (t.id === task.id ? { ...t, hideChildren: !t.hideChildren } : t))
     )

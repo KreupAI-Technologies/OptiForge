@@ -39,6 +39,8 @@ export default function TransfersPromotionsPage() {
   const [transfersPromotions, setTransfersPromotions] = useState<TransferPromotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -79,7 +81,32 @@ export default function TransfersPromotionsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const handleCreateRequest = async (data: any) => {
+    setActionError(null);
+    try {
+      await HrMovementsService.createTransferPromotion({
+        employeeCode: data.employeeCode,
+        name: data.employeeName,
+        type: data.type,
+        fromDesignation: data.fromDesignation,
+        toDesignation: data.toDesignation,
+        fromDepartment: data.fromDepartment,
+        toDepartment: data.toDepartment,
+        fromLocation: data.fromLocation,
+        toLocation: data.toLocation,
+        effectiveDate: data.effectiveDate,
+        requestedBy: data.requestedBy || undefined,
+        reason: data.reason,
+        salaryIncrement: data.salaryIncrement ? Number(data.salaryIncrement) : undefined,
+      });
+      setIsNewRequestModalOpen(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to submit request');
+    }
+  };
 
   const types = ['all', 'promotion', 'transfer', 'both'];
   const statuses = ['all', 'pending', 'approved', 'rejected', 'implemented'];
@@ -179,6 +206,12 @@ export default function TransfersPromotionsPage() {
         <p className="text-gray-600 mt-2">Manage employee career movements and progressions</p>
       </div>
 
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
         <div className="bg-white border-2 border-indigo-200 rounded-lg p-3">
           <div className="flex items-center justify-between"><div><p className="text-sm text-gray-600">Total Activities</p><p className="text-2xl font-bold text-indigo-600">{stats.total}</p></div>
@@ -262,11 +295,7 @@ export default function TransfersPromotionsPage() {
       <NewTransferPromotionModal
         isOpen={isNewRequestModalOpen}
         onClose={() => setIsNewRequestModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('New transfer/promotion request:', data);
-          setIsNewRequestModalOpen(false);
-          alert(`Request Submitted Successfully!\n\nEmployee: ${data.employeeName} (${data.employeeCode})\nType: ${data.type.toUpperCase()}\nFrom: ${data.fromDesignation} → To: ${data.toDesignation}\nEffective Date: ${data.effectiveDate}\n${data.salaryIncrement ? `Increment: +${data.salaryIncrement}%` : ''}\n\nStatus: Pending Approval`);
-        }}
+        onSubmit={handleCreateRequest}
       />
 
       {/* Workflow Modal */}

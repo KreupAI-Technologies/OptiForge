@@ -78,374 +78,32 @@ export default function InstallationTrackingPage() {
  const [showExportModal, setShowExportModal] = useState(false);
  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
- const [mockActivities, setMockActivities] = useState<InstallationActivity[]>([
-  {
-   id: 'INST-001',
-   activityNumber: 'INST-2025-001',
-   projectId: 'PRJ-2025-001',
-   projectName: 'Taj Hotels - Commercial Kitchen Setup',
-   equipmentItem: 'Gas Cooking Range - 6 Burner',
-   equipmentCode: 'EQ-CK-001',
-   location: 'Main Kitchen - Cooking Section',
-   zone: 'Zone A',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-20',
-   plannedEndDate: '2025-01-22',
-   actualStartDate: '2025-01-20',
-   actualEndDate: '2025-01-22',
-   status: 'Completed',
-   progress: 100,
-   assignedTeam: 'Installation Team A',
-   teamSize: 4,
-   supervisor: 'Ramesh Kumar',
-   dependencies: [],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Wrench Set', 'Gas Leak Detector', 'Spirit Level', 'Pipe Cutter'],
-   safetyChecklist: true,
-   qualityCheckpoint: true,
-   photos: 12,
-   remarks: 'Installation completed successfully. Gas connections tested and certified.',
-   issues: [],
-   delayReason: '',
-  },
-  {
-   id: 'INST-002',
-   activityNumber: 'INST-2025-002',
-   projectId: 'PRJ-2025-001',
-   projectName: 'Taj Hotels - Commercial Kitchen Setup',
-   equipmentItem: 'Exhaust Hood with Filters',
-   equipmentCode: 'EQ-EX-001',
-   location: 'Main Kitchen - Cooking Section',
-   zone: 'Zone A',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-23',
-   plannedEndDate: '2025-01-25',
-   actualStartDate: '2025-01-23',
-   actualEndDate: '',
-   status: 'In Progress',
-   progress: 65,
-   assignedTeam: 'Installation Team A',
-   teamSize: 5,
-   supervisor: 'Ramesh Kumar',
-   dependencies: ['INST-2025-001'],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Ladder', 'Drilling Machine', 'Welding Equipment', 'Safety Harness'],
-   safetyChecklist: true,
-   qualityCheckpoint: false,
-   photos: 8,
-   remarks: 'Hood mounting in progress. Ducting installation scheduled for tomorrow.',
-   issues: ['Minor delay due to additional anchor points requirement'],
-   delayReason: '',
-  },
-  {
-   id: 'INST-003',
-   activityNumber: 'INST-2025-003',
-   projectId: 'PRJ-2025-002',
-   projectName: 'BigBasket - Cold Room Installation',
-   equipmentItem: 'PUF Insulation Panels - Walls',
-   equipmentCode: 'EQ-CR-010',
-   location: 'Warehouse - Cold Storage Area',
-   zone: 'Zone B',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-18',
-   plannedEndDate: '2025-01-20',
-   actualStartDate: '2025-01-18',
-   actualEndDate: '2025-01-21',
-   status: 'Completed',
-   progress: 100,
-   assignedTeam: 'Cold Room Team',
-   teamSize: 6,
-   supervisor: 'Suresh Patel',
-   dependencies: [],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Panel Lifter', 'Cam-lock Tool', 'Sealant Gun', 'Measuring Tape'],
-   safetyChecklist: true,
-   qualityCheckpoint: true,
-   photos: 15,
-   remarks: 'Wall panels installed. Minor delay due to additional sealing work required.',
-   issues: [],
-   delayReason: 'Additional sealing at corner joints required for better insulation',
-  },
-  {
-   id: 'INST-004',
-   activityNumber: 'INST-2025-004',
-   projectId: 'PRJ-2025-002',
-   projectName: 'BigBasket - Cold Room Installation',
-   equipmentItem: 'Refrigeration Compressor Unit',
-   equipmentCode: 'EQ-CR-020',
-   location: 'Warehouse - Compressor Room',
-   zone: 'Zone C',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-22',
-   plannedEndDate: '2025-01-24',
-   actualStartDate: '2025-01-22',
-   actualEndDate: '',
-   status: 'In Progress',
-   progress: 45,
-   assignedTeam: 'Refrigeration Specialists',
-   teamSize: 3,
-   supervisor: 'Venkat Rao',
-   dependencies: ['INST-2025-003'],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Refrigerant Charging Kit', 'Vacuum Pump', 'Pressure Gauges', 'Pipe Flaring Tool'],
-   safetyChecklist: true,
-   qualityCheckpoint: false,
-   photos: 6,
-   remarks: 'Compressor mounting completed. Piping work in progress.',
-   issues: [],
-   delayReason: '',
-  },
-  {
-   id: 'INST-005',
-   activityNumber: 'INST-2025-005',
-   projectId: 'PRJ-2025-003',
-   projectName: 'L&T Campus - Industrial Kitchen',
-   equipmentItem: 'Commercial Dishwasher',
-   equipmentCode: 'EQ-DW-001',
-   location: 'Cafeteria - Dishwashing Area',
-   zone: 'Zone D',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-25',
-   plannedEndDate: '2025-01-27',
-   actualStartDate: '',
-   actualEndDate: '',
-   status: 'Not Started',
-   progress: 0,
-   assignedTeam: 'Installation Team B',
-   teamSize: 4,
-   supervisor: 'Vijay Sharma',
-   dependencies: ['INST-2025-010'],
-   prerequisitesCompleted: false,
-   materialAvailability: 'Partial',
-   toolsRequired: ['Plumbing Tools', 'Electrical Tools', 'Spirit Level'],
-   safetyChecklist: false,
-   qualityCheckpoint: false,
-   photos: 0,
-   remarks: 'Awaiting completion of plumbing and electrical rough-in work.',
-   issues: ['Dependency not completed', 'Hot water supply pending'],
-   delayReason: '',
-  },
-  {
-   id: 'INST-006',
-   activityNumber: 'INST-2025-006',
-   projectId: 'PRJ-2025-003',
-   projectName: 'L&T Campus - Industrial Kitchen',
-   equipmentItem: 'HVAC Duct Installation',
-   equipmentCode: 'EQ-HV-015',
-   location: 'Cafeteria - Kitchen Area',
-   zone: 'Zone A-D',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-15',
-   plannedEndDate: '2025-01-20',
-   actualStartDate: '2025-01-15',
-   actualEndDate: '2025-01-23',
-   status: 'Completed',
-   progress: 100,
-   assignedTeam: 'HVAC Team',
-   teamSize: 8,
-   supervisor: 'Anil Joshi',
-   dependencies: [],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Sheet Metal Tools', 'Riveting Machine', 'Scaffolding', 'Measuring Tools'],
-   safetyChecklist: true,
-   qualityCheckpoint: true,
-   photos: 20,
-   remarks: 'Duct installation completed with leak testing. Delay due to rectification work.',
-   issues: ['Initial leakage detected at 2 joints - rectified'],
-   delayReason: 'Duct leakage rectification required 3 additional days',
-  },
-  {
-   id: 'INST-007',
-   activityNumber: 'INST-2025-007',
-   projectId: 'PRJ-2025-004',
-   projectName: 'ITC Grand - Bakery Equipment Setup',
-   equipmentItem: 'Deck Oven - 3 Deck Electric',
-   equipmentCode: 'EQ-BK-005',
-   location: 'Bakery - Baking Section',
-   zone: 'Zone A',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-12',
-   plannedEndDate: '2025-01-14',
-   actualStartDate: '2025-01-12',
-   actualEndDate: '2025-01-14',
-   status: 'Completed',
-   progress: 100,
-   assignedTeam: 'Bakery Equipment Team',
-   teamSize: 3,
-   supervisor: 'Amit Singh',
-   dependencies: [],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Heavy Lifting Equipment', 'Electrical Tools', 'Calibration Tools'],
-   safetyChecklist: true,
-   qualityCheckpoint: true,
-   photos: 10,
-   remarks: 'Oven installed, leveled, and calibrated. Temperature tests completed successfully.',
-   issues: [],
-   delayReason: '',
-  },
-  {
-   id: 'INST-008',
-   activityNumber: 'INST-2025-008',
-   projectId: 'PRJ-2025-005',
-   projectName: 'Godrej Properties - Modular Kitchen',
-   equipmentItem: 'Base Cabinet Units with Drawers',
-   equipmentCode: 'EQ-MK-010',
-   location: 'Sample Flat - Kitchen',
-   zone: 'Zone A',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-18',
-   plannedEndDate: '2025-01-20',
-   actualStartDate: '2025-01-18',
-   actualEndDate: '2025-01-20',
-   status: 'Completed',
-   progress: 100,
-   assignedTeam: 'Carpentry Team',
-   teamSize: 4,
-   supervisor: 'Ravi Shankar',
-   dependencies: [],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Drilling Machine', 'Spirit Level', 'Screwdriver Set', 'Measuring Tape'],
-   safetyChecklist: true,
-   qualityCheckpoint: true,
-   photos: 8,
-   remarks: 'Base cabinets installed and leveled. Soft-close mechanisms tested.',
-   issues: [],
-   delayReason: '',
-  },
-  {
-   id: 'INST-009',
-   activityNumber: 'INST-2025-009',
-   projectId: 'PRJ-2025-006',
-   projectName: 'Siemens - Switchgear Manufacturing Unit',
-   equipmentItem: 'Assembly Line Conveyor System',
-   equipmentCode: 'EQ-SG-025',
-   location: 'Factory - Assembly Bay',
-   zone: 'Zone A',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-10',
-   plannedEndDate: '2025-01-18',
-   actualStartDate: '2025-01-10',
-   actualEndDate: '',
-   status: 'Delayed',
-   progress: 70,
-   assignedTeam: 'Industrial Equipment Team',
-   teamSize: 10,
-   supervisor: 'Deepak Shah',
-   dependencies: [],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Partial',
-   toolsRequired: ['Heavy Machinery Tools', 'Alignment Tools', 'Electrical Testing Equipment'],
-   safetyChecklist: true,
-   qualityCheckpoint: false,
-   photos: 15,
-   remarks: 'Conveyor installation 70% complete. Delay due to alignment issues and missing components.',
-   issues: ['Precision alignment taking longer than expected', 'Some components arrived damaged'],
-   delayReason: 'Precision alignment issues and component replacement delay',
-  },
-  {
-   id: 'INST-010',
-   activityNumber: 'INST-2025-010',
-   projectId: 'PRJ-2025-003',
-   projectName: 'L&T Campus - Industrial Kitchen',
-   equipmentItem: 'Plumbing Rough-in Work',
-   equipmentCode: 'WORK-PL-001',
-   location: 'Cafeteria - All Areas',
-   zone: 'Zone A-D',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-12',
-   plannedEndDate: '2025-01-18',
-   actualStartDate: '2025-01-12',
-   actualEndDate: '',
-   status: 'In Progress',
-   progress: 85,
-   assignedTeam: 'Plumbing Team',
-   teamSize: 6,
-   supervisor: 'Dinesh Kumar',
-   dependencies: [],
-   prerequisitesCompleted: true,
-   materialAvailability: 'Available',
-   toolsRequired: ['Pipe Threading Machine', 'Welding Equipment', 'Pressure Testing Kit'],
-   safetyChecklist: true,
-   qualityCheckpoint: false,
-   photos: 12,
-   remarks: 'Main piping 85% complete. Final connections and testing pending.',
-   issues: [],
-   delayReason: '',
-  },
-  {
-   id: 'INST-011',
-   activityNumber: 'INST-2025-011',
-   projectId: 'PRJ-2025-008',
-   projectName: 'Marriott Hotel - Kitchen Renovation',
-   equipmentItem: 'Walk-in Cooler Installation',
-   equipmentCode: 'EQ-RF-008',
-   location: 'Kitchen - Storage Area',
-   zone: 'Zone B',
-   installationType: 'Replacement',
-   plannedStartDate: '2025-01-20',
-   plannedEndDate: '2025-01-25',
-   actualStartDate: '',
-   actualEndDate: '',
-   status: 'On Hold',
-   progress: 0,
-   assignedTeam: 'Refrigeration Team',
-   teamSize: 4,
-   supervisor: 'Naveen Kumar',
-   dependencies: ['DEMO-2025-001'],
-   prerequisitesCompleted: false,
-   materialAvailability: 'Available',
-   toolsRequired: ['Refrigeration Tools', 'Panel Installation Tools', 'Electrical Tools'],
-   safetyChecklist: false,
-   qualityCheckpoint: false,
-   photos: 0,
-   remarks: 'On hold awaiting demolition of old cooler. Hotel operations constraint.',
-   issues: ['Demolition delayed due to hotel operational requirements'],
-   delayReason: '',
-  },
-  {
-   id: 'INST-012',
-   activityNumber: 'INST-2025-012',
-   projectId: 'PRJ-2025-001',
-   projectName: 'Taj Hotels - Commercial Kitchen Setup',
-   equipmentItem: 'Stainless Steel Work Tables',
-   equipmentCode: 'EQ-WT-005',
-   location: 'Main Kitchen - Prep Area',
-   zone: 'Zone B',
-   installationType: 'New Installation',
-   plannedStartDate: '2025-01-24',
-   plannedEndDate: '2025-01-25',
-   actualStartDate: '',
-   actualEndDate: '',
-   status: 'Not Started',
-   progress: 0,
-   assignedTeam: 'Installation Team A',
-   teamSize: 3,
-   supervisor: 'Ramesh Kumar',
-   dependencies: ['INST-2025-002'],
-   prerequisitesCompleted: false,
-   materialAvailability: 'Available',
-   toolsRequired: ['Basic Hand Tools', 'Spirit Level', 'Adjustable Wrench'],
-   safetyChecklist: false,
-   qualityCheckpoint: false,
-   photos: 0,
-   remarks: 'Scheduled to start after exhaust hood installation completion.',
-   issues: [],
-   delayReason: '',
-  },
- ]);
+ const [mockActivities, setMockActivities] = useState<InstallationActivity[]>([]);
+ const [submitting, setSubmitting] = useState(false);
+ const [loadError, setLoadError] = useState<string | null>(null);
 
- useEffect(() => {
+ const loadActivities = () => {
+  setLoadError(null);
   projectManagementService.listInstallationActivities()
-   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockActivities(rows as unknown as InstallationActivity[]); })
-   .catch(() => { /* keep seed data on error */ });
- }, []);
+   .then((rows) => { if (Array.isArray(rows)) setMockActivities(rows as unknown as InstallationActivity[]); })
+   .catch(() => setLoadError('Failed to load installation activities.'));
+ };
+
+ useEffect(() => { loadActivities(); }, []);
+
+ const runSave = async (fn: () => Promise<unknown>, onDone: () => void) => {
+  setSubmitting(true);
+  try {
+   const result = await fn();
+   if (result === null) throw new Error('Request failed');
+   loadActivities();
+   onDone();
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+  } finally {
+   setSubmitting(false);
+  }
+ };
 
  const stats = {
   totalActivities: mockActivities.length,
@@ -507,83 +165,77 @@ export default function InstallationTrackingPage() {
  };
 
  // Handler functions
- const handleAddActivity = (data: any) => {
-  console.log('Adding activity:', data);
-  setShowAddModal(false);
- };
+ const updateSelected = (data: any) =>
+  projectManagementService.updateInstallationActivity(selectedActivity!.id, data);
 
- const handleEditActivity = (data: any) => {
-  console.log('Editing activity:', data);
-  setShowEditModal(false);
-  setSelectedActivity(null);
- };
+ const handleAddActivity = (data: any) => runSave(
+  () => projectManagementService.createInstallationActivity(data),
+  () => setShowAddModal(false),
+ );
 
- const handleUpdateProgress = (data: any) => {
-  console.log('Updating progress:', data);
-  setShowProgressModal(false);
-  setSelectedActivity(null);
- };
+ const handleEditActivity = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowEditModal(false); setSelectedActivity(null); },
+ );
 
- const handleUploadPhotos = (files: FileList) => {
-  console.log('Uploading photos:', files.length);
+ const handleUpdateProgress = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowProgressModal(false); setSelectedActivity(null); },
+ );
+
+ const handleUploadPhotos = (_files: FileList) => {
+  // NEEDS BACKEND: no photo-upload endpoint for installation activities; multipart upload must be server-side.
+  alert('Photo upload is not available yet.');
   setShowPhotosModal(false);
   setSelectedActivity(null);
  };
 
- const handleMarkSafety = (data: any) => {
-  console.log('Marking safety checklist:', data);
-  setShowSafetyModal(false);
-  setSelectedActivity(null);
- };
+ const handleMarkSafety = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowSafetyModal(false); setSelectedActivity(null); },
+ );
 
- const handleMarkQuality = (data: any) => {
-  console.log('Marking quality checkpoint:', data);
-  setShowQualityModal(false);
-  setSelectedActivity(null);
- };
+ const handleMarkQuality = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowQualityModal(false); setSelectedActivity(null); },
+ );
 
- const handleReportIssue = (data: any) => {
-  console.log('Reporting issue:', data);
-  setShowIssueModal(false);
-  setSelectedActivity(null);
- };
+ const handleReportIssue = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowIssueModal(false); setSelectedActivity(null); },
+ );
 
- const handleUpdateStatus = (data: any) => {
-  console.log('Updating status:', data);
-  setShowStatusModal(false);
-  setSelectedActivity(null);
- };
+ const handleUpdateStatus = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowStatusModal(false); setSelectedActivity(null); },
+ );
 
- const handleAssignTeam = (data: any) => {
-  console.log('Assigning team:', data);
-  setShowTeamModal(false);
-  setSelectedActivity(null);
- };
+ const handleAssignTeam = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowTeamModal(false); setSelectedActivity(null); },
+ );
 
- const handleScheduleActivity = (data: any) => {
-  console.log('Scheduling activity:', data);
-  setShowScheduleModal(false);
-  setSelectedActivity(null);
- };
+ const handleScheduleActivity = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowScheduleModal(false); setSelectedActivity(null); },
+ );
 
- const handleUpdateMaterials = (data: any) => {
-  console.log('Updating materials:', data);
-  setShowMaterialsModal(false);
-  setSelectedActivity(null);
- };
+ const handleUpdateMaterials = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowMaterialsModal(false); setSelectedActivity(null); },
+ );
 
- const handleAddDependencies = (data: any) => {
-  console.log('Adding dependencies:', data);
-  setShowDependenciesModal(false);
-  setSelectedActivity(null);
- };
+ const handleAddDependencies = (data: any) => runSave(
+  () => updateSelected(data),
+  () => { setShowDependenciesModal(false); setSelectedActivity(null); },
+ );
 
- const handleGenerateReport = (data: any) => {
-  console.log('Generating report:', data);
+ const handleGenerateReport = (_data: any) => {
+  exportToCsv('installation-report', filteredActivities as unknown as Record<string, unknown>[]);
   setShowReportModal(false);
  };
 
- const handleExportData = (data: any) => {
+ const handleExportData = (_data: any) => {
   exportToCsv('installation-tracking', filteredActivities as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
