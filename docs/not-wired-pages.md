@@ -7,7 +7,7 @@ _Detector: import-following (each `page.tsx` is scanned together with everything
 >
 > Key finding: **most of the 67 were already wired 3+ hops deep** (`page.tsx` → `Xxx` re-export → real component under `src/components/`), which the 2-hop detector missed — their only gap was a missing visible loading/error/empty state. Net-new backend was created only for: `advanced-features/ai-insights` + `ocr` (AdvancedFeaturesModule), `support/onboarding` (SupportOnboardingTask), `documentation` (DocumentationModule/doc_articles). One page is intentionally static: `settings/form-ux-demo` and `design-system` (internal component/UX galleries with no domain data).
 >
-> **Remaining manual step:** apply the 5 pending orphan SQL files to the DB via `cd b3-erp/backend && npm run db:manual` (dry-run: `npm run db:manual:status`). Not yet applied — new-table controllers degrade gracefully to empty arrays until then. See memory `wire-67-branch`.
+> **DB applied (2026-07-08):** all 5 orphan SQL files applied to the live DB via `npm run db:manual`; `db:manual:status` is clean. Seed rows verified (ai_insights=6, ocr_documents=6, doc_articles=8, support_onboarding_tasks=6, support_faqs=6). See memory `wire-67-branch`.
 
 **Total not-wired pages: 67** — all resolved (see note above)
 **(Total scanned: 1671 · NOT_WIRED: 67 · PARTIAL: 391 · FULL: 1208 · DEPRECATED: 5)**
