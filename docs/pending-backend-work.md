@@ -1,5 +1,14 @@
 # Pending Backend Work — Page by Page
 
+> ## ✅ RESOLVED — branch `feat/readiness-fixes` (autonomous, cluster-by-cluster)
+> The `[BE]` items below were implemented full-stack across 4 backend waves (cycle-count; replenishment/workflow/it-admin/common-masters/logistics; procurement/production/estimation/cpq/installation; file-upload/finance-statutory/report-PDF). Each: new/exposed NestJS endpoints wired to real UI (loading/error states, no fabricated success). **`nest build` exit 0, backend + frontend `tsc` both 0.**
+> - **Schema-safe:** every new table/column is an **additive** `prisma/manual/orphan_*.sql` (`CREATE TABLE/ADD COLUMN IF NOT EXISTS`, no DROPs), registered in `MIGRATION_ORDER`, **generated for review and NOT applied to the live Neon DB** — run `npm run db:manual` after reviewing.
+> - **File-upload/storage** implemented (multer→`./uploads` + `attachments` table); **PDF/Excel report generation** implemented (pdfkit/exceljs). **GST/TDS** persist filings + generate documents locally (no live GSTN/TRACES portal integration — that needs credentials/certification).
+> - **Intentionally left in honest "not available" state:** 4 of 6 CPQ advanced-features tabs (guided-selling, document-gen, e-signature, margin-guardrails). The `[UI]` window.prompt items are functional (endpoints exist) and are cosmetic-only.
+>
+> ---
+
+
 _Generated: 2026-07-08 · branch `main` · HEAD `1db4e41a`._
 
 This is the **open work only** — pages whose UI actions are **not fully covered by a backend endpoint**. Everything in the earlier not-wired (67) and partially-wired (391) audits is already merged into `main`; those pages fetch and render live data. What remains below are specific **actions** on otherwise-wired pages that have **no backing endpoint** (net-new backend), plus a few UI-polish and page-to-build items.
