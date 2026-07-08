@@ -3,9 +3,13 @@
 _Regenerated: 2026-07-08 (branch `main`, commit `6660ba44`)._
 _Detector: import-following (each `page.tsx` is scanned together with everything it imports, transitively, up to 2 hops). Same classifier as [`wiring-audit-2026-07-08.md`](./wiring-audit-2026-07-08.md) — all three docs agree on totals._
 
-Pages under `b3-erp/frontend/src/app/` where **neither the page nor any component it imports (2 levels deep) contains a backend call** — pure static shells or hardcoded UI.
+> **RESOLVED on branch `feat/wire-67-not-wired-pages` (2026-07-08).** All 67 pages below were wired full-stack (Prisma read-side models where net-new backend was required, NestJS endpoints, frontend service methods, loading/error/empty states). Both build gates green: backend `prisma generate && nest build` (exit 0) and frontend `tsc --noEmit` (0 errors).
+>
+> Key finding: **most of the 67 were already wired 3+ hops deep** (`page.tsx` → `Xxx` re-export → real component under `src/components/`), which the 2-hop detector missed — their only gap was a missing visible loading/error/empty state. Net-new backend was created only for: `advanced-features/ai-insights` + `ocr` (AdvancedFeaturesModule), `support/onboarding` (SupportOnboardingTask), `documentation` (DocumentationModule/doc_articles). One page is intentionally static: `settings/form-ux-demo` and `design-system` (internal component/UX galleries with no domain data).
+>
+> **Remaining manual step:** apply the 5 pending orphan SQL files to the DB via `cd b3-erp/backend && npm run db:manual` (dry-run: `npm run db:manual:status`). Not yet applied — new-table controllers degrade gracefully to empty arrays until then. See memory `wire-67-branch`.
 
-**Total not-wired pages: 67**
+**Total not-wired pages: 67** — all resolved (see note above)
 **(Total scanned: 1671 · NOT_WIRED: 67 · PARTIAL: 391 · FULL: 1208 · DEPRECATED: 5)**
 
 ## Issue tags used
