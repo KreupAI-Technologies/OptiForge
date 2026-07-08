@@ -371,7 +371,7 @@ export default function FinanceDashboard() {
   };
 
   const quickActions = [
-    { icon: FileText, label: 'Create Journal Entry', href: '/finance/journal-entries/create', color: 'blue' },
+    { icon: FileText, label: 'Create Journal Entry', href: '/finance/accounting/journal-entries', color: 'blue' },
     { icon: Receipt, label: 'Record Payment', href: '/finance/payments/add', color: 'green' },
     { icon: Banknote, label: 'Create Invoice', href: '/finance/invoices/add', color: 'purple' },
     { icon: Calculator, label: 'Bank Reconciliation', href: '/finance/bank-reconciliation', color: 'orange' },
