@@ -1,24 +1,26 @@
 # Partially-Wired Pages Report
 
-> ## ✅ RESOLVED — 2026-07-09 (branch `feat/complete-remaining-wired-pages`)
-> Re-verified all 25 flagged pages at HEAD. The `readiness-fixes` merge had already
-> fully wired **~16** of them (all 6 inventory pages, production `bom`, `bom/versions`,
-> `downtime/log`, `downtime/rca`, `quality`, `shopfloor/operator`, procurement `grn`,
-> finance `periods` + `receivables/credit-management`, `crm/customers/portal`,
-> `installation/tool-prep`). The genuinely-incomplete remainder was completed:
+> ## ✅ RE-VERIFIED & RESOLVED — branch `feat/readiness-fixes`
+> All 39 flagged pages re-checked at HEAD with a marker scanner + manual inspection (`scripts/` + 4 module agents). As the detector's own history notes, most were **false positives**. Outcome:
+> - **Genuine stubs fixed** (wired to real existing services, loading/error states): finance trial-balance refresh; 3 cash-flow rows → payment view; reports/quality dashboard+inspections exports; hr/leave download + view-all; rfq/view linked-PR → real route; procurement rfq-rfp send; production/shopfloor + inventory work-center/email **mock-data fallbacks removed** → honest empty state.
+> - **Genuine backend-gap actions → honest-disabled** (not faked): cpq cad/ecommerce view-quote, procurement contracts history/upload + rfq-rfp bid shortlist/reject, finance recurring post-now, inventory low-stock email. These need net-new backend (tracked in [`pending-backend-work.md`](./pending-backend-work.md)).
+> - **False positives (left as-is):** informational `// TODO` comments, validation/confirmation `alert()`s, working `window.prompt`s that call real endpoints, static enum constants.
 >
-> | Page | Action taken |
-> |---|---|
-> | `/production/automation` | Added `activate/pause/disable/execute` methods to `production-orphan.service`; wired Start→execute, Pause→pause, Stop→disable; removed all `console.log` stubs (no-backend handlers made honest UI no-ops) |
-> | `/production/downtime` | Replaced hardcoded mock summary with `useMemo` computed from `getDowntimeRecords()` (totals, MTTR, by-category; non-derivable metrics → 0, not faked) |
-> | `/production/downtime/analysis` | Replaced mock monthly/category arrays with values grouped/computed from fetched records |
-> | `/production/shopfloor` | Removed fake operator identity "Amit Sharma"; badge login now derives from the real `employeeId` |
-> | `/procurement/purchase-requisition` | New `procurement-purchase-requisition.service` (submit / convert-to-PO); wired both `console.log` stubs to real POST routes |
-> | `/procurement/rfq-rfp` | Award → `awardRFQ`; Export → client-side CSV download; View-bid → opens real `AwardBidModal`; dead Edit alert removed |
-> | `/procurement/contracts` | Removed permanently-disabled "View History" button (no history endpoint exists) |
-> | `/finance/advanced-features` | Removed 6 fabricated mock datasets; each tab now shows an honest empty-state; page fetches the real feature-toggle endpoint |
+> **Live pages now have 0 empty-onClick, 0 console-log-onClick, 0 "coming soon" action-stub alerts.** Frontend `tsc` = 0. The residual scanner hits are all intentional (honest-disabled notices / validation alerts / informational TODOs).
 >
-> Gate: frontend `tsc --noEmit` = **0 errors** (baseline preserved). Net genuinely-partial live pages: **0**.
+> ---
+>
+> ### ➕ Follow-up — 2026-07-09 (branch `feat/complete-remaining-wired-pages`)
+> A later regenerated run of this report (1730 scanned · 25 partial) re-flagged a subset; on inspection several still had live stubs at HEAD, now completed:
+> - **production/automation** — added `activate/pause/disable/execute` methods to `production-orphan.service`; wired Start/Pause/Stop; removed `console.log` handlers.
+> - **production/downtime** + **downtime/analysis** — replaced hardcoded mock summaries/analytics with values computed from `getDowntimeRecords()` (non-derivable metrics → 0, not faked).
+> - **production/shopfloor** — removed fake operator "Amit Sharma"; derives from real `employeeId`.
+> - **procurement/purchase-requisition** — new `procurement-purchase-requisition.service` (submit / convert-to-PO) wired to real routes (with `credentials: 'include'`).
+> - **procurement/rfq-rfp** — Award → `awardRFQ`; Export → client-side CSV; View-bid → real modal; removed dead Edit alert.
+> - **procurement/contracts** — removed permanently-disabled "View History" button (no history endpoint exists).
+> - **finance/advanced-features** — removed 6 fabricated mock datasets → honest empty-states + real feature-toggle fetch.
+>
+> Frontend `tsc --noEmit` = **0 errors**.
 >
 > ---
 
@@ -27,8 +29,8 @@ _Detector v3: import-following depth ≤ 3, follows relative + alias imports. Sa
 
 Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend somewhere in their tree, but also contain a stub-style handler** (`alert()`, `console.log('click'|'save'|…)`, `// TODO`/`FIXME`/`HACK`, or empty `onClick`).
 
-**Total partially-wired pages: 25**
-**(Total scanned: 1730 · NOT_WIRED: 2 · PARTIAL: 25 · FULL: 1698 · DEPRECATED: 5)**
+**Total partially-wired pages: 39**
+**(Total scanned: 1671 · NOT_WIRED: 2 · PARTIAL: 39 · FULL: 1625 · DEPRECATED: 5)**
 
 ## Issue tags used
 
@@ -56,16 +58,20 @@ Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend som
 
 | Module | Partial pages |
 |---|---|
-| production | 10 |
+| production | 11 |
+| finance | 7 |
 | inventory | 6 |
+| reports | 5 |
 | procurement | 4 |
-| finance | 3 |
+| cpq | 2 |
 | crm | 1 |
+| hr | 1 |
 | installation | 1 |
+| rfq | 1 |
 
 ---
 
-## `production` — 10 partially-wired pages
+## `production` — 11 partially-wired pages
 
 | Route | Issues |
 |---|---|
@@ -77,19 +83,42 @@ Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend som
 | `/production/downtime/log` | TODO(x3) |
 | `/production/downtime/rca` | TODO(x17) |
 | `/production/quality` | TODO(x2) |
+| `/production/quality/add` | TODO(x1) |
 | `/production/shopfloor` | mock-data; TODO(x3) |
 | `/production/shopfloor/operator` | TODO(x2) |
+
+## `finance` — 7 partially-wired pages
+
+| Route | Issues |
+|---|---|
+| `/finance/accounting/chart-of-accounts` | mock-data; console-log-onclick |
+| `/finance/accounting/trial-balance` | mock-data; alert-onclick |
+| `/finance/advanced-features` | mock-data; empty-onclick |
+| `/finance/automation/recurring-transactions` | mock-data; console-log-onclick |
+| `/finance/periods` | wired-via-delegation; mock-data; empty-onclick |
+| `/finance/receivables/credit-management` | mock-data; console-log-stub |
+| `/finance/tax/tds` | mock-data; TODO(x2) |
 
 ## `inventory` — 6 partially-wired pages
 
 | Route | Issues |
 |---|---|
 | `/inventory/adjustments` | TODO(x1) |
-| `/inventory/cycle-count` | TODO(x1) |
+| `/inventory/cycle-count` | TODO(x4) |
 | `/inventory/movements` | TODO(x6) |
 | `/inventory/stock` | TODO(x2) |
 | `/inventory/stock/low-stock` | TODO(x2) |
 | `/inventory/transfers` | TODO(x3) |
+
+## `reports` — 5 partially-wired pages
+
+| Route | Issues |
+|---|---|
+| `/reports/finance/cash-flow/financing` | console-log-onclick |
+| `/reports/finance/cash-flow/investing` | console-log-onclick |
+| `/reports/finance/cash-flow/operating` | console-log-onclick |
+| `/reports/quality/dashboard` | mock-data; not-implemented; console-log-onclick |
+| `/reports/quality/inspections` | mock-data; not-implemented; console-log-onclick |
 
 ## `procurement` — 4 partially-wired pages
 
@@ -100,13 +129,12 @@ Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend som
 | `/procurement/purchase-requisition` | wired-via-delegation; mock-data; console-log-stub |
 | `/procurement/rfq-rfp` | wired-via-delegation; mock-data; TODO(x1) |
 
-## `finance` — 3 partially-wired pages
+## `cpq` — 2 partially-wired pages
 
 | Route | Issues |
 |---|---|
-| `/finance/advanced-features` | mock-data; empty-onclick |
-| `/finance/periods` | wired-via-delegation; mock-data; empty-onclick |
-| `/finance/receivables/credit-management` | mock-data; console-log-stub |
+| `/cpq/integration/cad` | coming-soon; alert-onclick |
+| `/cpq/integration/ecommerce` | coming-soon; alert-onclick |
 
 ## `crm` — 1 partially-wired pages
 
@@ -114,9 +142,21 @@ Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend som
 |---|---|
 | `/crm/customers/portal` | empty-onclick |
 
+## `hr` — 1 partially-wired pages
+
+| Route | Issues |
+|---|---|
+| `/hr/leave/balance/my` | mock-data; console-log-onclick |
+
 ## `installation` — 1 partially-wired pages
 
 | Route | Issues |
 |---|---|
 | `/installation/tool-prep` | empty-onclick |
+
+## `rfq` — 1 partially-wired pages
+
+| Route | Issues |
+|---|---|
+| `/rfq/view/[id]` | mock-data; coming-soon; alert-onclick |
 
