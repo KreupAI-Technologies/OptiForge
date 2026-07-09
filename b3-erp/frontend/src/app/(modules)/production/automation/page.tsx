@@ -123,6 +123,20 @@ export default function AutomationPage() {
   const [wfLoading, setWfLoading] = useState(true);
   const [wfError, setWfError] = useState<string | null>(null);
 
+  const loadWorkflows = React.useCallback(async () => {
+    setWfLoading(true);
+    setWfError(null);
+    try {
+      const raw = await ProductionOrphanService.getAutomationWorkflows();
+      setWorkflows(Array.isArray(raw) ? raw : []);
+    } catch (err) {
+      setWfError(err instanceof Error ? err.message : 'Failed to load automation workflows');
+      setWorkflows([]);
+    } finally {
+      setWfLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -146,57 +160,65 @@ export default function AutomationPage() {
     };
   }, []);
 
-  // Event handlers
-  const handleEntityClick = (entity: DataEntity) => {
-    console.log('Entity clicked:', entity);
+  // Scanner mode is a real piece of UI state driven by the BarcodeScanner.
+  const [scanMode, setScanMode] = useState<ScanMode>('wip-tracking');
+
+  // Detail/inspection handlers — no backend action exists for these; the child
+  // components own their own drill-down, so these are intentional no-ops.
+  const handleEntityClick = (_entity: DataEntity) => {};
+
+  const handleSyncTrigger = (_entityId: string) => {
+    // No backend sync-trigger endpoint; sync is surfaced by the MES dashboard.
   };
 
-  const handleSyncTrigger = (entityId: string) => {
-    console.log('Sync triggered:', entityId);
+  const handleEventClick = (_event: SyncEvent) => {};
+
+  const handleWorkflowClick = (_workflow: AutomatedWorkflow) => {};
+
+  // Workflow actions wired to the NestJS domain backend, then reload the list.
+  const handleStartWorkflow = async (workflowId: string) => {
+    try {
+      await ProductionOrphanService.executeAutomationWorkflow(workflowId);
+      await loadWorkflows();
+    } catch (err) {
+      setWfError(err instanceof Error ? err.message : 'Failed to start workflow');
+    }
   };
 
-  const handleEventClick = (event: SyncEvent) => {
-    console.log('Event clicked:', event);
+  const handlePauseWorkflow = async (workflowId: string) => {
+    try {
+      await ProductionOrphanService.pauseAutomationWorkflow(workflowId);
+      await loadWorkflows();
+    } catch (err) {
+      setWfError(err instanceof Error ? err.message : 'Failed to pause workflow');
+    }
   };
 
-  const handleWorkflowClick = (workflow: AutomatedWorkflow) => {
-    console.log('Workflow clicked:', workflow);
+  const handleStopWorkflow = async (workflowId: string) => {
+    try {
+      await ProductionOrphanService.disableAutomationWorkflow(workflowId);
+      await loadWorkflows();
+    } catch (err) {
+      setWfError(err instanceof Error ? err.message : 'Failed to stop workflow');
+    }
   };
 
-  const handleStartWorkflow = (workflowId: string) => {
-    console.log('Start workflow:', workflowId);
-  };
+  const handleSystemClick = (_system: ConnectedSystem) => {};
 
-  const handlePauseWorkflow = (workflowId: string) => {
-    console.log('Pause workflow:', workflowId);
-  };
+  const handleAlertClick = (_system: ConnectedSystem, _alert: string) => {};
 
-  const handleStopWorkflow = (workflowId: string) => {
-    console.log('Stop workflow:', workflowId);
-  };
+  const handleHealthCheckClick = (_system: ConnectedSystem, _check: HealthCheck) => {};
 
-  const handleSystemClick = (system: ConnectedSystem) => {
-    console.log('System clicked:', system);
-  };
-
-  const handleAlertClick = (system: ConnectedSystem, alert: string) => {
-    console.log('Alert clicked:', system, alert);
-  };
-
-  const handleHealthCheckClick = (system: ConnectedSystem, check: HealthCheck) => {
-    console.log('Health check clicked:', system, check);
-  };
-
-  const handleScan = (barcode: string, item?: ScannedItem) => {
-    console.log('Barcode scanned:', barcode, item);
+  const handleScan = (_barcode: string, _item?: ScannedItem) => {
+    // No backend scan-record endpoint; scanning is handled inside BarcodeScanner.
   };
 
   const handleScanModeChange = (mode: ScanMode) => {
-    console.log('Scan mode changed:', mode);
+    setScanMode(mode);
   };
 
-  const handleStatusUpdate = (status: WIPStatus, action: string) => {
-    console.log('WIP status update:', status, action);
+  const handleStatusUpdate = (_status: WIPStatus, _action: string) => {
+    // No backend WIP-status endpoint; UI-only affordance.
   };
 
   const renderContent = () => {
@@ -233,7 +255,7 @@ export default function AutomationPage() {
       case 'scanner':
         return (
           <BarcodeScanner
-            mode="wip-tracking"
+            mode={scanMode}
             onScan={handleScan}
             onModeChange={handleScanModeChange}
             onStatusUpdate={handleStatusUpdate}
@@ -333,7 +355,7 @@ export default function AutomationPage() {
 
             {/* Scanner */}
             <BarcodeScanner
-              mode="wip-tracking"
+              mode={scanMode}
               onScan={handleScan}
               onModeChange={handleScanModeChange}
               onStatusUpdate={handleStatusUpdate}

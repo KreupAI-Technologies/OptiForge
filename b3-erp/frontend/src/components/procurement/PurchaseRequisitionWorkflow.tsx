@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { purchaseRequisitionService } from '@/services/purchase-requisition.service'
+import { procurementPurchaseRequisitionService } from '@/services/procurement-purchase-requisition.service'
 import { procurementPagesService } from '@/services/procurement-pages.service'
 import {
   FileText,
@@ -1107,9 +1108,22 @@ export default function PurchaseRequisitionWorkflow() {
       <SubmitRequisitionModal
         isOpen={isSubmitRequisitionModalOpen}
         onClose={() => setIsSubmitRequisitionModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Submit requisition:', data)
-          setIsSubmitRequisitionModalOpen(false)
+        onSubmit={async (data) => {
+          const prId = data?.requisitionId ?? selectedRequisition?.id
+          if (!prId) {
+            setActionError('Save the requisition before submitting it for approval.')
+            return
+          }
+          setActionError(null)
+          setActionMessage(null)
+          try {
+            await procurementPurchaseRequisitionService.submitRequisition(prId)
+            setActionMessage('Requisition submitted for approval.')
+            setIsSubmitRequisitionModalOpen(false)
+            await loadRequisitions()
+          } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Submit failed.')
+          }
         }}
       />
 
@@ -1151,9 +1165,23 @@ export default function PurchaseRequisitionWorkflow() {
         isOpen={isConvertToPOModalOpen}
         onClose={() => setIsConvertToPOModalOpen(false)}
         requisition={selectedRequisition}
-        onSubmit={(data) => {
-          console.log('Convert to PO:', data)
-          setIsConvertToPOModalOpen(false)
+        onSubmit={async (data) => {
+          const prId = data?.requisitionId ?? selectedRequisition?.id
+          if (!prId) {
+            setActionError('No requisition selected.')
+            return
+          }
+          setActionError(null)
+          setActionMessage(null)
+          try {
+            const { requisitionId: _omit, ...poData } = data ?? {}
+            await procurementPurchaseRequisitionService.convertToPO(prId, poData)
+            setActionMessage('Purchase order created from requisition.')
+            setIsConvertToPOModalOpen(false)
+            await loadRequisitions()
+          } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Convert to PO failed.')
+          }
         }}
       />
 

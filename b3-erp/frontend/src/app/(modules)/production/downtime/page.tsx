@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, AlertTriangle, Clock, TrendingDown, Activity, Wrench, Zap } from 'lucide-react';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
@@ -22,6 +22,7 @@ interface DowntimeEvent {
   endTime: string | null;
   duration: number; // in minutes
   status: 'ongoing' | 'resolved';
+  downtimeType: 'planned' | 'unplanned';
   category: 'breakdown' | 'changeover' | 'maintenance' | 'no-operator' | 'material-shortage' | 'power-outage' | 'quality-issue';
   severity: 'critical' | 'high' | 'medium' | 'low';
   description: string;
@@ -79,11 +80,13 @@ export default function DowntimeDashboardPage() {
         const catMap: Record<string, DowntimeEvent['category']> = {
           Breakdown: 'breakdown', breakdown: 'breakdown',
           Changeover: 'changeover', changeover: 'changeover',
+          Setup: 'changeover', setup: 'changeover',
           Maintenance: 'maintenance', maintenance: 'maintenance',
           NoOperator: 'no-operator', 'no-operator': 'no-operator',
-          MaterialShortage: 'material-shortage', 'material-shortage': 'material-shortage',
+          OperatorUnavailable: 'no-operator', operator_unavailable: 'no-operator',
+          MaterialShortage: 'material-shortage', 'material-shortage': 'material-shortage', material_shortage: 'material-shortage',
           PowerOutage: 'power-outage', 'power-outage': 'power-outage',
-          QualityIssue: 'quality-issue', 'quality-issue': 'quality-issue',
+          QualityIssue: 'quality-issue', 'quality-issue': 'quality-issue', quality_issue: 'quality-issue',
         };
         const mapped: DowntimeEvent[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => {
           const resolved = !!(d?.endTime || d?.resolvedBy || String(d?.status).toLowerCase() === 'resolved');
@@ -100,12 +103,13 @@ export default function DowntimeDashboardPage() {
             endTime: d?.endTime ?? null,
             duration: Number(d?.durationMinutes ?? 0),
             status: resolved ? 'resolved' : 'ongoing',
-            category: catMap[d?.downtimeType ?? d?.category] ?? 'breakdown',
+            downtimeType: String(d?.downtimeType).toLowerCase() === 'planned' ? 'planned' : 'unplanned',
+            category: catMap[d?.category] ?? catMap[d?.downtimeType] ?? 'breakdown',
             severity: (['critical', 'high', 'medium', 'low'].includes(sev) ? sev : 'medium') as DowntimeEvent['severity'],
             description: d?.description ?? d?.reason ?? '',
             affectedWO: wos,
-            productionLoss: Number(d?.lostProductionQuantity ?? 0),
-            costImpact: Number(d?.totalCost ?? 0),
+            productionLoss: Number(d?.impactAssessment?.lostProductionQuantity ?? d?.lostProductionQuantity ?? 0),
+            costImpact: Number(d?.impactAssessment?.totalCost ?? d?.totalCost ?? 0),
             reportedBy: d?.reportedBy ?? '',
             assignedTo: d?.resolvedBy ?? null,
           };
@@ -128,20 +132,42 @@ export default function DowntimeDashboardPage() {
 
   const refreshEvents = () => setRefreshKey((k) => k + 1);
 
-  // Mock summary data
-  const downtimeSummary: DowntimeSummary = {
-    period: 'Oct 2025 (MTD)',
-    totalDowntime: 58.5,
-    plannedDowntime: 12.5,
-    unplannedDowntime: 46.0,
-    breakdownHours: 28.5,
-    maintenanceHours: 12.5,
-    changeoverHours: 8.2,
-    otherHours: 9.3,
-    mtbf: 420,
-    mttr: 6.8,
-    availability: 92.5
-  };
+  // Summary computed honestly from the fetched downtime records.
+  // Durations come from durationMinutes (null-safe); hour-based UI fields
+  // divide by 60. MTBF and availability need total operating time which the
+  // records do not provide, so they are reported as 0 rather than faked.
+  const downtimeSummary: DowntimeSummary = useMemo(() => {
+    const toHours = (mins: number) => Math.round((mins / 60) * 10) / 10;
+    const totalMinutes = downtimeEvents.reduce((s, e) => s + (Number.isFinite(e.duration) ? e.duration : 0), 0);
+    const unplannedMinutes = downtimeEvents
+      .filter(e => e.downtimeType === 'unplanned')
+      .reduce((s, e) => s + (Number.isFinite(e.duration) ? e.duration : 0), 0);
+    const plannedMinutes = totalMinutes - unplannedMinutes;
+    const minutesForCategory = (cat: DowntimeEvent['category']) =>
+      downtimeEvents.filter(e => e.category === cat).reduce((s, e) => s + (Number.isFinite(e.duration) ? e.duration : 0), 0);
+    const breakdownMinutes = minutesForCategory('breakdown');
+    const maintenanceMinutes = minutesForCategory('maintenance');
+    const changeoverMinutes = minutesForCategory('changeover');
+    const otherMinutes = totalMinutes - breakdownMinutes - maintenanceMinutes - changeoverMinutes;
+    const resolvedEvents = downtimeEvents.filter(e => e.status === 'resolved');
+    const resolvedMinutes = resolvedEvents.reduce((s, e) => s + (Number.isFinite(e.duration) ? e.duration : 0), 0);
+    const mttr = resolvedEvents.length > 0
+      ? Math.round((resolvedMinutes / resolvedEvents.length / 60) * 10) / 10
+      : 0;
+    return {
+      period: 'All records',
+      totalDowntime: toHours(totalMinutes),
+      plannedDowntime: toHours(plannedMinutes),
+      unplannedDowntime: toHours(unplannedMinutes),
+      breakdownHours: toHours(breakdownMinutes),
+      maintenanceHours: toHours(maintenanceMinutes),
+      changeoverHours: toHours(changeoverMinutes),
+      otherHours: toHours(Math.max(0, otherMinutes)),
+      mtbf: 0, // not derivable from records (no total operating time)
+      mttr,
+      availability: 0, // not derivable from records (no total operating time)
+    };
+  }, [downtimeEvents]);
 
   const filteredEvents = downtimeEvents.filter(event => {
     const categoryMatch = filterCategory === 'all' || event.category === filterCategory;
@@ -431,22 +457,22 @@ export default function DowntimeDashboardPage() {
           <div className="p-4 bg-red-50 rounded-lg">
             <p className="text-sm text-red-600">Breakdown</p>
             <p className="text-2xl font-bold text-red-900">{downtimeSummary.breakdownHours}h</p>
-            <p className="text-xs text-gray-600">{((downtimeSummary.breakdownHours / downtimeSummary.totalDowntime) * 100).toFixed(1)}% of total</p>
+            <p className="text-xs text-gray-600">{downtimeSummary.totalDowntime > 0 ? ((downtimeSummary.breakdownHours / downtimeSummary.totalDowntime) * 100).toFixed(1) : '0.0'}% of total</p>
           </div>
           <div className="p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-600">Maintenance</p>
             <p className="text-2xl font-bold text-blue-900">{downtimeSummary.maintenanceHours}h</p>
-            <p className="text-xs text-gray-600">{((downtimeSummary.maintenanceHours / downtimeSummary.totalDowntime) * 100).toFixed(1)}% of total</p>
+            <p className="text-xs text-gray-600">{downtimeSummary.totalDowntime > 0 ? ((downtimeSummary.maintenanceHours / downtimeSummary.totalDowntime) * 100).toFixed(1) : '0.0'}% of total</p>
           </div>
           <div className="p-4 bg-green-50 rounded-lg">
             <p className="text-sm text-green-600">Changeover</p>
             <p className="text-2xl font-bold text-green-900">{downtimeSummary.changeoverHours}h</p>
-            <p className="text-xs text-gray-600">{((downtimeSummary.changeoverHours / downtimeSummary.totalDowntime) * 100).toFixed(1)}% of total</p>
+            <p className="text-xs text-gray-600">{downtimeSummary.totalDowntime > 0 ? ((downtimeSummary.changeoverHours / downtimeSummary.totalDowntime) * 100).toFixed(1) : '0.0'}% of total</p>
           </div>
           <div className="p-4 bg-yellow-50 rounded-lg">
             <p className="text-sm text-yellow-600">Other</p>
             <p className="text-2xl font-bold text-yellow-900">{downtimeSummary.otherHours}h</p>
-            <p className="text-xs text-gray-600">{((downtimeSummary.otherHours / downtimeSummary.totalDowntime) * 100).toFixed(1)}% of total</p>
+            <p className="text-xs text-gray-600">{downtimeSummary.totalDowntime > 0 ? ((downtimeSummary.otherHours / downtimeSummary.totalDowntime) * 100).toFixed(1) : '0.0'}% of total</p>
           </div>
         </div>
       </div>

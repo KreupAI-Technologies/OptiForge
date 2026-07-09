@@ -30,7 +30,6 @@ import {
   Copy,
   Archive,
   Send,
-  History,
   Key,
   Scale,
   ChevronDown,
@@ -750,14 +749,6 @@ export default function ContractsPage() {
                       >
                         <FilePlus className="h-4 w-4" />
                         Add Amendment
-                      </button>
-                      <button
-                        disabled
-                        title="Contract history is not yet available"
-                        className="px-3 py-1.5 text-gray-400 bg-white border border-gray-200 rounded-lg text-sm flex items-center gap-1 cursor-not-allowed"
-                      >
-                        <History className="h-4 w-4" />
-                        View History
                       </button>
                       <button
                         onClick={() => {

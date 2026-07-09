@@ -209,6 +209,11 @@ export const ProductionOrphanService = {
 
   // GET production/automation-workflows (backs automation)
   getAutomationWorkflows: () => request<any[]>('/production/automation-workflows'),
+  // POST production/automation-workflows/:id/activate|pause|disable|execute
+  activateAutomationWorkflow: (id: string) => post<any>(`/production/automation-workflows/${id}/activate`, {}),
+  pauseAutomationWorkflow: (id: string) => post<any>(`/production/automation-workflows/${id}/pause`, {}),
+  disableAutomationWorkflow: (id: string) => post<any>(`/production/automation-workflows/${id}/disable`, {}),
+  executeAutomationWorkflow: (id: string) => post<any>(`/production/automation-workflows/${id}/execute`, {}),
 
   // GET production/ai-insights (backs smart-analytics)
   getAiInsights: () => request<any[]>('/production/ai-insights'),

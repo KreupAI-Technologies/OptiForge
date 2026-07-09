@@ -23,7 +23,6 @@ import {
   Download,
   Upload,
   Eye,
-  Edit,
   Copy,
   MessageSquare,
   Paperclip,
@@ -102,6 +101,7 @@ interface RFQ {
 interface BidResponse {
   id: string
   rfqId: string
+  vendorId?: string
   supplier: string
   submittedDate: string
   totalAmount: number
@@ -111,6 +111,44 @@ interface BidResponse {
   compliance: number
   technicalScore: number
   commercialScore: number
+}
+
+// Client-side CSV export of the RFQ/RFP rows currently in state. No backend endpoint exists.
+function exportRfqsToCsv(rows: RFQ[]) {
+  const columns: { key: keyof RFQ; label: string }[] = [
+    { key: 'id', label: 'ID' },
+    { key: 'title', label: 'Title' },
+    { key: 'type', label: 'Type' },
+    { key: 'status', label: 'Status' },
+    { key: 'category', label: 'Category' },
+    { key: 'estimatedValue', label: 'Estimated Value' },
+    { key: 'responseDeadline', label: 'Response Deadline' },
+    { key: 'publishDate', label: 'Publish Date' },
+    { key: 'bidders', label: 'Bidders' },
+    { key: 'responsesReceived', label: 'Responses Received' },
+    { key: 'owner', label: 'Owner' },
+    { key: 'priority', label: 'Priority' },
+    { key: 'items', label: 'Items' },
+  ]
+
+  const escape = (value: unknown) => {
+    const str = value == null ? '' : String(value)
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str
+  }
+
+  const header = columns.map(c => escape(c.label)).join(',')
+  const body = rows.map(row => columns.map(c => escape(row[c.key])).join(',')).join('\n')
+  const csv = `${header}\n${body}`
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `rfq-rfp-export-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export default function RFQRFPManagement() {
@@ -164,28 +202,12 @@ export default function RFQRFPManagement() {
     setIsViewModalOpen(true)
   }
 
-  const handleEditRFQ = (rfq: RFQ) => {
-    console.log('Editing RFQ:', rfq.id);
-
-    if (rfq.status === 'awarded') {
-      alert(`Cannot Edit Awarded RFQ\n\nRFQ ${rfq.id} has been awarded and cannot be edited.\n\nTo make changes:\n- Create a new RFQ\n- Reference the original\n- Document the reason for re-sourcing\n\nCompleted RFQs are locked for audit compliance.`);
-      return;
-    }
-
-    if (rfq.status === 'cancelled') {
-      alert(`Cannot Edit Cancelled RFQ\n\nRFQ ${rfq.id} has been cancelled.\n\nOptions:\n- Create a new RFQ\n- Clone this RFQ to start fresh\n- Reference cancelled RFQ number`);
-      return;
-    }
-
-    alert(`Edit RFQ/RFP: ${rfq.id}\n\nEDITABLE FIELDS:\n\n${rfq.status === 'draft' ? '✓ ALL FIELDS EDITABLE\nRFQ is in draft - make any changes needed' : '⚠️ LIMITED EDITING - RFQ IS ACTIVE'}\n\nBASIC INFORMATION:\n- Title and description ${rfq.status === 'draft' ? '✓' : '✗'}\n- Category ${rfq.status === 'draft' ? '✓' : '✗'}\n- Estimated value ${rfq.status === 'draft' ? '✓' : '✗'}\n- Priority level ✓\n\nREQUIREMENTS:\n- Item specifications ${rfq.status === 'draft' ? '✓' : 'Amendment only'}\n- Quantities ${rfq.status === 'draft' ? '✓' : 'Amendment only'}\n- Quality standards ${rfq.status === 'draft' ? '✓' : 'Amendment only'}\n- Technical specs ${rfq.status === 'draft' ? '✓' : 'Amendment only'}\n\nTIMELINE:\n- Publish date ${rfq.status === 'draft' ? '✓' : '✗'}\n- Response deadline ✓ (can extend with notification)\n- Evaluation dates ✓\n\nSUPPLIERS:\n- Add suppliers ✓\n- Remove suppliers ${rfq.status === 'draft' ? '✓' : '✗'}\n- Supplier qualifications ${rfq.status === 'draft' ? '✓' : '✗'}\n\nEVALUATION:\n- Criteria ${rfq.status === 'draft' ? '✓' : '✗'}\n- Weights ${rfq.status === 'draft' ? '✓' : '✗'}\n- Scoring method ${rfq.status === 'draft' ? '✓' : '✗'}\n\nDOCUMENTS:\n- Add new documents ✓\n- Replace documents ${rfq.status === 'draft' ? '✓' : 'Amendment only'}\n- Remove documents ${rfq.status === 'draft' ? '✓' : '✗'}\n\n${rfq.status !== 'draft' ? '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nAMENDMENT PROCESS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nFor active RFQs, changes require:\n\n1. AMENDMENT NOTIFICATION:\n   - All invited suppliers must be notified\n   - Email and portal notification\n   - Amendment number assigned\n\n2. DEADLINE EXTENSION:\n   - Significant changes require deadline extension\n   - Minimum 5 days extension recommended\n   - Suppliers can revise responses\n\n3. APPROVAL:\n   - Category manager approval required\n   - Procurement director (if material change)\n   - Document reason for amendment\n\n4. AUDIT TRAIL:\n   - All changes logged\n   - Original version retained\n   - Amendment history visible\n\nIMPACT ON RESPONSES:\n- Existing responses may need revision\n- Suppliers notified of changes\n- Extended deadline for updates' : ''}\n\nProceed with editing RFQ ${rfq.id}?`);
-  };
-
   const handleViewBidResponse = (bid: BidResponse) => {
-    console.log('Viewing bid response:', bid.id);
-
-    const rfq = rfqList.find(r => r.id === bid.rfqId);
-
-    alert(`Bid Response Details\n\n${bid.status === 'awarded' ? '🏆' : bid.status === 'shortlisted' ? '⭐' : bid.status === 'under_review' ? '🔍' : bid.status === 'rejected' ? '❌' : '📋'} STATUS: ${bid.status.toUpperCase().replace('_', ' ')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBID INFORMATION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSupplier: ${bid.supplier}\nRFQ: ${bid.rfqId}${rfq ? ' - ' + rfq.title : ''}\nSubmitted: ${bid.submittedDate}\nBid ID: ${bid.id}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCOMMERCIAL PROPOSAL\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Bid Amount: $${(bid.totalAmount / 1000).toFixed(0)}K\nCommercial Score: ${bid.commercialScore}/100\nLead Time: ${bid.leadTime}\n\n${rfq ? `vs Estimate: ${bid.totalAmount < rfq.estimatedValue ? '✓ ' + (((rfq.estimatedValue - bid.totalAmount) / rfq.estimatedValue) * 100).toFixed(1) + '% below budget' : '⚠️ ' + (((bid.totalAmount - rfq.estimatedValue) / rfq.estimatedValue) * 100).toFixed(1) + '% over budget'}` : ''}\n\nPricing Breakdown:\n- Base price: Competitive\n- Payment terms: Standard\n- Warranty: Included\n- Maintenance: Optional\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTECHNICAL PROPOSAL\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTechnical Score: ${bid.technicalScore}/100\nCompliance: ${bid.compliance}%\n\n${bid.technicalScore >= 90 ? '✓ EXCELLENT TECHNICAL SUBMISSION\n- Exceeds requirements\n- Strong capability demonstrated\n- Innovation proposed' : bid.technicalScore >= 80 ? '✓ GOOD TECHNICAL SUBMISSION\n- Meets all requirements\n- Solid capability\n- Standard approach' : bid.technicalScore >= 70 ? '⚠️ ACCEPTABLE TECHNICAL SUBMISSION\n- Meets minimum requirements\n- Some gaps identified\n- Clarifications needed' : '❌ WEAK TECHNICAL SUBMISSION\n- Below requirements\n- Significant gaps\n- Not recommended'}\n\nTechnical Highlights:\n- Methodology: ${bid.technicalScore >= 85 ? 'Excellent' : 'Adequate'}\n- Team qualifications: ${bid.technicalScore >= 85 ? 'Strong' : 'Acceptable'}\n- Implementation plan: ${bid.technicalScore >= 85 ? 'Detailed' : 'Basic'}\n- Risk management: ${bid.technicalScore >= 85 ? 'Comprehensive' : 'Standard'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOVERALL EVALUATION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOverall Score: ${bid.score}/100\n\nScore Breakdown:\n- Technical (60%): ${bid.technicalScore} → ${(bid.technicalScore * 0.6).toFixed(1)} points\n- Commercial (40%): ${bid.commercialScore} → ${(bid.commercialScore * 0.4).toFixed(1)} points\n\nRanking: ${bid.status === 'awarded' ? '#1 - WINNER' : bid.status === 'shortlisted' ? 'Top 3 - Shortlisted' : bid.status === 'under_review' ? 'Under Review' : bid.status === 'rejected' ? 'Not Qualified' : 'Submitted'}\n\n${bid.score >= 85 ? '🌟 HIGHLY RECOMMENDED\n→ Strong technical and commercial proposal\n→ Recommend for shortlist/award\n→ Conduct reference checks\n→ Schedule clarification meeting' : bid.score >= 75 ? '✓ RECOMMENDED\n→ Good proposal, meets requirements\n→ Consider for shortlist\n→ Request clarifications if needed' : bid.score >= 65 ? '⚠️ MARGINAL\n→ Meets minimum threshold\n→ Significant weaknesses\n→ Consider only if limited options' : '❌ NOT RECOMMENDED\n→ Below requirements\n→ Do not shortlist\n→ Send standard regret letter'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nNEXT ACTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${bid.status === 'submitted' ? '1. Complete initial screening\n2. Verify compliance\n3. Score technical proposal\n4. Score commercial proposal\n5. Make shortlist decision' : bid.status === 'under_review' ? '1. Complete detailed evaluation\n2. Check references\n3. Request clarifications\n4. Make shortlist decision\n5. Schedule presentations (if needed)' : bid.status === 'shortlisted' ? '1. Schedule clarification meeting\n2. Conduct presentations\n3. Perform site visits (if needed)\n4. Request best and final offer\n5. Make award recommendation' : bid.status === 'awarded' ? '1. Issue purchase order\n2. Execute contract\n3. Supplier onboarding\n4. Notify unsuccessful bidders' : '1. Send regret letter\n2. Offer debriefing\n3. Update supplier records'}\n\nATTACHMENTS:\n- Technical proposal (PDF)\n- Price sheet (Excel)\n- Company profile\n- References\n- Certifications\n- Compliance matrix`);
+    // Open the bid detail / award modal for the selected bid and its parent RFQ.
+    const rfq = rfqList.find(r => r.id === bid.rfqId) ?? null
+    setSelectedRFQ(rfq)
+    setSelectedBid(bid)
+    setIsAwardBidModalOpen(true)
   };
 
   const handleCompareBids = () => {
@@ -280,6 +302,7 @@ export default function RFQRFPManagement() {
       setBidResponses(flat.map((b: any): BidResponse => ({
         id: b.id,
         rfqId: b.rfqId,
+        vendorId: b.supplierId ?? b.vendorId,
         supplier: b.supplierName ?? '—',
         submittedDate: (b.createdAt ?? '').toString().slice(0, 10),
         totalAmount: Number(b.amount ?? 0),
@@ -739,14 +762,6 @@ export default function RFQRFPManagement() {
                             >
                               <Eye className="w-4 h-4 text-gray-600" />
                               <span className="text-gray-700">View</span>
-                            </button>
-                            <button
-                              onClick={() => handleEditRFQ(rfq)}
-                              className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-                              title="Edit RFQ"
-                            >
-                              <Edit className="w-4 h-4 text-gray-600" />
-                              <span className="text-gray-700">Edit</span>
                             </button>
                           </div>
                         </td>
@@ -1236,17 +1251,29 @@ export default function RFQRFPManagement() {
         onClose={() => setIsAwardBidModalOpen(false)}
         bid={selectedBid as ModalBidResponse | null}
         rfq={selectedRFQ as RFQData | null}
-        onSubmit={(data) => {
-          console.log('Awarding bid:', data)
-          setIsAwardBidModalOpen(false)
+        onSubmit={async () => {
+          const rfqId = selectedBid?.rfqId ?? selectedRFQ?.id
+          const vendorId = selectedBid?.vendorId
+          if (!rfqId || !vendorId) {
+            alert('Unable to award: missing RFQ or supplier reference.')
+            return
+          }
+          try {
+            await procurementRFQService.awardRFQ(rfqId, vendorId)
+            setIsAwardBidModalOpen(false)
+            await loadRfqs()
+            await loadBids()
+          } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to award bid')
+          }
         }}
       />
 
       <ExportRFQModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        onSubmit={(options: Record<string, unknown>) => {
-          console.log('Exporting RFQ data:', options)
+        onSubmit={() => {
+          exportRfqsToCsv(rfqList)
           setIsExportModalOpen(false)
         }}
       />

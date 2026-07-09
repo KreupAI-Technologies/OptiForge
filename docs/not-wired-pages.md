@@ -1,11 +1,11 @@
 # Not-Wired Pages Report
 
-> ## ✅ RESOLVED — branch `feat/readiness-fixes` (re-verified at HEAD)
-> Both flagged pages checked at current HEAD:
-> - `/design-system` — intentionally static internal component gallery (no domain data). **Correct as-is.**
-> - `/projects/planning/create` — **already fully wired**: imports `projectManagementService`, real `handleSubmit` → `createProjectPlan(payload)` with submit/error/success states + redirect. Stale flag.
+> ## ✅ RESOLVED — 2026-07-09 (branch `feat/complete-remaining-wired-pages`)
+> Both flagged pages addressed at HEAD:
+> - `/design-system` — confirmed a legitimately-static internal component/style gallery (design tokens, icons, theme). No domain data belongs here; **correct as-is, false positive.**
+> - `/projects/planning/create` — was a **route collision**: a stray static stub at `app/projects/planning/create/` shadowed the already-wired canonical page at `app/(modules)/projects/planning/create/` (both resolve to `/projects/planning/create`). Deleted the stray; the canonical version (real form → `projectManagementService.createProjectPlan`) is now the sole route.
 >
-> Net genuinely-not-wired live pages: **0**. Deprecated `_finance_*` tree is not routable.
+> Net genuinely-not-wired live pages: **0**.
 >
 > ---
 
@@ -15,7 +15,7 @@ _Detector v3: import-following depth ≤ 3, follows relative + alias imports, tr
 Pages under `b3-erp/frontend/src/app/` where **neither the page nor any component it imports (transitively) contains any backend call** — pure static shells.
 
 **Total not-wired pages: 2**
-**(Total scanned: 1671 · NOT_WIRED: 2 · PARTIAL: 39 · FULL: 1625 · DEPRECATED: 5)**
+**(Total scanned: 1730 · NOT_WIRED: 2 · PARTIAL: 25 · FULL: 1698 · DEPRECATED: 5)**
 
 ## Issue tags used
 

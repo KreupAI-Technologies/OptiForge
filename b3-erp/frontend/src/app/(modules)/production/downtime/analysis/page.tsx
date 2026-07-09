@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, BarChart3, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
@@ -54,56 +54,9 @@ export default function DowntimeAnalysisPage() {
   const [selectedEquipmentData, setSelectedEquipmentData] = useState<EquipmentAnalysisData | null>(null);
   const [selectedCategoryData, setSelectedCategoryData] = useState<CategoryTrendData | null>(null);
 
-  // Mock analytics data
-  const monthlyAnalytics: DowntimeAnalytics[] = [
-    {
-      period: 'Oct 2025',
-      totalDowntime: 58.5,
-      breakdownHours: 28.5,
-      maintenanceHours: 12.5,
-      changeoverHours: 8.2,
-      otherHours: 9.3,
-      avgMTBF: 420,
-      avgMTTR: 6.8,
-      availability: 92.5
-    },
-    {
-      period: 'Sep 2025',
-      totalDowntime: 52.3,
-      breakdownHours: 24.8,
-      maintenanceHours: 11.2,
-      changeoverHours: 7.8,
-      otherHours: 8.5,
-      avgMTBF: 445,
-      avgMTTR: 6.2,
-      availability: 93.2
-    },
-    {
-      period: 'Aug 2025',
-      totalDowntime: 64.7,
-      breakdownHours: 32.5,
-      maintenanceHours: 13.8,
-      changeoverHours: 9.2,
-      otherHours: 9.2,
-      avgMTBF: 385,
-      avgMTTR: 7.5,
-      availability: 91.5
-    },
-    {
-      period: 'Jul 2025',
-      totalDowntime: 61.2,
-      breakdownHours: 30.2,
-      maintenanceHours: 12.8,
-      changeoverHours: 8.5,
-      otherHours: 9.7,
-      avgMTBF: 402,
-      avgMTTR: 7.1,
-      availability: 92.0
-    }
-  ];
-
-  // Equipment-wise downtime
-  const [equipmentDowntime, setEquipmentDowntime] = useState<EquipmentDowntime[]>([]);
+  // Raw downtime records loaded from the NestJS backend
+  // (production/downtime-records). All analytics below are derived from these.
+  const [records, setRecords] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -112,89 +65,140 @@ export default function DowntimeAnalysisPage() {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = (await ProductionOrphanService.getDowntimeRecords()) as any[];
-        const mapped: EquipmentDowntime[] = (raw || []).map((r: any) => {
-          const trendRaw = String(r?.trend ?? 'stable');
-          const trend: EquipmentDowntime['trend'] =
-            trendRaw === 'improving' || trendRaw === 'worsening' ? trendRaw : 'stable';
-          return {
-            equipment: String(r?.equipment ?? r?.equipmentId ?? r?.equipmentName ?? ''),
-            totalDowntime: Number(r?.totalDowntime ?? 0),
-            breakdownCount: Number(r?.breakdownCount ?? 0),
-            avgDowntimePerEvent: Number(r?.avgDowntimePerEvent ?? 0),
-            mtbf: Number(r?.mtbf ?? 0),
-            mttr: Number(r?.mttr ?? 0),
-            trend,
-          };
-        });
-        if (!cancelled) setEquipmentDowntime(mapped);
+        if (!cancelled) setRecords(Array.isArray(raw) ? raw : []);
       } catch (err) {
-        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEquipmentDowntime([]); }
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setRecords([]); }
       } finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  // Category breakdown
-  const categoryBreakdown: CategoryBreakdown[] = [
-    {
-      category: 'Breakdown',
-      count: 19,
-      totalHours: 28.5,
-      percentage: 48.7,
-      avgDuration: 90,
-      trend: 'increasing'
-    },
-    {
-      category: 'Maintenance',
-      count: 8,
-      totalHours: 12.5,
-      percentage: 21.4,
-      avgDuration: 94,
-      trend: 'stable'
-    },
-    {
-      category: 'Changeover',
-      count: 12,
-      totalHours: 8.2,
-      percentage: 14.0,
-      avgDuration: 41,
-      trend: 'stable'
-    },
-    {
-      category: 'Material Shortage',
-      count: 5,
-      totalHours: 4.8,
-      percentage: 8.2,
-      avgDuration: 58,
-      trend: 'decreasing'
-    },
-    {
-      category: 'Quality Issue',
-      count: 3,
-      totalHours: 2.8,
-      percentage: 4.8,
-      avgDuration: 56,
-      trend: 'stable'
-    },
-    {
-      category: 'Power Outage',
-      count: 2,
-      totalHours: 1.2,
-      percentage: 2.1,
-      avgDuration: 36,
-      trend: 'stable'
-    },
-    {
-      category: 'No Operator',
-      count: 1,
-      totalHours: 0.5,
-      percentage: 0.8,
-      avgDuration: 30,
-      trend: 'stable'
-    }
-  ];
+  // ---- Helpers derived from the raw record shape ----
+  const durationOf = (r: any): number => {
+    const n = Number(r?.durationMinutes);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const isResolved = (r: any): boolean =>
+    !!(r?.endTime || r?.resolvedBy || String(r?.status).toLowerCase() === 'resolved');
+  const round1 = (n: number) => Math.round(n * 10) / 10;
 
-  const currentPeriod = monthlyAnalytics[0];
+  // Map raw category -> display label used across this page.
+  const categoryLabel = (c: any): string => {
+    const key = String(c ?? '').toLowerCase();
+    const map: Record<string, string> = {
+      breakdown: 'Breakdown',
+      setup: 'Setup',
+      changeover: 'Changeover',
+      maintenance: 'Maintenance',
+      material_shortage: 'Material Shortage',
+      quality_issue: 'Quality Issue',
+      operator_unavailable: 'No Operator',
+      other: 'Other',
+    };
+    return map[key] ?? (c ? String(c) : 'Other');
+  };
+
+  // Equipment-wise downtime, grouped by machine (falls back to work center).
+  const equipmentDowntime: EquipmentDowntime[] = useMemo(() => {
+    const groups = new Map<string, { totalMinutes: number; count: number; resolvedMinutes: number; resolvedCount: number }>();
+    for (const r of records) {
+      const key = String(r?.machineName ?? r?.workCenterName ?? 'Unknown');
+      const g = groups.get(key) ?? { totalMinutes: 0, count: 0, resolvedMinutes: 0, resolvedCount: 0 };
+      const dur = durationOf(r);
+      g.totalMinutes += dur;
+      g.count += 1;
+      if (isResolved(r)) { g.resolvedMinutes += dur; g.resolvedCount += 1; }
+      groups.set(key, g);
+    }
+    return Array.from(groups.entries())
+      .map(([equipment, g]) => ({
+        equipment,
+        totalDowntime: round1(g.totalMinutes / 60),
+        breakdownCount: g.count,
+        avgDowntimePerEvent: g.count > 0 ? round1(g.totalMinutes / g.count / 60) : 0,
+        // MTBF/MTTR need operating time; MTTR approximated from resolved events, MTBF not derivable.
+        mtbf: 0,
+        mttr: g.resolvedCount > 0 ? round1(g.resolvedMinutes / g.resolvedCount / 60) : 0,
+        trend: 'stable' as const,
+      }))
+      .sort((a, b) => b.totalDowntime - a.totalDowntime);
+  }, [records]);
+
+  // Category breakdown grouped by the record's `category` field.
+  const categoryBreakdown: CategoryBreakdown[] = useMemo(() => {
+    const totalMinutesAll = records.reduce((s, r) => s + durationOf(r), 0);
+    const groups = new Map<string, { count: number; totalMinutes: number }>();
+    for (const r of records) {
+      const label = categoryLabel(r?.category);
+      const g = groups.get(label) ?? { count: 0, totalMinutes: 0 };
+      g.count += 1;
+      g.totalMinutes += durationOf(r);
+      groups.set(label, g);
+    }
+    return Array.from(groups.entries())
+      .map(([category, g]) => ({
+        category,
+        count: g.count,
+        totalHours: round1(g.totalMinutes / 60),
+        percentage: totalMinutesAll > 0 ? round1((g.totalMinutes / totalMinutesAll) * 100) : 0,
+        avgDuration: g.count > 0 ? Math.round(g.totalMinutes / g.count) : 0,
+        trend: 'stable' as const,
+      }))
+      .sort((a, b) => b.totalHours - a.totalHours);
+  }, [records]);
+
+  // Monthly analytics grouped by the month of startTime.
+  const monthlyAnalytics: DowntimeAnalytics[] = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const groups = new Map<string, {
+      period: string; sortKey: number; totalMinutes: number;
+      breakdownMinutes: number; maintenanceMinutes: number; changeoverMinutes: number;
+      resolvedMinutes: number; resolvedCount: number;
+    }>();
+    for (const r of records) {
+      const t = r?.startTime ? new Date(r.startTime) : null;
+      if (!t || Number.isNaN(t.getTime())) continue;
+      const y = t.getFullYear();
+      const m = t.getMonth();
+      const key = `${y}-${String(m).padStart(2, '0')}`;
+      const g = groups.get(key) ?? {
+        period: `${monthNames[m]} ${y}`, sortKey: y * 12 + m, totalMinutes: 0,
+        breakdownMinutes: 0, maintenanceMinutes: 0, changeoverMinutes: 0,
+        resolvedMinutes: 0, resolvedCount: 0,
+      };
+      const dur = durationOf(r);
+      g.totalMinutes += dur;
+      const cat = String(r?.category ?? '').toLowerCase();
+      if (cat === 'breakdown') g.breakdownMinutes += dur;
+      else if (cat === 'maintenance') g.maintenanceMinutes += dur;
+      else if (cat === 'changeover' || cat === 'setup') g.changeoverMinutes += dur;
+      if (isResolved(r)) { g.resolvedMinutes += dur; g.resolvedCount += 1; }
+      groups.set(key, g);
+    }
+    return Array.from(groups.values())
+      .sort((a, b) => b.sortKey - a.sortKey) // most recent first
+      .map(g => {
+        const otherMinutes = Math.max(0, g.totalMinutes - g.breakdownMinutes - g.maintenanceMinutes - g.changeoverMinutes);
+        return {
+          period: g.period,
+          totalDowntime: round1(g.totalMinutes / 60),
+          breakdownHours: round1(g.breakdownMinutes / 60),
+          maintenanceHours: round1(g.maintenanceMinutes / 60),
+          changeoverHours: round1(g.changeoverMinutes / 60),
+          otherHours: round1(otherMinutes / 60),
+          // MTBF/availability need total operating time (not in records) -> 0.
+          avgMTBF: 0,
+          avgMTTR: g.resolvedCount > 0 ? round1(g.resolvedMinutes / g.resolvedCount / 60) : 0,
+          availability: 0,
+        };
+      });
+  }, [records]);
+
+  const emptyPeriod: DowntimeAnalytics = {
+    period: '—', totalDowntime: 0, breakdownHours: 0, maintenanceHours: 0,
+    changeoverHours: 0, otherHours: 0, avgMTBF: 0, avgMTTR: 0, availability: 0,
+  };
+  const currentPeriod = monthlyAnalytics[0] ?? emptyPeriod;
 
   const getTrendColor = (trend: string) => {
     switch (trend) {

@@ -42,7 +42,7 @@ import { ProductionOrphanService } from '@/services/production/production-orphan
 interface Operator {
   id: string;
   name: string;
-  photo: string;
+  photo?: string;
   employeeId: string;
 }
 
@@ -294,11 +294,12 @@ export default function ShopfloorTerminalPage() {
     setIsLoggingIn(true);
 
     try {
-      // Mock operator data (in real app, would authenticate via API)
+      // Identify the operator from the scanned/entered badge id. There is no
+      // employee-lookup service in the frontend, so display the badge id itself
+      // rather than a fabricated identity.
       setOperator({
         id: employeeId,
-        name: 'Amit Sharma',
-        photo: '/avatars/amit.jpg',
+        name: `Operator ${employeeId}`,
         employeeId: employeeId,
       });
 
