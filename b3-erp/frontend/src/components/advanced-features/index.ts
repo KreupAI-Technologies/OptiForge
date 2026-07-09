@@ -1,27 +1,6 @@
 // Advanced Features Components
 // Feature 34: Voice commands, AR, chatbot, and video conferencing
 
-// Voice Commands
-export {
-  VoiceCommandProvider,
-  useVoiceCommands,
-  VoiceButton,
-  VoiceSearch,
-  VoiceCommandHelp,
-  createNavigationCommands,
-} from './VoiceCommands';
-
-export type {
-  VoiceCommand,
-  VoiceCommandMatch,
-  VoiceState,
-  SpeechOptions,
-  VoiceCommandProviderProps,
-  VoiceButtonProps,
-  VoiceSearchProps,
-  VoiceCommandHelpProps,
-} from './VoiceCommands';
-
 // AR Integration
 export {
   ARProvider,

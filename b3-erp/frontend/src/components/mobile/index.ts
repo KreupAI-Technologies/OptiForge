@@ -29,18 +29,6 @@ export type {
   TouchListItemProps,
 } from './TouchButton';
 
-// Mobile Navigation - Bottom tab bar
-export {
-  MobileBottomNav,
-  MobileHeader,
-} from './MobileBottomNav';
-export type {
-  NavItem,
-  MoreMenuItem,
-  MobileBottomNavProps,
-  MobileHeaderProps,
-} from './MobileBottomNav';
-
 // PWA Support - Install as app on mobile
 export {
   PWAInstallPrompt,
