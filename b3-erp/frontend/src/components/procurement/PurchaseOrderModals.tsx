@@ -977,7 +977,6 @@ export const EditPurchaseOrderModal: React.FC<EditPOModalProps> = ({
       return
     }
     calculateTotal()
-    // TODO: API call to update PO
     onSubmit(formData)
   }
 
@@ -1211,7 +1210,6 @@ export const ClonePOModal: React.FC<ClonePOModalProps> = ({
       notes: cloneOptions.cloneNotes ? po.notes : ''
     }
 
-    // TODO: API call to create cloned PO
     onSubmit(clonedPO)
   }
 
@@ -1518,7 +1516,6 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
       setErrors({ note: 'Note cannot be empty' })
       return
     }
-    // TODO: API call to add note
     onSubmit(note)
     setNote('')
   }

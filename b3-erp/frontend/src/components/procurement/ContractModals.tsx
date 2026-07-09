@@ -168,7 +168,6 @@ export const CreateContractModal: React.FC<CreateContractModalProps> = ({
 
   const handleSubmit = () => {
     if (validateStep(3)) {
-      // TODO: API call to create contract
       onSubmit(formData)
     }
   }
@@ -862,7 +861,6 @@ export const RenewContractModal: React.FC<RenewContractModalProps> = ({
 
     setErrors(newErrors)
     if (Object.keys(newErrors).length === 0) {
-      // TODO: API call to renew contract
       onSubmit(formData)
     }
   }
@@ -1147,7 +1145,6 @@ export const AmendContractModal: React.FC<AmendContractModalProps> = ({
 
     setErrors(newErrors)
     if (Object.keys(newErrors).length === 0) {
-      // TODO: API call to amend contract
       onSubmit(formData)
     }
   }
@@ -1408,7 +1405,6 @@ export const TerminateContractModal: React.FC<TerminateContractModalProps> = ({
 
     setErrors(newErrors)
     if (Object.keys(newErrors).length === 0) {
-      // TODO: API call to terminate contract
       onSubmit(formData)
     }
   }

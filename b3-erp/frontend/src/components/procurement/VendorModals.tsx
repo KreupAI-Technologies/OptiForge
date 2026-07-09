@@ -133,7 +133,6 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
 
   const handleSubmit = () => {
     if (validateStep(3)) {
-      // TODO: API call to create vendor
       onSubmit(formData)
     }
   }
@@ -883,7 +882,6 @@ export const EvaluateVendorPerformanceModal: React.FC<EvaluateVendorPerformanceM
       setErrors({ period: 'Evaluation period is required' })
       return
     }
-    // TODO: API call to save evaluation
     onSubmit(formData)
   }
 
@@ -1230,7 +1228,6 @@ export const BlockVendorModal: React.FC<BlockVendorModalProps> = ({
       setErrors({ blockUntil: 'Block until date is required for temporary blocks' })
       return
     }
-    // TODO: API call to block vendor
     onSubmit(formData)
   }
 
@@ -1484,7 +1481,6 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
       setErrors({ vendorName: 'Vendor name is required' })
       return
     }
-    // TODO: API call to update vendor
     onSubmit(formData)
   }
 

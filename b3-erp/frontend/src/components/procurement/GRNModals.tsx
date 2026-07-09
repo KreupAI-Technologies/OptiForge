@@ -140,40 +140,6 @@ export const CreateGRNModal: React.FC<CreateGRNModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Mock PO data - would come from API
-  const mockPOData = {
-    'PO-2025-001': {
-      vendorName: 'Tech Supplies Co.',
-      vendorCode: 'VND-001',
-      items: [
-        { itemId: '1', itemCode: 'ITEM-001', itemName: 'Steel Plates', orderedQty: 100, uom: 'Kg', unitPrice: 850 },
-        { itemId: '2', itemCode: 'ITEM-002', itemName: 'Bolts M12', orderedQty: 500, uom: 'Pieces', unitPrice: 25 }
-      ]
-    }
-  }
-
-  const loadPOData = (poNum: string) => {
-    const poData = mockPOData[poNum as keyof typeof mockPOData]
-    if (poData) {
-      setFormData(prev => ({
-        ...prev,
-        vendorName: poData.vendorName,
-        vendorCode: poData.vendorCode,
-        items: poData.items.map(item => ({
-          ...item,
-          receivedQty: 0,
-          acceptedQty: 0,
-          rejectedQty: 0,
-          damagedQty: 0,
-          totalValue: 0,
-          condition: 'good' as const,
-          inspectionNotes: '',
-          qcStatus: 'pending' as const
-        }))
-      }))
-    }
-  }
-
   const updateItemReceived = (index: number, field: string, value: any) => {
     const updatedItems = [...formData.items]
     updatedItems[index] = { ...updatedItems[index], [field]: value }
@@ -239,7 +205,6 @@ export const CreateGRNModal: React.FC<CreateGRNModalProps> = ({
 
   const handleSubmit = () => {
     if (validateStep(2)) {
-      // TODO: API call to create GRN
       onSubmit(formData)
     }
   }
@@ -287,10 +252,7 @@ export const CreateGRNModal: React.FC<CreateGRNModalProps> = ({
                   <div className="flex gap-2">
                     <select
                       value={formData.poNumber}
-                      onChange={(e) => {
-                        setFormData({ ...formData, poNumber: e.target.value })
-                        loadPOData(e.target.value)
-                      }}
+                      onChange={(e) => setFormData({ ...formData, poNumber: e.target.value })}
                       className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                         errors.poNumber ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -639,7 +601,6 @@ export const QualityInspectionModal: React.FC<QualityInspectionModalProps> = ({
       setErrors({ recommendations: 'Recommendations are required' })
       return
     }
-    // TODO: API call to submit quality inspection
     onSubmit(formData)
   }
 
@@ -877,7 +838,6 @@ export const AcceptRejectGRNModal: React.FC<AcceptRejectGRNModalProps> = ({
       setErrors({ reason: 'Rejection reason is required' })
       return
     }
-    // TODO: API call to accept/reject GRN
     onSubmit(action, formData)
   }
 
@@ -1098,7 +1058,6 @@ export const PostToInventoryModal: React.FC<PostToInventoryModalProps> = ({
       setErrors({ warehouse: 'Warehouse is required' })
       return
     }
-    // TODO: API call to post to inventory
     onSubmit(formData)
   }
 
@@ -1572,7 +1531,6 @@ export const EditGRNModal: React.FC<EditGRNModalProps> = ({
   }
 
   const handleSubmit = () => {
-    // TODO: API call to update GRN
     onSubmit(formData)
   }
 
@@ -1753,7 +1711,6 @@ export const PrintGRNModal: React.FC<PrintGRNModalProps> = ({
   })
 
   const handlePrint = () => {
-    // TODO: Generate PDF and trigger print
     window.print()
   }
 
@@ -1899,7 +1856,6 @@ export const ExportGRNsModal: React.FC<ExportGRNsModalProps> = ({
   })
 
   const handleSubmit = () => {
-    // TODO: API call to export GRNs
     onSubmit(formData)
   }
 
@@ -2077,45 +2033,26 @@ export const ExportGRNsModal: React.FC<ExportGRNsModalProps> = ({
 
 // ==================== GRN HISTORY MODAL ====================
 
+export interface GRNHistoryEntry {
+  date: string
+  action: string
+  user: string
+  details: string
+}
+
 interface GRNHistoryModalProps {
   isOpen: boolean
   onClose: () => void
   grn: GRNData | null
+  history?: GRNHistoryEntry[]
 }
 
 export const GRNHistoryModal: React.FC<GRNHistoryModalProps> = ({
   isOpen,
   onClose,
-  grn
+  grn,
+  history = []
 }) => {
-  // Mock history data
-  const history = [
-    {
-      date: '2025-10-28 14:30',
-      action: 'GRN Created',
-      user: 'John Doe',
-      details: 'Created GRN from PO-2025-001'
-    },
-    {
-      date: '2025-10-28 15:00',
-      action: 'Quality Inspection',
-      user: 'Jane Smith',
-      details: 'Quality inspection completed - All items passed'
-    },
-    {
-      date: '2025-10-28 16:45',
-      action: 'GRN Accepted',
-      user: 'Mike Johnson',
-      details: 'GRN accepted and approved for posting'
-    },
-    {
-      date: '2025-10-28 17:00',
-      action: 'Posted to Inventory',
-      user: 'System',
-      details: 'Items posted to Main Warehouse - Zone A'
-    }
-  ]
-
   if (!isOpen || !grn) return null
 
   return (
@@ -2159,6 +2096,9 @@ export const GRNHistoryModal: React.FC<GRNHistoryModalProps> = ({
           <div className="space-y-2">
             <h3 className="font-semibold text-gray-700">Activity Timeline</h3>
             <div className="relative border-l-2 border-gray-300 pl-6 space-y-3">
+              {history.length === 0 && (
+                <p className="text-sm text-gray-400 py-4">No activity history available</p>
+              )}
               {history.map((entry, index) => (
                 <div key={index} className="relative">
                   <div className="absolute -left-9 mt-1.5 w-5 h-5 rounded-full bg-gray-600 border-4 border-white"></div>

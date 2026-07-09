@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { X, Plus, CheckCircle, XCircle, AlertTriangle, FileText, Upload, Eye, Edit, Calendar, DollarSign, Users, Send, Download, GitCompare, Award, Star, Clock, Target, Package, Scale, MessageSquare, Mail, Clipboard } from 'lucide-react'
+import { exportToCsv } from '@/lib/export'
 
 // ==================== INTERFACES ====================
 
@@ -224,7 +225,6 @@ export const CreateRFQModal: React.FC<CreateRFQModalProps> = ({
 
   const handleSubmit = () => {
     if (validateStep(4)) {
-      // TODO: API call to create RFQ
       onSubmit(formData)
     }
   }
@@ -1274,7 +1274,33 @@ export const CompareBidsModal: React.FC<CompareBidsModalProps> = ({
             Close
           </button>
           <button
-            onClick={() => {/* TODO: Export comparison */}}
+            onClick={() =>
+              exportToCsv(
+                `bid-comparison-${rfq.rfqNumber}`,
+                selectedBidData.map(bid => ({
+                  supplier: bid.supplier,
+                  supplierCode: bid.supplierCode,
+                  totalAmount: bid.totalAmount,
+                  leadTime: bid.leadTime,
+                  technicalScore: bid.technicalScore,
+                  commercialScore: bid.commercialScore,
+                  overallScore: bid.score,
+                  compliance: bid.compliance,
+                  status: bid.status,
+                })),
+                [
+                  { key: 'supplier', label: 'Supplier' },
+                  { key: 'supplierCode', label: 'Supplier Code' },
+                  { key: 'totalAmount', label: 'Total Amount' },
+                  { key: 'leadTime', label: 'Lead Time' },
+                  { key: 'technicalScore', label: 'Technical Score' },
+                  { key: 'commercialScore', label: 'Commercial Score' },
+                  { key: 'overallScore', label: 'Overall Score' },
+                  { key: 'compliance', label: 'Compliance %' },
+                  { key: 'status', label: 'Status' },
+                ],
+              )
+            }
             className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
             disabled={selectedBids.length === 0}
           >

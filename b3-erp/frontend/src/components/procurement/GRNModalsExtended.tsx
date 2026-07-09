@@ -63,7 +63,6 @@ export const QualityInspectionModal: React.FC<QualityInspectionModalProps> = ({
       setErrors({ recommendations: 'Recommendations are required' })
       return
     }
-    // TODO: API call to submit quality inspection
     onSubmit(formData)
   }
 
@@ -301,7 +300,6 @@ export const AcceptRejectGRNModal: React.FC<AcceptRejectGRNModalProps> = ({
       setErrors({ reason: 'Rejection reason is required' })
       return
     }
-    // TODO: API call to accept/reject GRN
     onSubmit(action, formData)
   }
 
@@ -522,7 +520,6 @@ export const PostToInventoryModal: React.FC<PostToInventoryModalProps> = ({
       setErrors({ warehouse: 'Warehouse is required' })
       return
     }
-    // TODO: API call to post to inventory
     onSubmit(formData)
   }
 

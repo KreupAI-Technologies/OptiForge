@@ -917,7 +917,6 @@ export const ApproveRequisitionModal: React.FC<ApproveRequisitionModalProps> = (
       setErrors({ info: 'Please specify what information is needed' })
       return
     }
-    // TODO: API call to approve requisition
     onSubmit(formData)
   }
 
@@ -1136,7 +1135,6 @@ export const RejectRequisitionModal: React.FC<RejectRequisitionModalProps> = ({
       setErrors({ comments: 'Detailed reason for rejection is required' })
       return
     }
-    // TODO: API call to reject requisition
     onSubmit(formData)
   }
 
@@ -1354,7 +1352,6 @@ export const ConvertToPOModal: React.FC<ConvertToPOModalProps> = ({
       setErrors({ items: 'Select at least one item to convert' })
       return
     }
-    // TODO: API call to convert to PO
     onSubmit(formData)
   }
 
@@ -1551,7 +1548,6 @@ export const ExportRequisitionsModal: React.FC<ExportRequisitionsModalProps> = (
   })
 
   const handleExport = () => {
-    // TODO: API call to generate export
     onExport(exportOptions)
   }
 
