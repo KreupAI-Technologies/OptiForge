@@ -59,7 +59,13 @@ export function configureSecurityHeaders(app: INestApplication): void {
  * CORS Configuration options
  */
 export interface CorsOptions {
-  origin: string | string[];
+  origin:
+    | string
+    | string[]
+    | ((
+        origin: string | undefined,
+        callback: (err: Error | null, allow?: boolean) => void,
+      ) => void);
   credentials: boolean;
   methods: string[];
   allowedHeaders: string[];
@@ -73,8 +79,23 @@ export interface CorsOptions {
 export function getCorsConfig(frontendUrl: string): CorsOptions {
   const isProduction = process.env.NODE_ENV === 'production';
 
+  // In dev, Next.js floats to the next free port (3000 → 3002 → …) whenever a
+  // stale instance holds 3000, and a fixed allow-list then breaks CORS with a
+  // browser "Failed to fetch". Reflect any localhost/127.0.0.1 origin in dev so
+  // the port no longer matters. Production stays pinned to the exact frontend URL.
+  const devOrigin = (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ) => {
+    if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  };
+
   return {
-    origin: isProduction ? frontendUrl : [frontendUrl, 'http://localhost:3000'],
+    origin: isProduction ? frontendUrl : devOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

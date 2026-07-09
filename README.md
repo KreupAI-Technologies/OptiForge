@@ -99,6 +99,9 @@ To run components fully by hand:
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env         # then set DATABASE_* to the shared Neon creds
+                             # (same cluster as b3-erp/backend/.env, per ADR-0004)
+                             # without this, Django defaults to test/test@localhost and fails
 python manage.py migrate
 python manage.py runserver
 

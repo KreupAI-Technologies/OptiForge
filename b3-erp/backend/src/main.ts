@@ -13,7 +13,16 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Dev output was extremely noisy: a per-request HTTP log, hundreds of
+  // "Mapped … route" lines at startup, and seeder chatter — all at the 'log'
+  // level. Show only warnings/errors by default. Set NEST_VERBOSE=1 to restore
+  // full logging (route map, request logs, seeder info, debug/verbose).
+  const app = await NestFactory.create(AppModule, {
+    logger:
+      process.env.NEST_VERBOSE === '1'
+        ? ['error', 'warn', 'log', 'debug', 'verbose']
+        : ['error', 'warn'],
+  });
   const configService = app.get(ConfigService);
 
   // Global prefix
