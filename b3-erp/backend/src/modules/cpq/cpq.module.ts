@@ -61,6 +61,10 @@ import {
   CPQMarginGuardrail,
 } from './entities/cpq-advanced2.entity';
 import {
+  CPQDocumentTemplate,
+  CPQGeneratedDocument,
+} from './entities/cpq-document.entity';
+import {
   CPQConfigRuleItem,
   CPQCompatibilityEntry,
   CPQCrossSellRule,
@@ -96,6 +100,7 @@ import {
   CPQGuidedSellingQuestionService,
   CPQMarginGuardrailService,
 } from './services/cpq-advanced2.service';
+import { CPQDocumentService } from './services/cpq-document.service';
 import { CPQAnalyticsDashboardsService } from './services/cpq-analytics-dashboards.service';
 import {
   CPQConfigRuleItemService,
@@ -133,6 +138,7 @@ import {
   CPQGuidedSellingQuestionController,
   CPQMarginGuardrailController,
 } from './controllers/cpq-advanced2.controller';
+import { CPQDocumentController } from './controllers/cpq-document.controller';
 import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-dashboards.controller';
 import {
   CPQConfigRuleItemController,
@@ -222,6 +228,9 @@ import {
       // Advanced-features tabs (guided-selling questions + margin guardrails)
       CPQGuidedSellingQuestion,
       CPQMarginGuardrail,
+      // Advanced-features tab (document generator + PDF)
+      CPQDocumentTemplate,
+      CPQGeneratedDocument,
     ]),
   ],
   controllers: [
@@ -250,6 +259,7 @@ import {
     CPQApprovalMatrixController,
     CPQGuidedSellingQuestionController,
     CPQMarginGuardrailController,
+    CPQDocumentController,
   ],
   providers: [
     ProductConfigurationService,
@@ -277,6 +287,7 @@ import {
     CPQApprovalMatrixService,
     CPQGuidedSellingQuestionService,
     CPQMarginGuardrailService,
+    CPQDocumentService,
   ],
   exports: [
     ProductConfigurationService,

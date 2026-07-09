@@ -29,6 +29,14 @@ export default function BankReconciliationPage() {
     const [exporting, setExporting] = useState(false);
     const [matchingId, setMatchingId] = useState<string | null>(null);
 
+    // GL-entry picker modal (replaces the previous window.prompt for JE id).
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [pickerTxnId, setPickerTxnId] = useState<string | null>(null);
+    const [journalEntries, setJournalEntries] = useState<any[]>([]);
+    const [journalLoading, setJournalLoading] = useState(false);
+    const [journalError, setJournalError] = useState<string | null>(null);
+    const [journalSearch, setJournalSearch] = useState('');
+
     useEffect(() => {
         fetchAccounts();
     }, []);
@@ -107,16 +115,41 @@ export default function BankReconciliationPage() {
         }
     };
 
-    const handleManualMatch = async (transactionId: string) => {
+    // Open the GL-entry picker for a given bank transaction and load journal entries.
+    const openGlPicker = async (transactionId: string) => {
         if (!selectedAccount) return;
-        const journalEntryId = typeof window !== 'undefined'
-            ? window.prompt('Enter the journal entry ID to match this transaction to:')
-            : null;
-        if (!journalEntryId) return;
+        setPickerTxnId(transactionId);
+        setJournalSearch('');
+        setJournalError(null);
+        setPickerOpen(true);
+        setJournalLoading(true);
         try {
-            setMatchingId(transactionId);
-            await FinanceService.matchBankTransaction({ transactionId, journalEntryId });
+            const rows = await FinanceService.getJournalEntries();
+            setJournalEntries(Array.isArray(rows) ? rows : []);
+        } catch (error) {
+            console.error('Failed to load journal entries:', error);
+            setJournalError('Failed to load journal entries.');
+            setJournalEntries([]);
+        } finally {
+            setJournalLoading(false);
+        }
+    };
+
+    const closeGlPicker = () => {
+        if (matchingId) return;
+        setPickerOpen(false);
+        setPickerTxnId(null);
+    };
+
+    // Match the selected bank transaction to a chosen journal entry.
+    const handleSelectJournalEntry = async (journalEntryId: string) => {
+        if (!pickerTxnId || !journalEntryId) return;
+        try {
+            setMatchingId(pickerTxnId);
+            await FinanceService.matchBankTransaction({ transactionId: pickerTxnId, journalEntryId });
             toast({ title: 'Matched', description: 'Transaction matched successfully.', variant: 'success' });
+            setPickerOpen(false);
+            setPickerTxnId(null);
             await fetchUnreconciledTransactions();
         } catch (error) {
             console.error('Manual match failed:', error);
@@ -129,6 +162,14 @@ export default function BankReconciliationPage() {
             setMatchingId(null);
         }
     };
+
+    const filteredJournalEntries = journalEntries.filter((je) => {
+        if (!journalSearch.trim()) return true;
+        const q = journalSearch.toLowerCase();
+        return [je.entryNumber, je.reference, je.description, je.narration, je.id]
+            .filter(Boolean)
+            .some((v: any) => String(v).toLowerCase().includes(q));
+    });
 
     const handleExportReport = async () => {
         if (!selectedAccount) return;
@@ -319,7 +360,7 @@ export default function BankReconciliationPage() {
                                                         size="sm"
                                                         variant="outline"
                                                         disabled={txn.reconciled || matchingId === txn.id}
-                                                        onClick={() => handleManualMatch(txn.id)}
+                                                        onClick={() => openGlPicker(txn.id)}
                                                     >
                                                         {matchingId === txn.id ? 'Matching...' : 'Match'}
                                                     </Button>
@@ -332,6 +373,78 @@ export default function BankReconciliationPage() {
                         )}
                     </CardContent>
                 </Card>
+            )}
+
+            {/* GL-Entry Picker Modal */}
+            {pickerOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+                        <div className="flex items-center justify-between border-b px-5 py-3">
+                            <h3 className="text-lg font-semibold">Select Journal Entry to Match</h3>
+                            <Button variant="ghost" size="sm" onClick={closeGlPicker} disabled={!!matchingId}>
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="px-5 py-3">
+                            <input
+                                type="text"
+                                value={journalSearch}
+                                onChange={(e) => setJournalSearch(e.target.value)}
+                                placeholder="Search by entry number, reference, or description…"
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="max-h-96 overflow-y-auto px-5 pb-4">
+                            {journalError && (
+                                <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                    <AlertCircle className="h-4 w-4 shrink-0" />
+                                    <span>{journalError}</span>
+                                </div>
+                            )}
+                            {journalLoading ? (
+                                <div className="py-8 text-center text-sm text-gray-500">Loading journal entries…</div>
+                            ) : filteredJournalEntries.length === 0 ? (
+                                <div className="py-8 text-center text-sm text-gray-500">No journal entries found.</div>
+                            ) : (
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Entry #</th>
+                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {filteredJournalEntries.map((je) => (
+                                            <tr key={String(je.id)} className="hover:bg-gray-50">
+                                                <td className="px-3 py-2 font-mono text-xs">{je.entryNumber ?? je.reference ?? je.id}</td>
+                                                <td className="px-3 py-2">{je.entryDate ? new Date(je.entryDate).toLocaleDateString() : (je.date ? new Date(je.date).toLocaleDateString() : '-')}</td>
+                                                <td className="px-3 py-2">{je.description ?? je.narration ?? '-'}</td>
+                                                <td className="px-3 py-2 text-right font-medium">
+                                                    {je.totalDebit != null || je.totalAmount != null
+                                                        ? Number(je.totalDebit ?? je.totalAmount).toLocaleString()
+                                                        : '-'}
+                                                </td>
+                                                <td className="px-3 py-2 text-center">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={!!matchingId}
+                                                        onClick={() => handleSelectJournalEntry(String(je.id))}
+                                                    >
+                                                        {matchingId ? 'Matching…' : 'Select'}
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

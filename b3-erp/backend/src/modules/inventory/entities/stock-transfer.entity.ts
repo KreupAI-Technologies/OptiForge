@@ -21,6 +21,7 @@ export enum TransferType {
 export enum TransferStatus {
   DRAFT = 'Draft',
   SUBMITTED = 'Submitted',
+  APPROVED = 'Approved',
   IN_TRANSIT = 'In Transit',
   PARTIALLY_RECEIVED = 'Partially Received',
   RECEIVED = 'Received',
@@ -210,6 +211,19 @@ export class StockTransfer {
 
   @Column({ type: 'text', nullable: true })
   cancellationReason: string;
+
+  // Rejection (approval workflow)
+  @Column({ type: 'varchar', nullable: true })
+  rejectedBy: string;
+
+  @Column({ length: 100, nullable: true })
+  rejectedByName: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  rejectedAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  rejectionReason: string;
 
   // Project/Cost Center
   @Column({ type: 'varchar', nullable: true })

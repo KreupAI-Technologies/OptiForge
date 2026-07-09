@@ -31,6 +31,12 @@ export interface AutomationRuleDTO {
 class WorkflowAutomationService {
   private baseUrl = '/workflow/automation-rules';
 
+  // The backend automation-rules controller reads the tenant from the
+  // `x-company-id` header on every endpoint, so send it consistently.
+  private companyHeader(companyId: string): Record<string, string> {
+    return { 'x-company-id': companyId };
+  }
+
   async findAll(
     companyId: string,
     filters?: { status?: string; category?: string },
@@ -39,16 +45,20 @@ class WorkflowAutomationService {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.category) params.append('category', filters.category);
     const qs = params.toString();
-    const response = await apiClient.get<AutomationRuleDTO[]>(
-      qs ? `${this.baseUrl}?${qs}` : this.baseUrl,
-    );
+    const response = await apiClient.request<AutomationRuleDTO[]>({
+      url: qs ? `${this.baseUrl}?${qs}` : this.baseUrl,
+      method: 'GET',
+      headers: this.companyHeader(companyId),
+    });
     return response.data;
   }
 
   async findOne(companyId: string, id: string): Promise<AutomationRuleDTO> {
-    const response = await apiClient.get<AutomationRuleDTO>(
-      `${this.baseUrl}/${id}`,
-    );
+    const response = await apiClient.request<AutomationRuleDTO>({
+      url: `${this.baseUrl}/${id}`,
+      method: 'GET',
+      headers: this.companyHeader(companyId),
+    });
     return response.data;
   }
 
@@ -56,7 +66,12 @@ class WorkflowAutomationService {
     companyId: string,
     data: Partial<AutomationRuleDTO>,
   ): Promise<AutomationRuleDTO> {
-    const response = await apiClient.post<AutomationRuleDTO>(this.baseUrl, data);
+    const response = await apiClient.request<AutomationRuleDTO>({
+      url: this.baseUrl,
+      method: 'POST',
+      data,
+      headers: this.companyHeader(companyId),
+    });
     return response.data;
   }
 
@@ -65,20 +80,27 @@ class WorkflowAutomationService {
     id: string,
     data: Partial<AutomationRuleDTO>,
   ): Promise<AutomationRuleDTO> {
-    const response = await apiClient.patch<AutomationRuleDTO>(
-      `${this.baseUrl}/${id}`,
+    const response = await apiClient.request<AutomationRuleDTO>({
+      url: `${this.baseUrl}/${id}`,
+      method: 'PATCH',
       data,
-    );
+      headers: this.companyHeader(companyId),
+    });
     return response.data;
   }
 
   async delete(companyId: string, id: string): Promise<void> {
-    await apiClient.delete(`${this.baseUrl}/${id}`);
+    await apiClient.request<void>({
+      url: `${this.baseUrl}/${id}`,
+      method: 'DELETE',
+      headers: this.companyHeader(companyId),
+    });
   }
 
   /**
    * Trigger a rule run now. The backend records the execution (bumps
    * executionCount + lastRun) and returns the updated rule plus a run summary.
+   * Requires the `x-company-id` header for tenant resolution.
    */
   async run(
     companyId: string,
@@ -87,10 +109,15 @@ class WorkflowAutomationService {
     rule: AutomationRuleDTO;
     run: { status: string; executedAt: string; executionCount: number };
   }> {
-    const response = await apiClient.post<{
+    const response = await apiClient.request<{
       rule: AutomationRuleDTO;
       run: { status: string; executedAt: string; executionCount: number };
-    }>(`${this.baseUrl}/${id}/run`, {});
+    }>({
+      url: `${this.baseUrl}/${id}/run`,
+      method: 'POST',
+      data: {},
+      headers: this.companyHeader(companyId),
+    });
     return response.data;
   }
 }

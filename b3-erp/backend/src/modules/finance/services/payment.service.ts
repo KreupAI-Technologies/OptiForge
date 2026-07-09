@@ -150,6 +150,111 @@ export class PaymentService {
     return this.mapToResponseDto(payment);
   }
 
+  /**
+   * Build a chronological activity timeline for a payment, derived from the
+   * payment's own audit columns (creation, approval, posting, reconciliation,
+   * bounce, cancellation, last update). No separate audit table is required —
+   * every event is reconstructed from persisted state.
+   */
+  async getActivity(id: string): Promise<
+    Array<{
+      type: string;
+      title: string;
+      description: string;
+      user: string | null;
+      timestamp: Date | null;
+    }>
+  > {
+    const payment = await this.paymentRepository.findOne({ where: { id } });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+
+    const events: Array<{
+      type: string;
+      title: string;
+      description: string;
+      user: string | null;
+      timestamp: Date | null;
+    }> = [];
+
+    if (payment.createdAt) {
+      events.push({
+        type: 'created',
+        title: 'Payment created',
+        description: `Payment ${payment.paymentNumber} recorded for ${payment.partyName} (${this.formatAmount(payment.amount, payment.currency)}).`,
+        user: payment.createdBy ?? null,
+        timestamp: payment.createdAt,
+      });
+    }
+
+    if (payment.approvedAt) {
+      events.push({
+        type: 'approved',
+        title: 'Payment approved',
+        description: `Approved for processing.`,
+        user: payment.approvedBy ?? null,
+        timestamp: payment.approvedAt,
+      });
+    }
+
+    if (payment.isPosted && payment.postedAt) {
+      events.push({
+        type: 'posted',
+        title: 'Posted to general ledger',
+        description: payment.journalEntryId
+          ? `Journal entry ${payment.journalEntryId} created.`
+          : 'Posted to the general ledger.',
+        user: payment.postedBy ?? null,
+        timestamp: payment.postedAt,
+      });
+    }
+
+    if (payment.isReconciled && payment.reconciledDate) {
+      events.push({
+        type: 'reconciled',
+        title: 'Reconciled with bank statement',
+        description: 'Matched against a bank statement transaction.',
+        user: payment.reconciledBy ?? null,
+        timestamp: payment.reconciledDate as unknown as Date,
+      });
+    }
+
+    if (payment.isBounced && payment.bouncedDate) {
+      events.push({
+        type: 'bounced',
+        title: 'Payment bounced',
+        description: payment.bounceReason
+          ? `Reason: ${payment.bounceReason}`
+          : 'Payment was marked as bounced.',
+        user: null,
+        timestamp: payment.bouncedDate as unknown as Date,
+      });
+    }
+
+    if (payment.status === PaymentStatus.CANCELLED) {
+      events.push({
+        type: 'cancelled',
+        title: 'Payment cancelled',
+        description: 'Payment was cancelled.',
+        user: payment.updatedBy ?? null,
+        timestamp: payment.updatedAt,
+      });
+    }
+
+    // Sort ascending by timestamp; events without a timestamp sink to the end.
+    return events.sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : Number.MAX_SAFE_INTEGER;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    });
+  }
+
+  private formatAmount(amount: number, currency = 'INR'): string {
+    const value = Number(amount ?? 0);
+    return `${currency} ${value.toLocaleString('en-IN')}`;
+  }
+
   async update(
     id: string,
     updateDto: UpdatePaymentDto,

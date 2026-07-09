@@ -69,6 +69,9 @@ export default function PaymentVerificationPage() {
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [actionId, setActionId] = useState<string | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
+    // Reject / bounce reason modal (replaces the previous window.prompt flow).
+    const [rejectId, setRejectId] = useState<string | null>(null);
+    const [rejectReason, setRejectReason] = useState('');
 
     useEffect(() => {
         loadProjects();
@@ -115,13 +118,20 @@ export default function PaymentVerificationPage() {
         }
     };
 
-    const handleReject = async (id: string) => {
-        const reason = typeof window !== 'undefined' ? window.prompt('Reason for rejecting / marking this payment as bounced:') : '';
-        if (reason === null) return;
+    const openRejectModal = (id: string) => {
+        setRejectId(id);
+        setRejectReason('');
+    };
+
+    const handleReject = async () => {
+        if (!rejectId) return;
+        const id = rejectId;
         setActionId(id);
         try {
-            await PaymentService.markBounced(id, reason || undefined);
+            await PaymentService.markBounced(id, rejectReason.trim() || undefined);
             toast({ title: 'Payment Rejected', description: 'Payment has been marked as bounced.' });
+            setRejectId(null);
+            setRejectReason('');
             await loadVerifications();
         } catch (error: any) {
             toast({ title: 'Rejection Failed', description: error?.message || 'Could not reject payment', variant: 'destructive' });
@@ -450,7 +460,7 @@ export default function PaymentVerificationPage() {
                                                     variant="outline"
                                                     className="border-red-300 text-red-700 hover:bg-red-50"
                                                     disabled={actionId === ver.id}
-                                                    onClick={() => handleReject(ver.id)}
+                                                    onClick={() => openRejectModal(ver.id)}
                                                 >
                                                     <XCircle className="w-4 h-4 mr-1" />
                                                     Reject / Bounced
@@ -477,6 +487,43 @@ export default function PaymentVerificationPage() {
                     )}
                 </div>
             </div>
+
+            {/* Reject / Bounce Reason Modal */}
+            {rejectId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+                        <div className="border-b px-5 py-3">
+                            <h3 className="text-lg font-semibold">Reject / Mark Payment as Bounced</h3>
+                        </div>
+                        <div className="px-5 py-4 space-y-3">
+                            <label className="block text-sm font-medium text-gray-700">Reason (optional)</label>
+                            <textarea
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                rows={4}
+                                placeholder="Enter the reason for rejecting or bouncing this payment…"
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 border-t px-5 py-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => { setRejectId(null); setRejectReason(''); }}
+                                disabled={actionId === rejectId}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleReject}
+                                disabled={actionId === rejectId}
+                            >
+                                {actionId === rejectId ? 'Rejecting…' : 'Reject Payment'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

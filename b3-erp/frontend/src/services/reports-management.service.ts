@@ -1346,6 +1346,78 @@ export async function fetchReportDashboards(
   return Array.isArray(body) ? body : [];
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard widget data (metrics/chart/table/list for a selected dashboard)
+// ---------------------------------------------------------------------------
+
+export interface DashboardWidgetMetric {
+  key: string;
+  title: string;
+  value: string;
+  change: number;
+}
+
+export interface DashboardWidgetData {
+  generatedAt: string;
+  metrics: DashboardWidgetMetric[];
+  chart: {
+    series: { date: string; value: number }[];
+    pieData: { name: string; value: number; color?: string }[];
+  };
+  table: {
+    columns: string[];
+    rows: Record<string, unknown>[];
+  };
+  list: {
+    items: { id: string; type: string; text: string; time: string }[];
+  };
+}
+
+/**
+ * Fetch the aggregated widget data (metrics, chart, table, list) for a
+ * dashboard. Always resolves to a render-safe shape (empty collections on
+ * non-OK responses) so the dashboards page can render widgets without
+ * special-casing failures.
+ */
+export async function fetchDashboardWidgetData(
+  companyId: string = DEFAULT_COMPANY_ID,
+  dashboardId?: string,
+): Promise<DashboardWidgetData> {
+  const empty: DashboardWidgetData = {
+    generatedAt: new Date().toISOString(),
+    metrics: [],
+    chart: { series: [], pieData: [] },
+    table: { columns: [], rows: [] },
+    list: { items: [] },
+  };
+
+  const params = new URLSearchParams({ companyId });
+  if (dashboardId) params.set('dashboardId', dashboardId);
+  const url = `${API_BASE_URL}/reports/custom-dashboards/widget-data?${params.toString()}`;
+
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) {
+    return empty;
+  }
+  const body = (await res.json()) as Partial<DashboardWidgetData> | null;
+  if (!body) return empty;
+  return {
+    generatedAt: body.generatedAt ?? empty.generatedAt,
+    metrics: Array.isArray(body.metrics) ? body.metrics : [],
+    chart: {
+      series: Array.isArray(body.chart?.series) ? body.chart!.series : [],
+      pieData: Array.isArray(body.chart?.pieData) ? body.chart!.pieData : [],
+    },
+    table: {
+      columns: Array.isArray(body.table?.columns) ? body.table!.columns : [],
+      rows: Array.isArray(body.table?.rows) ? body.table!.rows : [],
+    },
+    list: {
+      items: Array.isArray(body.list?.items) ? body.list!.items : [],
+    },
+  };
+}
+
 /**
  * Fetch report schedules for a company via the reports backend (prefix-less,
  * NEXT_PUBLIC_API_URL). Always resolves to an array (empty on non-OK) so the

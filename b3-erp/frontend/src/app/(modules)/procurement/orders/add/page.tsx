@@ -34,6 +34,7 @@ import {
   FileSpreadsheet,
   Link as LinkIcon,
   ClipboardCheck,
+  Loader2,
 } from 'lucide-react';
 
 interface LineItem {
@@ -176,6 +177,14 @@ export default function AddPurchaseOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Modal state for the three "quick create" inputs (replaces window.prompt).
+  const [prModalOpen, setPrModalOpen] = useState(false);
+  const [prIdInput, setPrIdInput] = useState('');
+  const [rfqModalOpen, setRfqModalOpen] = useState(false);
+  const [rfqIdInput, setRfqIdInput] = useState('');
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkRawInput, setBulkRawInput] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -334,8 +343,13 @@ export default function AddPurchaseOrderPage() {
     }
   };
 
-  const handleLoadFromRequisition = async () => {
-    const prId = window.prompt('Enter the Purchase Requisition ID to load items from:');
+  const handleLoadFromRequisition = () => {
+    setPrIdInput('');
+    setPrModalOpen(true);
+  };
+
+  const confirmLoadFromRequisition = async () => {
+    const prId = prIdInput.trim();
     if (!prId) return;
     setSubmitError(null);
     setSuccessMessage(null);
@@ -358,6 +372,7 @@ export default function AddPurchaseOrderPage() {
       }));
       if (items.length) updateFormData('lineItems', items);
       setSuccessMessage(`Loaded ${items.length} item(s) from ${pr.prNumber || prId.trim()}.`);
+      setPrModalOpen(false);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to load purchase requisition');
     } finally {
@@ -365,8 +380,13 @@ export default function AddPurchaseOrderPage() {
     }
   };
 
-  const handleLoadFromRFQ = async () => {
-    const rfqId = window.prompt('Enter the RFQ ID to load vendor and quoted prices from:');
+  const handleLoadFromRFQ = () => {
+    setRfqIdInput('');
+    setRfqModalOpen(true);
+  };
+
+  const confirmLoadFromRFQ = async () => {
+    const rfqId = rfqIdInput.trim();
     if (!rfqId) return;
     setSubmitError(null);
     setSuccessMessage(null);
@@ -389,6 +409,7 @@ export default function AddPurchaseOrderPage() {
       }));
       if (items.length) updateFormData('lineItems', items);
       setSuccessMessage(`Loaded ${items.length} item(s) from ${rfq.rfqNumber || rfqId.trim()}.`);
+      setRfqModalOpen(false);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to load RFQ');
     } finally {
@@ -396,12 +417,15 @@ export default function AddPurchaseOrderPage() {
     }
   };
 
-  const handleBulkImport = async () => {
+  const handleBulkImport = () => {
+    setBulkRawInput('');
+    setBulkModalOpen(true);
+  };
+
+  const confirmBulkImport = async () => {
     setSubmitError(null);
     setSuccessMessage(null);
-    const raw = window.prompt(
-      'Paste a JSON array of line items to import. Each row supports: itemCode, description, quantity, unit, unitPrice, discount, taxRate.',
-    );
+    const raw = bulkRawInput.trim();
     if (!raw) return;
 
     let parsed: any[];
@@ -443,6 +467,7 @@ export default function AddPurchaseOrderPage() {
       updateFormData('lineItems', importedItems);
       const poNo = created?.poNumber ? ` (${created.poNumber})` : '';
       setSuccessMessage(`Imported ${importedItems.length} line item(s)${poNo}. Review and save below.`);
+      setBulkModalOpen(false);
     } catch (err) {
       // Still populate the form so the user can proceed manually if the backend rejected it.
       updateFormData('lineItems', importedItems);
@@ -1566,6 +1591,143 @@ export default function AddPurchaseOrderPage() {
           )}
         </div>
       </div>
+
+      {/* Load from Purchase Requisition modal */}
+      {prModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Load from Purchase Requisition</h3>
+              <button
+                onClick={() => setPrModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Purchase Requisition ID
+              </label>
+              <input
+                type="text"
+                value={prIdInput}
+                onChange={(e) => setPrIdInput(e.target.value)}
+                autoFocus
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="PR-2025-XXXXX"
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+              <button
+                onClick={() => setPrModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLoadFromRequisition}
+                disabled={submitting}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Load
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Load from RFQ modal */}
+      {rfqModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Load from RFQ</h3>
+              <button
+                onClick={() => setRfqModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">RFQ ID</label>
+              <input
+                type="text"
+                value={rfqIdInput}
+                onChange={(e) => setRfqIdInput(e.target.value)}
+                autoFocus
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="RFQ-2025-XXXXX"
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+              <button
+                onClick={() => setRfqModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLoadFromRFQ}
+                disabled={submitting}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Load
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import modal */}
+      {bulkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Bulk Import Line Items</h3>
+              <button
+                onClick={() => setBulkModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Line Items (JSON)</label>
+              <textarea
+                rows={10}
+                value={bulkRawInput}
+                onChange={(e) => setBulkRawInput(e.target.value)}
+                autoFocus
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                placeholder='[{"itemCode": "STL-001", "quantity": 10, "unitPrice": 500}]'
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Paste a JSON array of line items. Each row supports: itemCode, description, quantity, unit, unitPrice, discount, taxRate.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+              <button
+                onClick={() => setBulkModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBulkImport}
+                disabled={submitting}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -250,6 +250,50 @@ export class ApprovalService {
     }
 
     /**
+     * Attach an uploaded document to an approval.
+     *
+     * Persists a WorkflowDocument for the uploaded file and links it to the
+     * approval via `referenceId` (the same field `getAttachments` reads from),
+     * so the newly uploaded file immediately appears in the approval's
+     * attachment list. File storage is mocked (see DocumentService); the record
+     * carries fileName/fileUrl/mimeType/fileSize.
+     */
+    async addAttachment(
+        approvalId: string,
+        file: any,
+        userId?: string,
+        documentType = 'approval-attachment',
+    ): Promise<WorkflowDocument> {
+        if (!file) {
+            throw new BadRequestException('File is required');
+        }
+        const approval = await this.getApproval(approvalId);
+
+        const document = this.documentRepository.create({
+            projectId: approval.projectId,
+            documentType,
+            fileName: file.originalname,
+            fileUrl: `local://workflow-attachments/${Date.now()}-${file.originalname}`,
+            fileSize: file.size,
+            mimeType: file.mimetype,
+            version: '1.0',
+            status: 'draft',
+            uploadedBy: userId ?? approval.createdBy,
+            metadata: { approvalId },
+        });
+        const saved = await this.documentRepository.save(document);
+
+        // Link so the attachment surfaces via getAttachments(referenceId).
+        approval.referenceId = saved.id;
+        await this.approvalRepository.save(approval);
+
+        this.logger.log(
+            `Attachment ${saved.id} added to approval ${approvalId}`,
+        );
+        return saved;
+    }
+
+    /**
      * List comments for an approval, newest first.
      */
     async getComments(approvalId: string): Promise<ApprovalComment[]> {

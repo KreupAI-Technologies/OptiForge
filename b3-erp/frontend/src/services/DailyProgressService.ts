@@ -20,16 +20,16 @@ export interface DailyInstallReport {
 
 export class DailyProgressService {
     static async createReport(data: Partial<DailyInstallReport>): Promise<DailyInstallReport> {
-        const response = await axiosInstance.post('/logistics-installation/daily-report', data);
+        const response = await axiosInstance.post('/api/logistics-installation/daily-report', data);
         return response.data;
     }
 
     static async getReports(projectId: string): Promise<DailyInstallReport[]> {
-        const response = await axiosInstance.get(`/logistics-installation/daily-reports/${projectId}`);
+        const response = await axiosInstance.get(`/api/logistics-installation/daily-reports/${projectId}`);
         return response.data;
     }
 
     static async notifyClient(reportId: string): Promise<void> {
-        await axiosInstance.post(`/logistics-installation/notify-client/${reportId}`);
+        await axiosInstance.post(`/api/logistics-installation/notify-client/${reportId}`);
     }
 }

@@ -22,6 +22,8 @@ import {
   CPQApprovalMatrixRule as ApiApprovalRule,
   CPQMarginGuardrail as ApiMarginGuardrail,
   CPQGuidedSellingQuestion as ApiGuidedSellingQuestion,
+  CPQDocumentTemplate as ApiDocumentTemplate,
+  CPQGeneratedDocument as ApiGeneratedDocument,
 } from '@/services/cpq/cpq-advanced.service';
 import { PricingRulesEngine, PricingRule } from '@/components/cpq/PricingRulesEngine';
 import { CreateRuleModal, EditRuleModal, TestRuleModal } from '@/components/cpq/PricingRuleModals';
@@ -44,9 +46,12 @@ import { exportToCsv } from '@/lib/export';
 // (/cpq/advanced/approval-matrix), guided-selling
 // (/cpq/advanced/guided-selling), and margin-guardrails
 // (/cpq/advanced/margin-guardrails).
-// The remaining collections (approval requests, document templates & generated
-// documents, e-signature documents, and quote margin analyses) have no backend
-// entity in this cluster yet — they render empty until those endpoints exist.
+// The Document Generator tab is live: templates (/cpq/advanced/documents/templates),
+// generated documents (/cpq/advanced/documents, /cpq/advanced/documents/generate)
+// and file export (/cpq/advanced/documents/:id/export).
+// The remaining collections (approval requests, e-signature documents, and quote
+// margin analyses) have no backend entity in this cluster yet — they render empty
+// until those endpoints exist.
 
 // ---- Pricing-rule mapping between the backend PricingRule entity and the
 // PricingRulesEngine component model ----
@@ -253,6 +258,46 @@ const apiQuestionToWizardQuestion = (q: ApiGuidedSellingQuestion): Question => (
   helpText: q.helpText,
 });
 
+// ---- Document Generator mappers (live /cpq/advanced/documents*) ----
+const apiTemplateToComponent = (t: ApiDocumentTemplate): DocumentTemplate => ({
+  id: t.id,
+  name: t.name,
+  description: t.description || '',
+  type: (t.documentType as DocumentTemplate['type']) || 'quote',
+  status: (t.status as DocumentTemplate['status']) || 'draft',
+  fields: [],
+  sections: (t.sections ?? []).map((s, i) => ({
+    id: s.id || `section-${i}`,
+    title: s.title,
+    content: s.content,
+    order: s.order ?? i,
+    editable: s.editable ?? true,
+  })),
+  createdBy: t.createdBy || '',
+  createdAt: t.createdAt,
+  lastModified: t.updatedAt,
+  usageCount: Number(t.usageCount) || 0,
+  version: t.version || '1.0',
+});
+
+const apiDocumentToComponent = (d: ApiGeneratedDocument): GeneratedDocument => ({
+  id: d.id,
+  templateId: d.templateId || '',
+  templateName: d.templateName || '',
+  documentType: (d.documentType as GeneratedDocument['documentType']) || 'quote',
+  title: d.title || 'Untitled Document',
+  customer: {
+    name: d.customerName || '',
+    email: (d.variables?.customerEmail as string) || '',
+    company: (d.variables?.customerCompany as string) || '',
+  },
+  data: (d.variables as { [key: string]: unknown }) ?? {},
+  status: (d.status as GeneratedDocument['status']) || 'draft',
+  createdBy: d.generatedBy || '',
+  createdAt: d.createdAt,
+  expiresAt: d.expiresAt,
+});
+
 export default function CPQAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<string>('pricing-rules');
 
@@ -400,15 +445,41 @@ export default function CPQAdvancedFeaturesPage() {
   const [selectedThreshold, setSelectedThreshold] = useState<ApprovalThreshold | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<ApprovalRequest | null>(null);
 
-  // Document Generation State
+  // Document Generation State (loaded from /cpq/advanced/documents*)
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [documentsActionError, setDocumentsActionError] = useState<string | null>(null);
   const [isCreateTemplateModalOpen, setIsCreateTemplateModalOpen] = useState(false);
   const [isGenerateDocModalOpen, setIsGenerateDocModalOpen] = useState(false);
   const [isViewDocModalOpen, setIsViewDocModalOpen] = useState(false);
   const [isPreviewTemplateModalOpen, setIsPreviewTemplateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<GeneratedDocument | null>(null);
+
+  const loadDocuments = async () => {
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    try {
+      const [apiTemplates, apiDocuments] = await Promise.all([
+        cpqAdvancedService.findAllDocumentTemplates(),
+        cpqAdvancedService.findAllGeneratedDocuments(),
+      ]);
+      setTemplates((apiTemplates ?? []).map(apiTemplateToComponent));
+      setDocuments((apiDocuments ?? []).map(apiDocumentToComponent));
+    } catch (err) {
+      setDocumentsError(err instanceof Error ? err.message : 'Failed to load documents');
+      setTemplates([]);
+      setDocuments([]);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
 
   // E-Signature State
   const [signatureDocs, setSignatureDocs] = useState<SignatureDocument[]>([]);
@@ -772,22 +843,25 @@ export default function CPQAdvancedFeaturesPage() {
     setIsCreateTemplateModalOpen(true);
   };
 
-  const handleSaveNewTemplate = (newTemplate: Partial<DocumentTemplate>) => {
-    const templateWithId: DocumentTemplate = {
-      id: `template-${Date.now()}`,
-      name: newTemplate.name || '',
-      description: newTemplate.description || '',
-      type: newTemplate.type || 'quote',
-      status: newTemplate.status || 'draft',
-      fields: newTemplate.fields || [],
-      sections: newTemplate.sections || [],
-      createdBy: newTemplate.createdBy || 'Current User',
-      createdAt: newTemplate.createdAt || new Date().toISOString(),
-      lastModified: newTemplate.lastModified || new Date().toISOString(),
-      usageCount: 0,
-      version: '1.0'
-    };
-    setTemplates([...templates, templateWithId]);
+  const handleSaveNewTemplate = async (newTemplate: Partial<DocumentTemplate>) => {
+    setDocumentsActionError(null);
+    try {
+      await cpqAdvancedService.createDocumentTemplate({
+        name: newTemplate.name || '',
+        description: newTemplate.description,
+        documentType: newTemplate.type || 'quote',
+        sections: (newTemplate.sections ?? []).map((s) => ({
+          id: s.id,
+          title: s.title,
+          content: s.content,
+          order: s.order,
+          editable: s.editable,
+        })),
+      });
+      await loadDocuments();
+    } catch (err) {
+      setDocumentsActionError(err instanceof Error ? err.message : 'Failed to create template');
+    }
   };
 
   const handleEditTemplate = (templateId: string) => {
@@ -826,29 +900,27 @@ export default function CPQAdvancedFeaturesPage() {
     }
   };
 
-  const handleSaveGeneratedDocument = (data: any) => {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (data.expiresInDays || 30));
-
-    const newDoc: GeneratedDocument = {
-      id: `doc-${Date.now()}`,
-      templateId: data.templateId,
-      templateName: data.templateName,
-      documentType: data.documentType,
-      title: data.title,
-      customer: data.customer,
-      data: data,
-      status: 'draft',
-      createdBy: 'Current User',
-      createdAt: new Date().toISOString(),
-      expiresAt: expiresAt.toISOString()
-    };
-    setDocuments([...documents, newDoc]);
-
-    // Update template usage count
-    setTemplates(templates.map(t =>
-      t.id === data.templateId ? { ...t, usageCount: t.usageCount + 1 } : t
-    ));
+  const handleSaveGeneratedDocument = async (data: any) => {
+    setDocumentsActionError(null);
+    try {
+      await cpqAdvancedService.generateDocument({
+        templateId: data.templateId,
+        title: data.title,
+        documentType: data.documentType,
+        customerName: data.customer?.name,
+        variables: {
+          customerEmail: data.customer?.email,
+          customerCompany: data.customer?.company,
+          dealValue: data.dealValue,
+          expiresInDays: data.expiresInDays,
+          templateName: data.templateName,
+        },
+        generatedBy: 'Current User',
+      });
+      await loadDocuments();
+    } catch (err) {
+      setDocumentsActionError(err instanceof Error ? err.message : 'Failed to generate document');
+    }
   };
 
   const handleViewDocument = (documentId: string) => {
@@ -859,12 +931,12 @@ export default function CPQAdvancedFeaturesPage() {
     }
   };
 
-  const handleDownloadDocument = (documentId: string) => {
-    const doc = documents.find(d => d.id === documentId);
-    if (doc) {
-      console.log('Downloading document:', doc.title);
-      // In production, this would trigger actual download
-      alert(`Downloading: ${doc.title}.pdf`);
+  const handleDownloadDocument = async (documentId: string) => {
+    setDocumentsActionError(null);
+    try {
+      await cpqAdvancedService.exportDocument(documentId, 'pdf');
+    } catch (err) {
+      setDocumentsActionError(err instanceof Error ? err.message : 'Failed to download document');
     }
   };
 
@@ -1544,6 +1616,22 @@ export default function CPQAdvancedFeaturesPage() {
 
         {activeTab === 'documents' && (
           <>
+            {documentsLoading && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading document templates and documents…
+              </div>
+            )}
+            {documentsError && !documentsLoading && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {documentsError}
+              </div>
+            )}
+            {documentsActionError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {documentsActionError}
+              </div>
+            )}
             <DocumentGenerator
               templates={templates}
               documents={documents}

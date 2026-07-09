@@ -59,7 +59,9 @@ import {
   createReportDashboard,
   updateReportDashboard,
   deleteReportDashboard,
+  fetchDashboardWidgetData,
   type ReportDashboardItem,
+  type DashboardWidgetData,
 } from '@/services/reports-management.service';
 
 interface Dashboard {
@@ -131,6 +133,7 @@ export default function DashboardsPage() {
   const [showWidgetLibrary, setShowWidgetLibrary] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingWidgets, setIsLoadingWidgets] = useState(false);
 
   const categories = ['All', 'Overview', 'Sales', 'Operations', 'Finance', 'Analytics', 'Custom'];
 
@@ -154,6 +157,14 @@ export default function DashboardsPage() {
       return () => clearInterval(interval);
     }
   }, [autoRefresh, refreshInterval, selectedDashboard]);
+
+  // Load widget data whenever the selected dashboard changes.
+  useEffect(() => {
+    if (selectedDashboard?.id) {
+      loadDashboardWidgets(selectedDashboard.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDashboard?.id]);
 
   const mapToDashboard = (row: ReportDashboardItem): Dashboard => ({
     id: row.id,
@@ -261,8 +272,76 @@ export default function DashboardsPage() {
     }
   };
 
+  const buildWidgets = (data: DashboardWidgetData): Widget[] => {
+    const widgets: Widget[] = [];
+
+    (data.metrics ?? []).forEach((metric, index) => {
+      widgets.push({
+        id: `metric-${metric.key}`,
+        type: 'metric',
+        title: metric.title,
+        data: { value: metric.value, change: metric.change },
+        config: { dataSource: undefined },
+        position: { x: index, y: 0 },
+        size: { width: 1, height: 1 },
+      });
+    });
+
+    widgets.push({
+      id: 'chart-trend',
+      type: 'chart',
+      title: 'Trend',
+      data: { series: data.chart?.series ?? [], pieData: data.chart?.pieData ?? [] },
+      config: { chartType: 'bar' },
+      position: { x: 0, y: 1 },
+      size: { width: 2, height: 2 },
+    });
+
+    widgets.push({
+      id: 'table-metrics',
+      type: 'table',
+      title: 'Metrics',
+      data: { columns: data.table?.columns ?? [], rows: data.table?.rows ?? [] },
+      config: {},
+      position: { x: 0, y: 3 },
+      size: { width: 2, height: 2 },
+    });
+
+    widgets.push({
+      id: 'list-activity',
+      type: 'list',
+      title: 'Recent Activity',
+      data: { items: data.list?.items ?? [] },
+      config: {},
+      position: { x: 2, y: 1 },
+      size: { width: 1, height: 2 },
+    });
+
+    return widgets;
+  };
+
+  const loadDashboardWidgets = async (dashboardId: string) => {
+    setIsLoadingWidgets(true);
+    try {
+      const data = await fetchDashboardWidgetData(undefined, dashboardId);
+      const widgets = buildWidgets(data);
+      setSelectedDashboard((prev) =>
+        prev && prev.id === dashboardId ? { ...prev, widgets } : prev,
+      );
+      setDashboards((prev) =>
+        prev.map((d) => (d.id === dashboardId ? { ...d, widgets } : d)),
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load widget data');
+    } finally {
+      setIsLoadingWidgets(false);
+    }
+  };
+
   const handleRefreshDashboard = () => {
-    console.log('Refreshing dashboard data...');
+    if (selectedDashboard) {
+      loadDashboardWidgets(selectedDashboard.id);
+    }
   };
 
   const handleExportDashboard = () => {
@@ -754,7 +833,12 @@ export default function DashboardsPage() {
 
             {/* Widgets Grid */}
             <div className="p-3">
-              {selectedDashboard.widgets.length === 0 ? (
+              {isLoadingWidgets && selectedDashboard.widgets.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 p-12 text-center flex flex-col items-center">
+                  <RefreshCw className="w-8 h-8 text-gray-300 mb-3 animate-spin" />
+                  <p className="text-gray-500 text-sm">Loading widgets…</p>
+                </div>
+              ) : selectedDashboard.widgets.length === 0 ? (
                 <div className="rounded-lg border-2 border-dashed border-gray-200 p-12 text-center">
                   <Grid className="w-10 h-10 text-gray-300 mb-3" />
                   <p className="text-gray-600 font-medium">No widgets configured</p>

@@ -161,7 +161,48 @@ export class StockTransferService {
       throw new NotFoundException(`Stock transfer with ID ${id} not found`);
     }
 
+    if (
+      transfer.status !== TransferStatus.SUBMITTED &&
+      transfer.status !== TransferStatus.DRAFT
+    ) {
+      throw new BadRequestException(
+        'Only submitted transfers can be approved',
+      );
+    }
+
+    transfer.status = TransferStatus.APPROVED;
     transfer.approvedAt = new Date();
+    await this.stockTransferRepository.save(transfer);
+    return this.findOne(id);
+  }
+
+  async reject(
+    id: string,
+    rejectionReason?: string,
+  ): Promise<StockTransferResponseDto> {
+    const transfer = await this.stockTransferRepository.findOne({
+      where: { id },
+    });
+
+    if (!transfer) {
+      throw new NotFoundException(`Stock transfer with ID ${id} not found`);
+    }
+
+    if (
+      transfer.status === TransferStatus.RECEIVED ||
+      transfer.status === TransferStatus.IN_TRANSIT ||
+      transfer.status === TransferStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        `Cannot reject a transfer in status ${transfer.status}`,
+      );
+    }
+
+    transfer.status = TransferStatus.REJECTED;
+    transfer.rejectedAt = new Date();
+    if (rejectionReason) {
+      transfer.rejectionReason = rejectionReason;
+    }
     await this.stockTransferRepository.save(transfer);
     return this.findOne(id);
   }

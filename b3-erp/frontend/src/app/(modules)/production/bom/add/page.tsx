@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { bomService } from '@/services/bom.service';
 import { commonMastersService } from '@/services/common-masters.service';
@@ -179,6 +179,14 @@ export default function BOMAddPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Excel file import (multipart upload to production/bom/import)
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const [excelImporting, setExcelImporting] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // Save current components as a reusable assembly template
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
     // Auto-generate BOM number
@@ -628,6 +636,101 @@ export default function BOMAddPage() {
     setShowImportModal(false);
   };
 
+  // Import from Excel — uploads the selected spreadsheet to
+  // POST production/bom/import (multipart). The backend parses the file and
+  // returns component rows, which are mapped into the grid for review/save.
+  const handleExcelFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so selecting the same file again re-triggers change.
+    if (excelInputRef.current) excelInputRef.current.value = '';
+    if (!file) return;
+    setExcelImporting(true);
+    setSaveError(null);
+    setActionMessage(null);
+    try {
+      const res = await ProductionOrphanService.importBomFile(file, {
+        productCode: bom.productCode,
+        bomType: bom.bomType,
+      });
+      const rows = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.components)
+        ? res.components
+        : Array.isArray(res?.data)
+        ? res.data
+        : [];
+      const mapped: BOMComponent[] = rows.map((r: any) => {
+        const quantity = Number(r?.quantity) || 0;
+        const costPerUnit = Number(r?.unitCost ?? r?.costPerUnit) || 0;
+        return {
+          id: `xls-${Date.now()}-${Math.random()}`,
+          level: Number(r?.level) || 0,
+          itemCode: String(r?.itemCode ?? ''),
+          itemName: String(r?.itemName ?? ''),
+          description: String(r?.description ?? ''),
+          quantity,
+          uom: String(r?.uom ?? 'PCS'),
+          itemType: mapItemType(r?.itemType) as BOMComponent['itemType'],
+          stockAvailable: 0,
+          costPerUnit,
+          extendedCost: calculateExtendedCost(quantity, costPerUnit),
+          makeOrBuy: (r?.makeOrBuy === 'make' ? 'make' : 'buy') as 'make' | 'buy',
+          scrapPercent: Number(r?.scrapPercentage ?? r?.scrapPercent) || 0,
+          isRequired: true,
+          isPhantom: !!r?.isPhantom,
+        };
+      });
+      if (mapped.length > 0) setComponents(mapped);
+      setActionMessage(
+        `Imported ${mapped.length} component${mapped.length === 1 ? '' : 's'} from "${file.name}". Review and save the BOM.`,
+      );
+    } catch (err: any) {
+      setSaveError(err?.message ?? 'Failed to import the Excel file.');
+    } finally {
+      setExcelImporting(false);
+    }
+  };
+
+  // Save current components as a reusable assembly template via
+  // POST production/bom-templates.
+  const handleSaveAsTemplate = async () => {
+    if (components.length === 0) {
+      setSaveError('Add at least one component before saving a template.');
+      return;
+    }
+    const name = window.prompt('Template name:', bom.productName || 'New Assembly Template');
+    if (!name) return;
+    setSavingTemplate(true);
+    setSaveError(null);
+    setActionMessage(null);
+    try {
+      await ProductionOrphanService.createBomTemplate({
+        name,
+        code: `TPL-${Date.now()}`,
+        bomType: bom.bomType,
+        componentCount: components.length,
+        components: components.map((c) => ({
+          level: c.level,
+          itemCode: c.itemCode,
+          itemName: c.itemName,
+          description: c.description,
+          quantity: c.quantity,
+          uom: c.uom,
+          itemType: c.itemType,
+          unitCost: c.costPerUnit,
+          scrapPercentage: c.scrapPercent,
+          makeOrBuy: c.makeOrBuy,
+          isPhantom: c.isPhantom,
+        })),
+      });
+      setActionMessage(`Saved "${name}" as an assembly template.`);
+    } catch (err: any) {
+      setSaveError(err?.message ?? 'Failed to save the assembly template.');
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
   const loadTemplates = async () => {
     setLoadingTemplates(true);
     setSaveError(null);
@@ -945,6 +1048,29 @@ export default function BOMAddPage() {
           </div>
 
           <div className="flex items-center space-x-2">
+            <input
+              ref={excelInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleExcelFileSelected}
+              className="hidden"
+            />
+            <button
+              onClick={() => excelInputRef.current?.click()}
+              disabled={excelImporting}
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>{excelImporting ? 'Importing…' : 'Import from Excel'}</span>
+            </button>
+            <button
+              onClick={handleSaveAsTemplate}
+              disabled={savingTemplate || components.length === 0}
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <BookTemplate className="h-4 w-4" />
+              <span>{savingTemplate ? 'Saving…' : 'Save as Template'}</span>
+            </button>
             <button
               onClick={() => handleSave('draft')}
               disabled={saving}
@@ -1002,6 +1128,19 @@ export default function BOMAddPage() {
         <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 flex items-start space-x-2">
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-700">{saveError}</p>
+        </div>
+      )}
+
+      {/* Action Message (Excel import / template save) */}
+      {actionMessage && (
+        <div className="mb-3 bg-green-50 border border-green-200 rounded-lg p-3 flex items-start justify-between space-x-2">
+          <div className="flex items-start space-x-2">
+            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-green-700">{actionMessage}</p>
+          </div>
+          <button onClick={() => setActionMessage(null)} className="text-green-600 hover:text-green-800">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Clock,
   CheckCircle,
@@ -19,7 +20,7 @@ import {
 import { stockTransferService } from '@/services/stock-transfer.service';
 
 interface PendingTransfer {
-  id: number;
+  id: string;
   transferNumber: string;
   fromWarehouse: string;
   toWarehouse: string;
@@ -33,12 +34,92 @@ interface PendingTransfer {
 }
 
 export default function PendingTransfersPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   const [pendingTransfers, setPendingTransfers] = useState<PendingTransfer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Approve / reject action state
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<PendingTransfer | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
+
+  const refreshTransfers = React.useCallback(async () => {
+    const raw = (await stockTransferService.getAllTransfers()) as any[];
+    const dateOnly = (v: any) => (v ? String(v).slice(0, 10) : '');
+    const statusMap: Record<string, PendingTransfer['status']> = {
+      DRAFT: 'pending-approval',
+      SUBMITTED: 'pending-approval',
+      APPROVED: 'approved',
+      DISPATCHED: 'ready-to-ship',
+      IN_TRANSIT: 'in-transit',
+    };
+    const mapped: PendingTransfer[] = (raw || [])
+      .filter((t) => statusMap[String(t?.status ?? '').toUpperCase().replace(/\s+/g, '_')])
+      .map((t, index) => {
+        const s = String(t.status ?? '').toUpperCase().replace(/\s+/g, '_');
+        const prio = String(t.priority ?? '').toUpperCase();
+        return {
+          id: String(t.id ?? index + 1),
+          transferNumber: t.transferNumber ?? '',
+          fromWarehouse: t.sourceWarehouseName ?? t.fromWarehouseName ?? t.sourceWarehouseId ?? t.fromWarehouseId ?? '',
+          toWarehouse: t.targetWarehouseName ?? t.toWarehouseName ?? t.targetWarehouseId ?? t.toWarehouseId ?? '',
+          requestedBy: t.requestedByName ?? t.requestedBy ?? '',
+          requestDate: dateOnly(t.requestDate ?? t.transferDate),
+          itemCount: Number(t.totalItems ?? (Array.isArray(t.items) || Array.isArray(t.lines) ? (t.items?.length ?? t.lines?.length) : 0)),
+          totalQuantity: Number(t.totalRequestedQuantity ?? 0),
+          status: statusMap[s] ?? 'pending-approval',
+          priority: prio === 'HIGH' || prio === 'URGENT' ? 'urgent' : 'normal',
+          approver: t.approvedByName ?? t.approvedBy ?? '',
+        };
+      });
+    setPendingTransfers(mapped);
+  }, []);
+
+  const handleApprove = async (transfer: PendingTransfer) => {
+    setActionError(null);
+    setActionSuccess(null);
+    setActionId(transfer.id);
+    try {
+      await stockTransferService.approveTransfer(transfer.id);
+      setActionSuccess(`Transfer ${transfer.transferNumber} approved.`);
+      await refreshTransfers();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to approve transfer');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const openReject = (transfer: PendingTransfer) => {
+    setActionError(null);
+    setActionSuccess(null);
+    setRejectReason('');
+    setRejectTarget(transfer);
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget) return;
+    setRejectSubmitting(true);
+    setActionError(null);
+    try {
+      await stockTransferService.rejectTransfer(rejectTarget.id, rejectReason.trim() || undefined);
+      setActionSuccess(`Transfer ${rejectTarget.transferNumber} rejected.`);
+      setRejectTarget(null);
+      setRejectReason('');
+      await refreshTransfers();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to reject transfer');
+    } finally {
+      setRejectSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -49,35 +130,7 @@ export default function PendingTransfersPage() {
         // Backend returns the raw StockTransfer ORM shape. Keep only the
         // active (not completed/cancelled/rejected) transfers and map the
         // backend status enum to this page's status union.
-        const raw = (await stockTransferService.getAllTransfers()) as any[];
-        const dateOnly = (v: any) => (v ? String(v).slice(0, 10) : '');
-        const statusMap: Record<string, PendingTransfer['status']> = {
-          DRAFT: 'pending-approval',
-          SUBMITTED: 'pending-approval',
-          APPROVED: 'approved',
-          DISPATCHED: 'ready-to-ship',
-          IN_TRANSIT: 'in-transit',
-        };
-        const mapped: PendingTransfer[] = (raw || [])
-          .filter((t) => statusMap[String(t?.status ?? '').toUpperCase()])
-          .map((t, index) => {
-            const s = String(t.status ?? '').toUpperCase();
-            const prio = String(t.priority ?? '').toUpperCase();
-            return {
-              id: t.id ?? index + 1,
-              transferNumber: t.transferNumber ?? '',
-              fromWarehouse: t.sourceWarehouseName ?? t.sourceWarehouseId ?? '',
-              toWarehouse: t.targetWarehouseName ?? t.targetWarehouseId ?? '',
-              requestedBy: t.requestedByName ?? t.requestedBy ?? '',
-              requestDate: dateOnly(t.requestDate),
-              itemCount: Number(t.totalItems ?? (Array.isArray(t.items) ? t.items.length : 0)),
-              totalQuantity: Number(t.totalRequestedQuantity ?? 0),
-              status: statusMap[s] ?? 'pending-approval',
-              priority: prio === 'HIGH' || prio === 'URGENT' ? 'urgent' : 'normal',
-              approver: t.approvedByName ?? t.approvedBy ?? '',
-            };
-          });
-        if (!cancelled) setPendingTransfers(mapped);
+        if (!cancelled) await refreshTransfers();
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load pending transfers');
@@ -91,7 +144,7 @@ export default function PendingTransfersPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshTransfers]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -172,6 +225,18 @@ export default function PendingTransfersPage() {
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <CheckCircle className="h-4 w-4" />
+          {actionSuccess}
+        </div>
+      )}
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
         </div>
       )}
 
@@ -309,17 +374,33 @@ export default function PendingTransfersPage() {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">
                     <div className="flex items-center space-x-2">
-                      <button className="text-blue-600 hover:text-blue-800 flex items-center space-x-1">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/inventory/transfers/view/${transfer.id}`)}
+                        className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                      >
                         <Eye className="w-4 h-4" />
                         <span>View</span>
                       </button>
                       {transfer.status === 'pending-approval' && (
                         <>
-                          <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm">
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(transfer)}
+                            disabled={actionId === transfer.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
                             <CheckCircle className="w-4 h-4 text-green-600" />
-                            <span className="text-green-600">Approve</span>
+                            <span className="text-green-600">
+                              {actionId === transfer.id ? 'Approving…' : 'Approve'}
+                            </span>
                           </button>
-                          <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
+                          <button
+                            type="button"
+                            onClick={() => openReject(transfer)}
+                            disabled={actionId === transfer.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
                             <XCircle className="w-4 h-4 text-red-600" />
                             <span className="text-red-600">Reject</span>
                           </button>
@@ -340,6 +421,65 @@ export default function PendingTransfersPage() {
           </div>
         )}
       </div>
+
+      {/* Reject Transfer Modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="flex items-center gap-2 border-b border-gray-200 px-5 py-4">
+              <XCircle className="h-5 w-5 text-red-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Reject Transfer</h2>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <p className="text-sm text-gray-600">
+                Rejecting transfer{' '}
+                <span className="font-medium text-gray-900">{rejectTarget.transferNumber}</span>{' '}
+                ({rejectTarget.fromWarehouse} → {rejectTarget.toWarehouse}).
+              </p>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Reason for rejection
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  rows={3}
+                  placeholder="Optional — e.g. insufficient stock at source warehouse"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
+                />
+              </div>
+              {actionError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {actionError}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectTarget(null);
+                  setRejectReason('');
+                }}
+                disabled={rejectSubmitting}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitReject}
+                disabled={rejectSubmitting}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <XCircle className="h-4 w-4" />
+                {rejectSubmitting ? 'Rejecting…' : 'Reject Transfer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

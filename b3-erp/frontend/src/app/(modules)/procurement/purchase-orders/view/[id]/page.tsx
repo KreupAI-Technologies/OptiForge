@@ -20,6 +20,8 @@ export default function PurchaseOrderDetailPage() {
     const [actionError, setActionError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [busyAction, setBusyAction] = useState<string | null>(null);
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
 
     const loadOrder = async () => {
         setLoadError(null);
@@ -68,8 +70,19 @@ export default function PurchaseOrderDetailPage() {
         runAction('close', () => purchaseOrderService.closePurchaseOrder(orderId), 'Purchase order closed.');
 
     const handleCancel = () => {
-        const reason = window.prompt('Reason for cancelling this purchase order (optional):') ?? undefined;
-        return runAction('cancel', () => purchaseOrderService.rejectPurchaseOrder(orderId, reason), 'Purchase order cancelled.');
+        setActionError(null);
+        setSuccessMessage(null);
+        setCancelReason('');
+        setShowCancelModal(true);
+    };
+
+    const confirmCancel = async () => {
+        await runAction(
+            'cancel',
+            () => purchaseOrderService.rejectPurchaseOrder(orderId, cancelReason.trim() || undefined),
+            'Purchase order cancelled.',
+        );
+        setShowCancelModal(false);
     };
 
     if (loading) {
@@ -313,6 +326,49 @@ export default function PurchaseOrderDetailPage() {
                     </Card>
                 </div>
             </div>
+
+            {/* Cancel Purchase Order Modal */}
+            {showCancelModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                        <div className="px-6 py-4 border-b">
+                            <h2 className="text-lg font-semibold">Cancel Purchase Order</h2>
+                        </div>
+                        <div className="px-6 py-4">
+                            <label htmlFor="cancel-reason" className="block text-sm font-medium text-gray-700 mb-1">
+                                Reason (optional)
+                            </label>
+                            <textarea
+                                id="cancel-reason"
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                rows={4}
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="Reason for cancelling this purchase order…"
+                            />
+                        </div>
+                        <div className="px-6 py-4 border-t flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowCancelModal(false)}
+                                disabled={busyAction === 'cancel'}
+                            >
+                                Keep Order
+                            </Button>
+                            <Button
+                                onClick={confirmCancel}
+                                disabled={busyAction === 'cancel'}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                {busyAction === 'cancel' && (
+                                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white" />
+                                )}
+                                {busyAction === 'cancel' ? 'Cancelling…' : 'Confirm Cancellation'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

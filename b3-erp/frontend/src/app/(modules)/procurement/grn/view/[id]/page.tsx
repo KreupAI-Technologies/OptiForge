@@ -59,7 +59,9 @@ import {
   Globe,
   CreditCard,
   Banknote,
-  CircleDollarSign
+  CircleDollarSign,
+  Loader2,
+  X
 } from 'lucide-react';
 
 // TypeScript Interfaces
@@ -223,6 +225,10 @@ const GRNViewPage = () => {
   const [grnData, setGrnData] = useState<GRNData | null>(null);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [selectedQCItem, setSelectedQCItem] = useState<string | null>(null);
+  const [matchModalOpen, setMatchModalOpen] = useState(false);
+  const [matchInvoiceNumber, setMatchInvoiceNumber] = useState('');
+  const [matchSubmitting, setMatchSubmitting] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   // Map service status → view status
   const mapStatus = (s?: string): GRNData['status'] => {
@@ -493,19 +499,29 @@ const GRNViewPage = () => {
     }
   };
 
-  const handleMatchWithInvoice = async () => {
+  const handleMatchWithInvoice = () => {
     setShowActionMenu(false);
-    const invoiceNumber = window.prompt(
-      'Enter the invoice number (internal or vendor) to match this GRN against:',
-      grnData?.invoice_number || '',
-    );
-    if (!invoiceNumber) return;
+    setMatchInvoiceNumber(grnData?.invoice_number || '');
+    setMatchError(null);
+    setMatchModalOpen(true);
+  };
+
+  const confirmMatchInvoice = async () => {
+    const inv = matchInvoiceNumber.trim();
+    if (!inv) {
+      setMatchError('Invoice number is required');
+      return;
+    }
+    setMatchSubmitting(true);
+    setMatchError(null);
     try {
-      await procurementPagesService.matchGrnInvoice(grnId, { invoiceNumber: invoiceNumber.trim() });
-      alert(`GRN matched to invoice ${invoiceNumber.trim()}.`);
+      await procurementPagesService.matchGrnInvoice(grnId, { invoiceNumber: inv });
+      setMatchModalOpen(false);
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Invoice matching failed');
+      setMatchError(err instanceof Error ? err.message : 'Invoice matching failed');
+    } finally {
+      setMatchSubmitting(false);
     }
   };
 
@@ -1548,6 +1564,63 @@ const GRNViewPage = () => {
           </div>
         </div>
       </div>
+
+      {matchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Match GRN to Invoice</h3>
+              <button
+                type="button"
+                onClick={() => setMatchModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              {matchError && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+                  {matchError}
+                </div>
+              )}
+              <div>
+                <label htmlFor="match-invoice-number" className="block text-sm font-medium text-gray-700 mb-1">
+                  Invoice Number
+                </label>
+                <input
+                  id="match-invoice-number"
+                  type="text"
+                  value={matchInvoiceNumber}
+                  onChange={(e) => setMatchInvoiceNumber(e.target.value)}
+                  placeholder="Enter internal or vendor invoice number"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setMatchModalOpen(false)}
+                disabled={matchSubmitting}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmMatchInvoice}
+                disabled={matchSubmitting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50"
+              >
+                {matchSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Match Invoice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -293,12 +293,66 @@ export const MOCK_USERS: User[] = [
 // Service Class
 // ============================================================================
 
+// Backend (NestJS it-admin) user entity fields differ from the FE `User`
+// shape: it uses phoneNumber/designation/twoFactorEnabled/lastLoginAt and a
+// userRoles relation (no single roleId/roleName/jobTitle/phone). Normalize a
+// raw entity into the FE `User` interface the pages consume.
+function mapBackendUser(raw: any): User {
+  const firstName = raw.firstName ?? '';
+  const lastName = raw.lastName ?? '';
+  const firstRole = Array.isArray(raw.userRoles) ? raw.userRoles[0] : undefined;
+  const roleId = raw.roleId ?? firstRole?.roleId ?? firstRole?.role?.id ?? '';
+  const roleName =
+    raw.roleName ?? firstRole?.role?.name ?? firstRole?.roleName ?? '';
+  return {
+    id: raw.id,
+    employeeId: raw.employeeId ?? '',
+    email: raw.email ?? '',
+    firstName,
+    lastName,
+    displayName:
+      raw.displayName || `${firstName} ${lastName}`.trim() || raw.email || '',
+    phone: raw.phoneNumber ?? raw.phone ?? '',
+    department: raw.department ?? '',
+    jobTitle: raw.designation ?? raw.jobTitle ?? '',
+    roleId,
+    roleName,
+    status: raw.status as UserStatus,
+    avatar: raw.avatar,
+    lastLogin: raw.lastLoginAt ?? raw.lastLogin,
+    passwordChangedAt: raw.passwordChangedAt,
+    twoFactorEnabled: !!raw.twoFactorEnabled,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    createdBy: raw.createdBy,
+  };
+}
+
+// Translate the FE update payload into the backend UpdateUserDto shape
+// (phone→phoneNumber, jobTitle→designation, roleId→roleIds[]). The backend
+// ValidationPipe uses forbidNonWhitelisted, so unknown keys must be dropped.
+function toBackendUpdate(data: UpdateUserDto): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (data.firstName !== undefined) out.firstName = data.firstName;
+  if (data.lastName !== undefined) out.lastName = data.lastName;
+  if (data.phone !== undefined) out.phoneNumber = data.phone;
+  if (data.department !== undefined) out.department = data.department;
+  if (data.jobTitle !== undefined) out.designation = data.jobTitle;
+  if (data.roleId) out.roleIds = [data.roleId];
+  return out;
+}
+
 export class UserManagementService {
   private static async request<T>(
     endpoint: string,
     options?: RequestInit
   ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      // Auth is carried by the HttpOnly `access_token` cookie set on login.
+      // `credentials: 'include'` attaches it so JwtAuthGuard+PermissionsGuard
+      // protected user endpoints (GET/PUT /it-admin/users/:id) receive the
+      // token. Matches api-client.ts / the other domain fetch helpers.
+      credentials: 'include',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -368,7 +422,8 @@ export class UserManagementService {
       return user;
     }
 
-    return this.request<User>(`/it-admin/users/${id}`);
+    const raw = await this.request<any>(`/it-admin/users/${id}`);
+    return mapBackendUser(raw);
   }
 
   /**
@@ -428,10 +483,11 @@ export class UserManagementService {
       return updatedUser;
     }
 
-    return this.request<User>(`/it-admin/users/${id}`, {
+    const raw = await this.request<any>(`/it-admin/users/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toBackendUpdate(data)),
     });
+    return mapBackendUser(raw);
   }
 
   /**

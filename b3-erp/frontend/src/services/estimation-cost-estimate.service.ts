@@ -197,9 +197,18 @@ class CostEstimateService {
   ): Promise<{ blob: Blob; filename: string }> {
     const base =
       process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const tenant =
+      process.env.NEXT_PUBLIC_COMPANY_ID ||
+      process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID ||
+      companyId ||
+      'default';
     const res = await fetch(
       `${base}${this.baseUrl}/${id}/export?format=${encodeURIComponent(format)}`,
-      { method: 'GET', credentials: 'include' }
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'x-company-id': tenant },
+      }
     );
     if (!res.ok) {
       throw new Error(`Export failed: ${res.status} ${res.statusText}`);

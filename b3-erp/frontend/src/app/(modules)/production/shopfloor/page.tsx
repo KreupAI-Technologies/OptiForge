@@ -320,6 +320,22 @@ export default function ShopfloorTerminalPage() {
       setIsLoggedIn(true);
       setScreen('dashboard');
 
+      // Record shift clock-in (best-effort — attendance start-shift).
+      try {
+        await ProductionOrphanService.startShopFloorShift({
+          operatorId: employeeId,
+          operatorName: `Operator ${employeeId}`,
+          employeeCode: employeeId,
+          workCenterId: selectedWorkCenter || null,
+          workCenterName: selectedWorkCenter || null,
+          shift: selectedShift || null,
+          clockIn: new Date().toISOString(),
+        });
+      } catch (shiftErr) {
+        // Non-blocking: still allow the operator to work if attendance record fails.
+        console.error('Error recording start-of-shift:', shiftErr);
+      }
+
       // Play audio feedback
       playAudioFeedback('success');
     } catch (err) {

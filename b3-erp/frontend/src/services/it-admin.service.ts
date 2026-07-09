@@ -423,6 +423,10 @@ export interface RoleDto {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
+    // Auth is carried by the HttpOnly `access_token` cookie set on login.
+    // `credentials: 'include'` attaches it so JwtAuthGuard-protected it-admin
+    // endpoints (users, etc.) receive the token. Matches api-client.ts.
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     ...init,
   });

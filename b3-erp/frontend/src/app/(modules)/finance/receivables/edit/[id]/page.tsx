@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { FinanceService } from '@/services/finance.service';
+import { MasterDataService, type MDEmployee } from '@/services/master-data.service';
 import {
   ArrowLeft,
   Save,
@@ -88,6 +89,41 @@ export default function EditReceivablePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Customer lookup (AR customer accounts) + collection-agent lookup (employees).
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string }>>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [custRaw, empRaw] = await Promise.all([
+          FinanceService.getCustomerAccounts(),
+          MasterDataService.getEmployees().catch(() => [] as MDEmployee[]),
+        ]);
+        if (cancelled) return;
+        setCustomers(
+          (Array.isArray(custRaw) ? custRaw : []).map((c: any) => ({
+            id: String(c.id ?? c.customerId ?? ''),
+            name: String(c.customerName ?? c.name ?? c.partyName ?? c.accountName ?? ''),
+          })).filter((c) => c.name),
+        );
+        setAgents(
+          (Array.isArray(empRaw) ? empRaw : []).map((e: MDEmployee) => ({
+            id: String(e.id ?? ''),
+            name: String(e.fullName ?? [e.firstName, e.lastName].filter(Boolean).join(' ') ?? '').trim(),
+          })).filter((a) => a.name),
+        );
+      } catch {
+        if (!cancelled) {
+          setCustomers([]);
+          setAgents([]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,12 +290,22 @@ export default function EditReceivablePage() {
               </label>
               <input
                 type="text"
+                list="customer-lookup"
                 value={formData.customerName}
-                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  const match = customers.find((c) => c.name === name);
+                  setFormData({ ...formData, customerName: name, ...(match ? { customerId: match.id } : {}) });
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter customer name"
+                placeholder="Select or enter customer name"
                 required
               />
+              <datalist id="customer-lookup">
+                {customers.map((c) => (
+                  <option key={c.id || c.name} value={c.name} />
+                ))}
+              </datalist>
             </div>
 
             {/* Invoice Reference */}
@@ -348,12 +394,18 @@ export default function EditReceivablePage() {
               </label>
               <input
                 type="text"
+                list="collection-agent-lookup"
                 value={formData.collectionAgent}
                 onChange={(e) => setFormData({ ...formData, collectionAgent: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter collection agent name"
+                placeholder="Select or enter collection agent"
                 required
               />
+              <datalist id="collection-agent-lookup">
+                {agents.map((a) => (
+                  <option key={a.id || a.name} value={a.name} />
+                ))}
+              </datalist>
             </div>
 
             {/* Collection Priority */}

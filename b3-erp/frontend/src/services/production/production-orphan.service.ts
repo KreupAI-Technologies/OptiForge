@@ -54,6 +54,21 @@ async function del(path: string): Promise<void> {
   }
 }
 
+// Multipart POST for file uploads (Excel/BOM import). The browser sets the
+// Content-Type (with boundary) automatically when the body is FormData, so we
+// must NOT set it manually here.
+async function postForm<T = any>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 /**
  * Each method returns the raw backend array (typed as any[]). Pages apply a
  * defensive transform from the raw ORM shape into their local interface.
@@ -359,11 +374,27 @@ export const ProductionOrphanService = {
     ),
   // POST production/bom/import — create a BOM from parsed component rows (JSON)
   importBom: (body: any) => post<any>('/production/bom/import', body),
+  // POST production/bom/import — import a BOM from an uploaded Excel/CSV file
+  // (multipart FormData; the file part is named 'file').
+  importBomFile: (file: File, extra?: Record<string, string>) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (extra) {
+      Object.entries(extra).forEach(([k, v]) => form.append(k, v));
+    }
+    return postForm<any>('/production/bom/import', form);
+  },
 
   // ---- BOM / assembly templates ----
   getBomTemplates: () => request<any[]>('/production/bom-templates'),
   getBomTemplate: (id: string) => request<any>(`/production/bom-templates/${id}`),
   createBomTemplate: (body: any) => post<any>('/production/bom-templates', body),
+  updateBomTemplate: (id: string, body: any) => put<any>(`/production/bom-templates/${id}`, body),
+  deleteBomTemplate: (id: string) => del(`/production/bom-templates/${id}`),
+
+  // ---- What-if / simulation scenarios (backs /production/planning what-if) ----
+  getSimulationScenarios: () => request<any[]>('/production/simulation-scenarios'),
+  createSimulationScenario: (body: any) => post<any>('/production/simulation-scenarios', body),
 
   // ---- Quality specs (product / work-order) ----
   getQualitySpecs: (params: { productCode?: string; workOrderId?: string }) => {

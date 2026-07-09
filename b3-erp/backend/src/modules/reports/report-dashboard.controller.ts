@@ -39,6 +39,19 @@ export class ReportDashboardController {
     return this.service.list(companyId, category);
   }
 
+  @Get('widget-data')
+  @ApiOperation({
+    summary: 'Live cross-module widget data for dashboard widgets',
+  })
+  @ApiQuery({ name: 'companyId', required: true })
+  @ApiQuery({ name: 'dashboardId', required: false })
+  widgetData(
+    @Query('companyId') companyId: string,
+    @Query('dashboardId') dashboardId?: string,
+  ) {
+    return this.service.getWidgetData(companyId, dashboardId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a saved dashboard by id' })
   @ApiParam({ name: 'id' })

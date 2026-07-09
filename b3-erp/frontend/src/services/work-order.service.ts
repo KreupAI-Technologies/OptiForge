@@ -792,6 +792,16 @@ class WorkOrderService {
     return response.data;
   }
 
+  /**
+   * Persist material/routing (and other) edits for a work order.
+   * Uses the verified singular route PUT /production/work-order/:id, which
+   * accepts routingId, materialsIssued, operations, materials, etc.
+   */
+  async saveWorkOrderEdits(id: string, data: Record<string, unknown>): Promise<WorkOrder> {
+    const response = await apiClient.put<WorkOrder>(`/production/work-order/${id}`, data);
+    return response.data;
+  }
+
   async releaseWorkOrder(id: string): Promise<WorkOrder> {
     if (USE_MOCK_DATA) {
       await new Promise((resolve) => setTimeout(resolve, 400));

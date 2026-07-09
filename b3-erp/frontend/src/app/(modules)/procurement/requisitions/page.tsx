@@ -18,7 +18,8 @@ import {
   Clock,
   DollarSign,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react'
 import { purchaseRequisitionService, PurchaseRequisition as PRServiceType, PRStatus, PRPriority } from '@/services/purchase-requisition.service'
 import { exportToCsv } from '@/lib/export'
@@ -50,6 +51,9 @@ export default function ProcurementRequisitionsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [departmentFilter, setDepartmentFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
+  const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectSubmitting, setRejectSubmitting] = useState(false)
   const itemsPerPage = 10
 
   // Map service status to local status
@@ -192,18 +196,26 @@ export default function ProcurementRequisitionsPage() {
     }
   }
 
-  const handleReject = async (id: string) => {
-    const reason = window.prompt('Enter a reason for rejecting this requisition:')
-    if (reason === null) return
+  const handleReject = (id: string) => {
+    setRejectReason('')
+    setRejectModal({ id })
+  }
+
+  const confirmReject = async () => {
+    if (!rejectModal || rejectSubmitting) return
+    const id = rejectModal.id
     try {
+      setRejectSubmitting(true)
       setActioningId(id)
-      await purchaseRequisitionService.rejectRequisition(id, reason)
+      await purchaseRequisitionService.rejectRequisition(id, rejectReason)
       await loadRequisitions()
+      setRejectModal(null)
     } catch (err) {
       console.error('Error rejecting requisition:', err)
       setError('Failed to reject requisition. Please try again.')
     } finally {
       setActioningId(null)
+      setRejectSubmitting(false)
     }
   }
 
@@ -524,6 +536,54 @@ export default function ProcurementRequisitionsPage() {
           </div>
         </div>
       </div>
+
+      {/* Reject Requisition Modal */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Reject Requisition</h2>
+              <button
+                onClick={() => setRejectModal(null)}
+                disabled={rejectSubmitting}
+                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <label htmlFor="reject-reason" className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for rejection
+              </label>
+              <textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+                placeholder="Enter a reason for rejecting this requisition..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all resize-none"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setRejectModal(null)}
+                disabled={rejectSubmitting}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={rejectSubmitting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {rejectSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

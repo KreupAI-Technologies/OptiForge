@@ -42,7 +42,9 @@ import {
   Globe,
   MapPin,
   Briefcase,
-  Settings
+  Settings,
+  Loader2,
+  X
 } from 'lucide-react'
 import {
   LineChart,
@@ -177,6 +179,16 @@ export default function RFQRFPManagement() {
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [templatesError, setTemplatesError] = useState<string | null>(null)
 
+  // Create-template modal state (replaces window.prompt)
+  const [createTemplateOpen, setCreateTemplateOpen] = useState(false)
+  const [newTemplateName, setNewTemplateName] = useState('')
+  const [templateSubmitting, setTemplateSubmitting] = useState(false)
+
+  // Reject-bid modal state (replaces window.prompt)
+  const [rejectBidModal, setRejectBidModal] = useState<{ bid: any } | null>(null)
+  const [rejectBidReason, setRejectBidReason] = useState('')
+  const [rejectBidSubmitting, setRejectBidSubmitting] = useState(false)
+
   // Handler functions
   const handleCreateRFQ = () => {
     setIsCreateModalOpen(true)
@@ -215,22 +227,39 @@ export default function RFQRFPManagement() {
   }
 
   const handleApproveReject = async (bid: BidResponse, action: 'approve' | 'reject') => {
+    if (action === 'reject') {
+      // Open the reject modal to collect the (optional) rejection reason in-page.
+      setRejectBidReason('')
+      setRejectBidModal({ bid })
+      return
+    }
     setBidActionId(bid.id)
     setBidsError(null)
     try {
-      if (action === 'approve') {
-        await procurementRFQService.shortlistBid(bid.id)
-      } else {
-        const reason = typeof window !== 'undefined'
-          ? window.prompt('Rejection reason (optional):') ?? undefined
-          : undefined
-        await procurementRFQService.rejectBid(bid.id, reason)
-      }
+      await procurementRFQService.shortlistBid(bid.id)
       await loadBids()
     } catch (err) {
       setBidsError(err instanceof Error ? err.message : `Failed to ${action} bid`)
     } finally {
       setBidActionId(null)
+    }
+  };
+
+  const confirmRejectBid = async () => {
+    if (!rejectBidModal || rejectBidSubmitting) return
+    const bid = rejectBidModal.bid
+    setRejectBidSubmitting(true)
+    setBidActionId(bid.id)
+    setBidsError(null)
+    try {
+      await procurementRFQService.rejectBid(bid.id, rejectBidReason || undefined)
+      await loadBids()
+      setRejectBidModal(null)
+    } catch (err) {
+      setBidsError(err instanceof Error ? err.message : 'Failed to reject bid')
+    } finally {
+      setBidActionId(null)
+      setRejectBidSubmitting(false)
     }
   };
 
@@ -251,17 +280,29 @@ export default function RFQRFPManagement() {
     }
   };
 
-  const handleCreateTemplate = async () => {
-    const name = typeof window !== 'undefined'
-      ? window.prompt('New template name:')
-      : null
-    if (!name) return
+  const handleCreateTemplate = () => {
+    setNewTemplateName('')
+    setTemplatesError(null)
+    setCreateTemplateOpen(true)
+  };
+
+  const confirmCreateTemplate = async () => {
+    if (templateSubmitting) return
+    const name = newTemplateName.trim()
+    if (!name) {
+      setTemplatesError('Template name is required')
+      return
+    }
+    setTemplateSubmitting(true)
     setTemplatesError(null)
     try {
-      await procurementRFQService.createTemplate({ name, type: 'RFQ' })
+      await procurementRFQService.createTemplate({ name: newTemplateName.trim(), type: 'RFQ' })
       await loadTemplates()
+      setCreateTemplateOpen(false)
     } catch (err) {
       setTemplatesError(err instanceof Error ? err.message : 'Failed to create template')
+    } finally {
+      setTemplateSubmitting(false)
     }
   };
 
@@ -1277,6 +1318,108 @@ export default function RFQRFPManagement() {
           setIsExportModalOpen(false)
         }}
       />
+
+      {/* Create Template Modal (replaces window.prompt) */}
+      {createTemplateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">New RFQ Template</h3>
+              <button
+                onClick={() => setCreateTemplateOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Template name</label>
+              <input
+                type="text"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder="e.g. Standard RFQ"
+                autoFocus
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {templatesError && (
+                <div className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> {templatesError}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setCreateTemplateOpen(false)}
+                disabled={templateSubmitting}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmCreateTemplate}
+                disabled={templateSubmitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {templateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Create Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Bid Modal (replaces window.prompt) */}
+      {rejectBidModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Reject Bid</h3>
+              <button
+                onClick={() => setRejectBidModal(null)}
+                className="text-gray-400 hover:text-gray-600"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Reason for rejection</label>
+              <textarea
+                value={rejectBidReason}
+                onChange={(e) => setRejectBidReason(e.target.value)}
+                rows={4}
+                placeholder="Optional: explain why this bid is being rejected"
+                autoFocus
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              {bidsError && (
+                <div className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> {bidsError}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setRejectBidModal(null)}
+                disabled={rejectBidSubmitting}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejectBid}
+                disabled={rejectBidSubmitting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {rejectBidSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Reject Bid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -106,6 +106,28 @@ export default function EditPayablePage() {
   const [notFound, setNotFound] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Vendor lookup (AP vendor accounts) — backs the vendor picker/datalist.
+  const [vendors, setVendors] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await FinanceService.getVendorAccounts();
+        if (cancelled) return;
+        setVendors(
+          (Array.isArray(raw) ? raw : []).map((v: any) => ({
+            id: String(v.id ?? v.vendorId ?? ''),
+            name: String(v.vendorName ?? v.name ?? v.partyName ?? v.accountName ?? ''),
+          })).filter((v) => v.name),
+        );
+      } catch {
+        if (!cancelled) setVendors([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     if (!payableId) {
@@ -344,12 +366,22 @@ export default function EditPayablePage() {
               </label>
               <input
                 type="text"
+                list="vendor-lookup"
                 value={formData.vendorName}
-                onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  const match = vendors.find((v) => v.name === name);
+                  setFormData({ ...formData, vendorName: name, ...(match ? { vendorId: match.id } : {}) });
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Enter vendor name"
+                placeholder="Select or enter vendor name"
                 required
               />
+              <datalist id="vendor-lookup">
+                {vendors.map((v) => (
+                  <option key={v.id || v.name} value={v.name} />
+                ))}
+              </datalist>
             </div>
 
             {/* Bill Number */}

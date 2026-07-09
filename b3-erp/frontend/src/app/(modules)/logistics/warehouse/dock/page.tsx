@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogisticsService } from '@/services/logistics.service';
-import { ArrowLeft, Search, Truck, Package, Clock, CheckCircle, AlertTriangle, TrendingUp, Filter, Edit, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, Truck, Package, Clock, CheckCircle, AlertTriangle, TrendingUp, Filter, Edit, X, Loader2, Plus } from 'lucide-react';
 
 interface DockDoor {
   id: string;
@@ -39,6 +39,22 @@ export default function DockManagementPage() {
   const [editing, setEditing] = useState<DockDoor | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Create modal state — new dock doors via POST /logistics/dock-doors.
+  const emptyDraft = {
+    doorNo: '',
+    doorName: '',
+    type: 'inbound' as DockDoor['type'],
+    status: 'available' as DockDoor['status'],
+    carrier: '',
+    assignedTo: '',
+    location: '',
+    notes: '',
+  };
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState(emptyDraft);
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const mapRow = (r: any, i: number): DockDoor => ({
     id: String(r.id ?? i),
@@ -96,6 +112,35 @@ export default function DockManagementPage() {
       setSaveError(e instanceof Error ? e.message : 'Failed to update dock door');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (createSaving) return;
+    if (!draft.doorNo.trim()) {
+      setCreateError('Dock door number is required');
+      return;
+    }
+    setCreateSaving(true);
+    setCreateError(null);
+    try {
+      await LogisticsService.createDockDoor({
+        doorNo: draft.doorNo.trim(),
+        doorName: draft.doorName.trim() || undefined,
+        type: draft.type,
+        status: draft.status,
+        carrier: draft.carrier.trim() || undefined,
+        assignedTo: draft.assignedTo.trim() || undefined,
+        location: draft.location.trim() || undefined,
+        notes: draft.notes.trim() || undefined,
+      });
+      setCreating(false);
+      setDraft(emptyDraft);
+      await loadDocks();
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Failed to create dock door');
+    } finally {
+      setCreateSaving(false);
     }
   };
 
@@ -167,6 +212,14 @@ export default function DockManagementPage() {
           <h1 className="text-2xl font-bold text-gray-900">Dock Door Management</h1>
           <p className="text-sm text-gray-500 mt-1">Real-time dock door operations and scheduling</p>
         </div>
+        <button
+          type="button"
+          onClick={() => { setCreateError(null); setDraft(emptyDraft); setCreating(true); }}
+          className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          New Dock Door
+        </button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-3">
@@ -432,6 +485,124 @@ export default function DockManagementPage() {
           <div><span className="font-medium">Maintenance:</span> Dock under repair or maintenance</div>
         </div>
       </div>
+
+      {creating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h2 className="text-lg font-bold text-gray-900">New Dock Door</h2>
+              <button onClick={() => setCreating(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {createError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                  {createError}
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Dock Door No *</label>
+                <input
+                  type="text"
+                  value={draft.doorNo}
+                  onChange={(e) => setDraft({ ...draft, doorNo: e.target.value })}
+                  placeholder="e.g. DOCK-05"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={draft.doorName}
+                  onChange={(e) => setDraft({ ...draft, doorName: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                <select
+                  value={draft.type}
+                  onChange={(e) => setDraft({ ...draft, type: e.target.value as DockDoor['type'] })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="inbound">Inbound</option>
+                  <option value="outbound">Outbound</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                <select
+                  value={draft.status}
+                  onChange={(e) => setDraft({ ...draft, status: e.target.value as DockDoor['status'] })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="available">Available</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="loading">Loading</option>
+                  <option value="unloading">Unloading</option>
+                  <option value="reserved">Reserved</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={draft.location}
+                  onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Carrier</label>
+                <input
+                  type="text"
+                  value={draft.carrier}
+                  onChange={(e) => setDraft({ ...draft, carrier: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Assigned To</label>
+                <input
+                  type="text"
+                  value={draft.assignedTo}
+                  onChange={(e) => setDraft({ ...draft, assignedTo: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+                <textarea
+                  value={draft.notes}
+                  onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3">
+              <button
+                onClick={() => setCreating(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={createSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {createSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Create Dock Door
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

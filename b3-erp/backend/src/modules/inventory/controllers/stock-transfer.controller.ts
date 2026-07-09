@@ -102,6 +102,24 @@ export class StockTransferController {
     return this.stockTransferService.approve(id);
   }
 
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'Reject transfer' })
+  @ApiParam({ name: 'id' })
+  @ApiBody({
+    required: false,
+    schema: {
+      type: 'object',
+      properties: { rejectionReason: { type: 'string' } },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: StockTransferResponseDto })
+  async reject(
+    @Param('id') id: string,
+    @Body() body: { rejectionReason?: string },
+  ): Promise<StockTransferResponseDto> {
+    return this.stockTransferService.reject(id, body?.rejectionReason);
+  }
+
   @Post(':id/dispatch')
   @ApiOperation({ summary: 'Dispatch transfer' })
   @ApiParam({ name: 'id' })

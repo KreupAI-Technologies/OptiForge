@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Eye, CheckCircle, XCircle, Clock, AlertCircle,
   ChevronLeft, ChevronRight, Filter, User, Users, FileText,
   TrendingUp, Calendar, DollarSign, ShoppingCart, Package,
-  Briefcase, Activity, MessageSquare, ThumbsUp, ThumbsDown, Flag
+  Briefcase, Activity, MessageSquare, ThumbsUp, ThumbsDown, Flag, Upload
 } from 'lucide-react';
 import {
   approvalService,
@@ -202,6 +202,8 @@ export default function ApprovalsPage() {
   const [docViewError, setDocViewError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadDocView = useCallback(async (approvalId: string) => {
     setIsDocViewLoading(true);
@@ -251,6 +253,59 @@ export default function ApprovalsPage() {
       );
     } finally {
       setIsPostingComment(false);
+    }
+  };
+
+  // Upload an attachment to the expanded approval via multipart/form-data, then
+  // refetch so the newly-created attachment shows up in the list.
+  const handleUploadAttachment = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    // Reset so the same file can be re-selected later.
+    event.target.value = '';
+    if (!file || !docViewApprovalId || isUploadingAttachment) return;
+    setIsUploadingAttachment(true);
+    setDocViewError(null);
+    try {
+      await approvalService.uploadAttachment(docViewApprovalId, file, 'current-user-id');
+      await loadDocView(docViewApprovalId);
+      setActionFeedback({
+        kind: 'success',
+        message: `"${file.name}" uploaded.`,
+      });
+    } catch (err) {
+      setDocViewError(
+        err instanceof Error
+          ? `Failed to upload attachment: ${err.message}`
+          : 'Failed to upload attachment.',
+      );
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
+
+  // Open a document in a new tab. Resolves fileUrl from the workflow documents
+  // endpoint when the attachment record doesn't already carry one.
+  const handleViewDocument = async (attachment: ApprovalAttachment) => {
+    if (attachment.fileUrl) {
+      window.open(attachment.fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    setDocViewError(null);
+    try {
+      const doc = await approvalService.getDocument(attachment.id);
+      if (doc?.fileUrl) {
+        window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        setDocViewError('Document has no viewable URL.');
+      }
+    } catch (err) {
+      setDocViewError(
+        err instanceof Error
+          ? `Failed to open document: ${err.message}`
+          : 'Failed to open document.',
+      );
     }
   };
 
@@ -816,10 +871,27 @@ export default function ApprovalsPage() {
 
                 {/* Attachments */}
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center space-x-2">
-                    <Package className="h-4 w-4" />
-                    <span>Attachments</span>
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-gray-900 flex items-center space-x-2">
+                      <Package className="h-4 w-4" />
+                      <span>Attachments</span>
+                    </h4>
+                    <input
+                      ref={attachmentInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleUploadAttachment}
+                    />
+                    <button
+                      onClick={() => attachmentInputRef.current?.click()}
+                      disabled={isUploadingAttachment}
+                      title="Upload an attachment"
+                      className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>{isUploadingAttachment ? 'Uploading…' : 'Upload'}</span>
+                    </button>
+                  </div>
                   {isDocViewLoading ? (
                     <p className="text-sm text-gray-500">Loading attachments…</p>
                   ) : attachments.length === 0 ? (
@@ -838,16 +910,12 @@ export default function ApprovalsPage() {
                               <span className="text-xs text-gray-400">v{att.version}</span>
                             )}
                           </div>
-                          {att.fileUrl && (
-                            <a
-                              href={att.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-medium text-blue-600 hover:underline flex-shrink-0"
-                            >
-                              Open
-                            </a>
-                          )}
+                          <button
+                            onClick={() => handleViewDocument(att)}
+                            className="text-xs font-medium text-blue-600 hover:underline flex-shrink-0"
+                          >
+                            View
+                          </button>
                         </div>
                       ))}
                     </div>

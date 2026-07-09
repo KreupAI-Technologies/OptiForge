@@ -230,6 +230,12 @@ export default function GSTManagementPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Import GSTR-2A modal state (replaces the previous window.prompt flow).
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importPeriod, setImportPeriod] = useState(periodFilter);
+  const [importRowsText, setImportRowsText] = useState('[]');
+  const [importError, setImportError] = useState<string | null>(null);
+
   // Load persisted GST return records (GSTR-2A imports + filed GSTR-1/3B).
   const loadGstReturns = React.useCallback(async (): Promise<void> => {
     try {
@@ -260,29 +266,45 @@ export default function GSTManagementPage() {
     void loadGstReturns();
   }, [loadGstReturns]);
 
-  // Import / record a GSTR-2A dataset. Accepts pasted JSON rows.
-  const handleImportGSTR2A = async () => {
-    const raw = window.prompt(
-      `Import GSTR-2A for period ${periodFilter}.\n\nPaste a JSON array of rows (invoiceNumber, partyName, gstin, taxableAmount, cgst, sgst, igst, cess):`,
-      '[]',
-    );
-    if (raw == null) return;
+  // Open the Import GSTR-2A modal (seeded with the current period filter).
+  const openImportModal = () => {
+    setImportPeriod(periodFilter);
+    setImportRowsText('[]');
+    setImportError(null);
+    setIsImportModalOpen(true);
+  };
+
+  const closeImportModal = () => {
+    if (actionBusy) return;
+    setIsImportModalOpen(false);
+    setImportError(null);
+  };
+
+  // Import / record a GSTR-2A dataset from the modal (JSON array of rows).
+  const handleSubmitImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setImportError(null);
+    if (!importPeriod.trim()) {
+      setImportError('Return period is required (e.g. 2025-01).');
+      return;
+    }
     let rows: any[];
     try {
-      rows = JSON.parse(raw);
-      if (!Array.isArray(rows)) throw new Error('Expected a JSON array');
+      rows = JSON.parse(importRowsText);
+      if (!Array.isArray(rows)) throw new Error('Expected a JSON array of rows.');
     } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Invalid JSON.' });
+      setImportError(err instanceof Error ? err.message : 'Invalid JSON.');
       return;
     }
     setActionBusy(true);
     setActionMessage(null);
     try {
-      await FinanceService.importGstr2a({ period: periodFilter, rows });
-      setActionMessage({ type: 'success', text: `GSTR-2A imported (${rows.length} rows) for ${periodFilter}.` });
+      await FinanceService.importGstr2a({ period: importPeriod.trim(), rows });
+      setIsImportModalOpen(false);
+      setActionMessage({ type: 'success', text: `GSTR-2A imported (${rows.length} rows) for ${importPeriod.trim()}.` });
       await loadGstReturns();
     } catch (err) {
-      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to import GSTR-2A.' });
+      setImportError(err instanceof Error ? err.message : 'Failed to import GSTR-2A.');
     } finally {
       setActionBusy(false);
     }
@@ -510,7 +532,7 @@ export default function GSTManagementPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={handleImportGSTR2A}
+              onClick={openImportModal}
               disabled={actionBusy}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Import / record a GSTR-2A dataset (paste JSON rows)"
@@ -921,6 +943,72 @@ export default function GSTManagementPage() {
           )}
         </div>
       </div>
+
+      {/* Import GSTR-2A Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h3 className="text-lg font-semibold text-white">Import GSTR-2A</h3>
+              <button
+                onClick={closeImportModal}
+                disabled={actionBusy}
+                className="text-gray-400 hover:text-white disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmitImport} className="space-y-3 px-5 py-4">
+              {importError && (
+                <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  {importError}
+                </div>
+              )}
+              <div>
+                <label className="mb-1 block text-sm text-gray-300">Return Period *</label>
+                <input
+                  type="text"
+                  value={importPeriod}
+                  onChange={(e) => setImportPeriod(e.target.value)}
+                  placeholder="e.g. 2025-01"
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-300">GSTR-2A Rows (JSON array) *</label>
+                <textarea
+                  value={importRowsText}
+                  onChange={(e) => setImportRowsText(e.target.value)}
+                  rows={8}
+                  spellCheck={false}
+                  placeholder='[{"invoiceNumber":"INV-1","partyName":"ACME","gstin":"29AABCU9603R1ZM","taxableAmount":10000,"cgst":900,"sgst":900,"igst":0,"cess":0}]'
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 font-mono text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Paste a JSON array of rows (invoiceNumber, partyName, gstin, taxableAmount, cgst, sgst, igst, cess).
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeImportModal}
+                  disabled={actionBusy}
+                  className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionBusy}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {actionBusy ? 'Importing…' : 'Import GSTR-2A'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add / Edit GST Rate Modal */}
       {isRateModalOpen && (

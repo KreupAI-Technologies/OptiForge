@@ -1,5 +1,9 @@
 import { apiClient } from './api/client';
 
+// Base URL for raw fetch calls (multipart uploads bypass the JSON apiClient).
+const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
 export interface ApprovalRequest {
     id: string;
     documentType: 'requisition' | 'purchase_order' | 'rfq' | 'contract' | 'vendor' | 'payment';
@@ -65,6 +69,20 @@ export interface ApprovalComment {
     createdAt: string;
 }
 
+export interface WorkflowDocument {
+    id: string;
+    fileName?: string;
+    fileUrl?: string;
+    fileSize?: number;
+    mimeType?: string;
+    documentType?: string;
+    version?: string;
+    projectId?: string;
+    uploadedBy?: string;
+    uploadedAt?: string;
+    metadata?: Record<string, unknown>;
+}
+
 export const approvalService = {
     async getApprovals(filters?: any): Promise<ApprovalRequest[]> {
         const params = new URLSearchParams(filters);
@@ -122,6 +140,54 @@ export const approvalService = {
             authorId,
             authorName,
         });
+        return response.data;
+    },
+
+    /**
+     * Upload an attachment to an approval via multipart/form-data.
+     * Uses raw fetch (not the JSON apiClient) so the browser sets the multipart
+     * boundary itself — do NOT set Content-Type manually. Returns the created
+     * attachment record; callers should refetch the attachments list after.
+     */
+    async uploadAttachment(
+        id: string,
+        file: File,
+        userId?: string,
+        documentType?: string,
+    ): Promise<ApprovalAttachment> {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (userId) formData.append('userId', userId);
+        if (documentType) formData.append('documentType', documentType);
+
+        const response = await fetch(`${API_BASE_URL}/workflow/approvals/${id}/attachments`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+        });
+        if (!response.ok) {
+            let message = response.statusText || `HTTP ${response.status}`;
+            try {
+                const body = await response.json();
+                if (body?.message) {
+                    message = Array.isArray(body.message) ? body.message.join('; ') : body.message;
+                }
+            } catch {
+                // keep statusText fallback
+            }
+            throw new Error(message);
+        }
+        const payload = await response.json();
+        // Backend wraps most responses as { success, data }; unwrap defensively.
+        return (payload?.data ?? payload) as ApprovalAttachment;
+    },
+
+    /**
+     * Fetch document metadata (fileUrl etc.) for viewing.
+     * GET /workflow/documents/:id
+     */
+    async getDocument(documentId: string): Promise<WorkflowDocument> {
+        const response = await apiClient.get<WorkflowDocument>(`/workflow/documents/${documentId}`);
         return response.data;
     }
 };

@@ -392,14 +392,14 @@ const ProductionSchedulingAddPage = () => {
         workOrderIds: selectedWOs,
         constraints,
       };
-      // schedule-lines has no publish route; create then mark published.
+      // Create the schedule line, then publish via the verified collection route
+      // POST /production/schedule-lines/publish.
       const created: any = await ProductionOrphanService.createScheduleLine(payload as any);
       const createdId = created?.id ?? created?.data?.id;
-      if (createdId) {
-        await ProductionOrphanService.updateScheduleLine(String(createdId), {
-          status: "published",
-        });
-      }
+      await ProductionOrphanService.publishScheduleLines(
+        createdId ? [String(createdId)] : undefined
+      );
+      setFormMessage({ type: "success", text: "Schedule published successfully." });
       router.push("/production/scheduling");
     } catch (err) {
       setFormMessage({

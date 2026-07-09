@@ -318,15 +318,48 @@ export default function EditWorkOrderPage() {
     setSaving(true);
     setError(null);
     try {
-      // Map local form data to the update DTO expected by the work-order service.
+      // Persist header, routing (operations) and material changes via the
+      // verified singular route PUT /production/work-order/:id.
       const payload: any = {
         priority: formData.priority,
         plannedQuantity: parseInt(formData.quantity) || 0,
         plannedStartDate: formData.plannedStartDate,
         plannedEndDate: formData.plannedEndDate,
         notes: formData.specialInstructions,
+        salesOrderRef: formData.salesOrderRef,
+        customerName: formData.customerName,
+        productDescription: formData.productDescription,
+        uom: formData.uom,
+        dueDate: formData.dueDate,
+        workCenter: formData.workCenter,
+        secondaryWorkCenters: formData.secondaryWorkCenters,
+        shift: formData.shift,
+        supervisor: formData.supervisor,
+        foreman: formData.foreman,
+        bomRef: formData.bomRef,
+        routingRef: formData.routingRef,
+        estimatedMaterialCost: parseFloat(formData.estimatedMaterialCost) || 0,
+        estimatedLaborCost: parseFloat(formData.estimatedLaborCost) || 0,
+        estimatedOverheadCost: parseFloat(formData.estimatedOverheadCost) || 0,
+        // Routing / operations
+        operations: formData.operations.map((op) => ({
+          sequence: op.sequence,
+          operationName: op.operationName,
+          workCenter: op.workCenter,
+          setupTime: parseFloat(op.setupTime) || 0,
+          runTime: parseFloat(op.runTime) || 0,
+        })),
+        // Material requirements
+        materials: formData.materialRequirements.map((m) => ({
+          itemCode: m.itemCode,
+          description: m.description,
+          requiredQty: parseFloat(m.requiredQty) || 0,
+          uom: m.uom,
+          stockAvailable: m.stockAvailable,
+          substituteItem: m.canSubstitute ? m.substituteItem : undefined,
+        })),
       };
-      await workOrderService.updateWorkOrder(workOrderId, payload);
+      await workOrderService.saveWorkOrderEdits(workOrderId, payload);
       router.push(`/production/work-orders/view/${workOrderId}`);
     } catch (e: any) {
       setError(e?.message || 'Failed to save work order');

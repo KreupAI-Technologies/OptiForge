@@ -1,6 +1,17 @@
 
-import { Controller, Post, Get, Param, Body, Query } from '@nestjs/common';
+import {
+    Controller,
+    Post,
+    Get,
+    Param,
+    Body,
+    Query,
+    UseInterceptors,
+    UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApprovalService } from '../services/approval.service';
+import { documentFileFilter } from '../../../common/utils/file-upload.util';
 
 @Controller('workflow/approvals')
 export class ApprovalController {
@@ -50,6 +61,17 @@ export class ApprovalController {
     @Get(':id/attachments')
     async getAttachments(@Param('id') id: string) {
         return this.approvalService.getAttachments(id);
+    }
+
+    @Post(':id/attachments')
+    @UseInterceptors(FileInterceptor('file', { fileFilter: documentFileFilter }))
+    async addAttachment(
+        @Param('id') id: string,
+        @UploadedFile() file: any,
+        @Body('userId') userId?: string,
+        @Body('documentType') documentType?: string,
+    ) {
+        return this.approvalService.addAttachment(id, file, userId, documentType);
     }
 
     @Get(':id/comments')

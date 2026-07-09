@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { fetchReportDataset } from '@/services/reports-management.service';
+import { FinanceService } from '@/services/finance.service';
 
 interface PLStatement {
     revenue: { category: string; amount: number }[];
@@ -60,6 +61,28 @@ export default function ProfitLossReport() {
     const [plData, setPlData] = useState<PLStatement>(DEFAULT_DATA);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
+    const [exportError, setExportError] = useState<string | null>(null);
+
+    const handleExport = async (format: 'pdf' | 'excel') => {
+        setExporting(format);
+        setExportError(null);
+        try {
+            const blob = await FinanceService.exportProfitLoss(format);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Profit_Loss_Statement.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            setExportError(e instanceof Error ? e.message : 'Failed to export report.');
+        } finally {
+            setExporting(null);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -110,13 +133,18 @@ export default function ProfitLossReport() {
                         <option value="this-year">This Year</option>
                         <option value="ytd">Year to Date</option>
                     </select>
-                    <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export Excel</Button>
-                    <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export PDF</Button>
+                    <Button variant="outline" onClick={() => handleExport('excel')} disabled={exporting !== null}>
+                        <Download className="mr-2 h-4 w-4" />{exporting === 'excel' ? 'Exporting…' : 'Export Excel'}
+                    </Button>
+                    <Button variant="outline" onClick={() => handleExport('pdf')} disabled={exporting !== null}>
+                        <Download className="mr-2 h-4 w-4" />{exporting === 'pdf' ? 'Exporting…' : 'Export PDF'}
+                    </Button>
                 </div>
             </div>
 
             {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
             {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
+            {exportError && <p className="text-xs text-red-600 mb-2">{exportError}</p>}
 
             {/* Summary Cards - NOW CLICKABLE */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">

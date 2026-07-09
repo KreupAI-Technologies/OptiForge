@@ -197,7 +197,8 @@ export default function PaymentViewPage() {
   const params = useParams();
   const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'activity'>('overview');
   const [payment, setPayment] = useState<Payment>(emptyPayment);
-  const [activityLogs] = useState<ActivityLog[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -242,6 +243,43 @@ export default function PaymentViewPage() {
         if (!cancelled) setLoadError(err?.message || 'Failed to load payment');
       } finally {
         if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentId, reloadKey]);
+
+  // Load the payment activity timeline (audit-derived) from the backend.
+  useEffect(() => {
+    let cancelled = false;
+    if (!paymentId) return;
+    setActivityLoading(true);
+    (async () => {
+      try {
+        const raw = await FinanceService.getPaymentActivity(paymentId);
+        if (cancelled) return;
+        const statusMap: Record<string, ActivityLog['status']> = {
+          created: 'info',
+          approved: 'success',
+          posted: 'success',
+          reconciled: 'success',
+          bounced: 'error',
+          cancelled: 'warning',
+        };
+        const mapped: ActivityLog[] = (Array.isArray(raw) ? raw : []).map((e: any, i: number) => ({
+          id: `${paymentId}-act-${i}`,
+          timestamp: e.timestamp ? String(e.timestamp) : '',
+          action: e.title ?? e.type ?? 'Activity',
+          description: e.description ?? '',
+          performedBy: e.user ?? 'System',
+          status: statusMap[String(e.type)] ?? 'info',
+        }));
+        setActivityLogs(mapped);
+      } catch {
+        if (!cancelled) setActivityLogs([]);
+      } finally {
+        if (!cancelled) setActivityLoading(false);
       }
     })();
     return () => {
@@ -854,7 +892,10 @@ export default function PaymentViewPage() {
             Activity Timeline
           </h3>
           <div className="space-y-2">
-            {activityLogs.length === 0 && (
+            {activityLoading && (
+              <div className="text-center py-8 text-gray-400 text-sm">Loading activity…</div>
+            )}
+            {!activityLoading && activityLogs.length === 0 && (
               <div className="text-center py-8 text-gray-400 text-sm">No activity records available.</div>
             )}
             {activityLogs.map((log, index) => (

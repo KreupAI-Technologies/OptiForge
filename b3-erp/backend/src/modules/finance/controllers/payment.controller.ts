@@ -105,6 +105,18 @@ export class PaymentController {
     return this.paymentService.findOne(id);
   }
 
+  @Get(':id/activity')
+  @ApiOperation({ summary: 'Get payment activity timeline (audit-derived)' })
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Chronological activity timeline for the payment',
+  })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Payment not found' })
+  async getActivity(@Param('id') id: string) {
+    return this.paymentService.getActivity(id);
+  }
+
   @Put(':id')
   @ApiOperation({ summary: 'Update payment' })
   @ApiParam({ name: 'id', description: 'Payment ID' })

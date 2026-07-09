@@ -1228,6 +1228,37 @@ export class FinanceService {
     return this.request<any>(`/finance/payments/${id}`);
   }
 
+  // Export the Profit & Loss statement as a PDF or Excel document (Blob).
+  static async exportProfitLoss(
+    format: 'pdf' | 'excel',
+    params?: { startDate?: string; endDate?: string; periodId?: string },
+  ): Promise<Blob> {
+    const qs = new URLSearchParams();
+    if (params?.startDate) qs.set('startDate', params.startDate);
+    if (params?.endDate) qs.set('endDate', params.endDate);
+    if (params?.periodId) qs.set('periodId', params.periodId);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.downloadBlob(`/finance/profit-loss/export/${format}${suffix}`);
+  }
+
+  // Payment activity timeline (audit-derived from payment status columns).
+  static async getPaymentActivity(id: string): Promise<any[]> {
+    const res = await this.request<any>(`/finance/payments/${id}/activity`);
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  // AP vendor accounts (used as the vendor lookup source for payables).
+  static async getVendorAccounts(): Promise<any[]> {
+    const res = await this.request<any>('/finance/payables');
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  // AR customer accounts (used as the customer lookup source for receivables).
+  static async getCustomerAccounts(): Promise<any[]> {
+    const res = await this.request<any>('/finance/receivables');
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
   static async createPayment(data: any): Promise<any> {
     return this.request<any>('/finance/payments', {
       method: 'POST',

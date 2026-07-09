@@ -450,36 +450,84 @@ const ProductionPlanningPage = () => {
     }
   };
 
-  // Save Scenario
-  // NEEDS BACKEND: no what-if scenario persistence endpoint exists. Keep the
-  // validation and hold the scenario locally with a clear note.
-  const saveScenario = () => {
+  // Map a raw backend simulation-scenario record into the local Scenario shape.
+  const mapScenario = (r: any, idx: number): Scenario => ({
+    id: String(r?.id ?? r?.scenarioId ?? `SCN${String(idx + 1).padStart(3, '0')}`),
+    name: String(r?.name ?? ''),
+    description: String(
+      r?.description ??
+        `Demand ${Number(r?.demandAdjustment ?? 0) > 0 ? '+' : ''}${Number(r?.demandAdjustment ?? 0)}%, Capacity ${Number(r?.capacityAdjustment ?? 0) > 0 ? '+' : ''}${Number(r?.capacityAdjustment ?? 0)}%`,
+    ),
+    demandAdjustment: Number(r?.demandAdjustment ?? 0),
+    capacityAdjustment: Number(r?.capacityAdjustment ?? 0),
+    impact: {
+      inventoryChange: Number(r?.impact?.inventoryChange ?? Math.round(Number(r?.demandAdjustment ?? 0) * -0.5)),
+      atpChange: Number(r?.impact?.atpChange ?? Math.round(Number(r?.demandAdjustment ?? 0) * -0.4)),
+      utilizationChange: Number(
+        r?.impact?.utilizationChange ??
+          Math.round((Number(r?.demandAdjustment ?? 0) - Number(r?.capacityAdjustment ?? 0)) * 0.5),
+      ),
+    },
+    createdDate: String(r?.createdDate ?? r?.createdAt ?? new Date().toISOString().split('T')[0]).split('T')[0],
+  });
+
+  // Load persisted what-if scenarios from the backend on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = (await ProductionOrphanService.getSimulationScenarios()) as any[];
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          setScenarios(raw.map(mapScenario));
+        }
+      } catch {
+        // Non-fatal: fall back to the seeded reference scenarios already in state.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Save Scenario — persists the what-if scenario via
+  // POST /production/simulation-scenarios, then refreshes the saved list.
+  const saveScenario = async () => {
     if (!scenarioName) {
       alert('Please enter a scenario name');
       return;
     }
 
-    const newScenario: Scenario = {
-      id: `SCN${String(scenarios.length + 1).padStart(3, '0')}`,
+    const impact = {
+      inventoryChange: Math.round(demandAdjustment * -0.5),
+      atpChange: Math.round(demandAdjustment * -0.4),
+      utilizationChange: Math.round((demandAdjustment - capacityAdjustment) * 0.5),
+    };
+    const payload = {
       name: scenarioName,
       description: `Demand ${demandAdjustment > 0 ? '+' : ''}${demandAdjustment}%, Capacity ${capacityAdjustment > 0 ? '+' : ''}${capacityAdjustment}%`,
       demandAdjustment,
       capacityAdjustment,
-      impact: {
-        inventoryChange: Math.round(demandAdjustment * -0.5),
-        atpChange: Math.round(demandAdjustment * -0.4),
-        utilizationChange: Math.round((demandAdjustment - capacityAdjustment) * 0.5),
-      },
-      createdDate: new Date().toISOString().split('T')[0],
+      impact,
     };
 
-    setScenarios([...scenarios, newScenario]);
-    setScenarioName('');
-    setDemandAdjustment(0);
-    setCapacityAdjustment(0);
-    setActionMessage(
-      `Scenario "${newScenario.name}" saved locally. Persisting scenarios needs a backend endpoint.`,
-    );
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      await ProductionOrphanService.createSimulationScenario(payload);
+      // Refresh from the backend so the saved list reflects persisted records.
+      const raw = (await ProductionOrphanService.getSimulationScenarios()) as any[];
+      if (Array.isArray(raw)) setScenarios(raw.map(mapScenario));
+      setScenarioName('');
+      setDemandAdjustment(0);
+      setCapacityAdjustment(0);
+      setActionMessage(`Scenario "${payload.name}" saved.`);
+    } catch (err) {
+      setActionMessage(
+        err instanceof Error ? err.message : 'Failed to save what-if scenario.',
+      );
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   return (
@@ -1746,10 +1794,11 @@ const ProductionPlanningPage = () => {
 
                     <button
                       onClick={saveScenario}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
+                      disabled={actionBusy}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Save className="h-4 w-4" />
-                      Save Scenario
+                      {actionBusy ? 'Saving…' : 'Save Scenario'}
                     </button>
                   </div>
 
