@@ -86,25 +86,24 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: SettlementReimbursement[] = rows;
-
   const filteredReimbursements = useMemo(() => {
-    return mockReimbursements.filter(reimb => {
+    return rows.filter(reimb => {
       const matchesType = selectedType === 'all' || reimb.claimType === selectedType;
       const matchesSettlement = selectedSettlementType === 'all' || reimb.settlementType === selectedSettlementType;
       return matchesType && matchesSettlement;
     });
-  }, [selectedType, selectedSettlementType]);
+  }, [rows, selectedType, selectedSettlementType]);
 
+  const totalClaimed = rows.reduce((sum, r) => sum + r.originalAmount, 0);
+  const totalApproved = rows.reduce((sum, r) => sum + r.approvedAmount, 0);
   const stats = {
-    totalClaims: mockReimbursements.length,
-    totalClaimed: mockReimbursements.reduce((sum, r) => sum + r.originalAmount, 0),
-    totalApproved: mockReimbursements.reduce((sum, r) => sum + r.approvedAmount, 0),
-    totalRejected: mockReimbursements.reduce((sum, r) => sum + r.rejectedAmount, 0),
-    totalNetPayable: mockReimbursements.reduce((sum, r) => sum + r.netPayable, 0),
-    approvalRate: Math.round((mockReimbursements.reduce((sum, r) => sum + r.approvedAmount, 0) /
-                              mockReimbursements.reduce((sum, r) => sum + r.originalAmount, 0)) * 100),
-    partialApprovals: mockReimbursements.filter(r => r.settlementType === 'partial_approval').length
+    totalClaims: rows.length,
+    totalClaimed,
+    totalApproved,
+    totalRejected: rows.reduce((sum, r) => sum + r.rejectedAmount, 0),
+    totalNetPayable: rows.reduce((sum, r) => sum + r.netPayable, 0),
+    approvalRate: totalClaimed ? Math.round((totalApproved / totalClaimed) * 100) : 0,
+    partialApprovals: rows.filter(r => r.settlementType === 'partial_approval').length
   };
 
   const getSettlementTypeColor = (type: string) => {
@@ -444,7 +443,7 @@ export default function Page() {
                 <p className="text-xs text-gray-600">Claims with some amount rejected</p>
               </div>
               <span className="text-xl font-bold text-yellow-600">
-                {mockReimbursements.filter(r => r.settlementType === 'partial_approval').length}
+                {rows.filter(r => r.settlementType === 'partial_approval').length}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
@@ -453,7 +452,7 @@ export default function Page() {
                 <p className="text-xs text-gray-600">Net amount after advance deduction</p>
               </div>
               <span className="text-xl font-bold text-blue-600">
-                {mockReimbursements.filter(r => r.settlementType === 'advance_adjustment').length}
+                {rows.filter(r => r.settlementType === 'advance_adjustment').length}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -462,7 +461,7 @@ export default function Page() {
                 <p className="text-xs text-gray-600">100% claim approval</p>
               </div>
               <span className="text-xl font-bold text-green-600">
-                {mockReimbursements.filter(r => r.settlementType === 'full_settlement').length}
+                {rows.filter(r => r.settlementType === 'full_settlement').length}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
@@ -471,7 +470,7 @@ export default function Page() {
                 <p className="text-xs text-gray-600">Recovery from employee</p>
               </div>
               <span className="text-xl font-bold text-red-600">
-                {mockReimbursements.filter(r => r.settlementType === 'overpayment_recovery').length}
+                {rows.filter(r => r.settlementType === 'overpayment_recovery').length}
               </span>
             </div>
           </div>

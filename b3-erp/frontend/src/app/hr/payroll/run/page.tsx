@@ -69,56 +69,16 @@ export default function PayrollRunPage() {
     };
   }, []);
 
-  const mockPayrollRuns: PayrollRun[] = [
-    {
-      id: 'PR-2025-12',
-      monthYear: 'December 2025',
-      payPeriodStart: '2025-12-01',
-      payPeriodEnd: '2025-12-31',
-      paymentDate: '2025-12-30',
-      employeeCount: 145,
-      totalGross: 7250000,
-      totalDeductions: 1087500,
-      totalNet: 6162500,
-      status: 'draft'
-    },
-    {
-      id: 'PR-2025-11',
-      monthYear: 'November 2025',
-      payPeriodStart: '2025-11-01',
-      payPeriodEnd: '2025-11-30',
-      paymentDate: '2025-11-29',
-      employeeCount: 142,
-      totalGross: 7100000,
-      totalDeductions: 1065000,
-      totalNet: 6035000,
-      status: 'verified',
-      processedBy: 'Payroll Team',
-      processedOn: '2025-11-25',
-      verifiedBy: 'Finance Head'
-    },
-    {
-      id: 'PR-2025-10',
-      monthYear: 'October 2025',
-      payPeriodStart: '2025-10-01',
-      payPeriodEnd: '2025-10-31',
-      paymentDate: '2025-10-31',
-      employeeCount: 140,
-      totalGross: 7000000,
-      totalDeductions: 1050000,
-      totalNet: 5950000,
-      status: 'disbursed',
-      processedBy: 'Payroll Team',
-      processedOn: '2025-10-26',
-      verifiedBy: 'Finance Head',
-      approvedBy: 'CFO',
-      disbursedOn: '2025-10-31'
-    }
-  ];
-
   const filteredPayrollRuns = useMemo(() => {
     return payrollRuns.filter(run => run.status === selectedTab);
   }, [payrollRuns, selectedTab]);
+
+  const upcomingRun = useMemo(() => {
+    const pending = payrollRuns
+      .filter(r => r.status !== 'disbursed' && r.paymentDate)
+      .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
+    return pending[0];
+  }, [payrollRuns]);
 
   const stats = {
     draft: payrollRuns.filter(r => r.status === 'draft').length,
@@ -126,8 +86,8 @@ export default function PayrollRunPage() {
     verified: payrollRuns.filter(r => r.status === 'verified').length,
     approved: payrollRuns.filter(r => r.status === 'approved').length,
     disbursed: payrollRuns.filter(r => r.status === 'disbursed').length,
-    currentEmployees: 145,
-    nextPaymentDate: '2025-12-30'
+    currentEmployees: upcomingRun?.employeeCount ?? payrollRuns[0]?.employeeCount ?? 0,
+    nextPaymentDate: upcomingRun?.paymentDate ?? ''
   };
 
   const statusColors = {
@@ -190,7 +150,7 @@ export default function PayrollRunPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-green-600">Next Payment</p>
-              <p className="text-sm font-bold text-green-900 mt-1">{new Date(stats.nextPaymentDate).toLocaleDateString('en-IN')}</p>
+              <p className="text-sm font-bold text-green-900 mt-1">{stats.nextPaymentDate ? new Date(stats.nextPaymentDate).toLocaleDateString('en-IN') : '—'}</p>
             </div>
             <CalendarIcon className="h-8 w-8 text-green-600" />
           </div>

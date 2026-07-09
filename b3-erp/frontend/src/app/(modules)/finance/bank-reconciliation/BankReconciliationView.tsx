@@ -31,6 +31,7 @@ export function BankReconciliationView({ bankAccountId }: BankReconciliationView
     const [selectedBookTxn, setSelectedBookTxn] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
@@ -39,17 +40,45 @@ export function BankReconciliationView({ bankAccountId }: BankReconciliationView
     const loadData = async () => {
         try {
             setLoading(true);
-            // In a real app, we'd fetch the active reconciliation for this account
-            // For now, we'll try to find or start one
+            setLoadError(null);
+            // Fetch the active reconciliation for this account
             const recs = await FinanceService.getBankReconciliations(bankAccountId);
             if (recs.length > 0) {
                 setReconciliation(recs[0]);
+            } else {
+                setReconciliation(null);
             }
-        } catch (error) {
-            console.error('Failed to load reconciliation data:', error);
+        } catch (error: any) {
+            setLoadError(error?.message || 'Failed to load reconciliation data');
         } finally {
             setLoading(false);
         }
+    };
+
+    // Parse a bank-statement CSV. Expects a header row with columns
+    // (case-insensitive): date/transactionDate, description, debit/debitAmount,
+    // credit/creditAmount, balance. Only real values from the uploaded file are used.
+    const parseCsv = (text: string) => {
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+        const idx = (names: string[]) => headers.findIndex((h) => names.includes(h));
+        const dateIdx = idx(['date', 'transactiondate', 'transaction date']);
+        const descIdx = idx(['description', 'narration', 'particulars']);
+        const debitIdx = idx(['debit', 'debitamount', 'debit amount', 'withdrawal']);
+        const creditIdx = idx(['credit', 'creditamount', 'credit amount', 'deposit']);
+        const balanceIdx = idx(['balance', 'closingbalance', 'closing balance']);
+        const num = (v?: string) => Number((v ?? '').replace(/[^0-9.-]/g, '')) || 0;
+        return lines.slice(1).map((line) => {
+            const cols = line.split(',').map((c) => c.trim());
+            return {
+                transactionDate: dateIdx >= 0 ? cols[dateIdx] : '',
+                description: descIdx >= 0 ? cols[descIdx] : '',
+                debitAmount: debitIdx >= 0 ? num(cols[debitIdx]) : 0,
+                creditAmount: creditIdx >= 0 ? num(cols[creditIdx]) : 0,
+                balance: balanceIdx >= 0 ? num(cols[balanceIdx]) : 0,
+            };
+        });
     };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,21 +87,20 @@ export function BankReconciliationView({ bankAccountId }: BankReconciliationView
 
         try {
             setImporting(true);
-            // Simulate CSV parsing for now
-            // In a production app, we would use a library like PapaParse
-            const mockTransactions = [
-                { transactionDate: '2024-02-01', description: 'Customer Payment A', debitAmount: 0, creditAmount: 5000, balance: 105000 },
-                { transactionDate: '2024-02-02', description: 'Vendor Payment X', debitAmount: 1200, creditAmount: 0, balance: 103800 },
-                { transactionDate: '2024-02-05', description: 'Bank Charges', debitAmount: 50, creditAmount: 0, balance: 103750 },
-            ];
-
-            await FinanceService.importBankStatement(bankAccountId, mockTransactions);
+            const text = await file.text();
+            const transactions = parseCsv(text);
+            if (transactions.length === 0) {
+                toast({ title: 'Error', description: 'No transactions found in the uploaded file', variant: 'destructive' });
+                return;
+            }
+            await FinanceService.importBankStatement(bankAccountId, transactions);
             toast({ title: 'Success', description: 'Bank statement imported successfully' });
             loadData();
         } catch (error) {
             toast({ title: 'Error', description: 'Failed to import bank statement', variant: 'destructive' });
         } finally {
             setImporting(false);
+            event.target.value = '';
         }
     };
 
@@ -100,6 +128,18 @@ export function BankReconciliationView({ bankAccountId }: BankReconciliationView
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {loadError && (
+                <div className="lg:col-span-12 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center justify-between">
+                    <span className="flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        {loadError}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        Retry
+                    </Button>
+                </div>
+            )}
             {/* Sidebar / Controls */}
             <div className="lg:col-span-3 space-y-4">
                 <Card>

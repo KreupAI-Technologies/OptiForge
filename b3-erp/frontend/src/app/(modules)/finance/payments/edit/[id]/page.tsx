@@ -63,53 +63,6 @@ interface Invoice {
   balanceAmount: number;
 }
 
-interface BankAccount {
-  id: string;
-  bankName: string;
-  accountNumber: string;
-  ifscCode: string;
-  branch: string;
-}
-
-const mockInvoice: Invoice = {
-  id: 'INV-001',
-  invoiceNumber: 'INV-2025-001',
-  amount: 172500,
-  paidAmount: 172500,
-  balanceAmount: 0,
-};
-
-const bankAccounts: BankAccount[] = [
-  {
-    id: '1',
-    bankName: 'HDFC Bank',
-    accountNumber: '50200012345678',
-    ifscCode: 'HDFC0001234',
-    branch: 'MG Road, Bangalore',
-  },
-  {
-    id: '2',
-    bankName: 'ICICI Bank',
-    accountNumber: '000405001234',
-    ifscCode: 'ICIC0000004',
-    branch: 'Indiranagar, Bangalore',
-  },
-  {
-    id: '3',
-    bankName: 'State Bank of India',
-    accountNumber: '30123456789',
-    ifscCode: 'SBIN0001234',
-    branch: 'Koramangala, Bangalore',
-  },
-  {
-    id: '4',
-    bankName: 'Axis Bank',
-    accountNumber: '912010012345678',
-    ifscCode: 'UTIB0001234',
-    branch: 'Whitefield, Bangalore',
-  },
-];
-
 const paymentMethods = [
   { value: 'bank_transfer', label: 'Bank Transfer', icon: Building },
   { value: 'upi', label: 'UPI', icon: Smartphone },
@@ -143,34 +96,36 @@ export default function PaymentEditPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState<PaymentFormData>({
-    paymentNumber: 'PAY-2025-001',
+    paymentNumber: '',
     paymentType: 'received',
-    invoiceNumber: 'INV-2025-001',
-    invoiceId: 'INV-001',
+    invoiceNumber: '',
+    invoiceId: '',
     partyType: 'customer',
-    partyName: 'Hotel Paradise Ltd',
-    partyId: 'CUST-001',
-    paymentDate: '2025-10-15',
-    transactionDate: '2025-10-15',
-    paymentAmount: 172500,
-    transactionFee: 172.5,
-    paymentMethod: 'neft',
-    status: 'completed',
-    referenceNumber: 'NEFT-20251015-HP001',
-    transactionId: 'HDFC2025101512345678',
-    bankName: 'HDFC Bank',
-    bankAccountNumber: '50200012345678',
-    bankIFSC: 'HDFC0001234',
-    bankBranch: 'MG Road, Bangalore',
-    reconciliationStatus: 'reconciled',
-    notes: 'Full payment received against INV-2025-001',
-    internalNotes: 'Payment cleared on same day. Customer is regular and reliable.',
+    partyName: '',
+    partyId: '',
+    paymentDate: '',
+    transactionDate: '',
+    paymentAmount: 0,
+    transactionFee: 0,
+    paymentMethod: 'bank_transfer',
+    status: 'pending',
+    referenceNumber: '',
+    transactionId: '',
+    bankName: '',
+    bankAccountNumber: '',
+    bankIFSC: '',
+    bankBranch: '',
+    reconciliationStatus: 'not_reconciled',
+    notes: '',
+    internalNotes: '',
   });
 
-  const [invoice] = useState<Invoice>(mockInvoice);
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const paymentId = params.id as string;
 
@@ -180,24 +135,47 @@ export default function PaymentEditPage() {
       setIsLoading(false);
       return;
     }
+    setIsLoading(true);
+    setLoadError(null);
+    setNotFound(false);
     (async () => {
       try {
         const raw = await FinanceService.getPayment(paymentId);
         if (cancelled) return;
         const m: any = raw || {};
+        if (!raw || (m.id == null && m.paymentNumber == null)) {
+          setNotFound(true);
+          return;
+        }
         setFormData((prev) => ({
           ...prev,
           ...(m.paymentNumber != null ? { paymentNumber: String(m.paymentNumber) } : {}),
+          ...(m.invoiceNumber != null ? { invoiceNumber: String(m.invoiceNumber) } : {}),
+          ...(m.invoiceId != null ? { invoiceId: String(m.invoiceId) } : {}),
           ...(m.status != null ? { status: m.status } : {}),
+          ...(m.paymentMethod != null ? { paymentMethod: m.paymentMethod } : {}),
           ...(m.paymentDate != null ? { paymentDate: String(m.paymentDate) } : {}),
           ...(m.transactionDate != null ? { transactionDate: String(m.transactionDate) } : {}),
           ...(m.paymentAmount != null ? { paymentAmount: Number(m.paymentAmount) } : {}),
           ...(m.transactionFee != null ? { transactionFee: Number(m.transactionFee) } : {}),
           ...(m.partyName != null ? { partyName: String(m.partyName) } : {}),
+          ...(m.bankName != null ? { bankName: String(m.bankName) } : {}),
+          ...(m.bankAccountNumber != null ? { bankAccountNumber: String(m.bankAccountNumber) } : {}),
+          ...(m.bankIFSC != null ? { bankIFSC: String(m.bankIFSC) } : {}),
+          ...(m.bankBranch != null ? { bankBranch: String(m.bankBranch) } : {}),
           ...(m.referenceNumber != null ? { referenceNumber: String(m.referenceNumber) } : {}),
           ...(m.transactionId != null ? { transactionId: String(m.transactionId) } : {}),
           ...(m.notes != null ? { notes: String(m.notes) } : {}),
         }));
+        if (m.invoiceNumber != null || m.invoiceId != null) {
+          setInvoice({
+            id: m.invoiceId != null ? String(m.invoiceId) : '',
+            invoiceNumber: m.invoiceNumber != null ? String(m.invoiceNumber) : '',
+            amount: Number(m.invoiceAmount ?? 0),
+            paidAmount: Number(m.invoicePaidAmount ?? 0),
+            balanceAmount: Number(m.invoiceBalanceAmount ?? 0),
+          });
+        }
       } catch (err: any) {
         if (!cancelled) setLoadError(err?.message || 'Failed to load payment');
       } finally {
@@ -207,7 +185,7 @@ export default function PaymentEditPage() {
     return () => {
       cancelled = true;
     };
-  }, [paymentId]);
+  }, [paymentId, reloadKey]);
 
   const handleInputChange = (field: keyof PaymentFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -217,19 +195,6 @@ export default function PaymentEditPage() {
         delete newErrors[field];
         return newErrors;
       });
-    }
-  };
-
-  const handleBankAccountSelect = (accountId: string) => {
-    const account = bankAccounts.find((acc) => acc.id === accountId);
-    if (account) {
-      setFormData((prev) => ({
-        ...prev,
-        bankName: account.bankName,
-        bankAccountNumber: account.accountNumber,
-        bankIFSC: account.ifscCode,
-        bankBranch: account.branch,
-      }));
     }
   };
 
@@ -341,9 +306,22 @@ export default function PaymentEditPage() {
         </div>
       )}
       {loadError && !isLoading && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
-          <AlertCircle className="h-4 w-4 mr-1" />
-          {loadError}
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center justify-between">
+          <span className="flex items-center">
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {loadError}
+          </span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {notFound && !isLoading && (
+        <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-sm text-yellow-700">
+          Payment not found.
         </div>
       )}
       {/* Header */}
@@ -377,32 +355,34 @@ export default function PaymentEditPage() {
       </div>
 
       {/* Invoice Summary */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-        <div className="flex items-start">
-          <Info className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <h3 className="font-semibold text-blue-900 mb-2">Invoice Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
-              <div>
-                <p className="text-blue-700">Invoice Number</p>
-                <p className="font-semibold text-blue-900">{invoice.invoiceNumber}</p>
-              </div>
-              <div>
-                <p className="text-blue-700">Invoice Amount</p>
-                <p className="font-semibold text-blue-900">INR {invoice.amount.toLocaleString('en-IN')}</p>
-              </div>
-              <div>
-                <p className="text-blue-700">Already Paid</p>
-                <p className="font-semibold text-green-700">INR {invoice.paidAmount.toLocaleString('en-IN')}</p>
-              </div>
-              <div>
-                <p className="text-blue-700">Balance</p>
-                <p className="font-semibold text-orange-700">INR {invoice.balanceAmount.toLocaleString('en-IN')}</p>
+      {invoice && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+          <div className="flex items-start">
+            <Info className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900 mb-2">Invoice Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
+                <div>
+                  <p className="text-blue-700">Invoice Number</p>
+                  <p className="font-semibold text-blue-900">{invoice.invoiceNumber}</p>
+                </div>
+                <div>
+                  <p className="text-blue-700">Invoice Amount</p>
+                  <p className="font-semibold text-blue-900">INR {invoice.amount.toLocaleString('en-IN')}</p>
+                </div>
+                <div>
+                  <p className="text-blue-700">Already Paid</p>
+                  <p className="font-semibold text-green-700">INR {invoice.paidAmount.toLocaleString('en-IN')}</p>
+                </div>
+                <div>
+                  <p className="text-blue-700">Balance</p>
+                  <p className="font-semibold text-orange-700">INR {invoice.balanceAmount.toLocaleString('en-IN')}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="space-y-3">
@@ -525,22 +505,6 @@ export default function PaymentEditPage() {
             {/* Bank Details */}
             {requiresBankDetails && (
               <div className="space-y-2 pt-4 border-t border-gray-200">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Bank Account <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    onChange={(e) => handleBankAccountSelect(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select a bank account</option>
-                    {bankAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.bankName} - {account.accountNumber} ({account.branch})
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>

@@ -174,291 +174,86 @@ interface QualityInspection {
   updatedAt: string;
 }
 
+// Normalise a raw NCR/inspection record into the QualityInspection shape the UI expects.
+function normaliseInspection(rec: any, id: string): QualityInspection {
+  return {
+    id: String(rec.id ?? id),
+    qcNumber: rec.qcNumber ?? rec.qc_number ?? rec.ncrNumber ?? rec.ncr_number ?? '',
+    workOrderNumber: rec.workOrderNumber ?? rec.work_order_number ?? '',
+    workOrderId: rec.workOrderId ?? rec.work_order_id ?? '',
+    batchNumber: rec.batchNumber ?? rec.batch_number ?? '',
+    inspectionType: (rec.inspectionType ?? rec.inspection_type ?? 'final') as QualityInspection['inspectionType'],
+    inspectionStage: (rec.inspectionStage ?? rec.inspection_stage ?? 'finished_goods') as QualityInspection['inspectionStage'],
+    status: (rec.status ?? 'pending') as QualityInspection['status'],
+    date: rec.date ?? '',
+    time: rec.time ?? '',
+    shift: rec.shift ?? '',
+    inspector: rec.inspector ?? '',
+    inspectorCertification: rec.inspectorCertification ?? rec.inspector_certification ?? '',
+    productCode: rec.productCode ?? rec.product_code ?? '',
+    productName: rec.productName ?? rec.product_name ?? '',
+    lotNumber: rec.lotNumber ?? rec.lot_number ?? '',
+    quantityInspected: rec.quantityInspected ?? rec.quantity_inspected ?? 0,
+    sampleSize: rec.sampleSize ?? rec.sample_size ?? 0,
+    testedQty: rec.testedQty ?? rec.tested_qty ?? 0,
+    passRate: rec.passRate ?? rec.pass_rate ?? 0,
+    defectsFound: rec.defectsFound ?? rec.defects_found ?? 0,
+    aql: rec.aql ?? 0,
+    inspectionLevel: (rec.inspectionLevel ?? rec.inspection_level ?? 'II') as QualityInspection['inspectionLevel'],
+    samplingMethod: rec.samplingMethod ?? rec.sampling_method ?? '',
+    inspectionMethod: rec.inspectionMethod ?? rec.inspection_method ?? '',
+    equipmentUsed: Array.isArray(rec.equipmentUsed) ? rec.equipmentUsed : [],
+    referenceStandards: rec.referenceStandards ?? rec.reference_standards ?? {},
+    environmentalConditions: rec.environmentalConditions ?? rec.environmental_conditions ?? {},
+    testParameters: Array.isArray(rec.testParameters) ? rec.testParameters : [],
+    defects: Array.isArray(rec.defects) ? rec.defects : [],
+    disposition: (rec.disposition ?? 'hold') as QualityInspection['disposition'],
+    reworkInstructions: rec.reworkInstructions ?? rec.rework_instructions,
+    deviationNumber: rec.deviationNumber ?? rec.deviation_number,
+    spcAnalysis: Array.isArray(rec.spcAnalysis) ? rec.spcAnalysis : (Array.isArray(rec.spc_analysis) ? rec.spc_analysis : []),
+    capa: rec.capa,
+    qualityCost: rec.qualityCost ?? rec.quality_cost ?? { scrapCost: 0, reworkCost: 0, sortingCost: 0 },
+    attachments: Array.isArray(rec.attachments) ? rec.attachments : [],
+    activityLog: Array.isArray(rec.activityLog) ? rec.activityLog : (Array.isArray(rec.activity_log) ? rec.activity_log : []),
+    notes: rec.notes ?? '',
+    createdBy: rec.createdBy ?? rec.created_by ?? '',
+    createdAt: rec.createdAt ?? rec.created_at ?? '',
+    updatedAt: rec.updatedAt ?? rec.updated_at ?? '',
+  };
+}
+
 export default function QualityControlViewPage() {
   const params = useParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('inspection');
 
-  // Mock data - used as fallback default until/if the API returns a record
-  const mockInspection: QualityInspection = {
-    id: params.id as string,
-    qcNumber: 'QC-2025-00147',
-    workOrderNumber: 'WO-2025-00523',
-    workOrderId: 'wo-523',
-    batchNumber: 'BATCH-2025-00892',
-    inspectionType: 'final',
-    inspectionStage: 'finished_goods',
-    status: 'passed',
-    date: '2025-10-15',
-    time: '14:30',
-    shift: 'Day Shift',
-    inspector: 'Rajesh Kumar',
-    inspectorCertification: 'ISO 9001 Lead Auditor, CMM Level 2',
-    productCode: 'PRD-5847',
-    productName: 'Precision Shaft Assembly - 50mm',
-    lotNumber: 'LOT-2025-1547',
-    quantityInspected: 500,
-    sampleSize: 80,
-    testedQty: 80,
-    passRate: 96.25,
-    defectsFound: 3,
-    aql: 1.5,
-    inspectionLevel: 'II',
-    samplingMethod: 'Random Sampling',
-    inspectionMethod: 'Dimensional & Visual',
-    equipmentUsed: ['Vernier Caliper', 'Micrometer', 'Surface Roughness Tester', 'CMM'],
-    referenceStandards: {
-      drawingNumber: 'DRG-2025-5847-A',
-      specDocument: 'SPEC-5847-Rev3.pdf',
-      qualityPlan: 'QP-5847-2025',
-    },
-    environmentalConditions: {
-      temperature: 22.5,
-      humidity: 45,
-    },
-    testParameters: [
-      {
-        id: '1',
-        parameterName: 'Overall Length',
-        specification: '50±0.05 mm',
-        targetValue: 50,
-        upperLimit: 50.05,
-        lowerLimit: 49.95,
-        measuredValue: 50.02,
-        unit: 'mm',
-        tolerance: '±0.05',
-        result: 'pass',
-        instrument: 'Vernier Caliper (0.01mm)',
-        remarks: 'Within tolerance',
-        photo: '/images/measurement1.jpg',
-      },
-      {
-        id: '2',
-        parameterName: 'Shaft Diameter',
-        specification: '25±0.02 mm',
-        targetValue: 25,
-        upperLimit: 25.02,
-        lowerLimit: 24.98,
-        measuredValue: 25.01,
-        unit: 'mm',
-        tolerance: '±0.02',
-        result: 'pass',
-        instrument: 'Micrometer (0.001mm)',
-        remarks: 'Good',
-      },
-      {
-        id: '3',
-        parameterName: 'Surface Roughness (Ra)',
-        specification: '≤3.2 µm',
-        targetValue: 3.2,
-        upperLimit: 3.2,
-        lowerLimit: 0,
-        measuredValue: 2.8,
-        unit: 'µm',
-        tolerance: 'Max 3.2',
-        result: 'pass',
-        instrument: 'Surface Roughness Tester',
-        remarks: 'Excellent finish',
-      },
-      {
-        id: '4',
-        parameterName: 'Hardness (HRC)',
-        specification: '58-62 HRC',
-        targetValue: 60,
-        upperLimit: 62,
-        lowerLimit: 58,
-        measuredValue: 59.5,
-        unit: 'HRC',
-        tolerance: '58-62',
-        result: 'pass',
-        instrument: 'Rockwell Hardness Tester',
-        remarks: 'Within range',
-      },
-      {
-        id: '5',
-        parameterName: 'Concentricity',
-        specification: '≤0.03 mm',
-        targetValue: 0,
-        upperLimit: 0.03,
-        lowerLimit: 0,
-        measuredValue: 0.025,
-        unit: 'mm',
-        tolerance: 'Max 0.03',
-        result: 'pass',
-        instrument: 'CMM',
-        remarks: 'Acceptable',
-      },
-      {
-        id: '6',
-        parameterName: 'Thread Pitch',
-        specification: 'M20x2.5',
-        targetValue: 2.5,
-        upperLimit: 2.52,
-        lowerLimit: 2.48,
-        measuredValue: 2.49,
-        unit: 'mm',
-        tolerance: '±0.02',
-        result: 'pass',
-        instrument: 'Thread Pitch Gauge',
-        remarks: 'Thread quality good',
-      },
-    ],
-    defects: [
-      {
-        id: '1',
-        type: 'Minor Surface Scratch',
-        location: 'Side face, 30mm from end',
-        quantity: 2,
-        severity: 'minor',
-        description: 'Light scratches on non-functional surface',
-        photo: '/images/defect1.jpg',
-        status: 'Acceptable - cosmetic only',
-      },
-      {
-        id: '2',
-        type: 'Edge Burr',
-        location: 'Thread exit point',
-        quantity: 1,
-        severity: 'minor',
-        description: 'Small burr at thread end',
-        photo: '/images/defect2.jpg',
-        status: 'Removed during inspection',
-      },
-    ],
-    disposition: 'accept',
-    spcAnalysis: [
-      {
-        parameter: 'Overall Length',
-        mean: 50.015,
-        stdDev: 0.018,
-        ucl: 50.069,
-        lcl: 49.961,
-        cl: 50.015,
-        cp: 1.54,
-        cpk: 1.48,
-        pp: 1.52,
-        ppk: 1.46,
-        sigmaLevel: 4.44,
-        measurements: [50.02, 50.01, 50.03, 50.00, 50.02, 50.01, 50.02, 50.03, 50.01, 50.02],
-        outOfControlPoints: [],
-      },
-      {
-        parameter: 'Shaft Diameter',
-        mean: 25.005,
-        stdDev: 0.008,
-        ucl: 25.029,
-        lcl: 24.981,
-        cl: 25.005,
-        cp: 1.67,
-        cpk: 1.63,
-        pp: 1.65,
-        ppk: 1.61,
-        sigmaLevel: 4.89,
-        measurements: [25.01, 25.00, 25.01, 25.00, 25.01, 25.01, 25.00, 25.01, 25.00, 25.01],
-        outOfControlPoints: [],
-      },
-    ],
-    qualityCost: {
-      scrapCost: 0,
-      reworkCost: 50,
-      sortingCost: 0,
-    },
-    attachments: [
-      {
-        id: '1',
-        name: 'Inspection_Report_QC-2025-00147.pdf',
-        type: 'pdf',
-        url: '/attachments/inspection_report.pdf',
-      },
-      {
-        id: '2',
-        name: 'CMM_Measurement_Data.xlsx',
-        type: 'excel',
-        url: '/attachments/cmm_data.xlsx',
-      },
-      {
-        id: '3',
-        name: 'Product_Photos.zip',
-        type: 'zip',
-        url: '/attachments/photos.zip',
-      },
-    ],
-    activityLog: [
-      {
-        id: '1',
-        timestamp: '2025-10-15 14:30',
-        user: 'Rajesh Kumar',
-        action: 'Inspection Started',
-        details: 'Final inspection initiated for WO-2025-00523',
-      },
-      {
-        id: '2',
-        timestamp: '2025-10-15 15:45',
-        user: 'Rajesh Kumar',
-        action: 'Measurements Completed',
-        details: '6 parameters tested, all within tolerance',
-      },
-      {
-        id: '3',
-        timestamp: '2025-10-15 16:00',
-        user: 'Rajesh Kumar',
-        action: 'Inspection Completed',
-        details: 'Disposition: Accept - Pass rate 96.25%',
-      },
-      {
-        id: '4',
-        timestamp: '2025-10-15 16:15',
-        user: 'Priya Sharma',
-        action: 'Approved',
-        details: 'Quality Manager approval - Released for shipment',
-      },
-    ],
-    notes: 'Minor cosmetic defects found but within acceptable limits. Product meets all functional requirements. Batch approved for shipment.',
-    createdBy: 'Rajesh Kumar',
-    createdAt: '2025-10-15T14:30:00Z',
-    updatedAt: '2025-10-15T16:15:00Z',
-  };
+  const [inspection, setInspection] = useState<QualityInspection | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
-  const [inspection, setInspection] = useState<QualityInspection>(mockInspection);
-
-  useEffect(() => {
+  const load = async () => {
     const id = params?.id as string;
     if (!id) return;
-    const load = async () => {
-      try {
-        const res = await ProductionOrphanService.getNcr(id);
-        const rec = Array.isArray(res) ? res[0] : (res?.data ?? res);
-        if (rec && typeof rec === 'object') {
-          setInspection({
-            ...mockInspection,
-            ...rec,
-            testParameters: Array.isArray(rec.testParameters)
-              ? rec.testParameters
-              : mockInspection.testParameters,
-            defects: Array.isArray(rec.defects)
-              ? rec.defects
-              : mockInspection.defects,
-            equipmentUsed: Array.isArray(rec.equipmentUsed)
-              ? rec.equipmentUsed
-              : mockInspection.equipmentUsed,
-            activityLog: Array.isArray(rec.activityLog)
-              ? rec.activityLog
-              : mockInspection.activityLog,
-            attachments: Array.isArray(rec.attachments)
-              ? rec.attachments
-              : mockInspection.attachments,
-            referenceStandards:
-              rec.referenceStandards ?? mockInspection.referenceStandards,
-            environmentalConditions:
-              rec.environmentalConditions ??
-              mockInspection.environmentalConditions,
-            qualityCost: rec.qualityCost ?? mockInspection.qualityCost,
-          });
-        }
-      } catch {
-        // keep mock fallback on error
+    setLoading(true);
+    setError(null);
+    setNotFound(false);
+    try {
+      const res = await ProductionOrphanService.getNcr(id);
+      const rec = Array.isArray(res) ? res[0] : (res?.data ?? res);
+      if (rec && typeof rec === 'object' && Object.keys(rec).length > 0) {
+        setInspection(normaliseInspection(rec, id));
+      } else {
+        setNotFound(true);
       }
-    };
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load inspection');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.id]);
@@ -514,6 +309,64 @@ export default function QualityControlViewPage() {
     if (cpk >= 1.0) return { label: 'Adequate', color: 'text-yellow-600' };
     return { label: 'Poor', color: 'text-red-600' };
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading inspection…
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3 px-4">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" />
+          {error}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={load}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </button>
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !inspection) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3 px-4">
+        <div className="text-center">
+          <AlertTriangle className="h-10 w-10 text-gray-400 mb-2 mx-auto" />
+          <h3 className="text-lg font-semibold text-gray-900">Inspection not found</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            No inspection record exists for ID {params.id as string}.
+          </p>
+        </div>
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

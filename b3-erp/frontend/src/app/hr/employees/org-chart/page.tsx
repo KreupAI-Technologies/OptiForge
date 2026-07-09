@@ -17,193 +17,6 @@ interface OrgNode {
   directReports: number;
 }
 
-const mockOrgData: OrgNode = {
-  id: 'CEO001',
-  name: 'Arun Kumar',
-  designation: 'Chief Executive Officer',
-  department: 'Executive',
-  email: 'arun.kumar@company.com',
-  phone: '+91 9876543200',
-  level: 0,
-  directReports: 4,
-  children: [
-    {
-      id: 'COO001',
-      name: 'Rajesh Sharma',
-      designation: 'Chief Operating Officer',
-      department: 'Operations',
-      email: 'rajesh.sharma@company.com',
-      phone: '+91 9876543201',
-      level: 1,
-      directReports: 3,
-      children: [
-        {
-          id: 'PM001',
-          name: 'Vijay Patel',
-          designation: 'Production Manager',
-          department: 'Production',
-          email: 'vijay.patel@company.com',
-          phone: '+91 9876543210',
-          level: 2,
-          directReports: 15,
-          children: [
-            {
-              id: 'PS001',
-              name: 'Suresh Reddy',
-              designation: 'Production Supervisor',
-              department: 'Production',
-              email: 'suresh.reddy@company.com',
-              phone: '+91 9876543211',
-              level: 3,
-              directReports: 8
-            },
-            {
-              id: 'PS002',
-              name: 'Amit Singh',
-              designation: 'Production Supervisor',
-              department: 'Production',
-              email: 'amit.singh@company.com',
-              phone: '+91 9876543212',
-              level: 3,
-              directReports: 7
-            }
-          ]
-        },
-        {
-          id: 'QM001',
-          name: 'Priya Desai',
-          designation: 'Quality Manager',
-          department: 'Quality',
-          email: 'priya.desai@company.com',
-          phone: '+91 9876543213',
-          level: 2,
-          directReports: 8,
-          children: [
-            {
-              id: 'QC001',
-              name: 'Neha Kapoor',
-              designation: 'QC Supervisor',
-              department: 'Quality',
-              email: 'neha.kapoor@company.com',
-              phone: '+91 9876543214',
-              level: 3,
-              directReports: 5
-            }
-          ]
-        },
-        {
-          id: 'MM001',
-          name: 'Karthik Iyer',
-          designation: 'Maintenance Manager',
-          department: 'Maintenance',
-          email: 'karthik.iyer@company.com',
-          phone: '+91 9876543215',
-          level: 2,
-          directReports: 6,
-          children: [
-            {
-              id: 'MT001',
-              name: 'Ravi Kumar',
-              designation: 'Maintenance Technician',
-              department: 'Maintenance',
-              email: 'ravi.kumar@company.com',
-              phone: '+91 9876543216',
-              level: 3,
-              directReports: 4
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 'CFO001',
-      name: 'Meera Nair',
-      designation: 'Chief Financial Officer',
-      department: 'Finance',
-      email: 'meera.nair@company.com',
-      phone: '+91 9876543202',
-      level: 1,
-      directReports: 2,
-      children: [
-        {
-          id: 'AM001',
-          name: 'Divya Reddy',
-          designation: 'Accounts Manager',
-          department: 'Finance',
-          email: 'divya.reddy@company.com',
-          phone: '+91 9876543217',
-          level: 2,
-          directReports: 5
-        },
-        {
-          id: 'FM001',
-          name: 'Ankit Verma',
-          designation: 'Finance Manager',
-          department: 'Finance',
-          email: 'ankit.verma@company.com',
-          phone: '+91 9876543218',
-          level: 2,
-          directReports: 3
-        }
-      ]
-    },
-    {
-      id: 'CHRO001',
-      name: 'Kavita Singh',
-      designation: 'Chief HR Officer',
-      department: 'HR',
-      email: 'kavita.singh@company.com',
-      phone: '+91 9876543203',
-      level: 1,
-      directReports: 2,
-      children: [
-        {
-          id: 'HRM001',
-          name: 'Lakshmi Menon',
-          designation: 'HR Manager',
-          department: 'HR',
-          email: 'lakshmi.menon@company.com',
-          phone: '+91 9876543219',
-          level: 2,
-          directReports: 4
-        },
-        {
-          id: 'TA001',
-          name: 'Rohit Joshi',
-          designation: 'Talent Acquisition Lead',
-          department: 'HR',
-          email: 'rohit.joshi@company.com',
-          phone: '+91 9876543220',
-          level: 2,
-          directReports: 2
-        }
-      ]
-    },
-    {
-      id: 'CTO001',
-      name: 'Arjun Mehta',
-      designation: 'Chief Technology Officer',
-      department: 'IT',
-      email: 'arjun.mehta@company.com',
-      phone: '+91 9876543204',
-      level: 1,
-      directReports: 2,
-      children: [
-        {
-          id: 'ITM001',
-          name: 'Sanjay Gupta',
-          designation: 'IT Manager',
-          department: 'IT',
-          email: 'sanjay.gupta@company.com',
-          phone: '+91 9876543221',
-          level: 2,
-          directReports: 4
-        }
-      ]
-    }
-  ]
-};
-
 function OrgNodeCard({ node, expanded, onToggle }: { node: OrgNode; expanded: boolean; onToggle: () => void }) {
   const hasChildren = node.children && node.children.length > 0;
 
@@ -436,12 +249,17 @@ export default function OrgChartPage() {
     return count;
   };
 
+  const maxDepth = (node: OrgNode): number => {
+    if (!node.children || node.children.length === 0) return node.id ? 1 : 0;
+    return 1 + Math.max(...node.children.map(maxDepth));
+  };
+
   const stats = {
-    total: totalEmployees(orgData),
+    total: orgData.id ? totalEmployees(orgData) : 0,
     executive: countByLevel(orgData, 0) + countByLevel(orgData, 1),
     management: countByLevel(orgData, 2),
     supervisory: countByLevel(orgData, 3),
-    levels: 4
+    levels: maxDepth(orgData)
   };
 
   return (

@@ -161,12 +161,9 @@ export default function AttendancePage() {
   const handleBiometricSync = async () => {
     try {
       setIsSyncing(true);
-      // Simulate raw logs from device
-      const mockLogs = [
-        { employeeId: 'emp-001', date: new Date().toISOString().split('T')[0], time: '09:05', type: 'IN' },
-        { employeeId: 'emp-005', date: new Date().toISOString().split('T')[0], time: '09:12', type: 'IN' },
-      ];
-      await AttendanceService.syncBiometricLogs('DEV-8829', mockLogs);
+      // Trigger a device-side pull; the backend fetches raw logs from the
+      // configured biometric device and reconciles them into attendance.
+      await AttendanceService.syncBiometricLogs('DEV-8829', []);
       alert('Biometric synchronization completed successfully!');
     } catch (err) {
       console.error('Sync error:', err);

@@ -146,259 +146,61 @@ interface Receivable {
   lastSaleDate: string;
 }
 
-// Mock Data - OptiForge ERP - Indian Manufacturing Context
-const mockReceivable: Receivable = {
-  id: 'REC-001',
-  customerId: 'CUST-2023-0142',
-  customerName: 'Sharma Modular Kitchens Pvt Ltd',
-  customerCode: 'SMK-MUM-001',
-  gstNumber: '27AAAAA0000A1Z5',
-  panNumber: 'AAAPL1234C',
+// Empty receivable shell; hydrated from the backend on mount. Enum fields use
+// valid defaults so config lookups never crash before data loads.
+const emptyReceivable: Receivable = {
+  id: '',
+  customerId: '',
+  customerName: '',
+  customerCode: '',
+  gstNumber: '',
+  panNumber: '',
   customerCategory: 'wholesale',
 
-  // Financial Summary
-  totalOutstanding: 5750000,
-  overdueAmount: 1850000,
-  dueThisWeek: 1250000,
-  dueThisMonth: 2900000,
-  lastCollectionAmount: 2500000,
-  lastCollectionDate: '2025-10-05',
+  totalOutstanding: 0,
+  overdueAmount: 0,
+  dueThisWeek: 0,
+  dueThisMonth: 0,
+  lastCollectionAmount: 0,
+  lastCollectionDate: '',
 
-  // Credit Management
-  creditLimit: 15000000,
-  creditUsed: 5750000,
-  availableCredit: 9250000,
+  creditLimit: 0,
+  creditUsed: 0,
+  availableCredit: 0,
   creditStatus: 'approved',
-  paymentTerms: 'Net 30 days from invoice date',
+  paymentTerms: '',
 
-  // DSO
-  dso: 42,
-  averageDaysDelayed: 12,
+  dso: 0,
+  averageDaysDelayed: 0,
 
-  // Aging Analysis
-  agingBuckets: [
-    {
-      label: 'Current (0-30 days)',
-      days: '0-30',
-      amount: 2150000,
-      percentage: 37.4,
-      color: 'text-green-700',
-      bgColor: 'bg-green-100',
-      borderColor: 'border-green-200',
-    },
-    {
-      label: '31-60 Days',
-      days: '31-60',
-      amount: 1750000,
-      percentage: 30.4,
-      color: 'text-blue-700',
-      bgColor: 'bg-blue-100',
-      borderColor: 'border-blue-200',
-    },
-    {
-      label: '61-90 Days',
-      days: '61-90',
-      amount: 1000000,
-      percentage: 17.4,
-      color: 'text-yellow-700',
-      bgColor: 'bg-yellow-100',
-      borderColor: 'border-yellow-200',
-    },
-    {
-      label: '90+ Days (Overdue)',
-      days: '90+',
-      amount: 850000,
-      percentage: 14.8,
-      color: 'text-red-700',
-      bgColor: 'bg-red-100',
-      borderColor: 'border-red-200',
-    },
-  ],
+  agingBuckets: [],
 
-  // Invoices
-  invoices: [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2025-5678',
-      invoiceDate: '2025-10-01',
-      dueDate: '2025-10-31',
-      soReference: 'SO-2025-1234',
-      amount: 1250000,
-      paidAmount: 0,
-      balanceAmount: 1250000,
-      status: 'outstanding',
-      agingDays: 16,
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-2025-5456',
-      invoiceDate: '2025-09-15',
-      dueDate: '2025-10-15',
-      soReference: 'SO-2025-1189',
-      amount: 2000000,
-      paidAmount: 800000,
-      balanceAmount: 1200000,
-      status: 'partially_paid',
-      agingDays: 32,
-    },
-    {
-      id: '3',
-      invoiceNumber: 'INV-2025-5234',
-      invoiceDate: '2025-09-01',
-      dueDate: '2025-10-01',
-      soReference: 'SO-2025-1098',
-      amount: 1500000,
-      paidAmount: 0,
-      balanceAmount: 1500000,
-      status: 'overdue',
-      agingDays: 46,
-    },
-    {
-      id: '4',
-      invoiceNumber: 'INV-2025-5012',
-      invoiceDate: '2025-08-20',
-      dueDate: '2025-09-19',
-      soReference: 'SO-2025-1045',
-      amount: 1800000,
-      paidAmount: 0,
-      balanceAmount: 1800000,
-      status: 'overdue',
-      agingDays: 58,
-    },
-    {
-      id: '5',
-      invoiceNumber: 'INV-2025-4789',
-      invoiceDate: '2025-08-05',
-      dueDate: '2025-09-04',
-      soReference: 'SO-2025-0987',
-      amount: 2500000,
-      paidAmount: 2500000,
-      balanceAmount: 0,
-      status: 'paid',
-      agingDays: 73,
-    },
-  ],
+  invoices: [],
 
-  // Collection Activities
-  collectionActivities: [
-    {
-      id: '1',
-      activityType: 'promise_to_pay',
-      date: '2025-10-15',
-      time: '11:30 AM',
-      performedBy: 'Priya Desai',
-      contactPerson: 'Priya Sharma (Finance Director)',
-      outcome: 'Promise to Pay',
-      notes: 'Customer committed to paying ₹12,00,000 against INV-2025-5456 by October 20. Confirmed via email. Will follow up on October 18.',
-      nextFollowUp: '2025-10-18',
-      promiseAmount: 1200000,
-      promiseDate: '2025-10-20',
-    },
-    {
-      id: '2',
-      activityType: 'call',
-      date: '2025-10-12',
-      time: '3:45 PM',
-      performedBy: 'Priya Desai',
-      contactPerson: 'Rajesh Sharma (Managing Director)',
-      outcome: 'Follow-up Required',
-      notes: 'Spoke with MD regarding overdue payments. Customer facing cash flow issues due to delayed receivables from their clients. Requested 2-week extension. Agreed to review payment schedule.',
-      nextFollowUp: '2025-10-19',
-    },
-    {
-      id: '3',
-      activityType: 'email',
-      date: '2025-10-10',
-      time: '10:00 AM',
-      performedBy: 'Accounts Team',
-      contactPerson: 'Priya Sharma (Finance Director)',
-      outcome: 'Reminder Sent',
-      notes: 'Sent payment reminder for overdue invoices INV-2025-5234 and INV-2025-5012. Statement of Account (SOA) attached. Customer acknowledged receipt.',
-      nextFollowUp: '2025-10-15',
-    },
-    {
-      id: '4',
-      activityType: 'meeting',
-      date: '2025-10-05',
-      time: '2:00 PM',
-      performedBy: 'Priya Desai',
-      contactPerson: 'Priya Sharma (Finance Director)',
-      outcome: 'Payment Received',
-      notes: 'In-person meeting at customer office. Collected ₹25,00,000 via cheque against INV-2025-4789. Discussed upcoming orders and payment schedule for pending invoices.',
-    },
-    {
-      id: '5',
-      activityType: 'call',
-      date: '2025-10-02',
-      time: '11:15 AM',
-      performedBy: 'Priya Desai',
-      contactPerson: 'Anil Patel (Operations Head)',
-      outcome: 'Information Gathered',
-      notes: 'Called to check on payment status. Customer confirmed they received all invoices. Finance team reviewing payments. Will respond by October 5.',
-      nextFollowUp: '2025-10-05',
-    },
-  ],
+  collectionActivities: [],
 
-  // Payment History
-  paymentHistory: [
-    {
-      id: '1',
-      paymentDate: '2025-10-05',
-      amount: 2500000,
-      paymentMethod: 'Cheque',
-      referenceNumber: 'CHQ-123456',
-      notes: 'Payment for Invoice INV-2025-4789. Collected at customer office.',
-    },
-    {
-      id: '2',
-      paymentDate: '2025-09-28',
-      amount: 800000,
-      paymentMethod: 'NEFT',
-      referenceNumber: 'NEFT25092800456789',
-      notes: 'Partial payment for Invoice INV-2025-5456',
-    },
-    {
-      id: '3',
-      paymentDate: '2025-09-10',
-      amount: 1850000,
-      paymentMethod: 'RTGS',
-      referenceNumber: 'RTGS25091000789012',
-      notes: 'Payment for Invoice INV-2025-4567',
-    },
-    {
-      id: '4',
-      paymentDate: '2025-08-25',
-      amount: 2200000,
-      paymentMethod: 'NEFT',
-      referenceNumber: 'NEFT25082500234567',
-      notes: 'Payment for Invoice INV-2025-4321',
-    },
-  ],
+  paymentHistory: [],
 
-  // Customer Details
   customerContact: {
-    name: 'Priya Sharma',
-    designation: 'Finance Director',
-    email: 'priya.sharma@sharmakitchens.co.in',
-    phone: '+91-22-4567-8901',
-    department: 'Finance & Accounts',
+    name: '',
+    designation: '',
+    email: '',
+    phone: '',
+    department: '',
   },
-  address: 'Building 456, 3rd Floor, Andheri Industrial Estate',
-  city: 'Mumbai',
-  state: 'Maharashtra',
-  pincode: '400053',
+  address: '',
+  city: '',
+  state: '',
+  pincode: '',
 
-  // Collection Info
-  collectionAgent: 'Priya Desai',
-  collectionPriority: 'high',
+  collectionAgent: '',
+  collectionPriority: 'medium',
 
-  // Status
   accountStatus: 'active',
   riskRating: 'medium',
 
-  // Dates
-  customerSince: '2023-06-15',
-  lastSaleDate: '2025-10-01',
+  customerSince: '',
+  lastSaleDate: '',
 };
 
 const statusColors = {
@@ -434,9 +236,11 @@ export default function ViewReceivablePage() {
   const router = useRouter();
   const params = useParams();
   const receivableId = params.id as string;
-  const [receivable, setReceivable] = useState<Receivable>(mockReceivable);
+  const [receivable, setReceivable] = useState<Receivable>(emptyReceivable);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -444,11 +248,18 @@ export default function ViewReceivablePage() {
       setIsLoading(false);
       return;
     }
+    setIsLoading(true);
+    setLoadError(null);
+    setNotFound(false);
     (async () => {
       try {
         const raw = await FinanceService.getReceivable(receivableId);
         if (cancelled) return;
         const m: any = raw || {};
+        if (!raw || (m.id == null && m.customerName == null)) {
+          setNotFound(true);
+          return;
+        }
         setReceivable((prev) => ({
           ...prev,
           ...(m.id != null ? { id: String(m.id) } : {}),
@@ -471,7 +282,7 @@ export default function ViewReceivablePage() {
     return () => {
       cancelled = true;
     };
-  }, [receivableId]);
+  }, [receivableId, reloadKey]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'collection_activities'>('overview');
 
@@ -514,11 +325,26 @@ export default function ViewReceivablePage() {
         </div>
       )}
       {loadError && !isLoading && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
-          <AlertCircle className="h-4 w-4 mr-1" />
-          {loadError}
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center justify-between">
+          <span className="flex items-center">
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {loadError}
+          </span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
       )}
+      {notFound && !isLoading && (
+        <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-sm text-yellow-700">
+          Receivable not found.
+        </div>
+      )}
+      {!isLoading && !notFound && (
+      <>
       {/* Header */}
       <div className="mb-3">
         <button
@@ -611,7 +437,7 @@ export default function ViewReceivablePage() {
                 <p className="text-xs font-medium text-orange-600 uppercase">Overdue Amount</p>
               </div>
               <p className="text-2xl font-bold text-orange-900">{formatLakhsCrores(receivable.overdueAmount)}</p>
-              <p className="text-xs text-orange-600 mt-1">{((receivable.overdueAmount / receivable.totalOutstanding) * 100).toFixed(1)}% of total</p>
+              <p className="text-xs text-orange-600 mt-1">{receivable.totalOutstanding ? ((receivable.overdueAmount / receivable.totalOutstanding) * 100).toFixed(1) : '0.0'}% of total</p>
             </div>
 
             <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-3 border border-yellow-200">
@@ -753,17 +579,17 @@ export default function ViewReceivablePage() {
                     <p className="text-xs font-medium text-gray-500 uppercase mb-2">Credit Utilization</p>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${(receivable.creditUsed / receivable.creditLimit) * 100 > 80
+                        className={`h-2 rounded-full ${receivable.creditLimit && (receivable.creditUsed / receivable.creditLimit) * 100 > 80
                             ? 'bg-red-600'
-                            : (receivable.creditUsed / receivable.creditLimit) * 100 > 60
+                            : receivable.creditLimit && (receivable.creditUsed / receivable.creditLimit) * 100 > 60
                               ? 'bg-yellow-600'
                               : 'bg-green-600'
                           }`}
-                        style={{ width: `${(receivable.creditUsed / receivable.creditLimit) * 100}%` }}
+                        style={{ width: `${receivable.creditLimit ? (receivable.creditUsed / receivable.creditLimit) * 100 : 0}%` }}
                       ></div>
                     </div>
                     <p className="text-xs text-gray-600 text-right mt-1">
-                      {((receivable.creditUsed / receivable.creditLimit) * 100).toFixed(1)}% utilized
+                      {receivable.creditLimit ? ((receivable.creditUsed / receivable.creditLimit) * 100).toFixed(1) : '0.0'}% utilized
                     </p>
                   </div>
                   <div className="border-t border-gray-200 pt-3">
@@ -1010,6 +836,8 @@ export default function ViewReceivablePage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

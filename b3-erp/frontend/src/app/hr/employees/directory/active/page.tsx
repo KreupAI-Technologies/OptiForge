@@ -89,14 +89,12 @@ export default function ActiveEmployeesPage() {
     };
   }, []);
 
-  const mockActiveEmployees: ActiveEmployee[] = rows;
-
   const departments = ['all', 'Production', 'Quality', 'IT', 'Human Resources', 'Finance', 'Marketing'];
   const employeeTypes = ['all', 'permanent', 'contract', 'intern'];
   const workModes = ['all', 'onsite', 'remote', 'hybrid'];
 
   const filteredData = useMemo(() => {
-    return mockActiveEmployees.filter(emp => {
+    return rows.filter(emp => {
       const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -108,12 +106,12 @@ export default function ActiveEmployeesPage() {
   }, [searchTerm, selectedDepartment, selectedType, selectedWorkMode, rows]);
 
   const stats = useMemo(() => {
-    const permanent = mockActiveEmployees.filter(e => e.employeeType === 'permanent').length;
-    const contract = mockActiveEmployees.filter(e => e.employeeType === 'contract').length;
-    const intern = mockActiveEmployees.filter(e => e.employeeType === 'intern').length;
-    const remote = mockActiveEmployees.filter(e => e.workMode === 'remote').length;
-    return { total: mockActiveEmployees.length, permanent, contract, intern, remote };
-  }, []);
+    const permanent = rows.filter(e => e.employeeType === 'permanent').length;
+    const contract = rows.filter(e => e.employeeType === 'contract').length;
+    const intern = rows.filter(e => e.employeeType === 'intern').length;
+    const remote = rows.filter(e => e.workMode === 'remote').length;
+    return { total: rows.length, permanent, contract, intern, remote };
+  }, [rows]);
 
   const columns = [
     { key: 'employeeCode', label: 'Employee', sortable: true,

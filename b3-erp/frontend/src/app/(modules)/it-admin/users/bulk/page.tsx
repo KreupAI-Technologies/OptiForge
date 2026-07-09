@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, Download, Trash2, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
-import { userManagementService } from '@/services/user-management.service';
+import { userManagementService, UserStatus } from '@/services/user-management.service';
 
 interface BulkUserData {
   firstName: string;
@@ -30,48 +30,49 @@ export default function BulkUsersPage() {
     delete: false,
     export: true
   });
+  const [allUsers, setAllUsers] = useState<Array<Record<string, unknown>>>([]);
 
-  const departments = ['Operations', 'Sales', 'IT', 'HR', 'Finance', 'Marketing', 'Procurement', 'Production'];
-  const roles = ['Administrator', 'Manager', 'Executive', 'Specialist', 'Analyst', 'Technician', 'Operator'];
+  useEffect(() => {
+    let mounted = true;
+    userManagementService
+      .getAllUsers({ status: UserStatus.ACTIVE })
+      .then((users) => {
+        if (mounted) setAllUsers(Array.isArray(users) ? (users as any[]) : []);
+      })
+      .catch(() => {
+        if (mounted) setAllUsers([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  // Sample data for preview
-  const sampleData: BulkUserData[] = [
-    {
-      firstName: 'Raj',
-      lastName: 'Kumar',
-      email: 'raj.kumar@company.com',
-      phone: '+91-98765-43210',
-      department: 'Operations',
-      role: 'Manager',
-      joinDate: '2024-01-15'
-    },
-    {
-      firstName: 'Priya',
-      lastName: 'Singh',
-      email: 'priya.singh@company.com',
-      phone: '+91-87654-32109',
-      department: 'Sales',
-      role: 'Executive',
-      joinDate: '2024-01-20'
-    },
-    {
-      firstName: 'Amit',
-      lastName: 'Patel',
-      email: 'amit.patel@company.com',
-      phone: '+91-76543-21098',
-      department: 'IT',
-      role: 'Specialist',
-      joinDate: '2024-01-25'
-    }
-  ];
+  // Parse the uploaded CSV into user rows. Header order follows the downloadable
+  // template: firstName,lastName,email,phone,department,role,joinDate.
+  const parseCsv = (text: string): BulkUserData[] => {
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+    const header = lines[0].toLowerCase();
+    const startIdx = header.includes('email') || header.includes('firstname') ? 1 : 0;
+    return lines.slice(startIdx).map((line) => {
+      const [firstName = '', lastName = '', email = '', phone = '', department = '', role = '', joinDate = ''] =
+        line.split(',').map((c) => c.trim());
+      return { firstName, lastName, email, phone, department, role, joinDate };
+    });
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setUploadedFile(file.name);
-      // Simulate file reading
-      setUploadData(sampleData);
-    }
+    if (!file) return;
+    setUploadedFile(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      const rows = parseCsv(text).filter((r) => r.email);
+      setUploadData(rows);
+      setSelectedRows(new Set(rows.map((_, i) => i)));
+    };
+    reader.readAsText(file);
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,9 +131,12 @@ export default function BulkUsersPage() {
 
   const handleExport = async () => {
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    exportToCsv('bulk-users', uploadData as unknown as Record<string, unknown>[]);
-    setIsProcessing(false);
+    try {
+      const users = await userManagementService.getAllUsers({ status: UserStatus.ACTIVE });
+      exportToCsv('bulk-users', (Array.isArray(users) ? users : []) as unknown as Record<string, unknown>[]);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleApplyPermissions = async () => {
@@ -336,7 +340,7 @@ export default function BulkUsersPage() {
               className="px-8 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center gap-2 disabled:opacity-50"
             >
               <Download className="w-5 h-5" />
-              {isProcessing ? 'Exporting...' : 'Export Users (456)'}
+              {isProcessing ? 'Exporting...' : `Export Users (${allUsers.length})`}
             </button>
           </div>
         )}
@@ -406,7 +410,7 @@ export default function BulkUsersPage() {
 
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex gap-3 mb-3">
               <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-yellow-800">These permissions will be applied to <strong>456 selected users</strong></p>
+              <p className="text-sm text-yellow-800">These permissions will be applied to <strong>{allUsers.length} selected users</strong></p>
             </div>
 
             <button

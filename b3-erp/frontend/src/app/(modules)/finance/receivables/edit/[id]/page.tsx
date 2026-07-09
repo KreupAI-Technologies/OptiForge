@@ -49,60 +49,26 @@ interface ReceivableFormData {
   internalRemarks: string;
 }
 
-// Mock data for editing
-const mockReceivable: ReceivableFormData = {
-  customerId: 'CUST-2023-0142',
-  customerName: 'Sharma Modular Kitchens Pvt Ltd',
-  invoiceReference: 'INV-2025-5456',
-  amount: 1200000,
-  dueDate: '2025-10-15',
-  agingDays: 32,
+// Empty form shell; hydrated from the backend on mount.
+const emptyReceivable: ReceivableFormData = {
+  customerId: '',
+  customerName: '',
+  invoiceReference: '',
+  amount: 0,
+  dueDate: '',
+  agingDays: 0,
 
-  collectionAgent: 'Priya Desai',
-  collectionPriority: 'high',
+  collectionAgent: '',
+  collectionPriority: 'medium',
 
-  followUpSchedule: [
-    {
-      id: '1',
-      date: '2025-10-18',
-      time: '10:00',
-      activity: 'call',
-      notes: 'Follow-up call to confirm promise to pay commitment',
-    },
-    {
-      id: '2',
-      date: '2025-10-20',
-      time: '15:00',
-      activity: 'call',
-      notes: 'Reminder call on payment due date',
-    },
-  ],
+  followUpSchedule: [],
 
-  notes: 'Customer facing cash flow issues. Requested 2-week extension.',
-  promiseToPay: 'Committed to paying ₹12,00,000 by October 20, 2025',
-  promiseAmount: 1200000,
-  promiseDate: '2025-10-20',
-  internalRemarks: 'Good payment history. Monitor closely for promised payment.',
+  notes: '',
+  promiseToPay: '',
+  promiseAmount: 0,
+  promiseDate: '',
+  internalRemarks: '',
 };
-
-const indianCustomers = [
-  { id: 'CUST-001', name: 'Sharma Modular Kitchens Pvt Ltd', city: 'Mumbai', category: 'Wholesale' },
-  { id: 'CUST-002', name: 'Royal Interiors Bangalore', city: 'Bangalore', category: 'Distributor' },
-  { id: 'CUST-003', name: 'Lifestyle Furniture Delhi', city: 'New Delhi', category: 'Retail' },
-  { id: 'CUST-004', name: 'Metro Home Solutions', city: 'Chennai', category: 'Wholesale' },
-  { id: 'CUST-005', name: 'Urban Living Kolkata', city: 'Kolkata', category: 'Distributor' },
-  { id: 'CUST-006', name: 'Elite Kitchens Pune', city: 'Pune', category: 'Wholesale' },
-  { id: 'CUST-007', name: 'Modern Homes Hyderabad', city: 'Hyderabad', category: 'Retail' },
-  { id: 'CUST-008', name: 'Decor World Ahmedabad', city: 'Ahmedabad', category: 'Distributor' },
-];
-
-const collectionAgents = [
-  'Priya Desai',
-  'Amit Kumar',
-  'Sneha Patel',
-  'Rahul Sharma',
-  'Kavita Singh',
-];
 
 const activityTypes = [
   { value: 'call', label: 'Phone Call' },
@@ -116,10 +82,12 @@ export default function EditReceivablePage() {
   const params = useParams();
   const receivableId = params.id as string;
 
-  const [formData, setFormData] = useState<ReceivableFormData>(mockReceivable);
+  const [formData, setFormData] = useState<ReceivableFormData>(emptyReceivable);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,11 +95,18 @@ export default function EditReceivablePage() {
       setIsLoading(false);
       return;
     }
+    setIsLoading(true);
+    setLoadError(null);
+    setNotFound(false);
     (async () => {
       try {
         const raw = await FinanceService.getReceivable(receivableId);
         if (cancelled) return;
         const m: any = raw || {};
+        if (!raw || (m.id == null && m.customerName == null && m.invoiceReference == null)) {
+          setNotFound(true);
+          return;
+        }
         setFormData((prev) => ({
           ...prev,
           ...(m.customerId != null ? { customerId: String(m.customerId) } : {}),
@@ -152,7 +127,7 @@ export default function EditReceivablePage() {
     return () => {
       cancelled = true;
     };
-  }, [receivableId]);
+  }, [receivableId, reloadKey]);
 
   const addFollowUp = () => {
     const newFollowUp: FollowUpSchedule = {
@@ -227,9 +202,22 @@ export default function EditReceivablePage() {
         </div>
       )}
       {loadError && !isLoading && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
-          <AlertCircle className="h-4 w-4 mr-1" />
-          {loadError}
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center justify-between">
+          <span className="flex items-center">
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {loadError}
+          </span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {notFound && !isLoading && (
+        <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-sm text-yellow-700">
+          Receivable not found.
         </div>
       )}
       {/* Header */}
@@ -259,31 +247,19 @@ export default function EditReceivablePage() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {/* Customer Selection */}
+            {/* Customer */}
             <div className="lg:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Customer <span className="text-red-500">*</span>
               </label>
-              <select
-                value={formData.customerId}
-                onChange={(e) => {
-                  const customer = indianCustomers.find(c => c.id === e.target.value);
-                  setFormData({
-                    ...formData,
-                    customerId: e.target.value,
-                    customerName: customer?.name || '',
-                  });
-                }}
+              <input
+                type="text"
+                value={formData.customerName}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter customer name"
                 required
-              >
-                <option value="">Select Customer</option>
-                {indianCustomers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name} - {customer.city} ({customer.category})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Invoice Reference */}
@@ -370,19 +346,14 @@ export default function EditReceivablePage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Collection Agent <span className="text-red-500">*</span>
               </label>
-              <select
+              <input
+                type="text"
                 value={formData.collectionAgent}
                 onChange={(e) => setFormData({ ...formData, collectionAgent: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter collection agent name"
                 required
-              >
-                <option value="">Select Agent</option>
-                {collectionAgents.map((agent) => (
-                  <option key={agent} value={agent}>
-                    {agent}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Collection Priority */}

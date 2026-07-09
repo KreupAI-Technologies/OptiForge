@@ -77,10 +77,8 @@ export default function Page() {
     };
   }, []);
 
-  const mockIncidents: SafetyIncident[] = rows;
-
   const filteredIncidents = useMemo(() => {
-    return mockIncidents.filter(incident => {
+    return rows.filter(incident => {
       const matchesSeverity = selectedSeverity === 'all' || incident.severity === selectedSeverity;
       const matchesStatus = selectedStatus === 'all' || incident.status === selectedStatus;
       const matchesDept = selectedDepartment === 'all' || incident.department === selectedDepartment;
@@ -89,14 +87,16 @@ export default function Page() {
   }, [selectedSeverity, selectedStatus, selectedDepartment, rows]);
 
   const stats = {
-    total: mockIncidents.length,
-    critical: mockIncidents.filter(i => i.severity === 'critical').length,
-    serious: mockIncidents.filter(i => i.severity === 'serious').length,
-    investigating: mockIncidents.filter(i => i.status === 'investigating').length,
-    resolved: mockIncidents.filter(i => i.status === 'resolved').length,
-    totalDaysLost: mockIncidents.reduce((sum, i) => sum + i.daysLost, 0),
-    medicalCases: mockIncidents.filter(i => i.medicalAttention).length,
-    mtir: ((mockIncidents.length / 229) * 200000).toFixed(2) // Mock LTIR calculation
+    total: rows.length,
+    critical: rows.filter(i => i.severity === 'critical').length,
+    serious: rows.filter(i => i.severity === 'serious').length,
+    investigating: rows.filter(i => i.status === 'investigating').length,
+    resolved: rows.filter(i => i.status === 'resolved').length,
+    totalDaysLost: rows.reduce((sum, i) => sum + i.daysLost, 0),
+    medicalCases: rows.filter(i => i.medicalAttention).length,
+    // LTIR = (lost-time injuries / total hours worked) × 200,000. Total hours
+    // worked is not exposed by any endpoint yet, so it cannot be computed here.
+    mtir: 'N/A' as string,
   };
 
   const getSeverityColor = (severity: string) => {

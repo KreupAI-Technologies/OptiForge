@@ -85,173 +85,36 @@ interface Requisition {
   updatedAt: string;
 }
 
-// Mock Data - OptiForge India Manufacturing Context
-const mockRequisition: Requisition = {
-  id: '1',
-  prNumber: 'PR-2025-0142',
-  status: 'pending_approval',
-  requestedBy: 'Anil Kumar Sharma',
-  requesterEmail: 'anil.sharma@b3macbis.com',
-  requesterDepartment: 'Production',
-  requestDate: '2025-10-15',
-  requiredByDate: '2025-10-30',
-  priority: 'high',
-  purpose: 'Replacement of worn-out machinery parts and critical raw materials for ongoing production',
-  justification: 'Current machinery parts are showing significant wear and tear affecting production efficiency by 15%. Immediate replacement required to maintain production targets for Q4 2025. Raw materials stock has reached reorder level.',
-  totalItems: 8,
-  totalValue: 485000,
-  daysPending: 2,
-  budgetCode: 'PROD-2025-Q4',
-  costCenter: 'PROD-001',
-  approverName: 'Rajesh Patel',
-  approverTitle: 'Production Manager',
+// Empty requisition shell; hydrated from the backend on mount. Enum fields use
+// valid defaults so config lookups never crash before data loads.
+const emptyRequisition: Requisition = {
+  id: '',
+  prNumber: '',
+  status: 'draft',
+  requestedBy: '',
+  requesterEmail: '',
+  requesterDepartment: '',
+  requestDate: '',
+  requiredByDate: '',
+  priority: 'medium',
+  purpose: '',
+  justification: '',
+  totalItems: 0,
+  totalValue: 0,
+  daysPending: 0,
+  budgetCode: '',
+  costCenter: '',
+  approverName: '',
+  approverTitle: '',
   approvalDate: '',
   linkedRFQ: '',
   linkedPO: '',
-  notes: 'Urgent requirement for production line 3. Please expedite approval process.',
-  attachments: ['technical_specs.pdf', 'machinery_inspection_report.pdf', 'vendor_quotes.pdf'],
-  createdAt: '2025-10-15 09:30 AM',
-  updatedAt: '2025-10-15 02:45 PM',
-  items: [
-    {
-      id: '1',
-      itemCode: 'SP-CNC-2045',
-      description: 'CNC Router Spindle Bearing Assembly',
-      specifications: 'High-precision bearing, SKF/NSK brand, 60mm bore, 110mm OD, sealed type',
-      quantity: 2,
-      unit: 'Nos',
-      estimatedUnitPrice: 12500,
-      estimatedTotal: 25000,
-      preferredVendor: 'SKF India Ltd',
-      category: 'spare_parts',
-    },
-    {
-      id: '2',
-      itemCode: 'SP-HYD-1234',
-      description: 'Hydraulic Cylinder Seal Kit',
-      specifications: 'Complete seal kit for 100mm bore hydraulic cylinder, Viton material, pressure rating 250 bar',
-      quantity: 5,
-      unit: 'Sets',
-      estimatedUnitPrice: 3500,
-      estimatedTotal: 17500,
-      preferredVendor: 'Parker Hannifin India',
-      category: 'spare_parts',
-    },
-    {
-      id: '3',
-      itemCode: 'RM-PLY-001',
-      description: 'Commercial Grade Plywood 19mm',
-      specifications: 'BWP grade, 8x4 ft, ISI marked, moisture resistant, smooth finish both sides',
-      quantity: 150,
-      unit: 'Sheets',
-      estimatedUnitPrice: 1850,
-      estimatedTotal: 277500,
-      preferredVendor: 'Greenply Industries',
-      category: 'raw_materials',
-    },
-    {
-      id: '4',
-      itemCode: 'RM-HW-2567',
-      description: 'Stainless Steel Cabinet Hinges',
-      specifications: 'Soft-close hinges, 165-degree opening, Hettich/Hafele brand, nickel finish',
-      quantity: 500,
-      unit: 'Nos',
-      estimatedUnitPrice: 180,
-      estimatedTotal: 90000,
-      preferredVendor: 'Hettich India',
-      category: 'raw_materials',
-    },
-    {
-      id: '5',
-      itemCode: 'CONS-ADH-789',
-      description: 'Industrial Wood Adhesive',
-      specifications: 'Polyvinyl acetate (PVA) adhesive, water-resistant, 30 kg drums',
-      quantity: 20,
-      unit: 'Drums',
-      estimatedUnitPrice: 2500,
-      estimatedTotal: 50000,
-      preferredVendor: 'Pidilite Industries',
-      category: 'consumables',
-    },
-    {
-      id: '6',
-      itemCode: 'CONS-SAND-456',
-      description: 'Abrasive Sanding Sheets',
-      specifications: 'Aluminum oxide, 230x280mm, mixed grit (80, 120, 180, 240), 100 sheets/pack',
-      quantity: 10,
-      unit: 'Packs',
-      estimatedUnitPrice: 850,
-      estimatedTotal: 8500,
-      preferredVendor: 'Saint-Gobain Abrasives',
-      category: 'consumables',
-    },
-    {
-      id: '7',
-      itemCode: 'SP-ELC-3344',
-      description: 'Servo Motor Drive Module',
-      specifications: 'AC servo drive, 3kW, 220V input, compatible with Siemens/Delta systems',
-      quantity: 1,
-      unit: 'Nos',
-      estimatedUnitPrice: 45000,
-      estimatedTotal: 45000,
-      preferredVendor: 'Siemens India',
-      category: 'spare_parts',
-    },
-    {
-      id: '8',
-      itemCode: 'CONS-PAINT-667',
-      description: 'PU Paint for Cabinet Finishing',
-      specifications: 'Polyurethane paint, high gloss, white color, 20 liter drums',
-      quantity: 15,
-      unit: 'Drums',
-      estimatedUnitPrice: 4500,
-      estimatedTotal: 67500,
-      preferredVendor: 'Asian Paints',
-      category: 'consumables',
-    },
-  ],
-  approvalHistory: [
-    {
-      id: '1',
-      level: 'L1',
-      approver: 'Suresh Kumar',
-      approverTitle: 'Production Supervisor',
-      action: 'submitted',
-      comments: 'Requisition submitted for approval. All items verified for production requirements.',
-      date: '2025-10-15',
-      timestamp: '2025-10-15 09:30 AM',
-    },
-    {
-      id: '2',
-      level: 'L1',
-      approver: 'Rajesh Patel',
-      approverTitle: 'Production Manager',
-      action: 'approved',
-      comments: 'Approved. Items are critical for maintaining production schedule. Budget allocation verified.',
-      date: '2025-10-15',
-      timestamp: '2025-10-15 02:45 PM',
-    },
-    {
-      id: '3',
-      level: 'L2',
-      approver: 'Priya Sharma',
-      approverTitle: 'Finance Manager',
-      action: 'pending',
-      comments: '',
-      date: '',
-      timestamp: '',
-    },
-    {
-      id: '4',
-      level: 'L3',
-      approver: 'Vijay Deshmukh',
-      approverTitle: 'Director - Operations',
-      action: 'pending',
-      comments: '',
-      date: '',
-      timestamp: '',
-    },
-  ],
+  notes: '',
+  attachments: [],
+  createdAt: '',
+  updatedAt: '',
+  items: [],
+  approvalHistory: [],
 };
 
 const statusColors = {
@@ -290,9 +153,11 @@ export default function ViewRequisitionPage() {
   const params = useParams();
   const requisitionId = params.id as string;
 
-  const [requisition, setRequisition] = useState<Requisition>(mockRequisition);
+  const [requisition, setRequisition] = useState<Requisition>(emptyRequisition);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -303,9 +168,15 @@ export default function ViewRequisitionPage() {
     const load = async () => {
       setIsLoading(true);
       setLoadError(null);
+      setNotFound(false);
       try {
         const raw = (await purchaseRequisitionService.getRequisitionById(requisitionId)) as any;
-        if (!cancelled && raw) {
+        if (cancelled) return;
+        if (!raw || (raw.id == null && raw.prNumber == null)) {
+          setNotFound(true);
+          return;
+        }
+        {
           const mappedItems: RequisitionItem[] | undefined = Array.isArray(raw.items) && raw.items.length
             ? raw.items.map((it: any, idx: number) => ({
                 id: it.id ?? String(idx),
@@ -350,7 +221,7 @@ export default function ViewRequisitionPage() {
     };
     load();
     return () => { cancelled = true; };
-  }, [requisitionId]);
+  }, [requisitionId, reloadKey]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'approvals'>('overview');
   const [approvalComment, setApprovalComment] = useState('');
@@ -372,7 +243,7 @@ export default function ViewRequisitionPage() {
   const getProgressPercentage = () => {
     const approvedCount = requisition.approvalHistory.filter(h => h.action === 'approved').length;
     const totalLevels = requisition.approvalHistory.length;
-    return (approvedCount / totalLevels) * 100;
+    return totalLevels ? (approvedCount / totalLevels) * 100 : 0;
   };
 
   const getCurrentStage = () => {
@@ -390,7 +261,20 @@ export default function ViewRequisitionPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
       {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading requisition...</div>)}
-      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center justify-between">
+          <span>{loadError}</span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {notFound && !isLoading && (<div className="mb-3 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700">Requisition not found.</div>)}
+      {!isLoading && !notFound && (
+      <>
       {/* Header */}
       <div className="mb-3">
         <button
@@ -989,6 +873,8 @@ export default function ViewRequisitionPage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

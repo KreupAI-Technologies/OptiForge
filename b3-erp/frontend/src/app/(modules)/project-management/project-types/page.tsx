@@ -230,77 +230,9 @@ export default function ProjectTypesPage() {
    .finally(() => { setLoadingTypes(false); });
  }, []);
 
- // Mock project categories - 6 records
- const mockCategories: ProjectCategory[] = [
-  {
-   id: '1',
-   categoryName: 'Commercial Kitchen Solutions',
-   categoryCode: 'CK',
-   description: 'Kitchen design, manufacturing, installation, and support services',
-   projectTypes: ['CK-FULL', 'CK-UPG', 'CK-CENT'],
-   color: '#3B82F6',
-   icon: 'UtensilsCrossed',
-   sortOrder: 1,
-   isActive: true,
-  },
-  {
-   id: '2',
-   categoryName: 'Cold Storage & Refrigeration',
-   categoryCode: 'CR',
-   description: 'Cold room, blast freezer, and refrigeration solutions',
-   projectTypes: ['CR-STD', 'CR-MOD', 'BF-INS'],
-   color: '#06B6D4',
-   icon: 'Snowflake',
-   sortOrder: 2,
-   isActive: true,
-  },
-  {
-   id: '3',
-   categoryName: 'Electrical & Switchgear',
-   categoryCode: 'SG',
-   description: 'Switchgear manufacturing, installation, and maintenance',
-   projectTypes: ['SG-IND', 'SG-MNT'],
-   color: '#F59E0B',
-   icon: 'Zap',
-   sortOrder: 3,
-   isActive: true,
-  },
-  {
-   id: '4',
-   categoryName: 'Installation Services',
-   categoryCode: 'INS',
-   description: 'On-site installation and commissioning services',
-   parentCategory: 'Service Delivery',
-   projectTypes: ['CK-FULL', 'CR-STD', 'SG-IND'],
-   color: '#10B981',
-   icon: 'Settings',
-   sortOrder: 4,
-   isActive: true,
-  },
-  {
-   id: '5',
-   categoryName: 'Maintenance & Support',
-   categoryCode: 'MNT',
-   description: 'Ongoing maintenance, upgrades, and technical support',
-   parentCategory: 'Service Delivery',
-   projectTypes: ['CK-UPG', 'SG-MNT'],
-   color: '#8B5CF6',
-   icon: 'Wrench',
-   sortOrder: 5,
-   isActive: true,
-  },
-  {
-   id: '6',
-   categoryName: 'Custom Solutions',
-   categoryCode: 'CUST',
-   description: 'Tailored solutions for unique customer requirements',
-   projectTypes: ['CK-CENT', 'BF-INS'],
-   color: '#EC4899',
-   icon: 'Sparkles',
-   sortOrder: 6,
-   isActive: true,
-  },
- ];
+ // NEEDS BACKEND: there is no project-category endpoint in the PM module, so this
+ // list stays empty until that backend exists (no mock/seed data).
+ const [categories] = useState<ProjectCategory[]>([]);
 
  const filteredTypes = projectTypes.filter((type) => {
   const matchesSearch =
@@ -311,7 +243,7 @@ export default function ProjectTypesPage() {
   return matchesSearch && matchesCategory;
  });
 
- const filteredCategories = mockCategories.filter((category) =>
+ const filteredCategories = categories.filter((category) =>
   category.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
   category.categoryCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
   category.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -367,8 +299,8 @@ export default function ProjectTypesPage() {
       <div className="flex items-center justify-between">
        <div>
         <p className="text-sm text-gray-600">Categories</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{mockCategories.length}</p>
-        <p className="text-xs text-green-600 mt-1">{mockCategories.filter(c => c.isActive).length} active</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{categories.length}</p>
+        <p className="text-xs text-green-600 mt-1">{categories.filter(c => c.isActive).length} active</p>
        </div>
        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
         <Tag className="w-6 h-6 text-purple-600" />
@@ -430,7 +362,7 @@ export default function ProjectTypesPage() {
        : 'text-gray-600 hover:text-gray-900'
      }`}
     >
-     Categories ({mockCategories.length})
+     Categories ({categories.length})
     </button>
    </div>
 
@@ -580,7 +512,14 @@ export default function ProjectTypesPage() {
    )}
 
    {/* Categories Tab */}
-   {activeTab === 'categories' && (
+   {activeTab === 'categories' && filteredCategories.length === 0 && (
+    <EmptyState
+     icon={Tag}
+     title="No categories available"
+     description="Project categories are not yet available from the backend."
+    />
+   )}
+   {activeTab === 'categories' && filteredCategories.length > 0 && (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
      {filteredCategories.map((category) => (
       <div

@@ -39,245 +39,14 @@ import { MarginAnalysis, QuoteMarginAnalysis, MarginGuardrail } from '@/componen
 import { GuardrailModal, ViewQuoteDetailModal, OptimizeMarginModal } from '@/components/cpq/MarginAnalysisModals';
 import { exportToCsv } from '@/lib/export';
 
-// Mock Data — the tabs below (guided-selling wizard, document generation,
-// e-signature, margin analysis) have no backend entities yet; their sample data
-// is retained until those endpoints exist. Wired to live APIs: pricing-rules
-// (/cpq/pricing/rules), version-control (/cpq/advanced/pricing-versions), and
-// the approval matrix (/cpq/advanced/approval-matrix).
-
-const mockWizardSteps: WizardStep[] = [
-  {
-    id: 'step1',
-    title: 'Business Requirements',
-    description: 'Tell us about your business needs',
-    icon: Sparkles,
-    status: 'active',
-    questions: [
-      {
-        id: 'q1',
-        title: 'What is your company size?',
-        type: 'single',
-        required: true,
-        options: [
-          { id: 'o1', label: '1-10 employees', value: 'small', icon: TrendingUp, popular: true },
-          { id: 'o2', label: '11-50 employees', value: 'medium', icon: TrendingUp },
-          { id: 'o3', label: '51-200 employees', value: 'large', icon: TrendingUp, recommended: true },
-          { id: 'o4', label: '200+ employees', value: 'enterprise', icon: TrendingUp },
-        ],
-      },
-    ],
-  },
-];
-
-const mockThresholds: ApprovalThreshold[] = [
-  {
-    id: '1',
-    name: 'Large Deal Approval',
-    description: 'Requires director approval for deals over $100K',
-    condition: {
-      type: 'deal_value',
-      operator: 'greater_than',
-      value: 100000,
-    },
-    requiredApprovers: [
-      { role: 'director', count: 1 },
-    ],
-    autoEscalateAfterHours: 48,
-    priority: 'high',
-  },
-];
-
-const mockApprovalRequests: ApprovalRequest[] = [
-  {
-    id: '1',
-    quoteId: 'Q-2025-001',
-    quoteName: 'Enterprise Manufacturing Solution',
-    customerName: 'Global Tech Industries',
-    dealValue: 125000,
-    discountPercent: 18,
-    marginPercent: 32,
-    requestedBy: 'Sarah Johnson',
-    requestedAt: '2025-01-20T10:00:00Z',
-    status: 'pending',
-    approvers: [
-      {
-        id: 'a1',
-        name: 'Michael Chen',
-        email: 'michael@company.com',
-        role: 'director',
-        order: 1,
-        status: 'pending',
-      },
-    ],
-    threshold: mockThresholds[0],
-    currentApprovalLevel: 1,
-    totalApprovalLevels: 1,
-    justification: 'Strategic account with high growth potential and multi-year commitment',
-  },
-];
-
-const mockTemplates: DocumentTemplate[] = [
-  {
-    id: '1',
-    name: 'Standard Sales Quote',
-    description: 'Professional quote template with company branding',
-    type: 'quote',
-    status: 'active',
-    fields: [
-      { id: 'f1', name: 'customer_name', label: 'Customer Name', type: 'text', required: true },
-      { id: 'f2', name: 'total_amount', label: 'Total Amount', type: 'currency', required: true },
-    ],
-    sections: [
-      { id: 's1', title: 'Introduction', content: 'Thank you for your interest...', order: 1, editable: true },
-      { id: 's2', title: 'Pricing', content: 'See attached pricing details...', order: 2, editable: false },
-    ],
-    createdBy: 'Sales Ops',
-    createdAt: '2025-01-01T00:00:00Z',
-    lastModified: '2025-01-15T00:00:00Z',
-    usageCount: 145,
-    version: '2.0',
-  },
-];
-
-const mockDocuments: GeneratedDocument[] = [
-  {
-    id: '1',
-    templateId: '1',
-    templateName: 'Standard Sales Quote',
-    documentType: 'quote',
-    title: 'Quote for Global Tech Industries',
-    customer: {
-      name: 'John Smith',
-      email: 'john@globaltech.com',
-      company: 'Global Tech Industries',
-    },
-    data: {},
-    status: 'sent',
-    createdBy: 'Sarah Johnson',
-    createdAt: '2025-01-20T10:00:00Z',
-    sentAt: '2025-01-20T11:00:00Z',
-  },
-];
-
-const mockSignatureDocs: SignatureDocument[] = [
-  {
-    id: '1',
-    title: 'Enterprise Service Agreement - Global Tech',
-    description: 'Three-year service agreement for manufacturing platform',
-    status: 'awaiting',
-    documentType: 'contract',
-    fileUrl: '/docs/contract.pdf',
-    fileName: 'contract-globaltech-2025.pdf',
-    fileSize: 245000,
-    signers: [
-      {
-        id: 's1',
-        name: 'John Smith',
-        email: 'john@globaltech.com',
-        role: 'signer',
-        order: 1,
-        status: 'signed',
-        signedAt: '2025-01-21T14:30:00Z',
-        ipAddress: '192.168.1.100',
-        location: 'New York, USA',
-      },
-      {
-        id: 's2',
-        name: 'Sarah Johnson',
-        email: 'sarah@company.com',
-        role: 'signer',
-        order: 2,
-        status: 'pending',
-      },
-    ],
-    createdBy: 'Sales Team',
-    createdAt: '2025-01-20T10:00:00Z',
-    sentAt: '2025-01-20T11:00:00Z',
-    expiresAt: '2025-02-20T23:59:59Z',
-    remindersSent: 1,
-    lastReminderAt: '2025-01-22T09:00:00Z',
-    securityOptions: {
-      requireIdVerification: true,
-      allowPrinting: false,
-      allowDownload: false,
-      watermark: true,
-    },
-    auditTrail: [
-      {
-        timestamp: '2025-01-20T10:00:00Z',
-        actor: 'Sarah Johnson',
-        action: 'Document Created',
-        details: 'Created from template',
-      },
-      {
-        timestamp: '2025-01-20T11:00:00Z',
-        actor: 'System',
-        action: 'Document Sent',
-        details: 'Sent to 2 signers',
-      },
-    ],
-  },
-];
-
-const mockQuotes: QuoteMarginAnalysis[] = [
-  {
-    id: '1',
-    quoteId: 'Q-2025-001',
-    quoteName: 'Enterprise Manufacturing Solution',
-    customer: 'Global Tech Industries',
-    totalRevenue: 125000,
-    totalCost: 75000,
-    totalMargin: 50000,
-    marginPercent: 40,
-    status: 'healthy',
-    products: [
-      {
-        id: 'p1',
-        productId: 'PROD-001',
-        productName: 'Manufacturing Platform License',
-        category: 'Software',
-        basePrice: 50000,
-        cost: 25000,
-        sellingPrice: 45000,
-        discountPercent: 10,
-        discountAmount: 5000,
-        marginAmount: 20000,
-        marginPercent: 44.4,
-        status: 'healthy',
-        quantity: 1,
-        totalRevenue: 45000,
-        totalCost: 25000,
-        totalMargin: 20000,
-      },
-    ],
-    createdBy: 'Sarah Johnson',
-    createdAt: '2025-01-20T10:00:00Z',
-    lastModified: '2025-01-20T15:00:00Z',
-  },
-];
-
-const mockGuardrails: MarginGuardrail[] = [
-  {
-    id: '1',
-    name: 'Minimum Margin Protection',
-    type: 'min_margin',
-    threshold: 25,
-    enabled: true,
-    action: 'require_approval',
-    notifyRoles: ['Sales Manager', 'Director'],
-    description: 'Requires approval when margin falls below 25%',
-  },
-  {
-    id: '2',
-    name: 'Maximum Discount Cap',
-    type: 'max_discount',
-    threshold: 20,
-    enabled: true,
-    action: 'block',
-    notifyRoles: ['VP Sales'],
-    description: 'Blocks deals with discounts exceeding 20%',
-  },
-];
+// Live APIs: pricing-rules (/cpq/pricing/rules), version-control
+// (/cpq/advanced/pricing-versions), approval matrix
+// (/cpq/advanced/approval-matrix), guided-selling
+// (/cpq/advanced/guided-selling), and margin-guardrails
+// (/cpq/advanced/margin-guardrails).
+// The remaining collections (approval requests, document templates & generated
+// documents, e-signature documents, and quote margin analyses) have no backend
+// entity in this cluster yet — they render empty until those endpoints exist.
 
 // ---- Pricing-rule mapping between the backend PricingRule entity and the
 // PricingRulesEngine component model ----
@@ -606,7 +375,7 @@ export default function CPQAdvancedFeaturesPage() {
   const [thresholds, setThresholds] = useState<ApprovalThreshold[]>([]);
   const [thresholdsLoading, setThresholdsLoading] = useState(true);
   const [thresholdsError, setThresholdsError] = useState<string | null>(null);
-  const [approvalRequests, setApprovalRequests] = useState<ApprovalRequest[]>(mockApprovalRequests);
+  const [approvalRequests, setApprovalRequests] = useState<ApprovalRequest[]>([]);
 
   const loadThresholds = async () => {
     setThresholdsLoading(true);
@@ -632,8 +401,8 @@ export default function CPQAdvancedFeaturesPage() {
   const [selectedRequest, setSelectedRequest] = useState<ApprovalRequest | null>(null);
 
   // Document Generation State
-  const [templates, setTemplates] = useState<DocumentTemplate[]>(mockTemplates);
-  const [documents, setDocuments] = useState<GeneratedDocument[]>(mockDocuments);
+  const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
+  const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [isCreateTemplateModalOpen, setIsCreateTemplateModalOpen] = useState(false);
   const [isGenerateDocModalOpen, setIsGenerateDocModalOpen] = useState(false);
   const [isViewDocModalOpen, setIsViewDocModalOpen] = useState(false);
@@ -642,14 +411,14 @@ export default function CPQAdvancedFeaturesPage() {
   const [selectedDocument, setSelectedDocument] = useState<GeneratedDocument | null>(null);
 
   // E-Signature State
-  const [signatureDocs, setSignatureDocs] = useState<SignatureDocument[]>(mockSignatureDocs);
+  const [signatureDocs, setSignatureDocs] = useState<SignatureDocument[]>([]);
   const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
   const [isViewDocDetailModalOpen, setIsViewDocDetailModalOpen] = useState(false);
   const [isViewAuditTrailModalOpen, setIsViewAuditTrailModalOpen] = useState(false);
   const [selectedSignatureDoc, setSelectedSignatureDoc] = useState<SignatureDocument | null>(null);
 
   // Margin Analysis State
-  const [quotes, setQuotes] = useState<QuoteMarginAnalysis[]>(mockQuotes);
+  const [quotes, setQuotes] = useState<QuoteMarginAnalysis[]>([]);
   // Guardrails are loaded from /cpq/advanced/margin-guardrails.
   const [guardrails, setGuardrails] = useState<MarginGuardrail[]>([]);
   const [guardrailsLoading, setGuardrailsLoading] = useState(true);
@@ -1680,26 +1449,32 @@ export default function CPQAdvancedFeaturesPage() {
                 {guidedError}
               </div>
             )}
-            <GuidedSellingWizard
-              steps={
-                guidedQuestions.length > 0
-                  ? [
-                      {
-                        id: 'guided-selling-live',
-                        title: 'Product Discovery',
-                        description:
-                          'Answer the qualifying questions to receive tailored recommendations.',
-                        icon: Wand2,
-                        status: 'active',
-                        questions: guidedQuestions,
-                      },
-                    ]
-                  : mockWizardSteps
-              }
-              onComplete={handleWizardComplete}
-              onCancel={handleWizardCancel}
-              showRecommendations={true}
-            />
+            {!guidedLoading && !guidedError && guidedQuestions.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+                No guided-selling questions configured yet.
+              </div>
+            ) : (
+              <GuidedSellingWizard
+                steps={
+                  guidedQuestions.length > 0
+                    ? [
+                        {
+                          id: 'guided-selling-live',
+                          title: 'Product Discovery',
+                          description:
+                            'Answer the qualifying questions to receive tailored recommendations.',
+                          icon: Wand2,
+                          status: 'active',
+                          questions: guidedQuestions,
+                        },
+                      ]
+                    : []
+                }
+                onComplete={handleWizardComplete}
+                onCancel={handleWizardCancel}
+                showRecommendations={true}
+              />
+            )}
 
             <RecommendationsModal
               isOpen={isRecommendationsModalOpen}

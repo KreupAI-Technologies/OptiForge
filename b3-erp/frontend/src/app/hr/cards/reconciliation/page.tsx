@@ -79,9 +79,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockReconciliation: ReconciliationItem[] = rows;
-
-  const filteredReconciliation = mockReconciliation.filter(r => {
+  const filteredReconciliation = rows.filter(r => {
     const statusMatch = selectedStatus === 'all' || r.status === selectedStatus;
     const monthMatch = selectedMonth === 'all' || r.month === selectedMonth;
     return statusMatch && monthMatch;
@@ -91,10 +89,10 @@ export default function Page() {
     totalStatement: filteredReconciliation.reduce((sum, r) => sum + r.statementAmount, 0),
     totalRecorded: filteredReconciliation.reduce((sum, r) => sum + r.recordedAmount, 0),
     totalDifference: filteredReconciliation.reduce((sum, r) => sum + Math.abs(r.difference), 0),
-    completed: mockReconciliation.filter(r => r.status === 'completed').length,
-    pending: mockReconciliation.filter(r => r.status === 'pending').length,
-    issues: mockReconciliation.filter(r => r.status === 'issues').length
-  }), [filteredReconciliation]);
+    completed: rows.filter(r => r.status === 'completed').length,
+    pending: rows.filter(r => r.status === 'pending').length,
+    issues: rows.filter(r => r.status === 'issues').length
+  }), [filteredReconciliation, rows]);
 
   const statusColors = {
     completed: 'bg-green-100 text-green-700',
@@ -212,8 +210,8 @@ export default function Page() {
       {filteredReconciliation.length === 0 && !isLoading && (
         <EmptyState
           icon={CreditCard}
-          title={mockReconciliation.length === 0 ? 'No reconciliation records yet' : 'No matching records'}
-          description={mockReconciliation.length === 0 ? 'Card reconciliation items will appear here once statements are imported.' : 'Try adjusting the status or month filters.'}
+          title={rows.length === 0 ? 'No reconciliation records yet' : 'No matching records'}
+          description={rows.length === 0 ? 'Card reconciliation items will appear here once statements are imported.' : 'Try adjusting the status or month filters.'}
         />
       )}
 

@@ -24,7 +24,6 @@ import {
   ArrowRight,
   Circle,
   Package,
-  Users,
   AlertCircle,
   Send,
   BarChart3,
@@ -80,103 +79,14 @@ interface Product {
   total: number;
 }
 
-// Mock opportunity data
-const mockOpportunitySeed: Opportunity = {
-  id: '1',
-  name: 'Premium Kitchen Installation - Luxury Apartments',
-  account: 'Skyline Properties Inc',
-  contact: 'Robert Anderson',
-  stage: 'proposal',
-  amount: 350000,
-  probability: 70,
-  expectedCloseDate: '2025-11-15',
-  owner: 'Sarah Johnson',
-  createdAt: '2025-09-15',
-  type: 'New Business',
-  leadSource: 'Referral',
-  description: 'Major opportunity for luxury apartment complex kitchen installations. Client is developer with multiple ongoing projects.',
-};
-
-// Mock activities
-const mockActivitiesSeed: OpportunityActivity[] = [
-  {
-    id: 'a1',
-    opportunityId: '1',
-    type: 'stage_change',
-    title: 'Stage Updated',
-    description: 'Opportunity stage changed from "Qualification" to "Proposal"',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-10 14:30',
-    metadata: { previousStage: 'qualification', newStage: 'proposal' }
-  },
-  {
-    id: 'a2',
-    opportunityId: '1',
-    type: 'proposal',
-    title: 'Proposal Sent',
-    description: 'Comprehensive proposal sent including detailed pricing for all 15 units with premium finishes and installation timeline.',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-10 10:00',
-    metadata: { attachments: 3 }
-  },
-  {
-    id: 'a3',
-    opportunityId: '1',
-    type: 'meeting',
-    title: 'Site Visit Completed',
-    description: 'Conducted detailed site visit with client team. Measured all 15 apartment units and discussed customization requirements.',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-05 14:00',
-    metadata: { duration: '4 hours', outcome: 'Positive' }
-  },
-  {
-    id: 'a4',
-    opportunityId: '1',
-    type: 'call',
-    title: 'Discovery Call',
-    description: 'Detailed discussion about project requirements, timeline, and budget. Client confirmed $350K budget and Nov 15 decision deadline.',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-09-25 11:30',
-    metadata: { duration: '60 mins', outcome: 'Positive' }
-  },
-  {
-    id: 'a5',
-    opportunityId: '1',
-    type: 'email',
-    title: 'Product Catalog Shared',
-    description: 'Sent comprehensive product catalog featuring modular kitchen solutions and premium countertop options.',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-09-20 16:00',
-    metadata: { attachments: 5 }
-  },
-  {
-    id: 'a6',
-    opportunityId: '1',
-    type: 'stage_change',
-    title: 'Opportunity Created',
-    description: 'New opportunity created from referral lead',
-    performedBy: 'System',
-    timestamp: '2025-09-15 09:00',
-    metadata: { newStage: 'prospecting' }
-  }
-];
-
-// Mock products
-const mockProductsSeed: Product[] = [
-  { name: 'Premium Modular Kitchen Units', quantity: 15, unitPrice: 12000, total: 180000 },
-  { name: 'Granite Countertops', quantity: 15, unitPrice: 8000, total: 120000 },
-  { name: 'Installation & Setup', quantity: 1, unitPrice: 30000, total: 30000 },
-  { name: 'Premium Hardware & Accessories', quantity: 15, unitPrice: 1333, total: 20000 },
-];
-
 const getOpportunityStages = (opportunity: Opportunity): OpportunityStage[] => {
   const stageOrder = ['prospecting', 'qualification', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
   const currentIndex = stageOrder.indexOf(opportunity.stage);
 
   const stages: OpportunityStage[] = [
     { id: 'prospecting', name: 'Prospecting', status: currentIndex > 0 ? 'completed' : currentIndex === 0 ? 'current' : 'pending', date: currentIndex >= 0 ? opportunity.createdAt : undefined, icon: Circle, color: 'blue' },
-    { id: 'qualification', name: 'Qualification', status: currentIndex > 1 ? 'completed' : currentIndex === 1 ? 'current' : 'pending', date: currentIndex >= 1 ? '2025-09-25' : undefined, icon: CheckCircle, color: 'purple' },
-    { id: 'proposal', name: 'Proposal', status: currentIndex > 2 ? 'completed' : currentIndex === 2 ? 'current' : 'pending', date: currentIndex >= 2 ? '2025-10-10' : undefined, icon: FileText, color: 'yellow' },
+    { id: 'qualification', name: 'Qualification', status: currentIndex > 1 ? 'completed' : currentIndex === 1 ? 'current' : 'pending', icon: CheckCircle, color: 'purple' },
+    { id: 'proposal', name: 'Proposal', status: currentIndex > 2 ? 'completed' : currentIndex === 2 ? 'current' : 'pending', icon: FileText, color: 'yellow' },
     { id: 'negotiation', name: 'Negotiation', status: currentIndex > 3 ? 'completed' : currentIndex === 3 ? 'current' : 'pending', date: currentIndex >= 3 ? undefined : undefined, icon: MessageSquare, color: 'orange' },
     { id: 'closed_won', name: 'Closed Won', status: currentIndex === 4 ? 'current' : currentIndex > 4 ? 'completed' : 'pending', icon: TrendingUp, color: 'emerald' },
     { id: 'closed_lost', name: 'Closed Lost', status: currentIndex === 5 ? 'current' : 'pending', icon: AlertCircle, color: 'red' }
@@ -232,7 +142,7 @@ export default function ViewOpportunityPage() {
   const opportunityId = params.id as string;
   const { addToast } = useToast();
 
-  const [opportunity, setOpportunity] = useState<Opportunity>(mockOpportunitySeed);
+  const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [activities, setActivities] = useState<OpportunityActivity[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -249,20 +159,19 @@ export default function ViewOpportunityPage() {
         const raw: any = await crmService.opportunities.getById(opportunityId);
         if (!cancelled && raw && typeof raw === 'object') {
           setOpportunity({
-            ...mockOpportunitySeed,
             id: raw.id ?? opportunityId,
-            name: raw.name ?? mockOpportunitySeed.name,
-            account: raw.customerName ?? raw.account ?? mockOpportunitySeed.account,
-            contact: raw.contactName ?? mockOpportunitySeed.contact,
-            stage: (raw.stage ?? mockOpportunitySeed.stage) as Opportunity['stage'],
-            amount: Number(raw.amount ?? mockOpportunitySeed.amount),
-            probability: Number(raw.probability ?? mockOpportunitySeed.probability),
-            expectedCloseDate: (raw.expectedCloseDate ?? mockOpportunitySeed.expectedCloseDate)?.toString().slice(0, 10),
-            owner: raw.ownerName ?? mockOpportunitySeed.owner,
-            createdAt: (raw.createdAt ?? mockOpportunitySeed.createdAt)?.toString().slice(0, 10),
-            type: raw.type ?? mockOpportunitySeed.type,
-            leadSource: raw.leadSource ?? mockOpportunitySeed.leadSource,
-            description: raw.description ?? mockOpportunitySeed.description,
+            name: raw.name ?? '',
+            account: raw.customerName ?? raw.account ?? '',
+            contact: raw.contactName ?? '',
+            stage: (raw.stage ?? 'prospecting') as Opportunity['stage'],
+            amount: Number(raw.amount ?? 0),
+            probability: Number(raw.probability ?? 0),
+            expectedCloseDate: (raw.expectedCloseDate ?? '')?.toString().slice(0, 10),
+            owner: raw.ownerName ?? '',
+            createdAt: (raw.createdAt ?? '')?.toString().slice(0, 10),
+            type: raw.type ?? '',
+            leadSource: raw.leadSource ?? '',
+            description: raw.description ?? '',
           });
           // Products are carried on the opportunity record itself.
           if (Array.isArray(raw.products)) {
@@ -327,7 +236,7 @@ export default function ViewOpportunityPage() {
   const handleSendProposal = () => {
     addToast({
       title: 'Send Proposal',
-      message: `Preparing proposal for ${opportunity.name}...`,
+      message: `Preparing proposal for ${opportunity?.name ?? ''}...`,
       variant: 'info'
     });
     // Future: router.push(`/crm/opportunities/${opportunityId}/send-proposal`);
@@ -345,7 +254,7 @@ export default function ViewOpportunityPage() {
   const handleSendEmail = () => {
     addToast({
       title: 'Send Email',
-      message: `Opening email compose for ${opportunity.account}...`,
+      message: `Opening email compose for ${opportunity?.account ?? ''}...`,
       variant: 'info'
     });
     // Future: router.push(`/crm/opportunities/${opportunityId}/send-email`);
@@ -375,17 +284,44 @@ export default function ViewOpportunityPage() {
     { id: 'products', name: 'Products & Details', icon: Package },
   ];
 
+  if (!opportunity) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+        <button
+          onClick={() => router.push('/crm/opportunities')}
+          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-3"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="font-medium">Back to Opportunities</span>
+        </button>
+        {isLoading ? (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            Loading opportunity…
+          </div>
+        ) : (
+          <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span className="flex items-center space-x-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>{loadError || 'Opportunity not found.'}</span>
+            </span>
+            <button
+              onClick={() => router.refresh()}
+              className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-red-700 hover:bg-red-100"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
       {loadError && (
         <div className="mb-3 flex items-center space-x-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           <span>{loadError}</span>
-        </div>
-      )}
-      {isLoading && (
-        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
-          Loading opportunity…
         </div>
       )}
       {/* Header */}
@@ -594,10 +530,6 @@ export default function ViewOpportunityPage() {
                   <p className="text-xs font-medium text-gray-500 uppercase mb-1">Primary Contact</p>
                   <p className="text-sm text-gray-900">{opportunity.contact}</p>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Industry</p>
-                  <p className="text-sm text-gray-900">Real Estate Development</p>
-                </div>
               </div>
             </div>
 
@@ -682,6 +614,9 @@ export default function ViewOpportunityPage() {
 
             {/* Activities List */}
             <div className="space-y-2">
+              {activities.filter(a => a.opportunityId === opportunityId).length === 0 && (
+                <div className="py-8 text-center text-sm text-gray-500">No activity recorded yet.</div>
+              )}
               {activities
                 .filter(activity => activity.opportunityId === opportunityId)
                 .map((activity, index) => {
@@ -785,59 +720,23 @@ export default function ViewOpportunityPage() {
                         <td className="px-3 py-2 text-sm font-bold text-gray-900 text-right">${product.total.toLocaleString()}</td>
                       </tr>
                     ))}
-                    <tr className="bg-blue-50">
-                      <td colSpan={3} className="px-3 py-2 text-sm font-bold text-gray-900 text-right">Grand Total</td>
-                      <td className="px-3 py-2 text-lg font-bold text-blue-900 text-right">
-                        ${products.reduce((sum, p) => sum + p.total, 0).toLocaleString()}
-                      </td>
-                    </tr>
+                    {products.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-6 text-center text-sm text-gray-500">
+                          No products on this opportunity.
+                        </td>
+                      </tr>
+                    )}
+                    {products.length > 0 && (
+                      <tr className="bg-blue-50">
+                        <td colSpan={3} className="px-3 py-2 text-sm font-bold text-gray-900 text-right">Grand Total</td>
+                        <td className="px-3 py-2 text-lg font-bold text-blue-900 text-right">
+                          ${products.reduce((sum, p) => sum + p.total, 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
-              </div>
-            </div>
-
-            {/* Competition Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center">
-                  <Users className="h-5 w-5 mr-2 text-blue-600" />
-                  Competition
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm text-gray-700">Elite Kitchen Systems, Luxury Home Solutions</p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center">
-                  <FileText className="h-5 w-5 mr-2 text-blue-600" />
-                  Decision Criteria
-                </h3>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm text-gray-700">Quality of materials, previous portfolio, installation timeline, warranty terms, competitive pricing</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Requirements & Pain Points */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2 text-blue-600" />
-                Customer Requirements
-              </h3>
-              <div className="bg-gray-50 rounded-lg p-3 space-y-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Requirements</p>
-                  <p className="text-sm text-gray-700">High-end modular kitchen solutions for 15 luxury apartments. Requirements include premium finishes, granite countertops, modern appliances integration, and 2-year warranty.</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Pain Points</p>
-                  <p className="text-sm text-gray-700">Current contractor unable to meet quality standards and timeline. Need reliable partner for ongoing projects.</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Timeline</p>
-                  <p className="text-sm text-gray-700">Decision by Oct 30, Installation to start Nov 20, Project completion by Jan 15 2026</p>
-                </div>
               </div>
             </div>
           </div>

@@ -34,6 +34,10 @@ interface AlumniPost {
   shares: number;
 }
 
+// Alumni network posts have no backend endpoint yet (see NEEDS-BACKEND).
+// Until one exists, the feed renders empty rather than fabricated content.
+const posts: AlumniPost[] = [];
+
 export default function Page() {
   const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState<'feed' | 'events' | 'opportunities'>('feed');
@@ -104,64 +108,13 @@ export default function Page() {
     };
   }, []);
 
-  const mockEvents: AlumniEvent[] = eventRows;
-
-  const mockPosts: AlumniPost[] = [
-    {
-      id: '1',
-      author: 'Rajesh Kumar',
-      authorDesignation: 'GM - Manufacturing',
-      authorCompany: 'Tata Motors',
-      timestamp: '2 hours ago',
-      content: 'Excited to announce that our plant achieved Zero Defect certification! Proud moment for the team. The foundation was laid during my time at our organization.',
-      type: 'achievement',
-      likes: 45,
-      comments: 12,
-      shares: 5
-    },
-    {
-      id: '2',
-      author: 'Priya Sharma',
-      authorDesignation: 'Head of HR',
-      authorCompany: 'Mahindra & Mahindra',
-      timestamp: '1 day ago',
-      content: 'We are hiring! Looking for experienced Production Managers with Lean Manufacturing background. DM me for details.',
-      type: 'opportunity',
-      likes: 67,
-      comments: 23,
-      shares: 15
-    },
-    {
-      id: '3',
-      author: 'Amit Patel',
-      authorDesignation: 'Quality Consultant',
-      authorCompany: 'Self-Employed',
-      timestamp: '2 days ago',
-      content: 'Question for the network: What are your experiences with implementing AI in quality inspection? Looking to gather insights for a client project.',
-      type: 'question',
-      likes: 28,
-      comments: 34,
-      shares: 3
-    },
-    {
-      id: '4',
-      author: 'Vikram Singh',
-      authorDesignation: 'Project Manager',
-      authorCompany: 'Infosys Ltd',
-      timestamp: '3 days ago',
-      content: 'Just completed PMP certification! The problem-solving skills I learned during my manufacturing days really helped in project management.',
-      type: 'achievement',
-      likes: 89,
-      comments: 18,
-      shares: 7
-    }
-  ];
+  const events: AlumniEvent[] = eventRows;
 
   const stats = {
-    totalMembers: 247,
-    activeMembers: 156,
-    upcomingEvents: mockEvents.filter(e => e.status === 'upcoming').length,
-    openOpportunities: 12
+    totalMembers: 0,
+    activeMembers: 0,
+    upcomingEvents: events.filter(e => e.status === 'upcoming').length,
+    openOpportunities: 0
   };
 
   const typeColors = {
@@ -420,7 +373,14 @@ export default function Page() {
           </div>
 
           {/* Posts Feed */}
-          {mockPosts.map(post => (
+          {posts.length === 0 && !isLoading && (
+            <EmptyState
+              icon={Network}
+              title="No network posts yet"
+              description="Alumni network updates will appear here once posts are available."
+            />
+          )}
+          {posts.map(post => (
             <div key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               {/* Post Header */}
               <div className="flex items-start justify-between mb-2">
@@ -541,7 +501,7 @@ export default function Page() {
         </div>
       )}
 
-      {selectedTab === 'events' && mockEvents.length === 0 && !isLoading && (
+      {selectedTab === 'events' && events.length === 0 && !isLoading && (
         <EmptyState
           icon={Calendar}
           title="No events yet"
@@ -549,9 +509,9 @@ export default function Page() {
         />
       )}
 
-      {selectedTab === 'events' && mockEvents.length > 0 && (
+      {selectedTab === 'events' && events.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {mockEvents.map(event => (
+          {events.map(event => (
             <div key={event.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="flex items-start justify-between mb-2">
                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${eventTypeColors[event.type]}`}>

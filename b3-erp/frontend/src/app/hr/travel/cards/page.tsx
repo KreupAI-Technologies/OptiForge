@@ -77,10 +77,8 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mockCards: CorporateCard[] = rows;
-
   const filteredCards = useMemo(() => {
-    return mockCards.filter(card => {
+    return rows.filter(card => {
       const matchesStatus = selectedStatus === 'all' || card.status === selectedStatus;
       const matchesType = selectedCardType === 'all' || card.cardType === selectedCardType;
       return matchesStatus && matchesType;
@@ -88,13 +86,13 @@ export default function Page() {
   }, [selectedStatus, selectedCardType, rows]);
 
   const stats = {
-    totalCards: mockCards.length,
-    activeCards: mockCards.filter(c => c.status === 'active').length,
-    blockedCards: mockCards.filter(c => c.status === 'blocked').length,
-    totalLimit: mockCards.reduce((sum, c) => sum + c.creditLimit, 0),
-    totalOutstanding: mockCards.reduce((sum, c) => sum + c.currentBalance, 0),
-    availableLimit: mockCards.reduce((sum, c) => sum + c.availableLimit, 0),
-    monthlySpend: mockCards.reduce((sum, c) => sum + c.monthlySpend, 0)
+    totalCards: rows.length,
+    activeCards: rows.filter(c => c.status === 'active').length,
+    blockedCards: rows.filter(c => c.status === 'blocked').length,
+    totalLimit: rows.reduce((sum, c) => sum + c.creditLimit, 0),
+    totalOutstanding: rows.reduce((sum, c) => sum + c.currentBalance, 0),
+    availableLimit: rows.reduce((sum, c) => sum + c.availableLimit, 0),
+    monthlySpend: rows.reduce((sum, c) => sum + c.monthlySpend, 0)
   };
 
   const getStatusColor = (status: string) => {

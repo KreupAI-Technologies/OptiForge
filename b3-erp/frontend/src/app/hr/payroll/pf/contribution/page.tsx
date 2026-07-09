@@ -423,7 +423,7 @@ export default function PFContributionPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Summary/challan object derived from the real fetched records
-  const mockPFMonth: PFContributionMonth = {
+  const pfMonthSummary: PFContributionMonth = {
     id: 'PF-2025-11',
     monthYear: 'November 2025',
     payPeriod: '01-Nov-2025 to 30-Nov-2025',
@@ -508,16 +508,16 @@ export default function PFContributionPage() {
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{mockPFMonth.monthYear}</h2>
-            <p className="text-sm text-gray-600 mt-1">Pay Period: {mockPFMonth.payPeriod}</p>
-            <p className="text-xs text-gray-500 mt-1">PF Month ID: {mockPFMonth.id}</p>
+            <h2 className="text-xl font-bold text-gray-900">{pfMonthSummary.monthYear}</h2>
+            <p className="text-sm text-gray-600 mt-1">Pay Period: {pfMonthSummary.payPeriod}</p>
+            <p className="text-xs text-gray-500 mt-1">PF Month ID: {pfMonthSummary.id}</p>
           </div>
           <div className="text-right">
-            <span className={`px-4 py-2 text-sm font-semibold rounded-full ${statusColors[mockPFMonth.status]} block mb-2`}>
-              {mockPFMonth.status.toUpperCase()}
+            <span className={`px-4 py-2 text-sm font-semibold rounded-full ${statusColors[pfMonthSummary.status]} block mb-2`}>
+              {pfMonthSummary.status.toUpperCase()}
             </span>
             <p className="text-xs text-gray-600">
-              Due Date: {new Date(mockPFMonth.dueDate).toLocaleDateString('en-IN')}
+              Due Date: {new Date(pfMonthSummary.dueDate).toLocaleDateString('en-IN')}
             </p>
           </div>
         </div>
@@ -527,7 +527,7 @@ export default function PFContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Employees</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{mockPFMonth.employeeCount}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{pfMonthSummary.employeeCount}</p>
               </div>
               <Users className="h-6 w-6 text-blue-600" />
             </div>
@@ -537,7 +537,7 @@ export default function PFContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Employee Share</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(mockPFMonth.totalEmployeeContribution)}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(pfMonthSummary.totalEmployeeContribution)}</p>
               </div>
               <DollarSign className="h-6 w-6 text-green-600" />
             </div>
@@ -547,7 +547,7 @@ export default function PFContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Employer Share</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(mockPFMonth.totalEmployerContribution)}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(pfMonthSummary.totalEmployerContribution)}</p>
               </div>
               <TrendingUp className="h-6 w-6 text-purple-600" />
             </div>
@@ -557,7 +557,7 @@ export default function PFContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Total Payable</p>
-                <p className="text-lg font-bold text-blue-900 mt-1">{formatCurrency(mockPFMonth.totalPayable)}</p>
+                <p className="text-lg font-bold text-blue-900 mt-1">{formatCurrency(pfMonthSummary.totalPayable)}</p>
               </div>
               <Wallet className="h-6 w-6 text-orange-600" />
             </div>
@@ -568,32 +568,32 @@ export default function PFContributionPage() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
           <p className="text-xs font-medium text-blue-600 mb-1">Pension Fund (EPS)</p>
-          <p className="text-xl font-bold text-blue-900">{formatCurrency(mockPFMonth.totalPensionFund)}</p>
+          <p className="text-xl font-bold text-blue-900">{formatCurrency(pfMonthSummary.totalPensionFund)}</p>
           <p className="text-xs text-blue-700 mt-1">8.33% of Basic</p>
         </div>
 
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
           <p className="text-xs font-medium text-green-600 mb-1">EPF Balance</p>
-          <p className="text-xl font-bold text-green-900">{formatCurrency(mockPFMonth.totalEPF)}</p>
+          <p className="text-xl font-bold text-green-900">{formatCurrency(pfMonthSummary.totalEPF)}</p>
           <p className="text-xs text-green-700 mt-1">3.67% of Basic</p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
           <p className="text-xs font-medium text-purple-600 mb-1">EDLI Charges</p>
-          <p className="text-xl font-bold text-purple-900">{formatCurrency(mockPFMonth.totalEDLI)}</p>
+          <p className="text-xl font-bold text-purple-900">{formatCurrency(pfMonthSummary.totalEDLI)}</p>
           <p className="text-xs text-purple-700 mt-1">0.5% of Basic</p>
         </div>
 
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
           <p className="text-xs font-medium text-orange-600 mb-1">Admin Charges</p>
-          <p className="text-xl font-bold text-orange-900">{formatCurrency(mockPFMonth.totalAdminCharges)}</p>
+          <p className="text-xl font-bold text-orange-900">{formatCurrency(pfMonthSummary.totalAdminCharges)}</p>
           <p className="text-xs text-orange-700 mt-1">0.5% of Basic</p>
         </div>
 
         <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-3 border border-indigo-200">
           <p className="text-xs font-medium text-indigo-600 mb-1">Due Date</p>
           <p className="text-sm font-bold text-indigo-900 mt-1">
-            {new Date(mockPFMonth.dueDate).toLocaleDateString('en-IN', {
+            {new Date(pfMonthSummary.dueDate).toLocaleDateString('en-IN', {
               day: 'numeric',
               month: 'short',
               year: 'numeric'
@@ -766,7 +766,7 @@ export default function PFContributionPage() {
       {/* Modals */}
       {showECRModal && (
         <DownloadECRModal
-          pfMonth={mockPFMonth}
+          pfMonth={pfMonthSummary}
           onClose={() => setShowECRModal(false)}
           formatCurrency={formatCurrency}
         />
@@ -774,7 +774,7 @@ export default function PFContributionPage() {
 
       {showChallanModal && (
         <PFChallanModal
-          pfMonth={mockPFMonth}
+          pfMonth={pfMonthSummary}
           onClose={() => setShowChallanModal(false)}
           formatCurrency={formatCurrency}
         />

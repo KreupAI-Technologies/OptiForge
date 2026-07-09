@@ -27,57 +27,6 @@ interface InactiveEmployee {
   yearsOfService: number;
 }
 
-const mockInactiveEmployees: InactiveEmployee[] = [
-  {
-    id: 'E001', employeeCode: 'EMP001', name: 'Rajesh Kumar', email: 'rajesh.kumar@example.com', phone: '+91 9876543210',
-    department: 'Production', designation: 'Operator', joiningDate: '2018-03-15', separationDate: '2025-09-30',
-    separationType: 'resignation', separationReason: 'Better opportunity', lastWorkingDay: '2025-09-30',
-    exitInterviewDone: true, fnfSettled: true, documentsCollected: true, assetsReturned: true, rehireEligible: true, yearsOfService: 7.5
-  },
-  {
-    id: 'E002', employeeCode: 'EMP045', name: 'Priya Sharma', email: 'priya.sharma@example.com', phone: '+91 9876543211',
-    department: 'Quality', designation: 'QC Inspector', joiningDate: '2020-06-01', separationDate: '2025-08-15',
-    separationType: 'resignation', separationReason: 'Personal reasons', lastWorkingDay: '2025-08-15',
-    exitInterviewDone: true, fnfSettled: true, documentsCollected: true, assetsReturned: true, rehireEligible: true, yearsOfService: 5.2
-  },
-  {
-    id: 'E003', employeeCode: 'EMP078', name: 'Suresh Babu', email: 'suresh.babu@example.com', phone: '+91 9876543212',
-    department: 'Maintenance', designation: 'Technician', joiningDate: '2015-01-10', separationDate: '2025-07-31',
-    separationType: 'retirement', separationReason: 'Reached retirement age (60)', lastWorkingDay: '2025-07-31',
-    exitInterviewDone: true, fnfSettled: true, documentsCollected: true, assetsReturned: true, rehireEligible: false, yearsOfService: 10.6
-  },
-  {
-    id: 'E004', employeeCode: 'EMP092', name: 'Anita Desai', email: 'anita.desai@example.com', phone: '+91 9876543213',
-    department: 'HR', designation: 'HR Executive', joiningDate: '2021-04-12', separationDate: '2025-06-30',
-    separationType: 'resignation', separationReason: 'Relocation', lastWorkingDay: '2025-06-30',
-    exitInterviewDone: true, fnfSettled: true, documentsCollected: true, assetsReturned: true, rehireEligible: true, yearsOfService: 4.2
-  },
-  {
-    id: 'E005', employeeCode: 'EMP103', name: 'Vikram Singh', email: 'vikram.singh@example.com', phone: '+91 9876543214',
-    department: 'Production', designation: 'Supervisor', joiningDate: '2019-02-20', separationDate: '2025-05-15',
-    separationType: 'termination', separationReason: 'Performance issues', lastWorkingDay: '2025-05-15',
-    exitInterviewDone: false, fnfSettled: true, documentsCollected: true, assetsReturned: true, rehireEligible: false, yearsOfService: 6.3
-  },
-  {
-    id: 'E006', employeeCode: 'EMP156', name: 'Meera Nair', email: 'meera.nair@example.com', phone: '+91 9876543215',
-    department: 'Stores', designation: 'Storekeeper', joiningDate: '2022-08-01', separationDate: '2025-04-30',
-    separationType: 'contract_end', separationReason: 'Contract period completed', lastWorkingDay: '2025-04-30',
-    exitInterviewDone: true, fnfSettled: true, documentsCollected: true, assetsReturned: true, rehireEligible: true, yearsOfService: 2.8
-  },
-  {
-    id: 'E007', employeeCode: 'EMP189', name: 'Karthik Iyer', email: 'karthik.iyer@example.com', phone: '+91 9876543216',
-    department: 'IT', designation: 'IT Support', joiningDate: '2023-01-15', separationDate: '2025-03-31',
-    separationType: 'absconding', separationReason: 'Absconded without notice', lastWorkingDay: '2025-03-15',
-    exitInterviewDone: false, fnfSettled: false, documentsCollected: false, assetsReturned: false, rehireEligible: false, yearsOfService: 2.2
-  },
-  {
-    id: 'E008', employeeCode: 'EMP234', name: 'Divya Reddy', email: 'divya.reddy@example.com', phone: '+91 9876543217',
-    department: 'Finance', designation: 'Accountant', joiningDate: '2017-11-20', separationDate: '2025-02-28',
-    separationType: 'resignation', separationReason: 'Higher studies', lastWorkingDay: '2025-02-28',
-    exitInterviewDone: true, fnfSettled: true, documentsCollected: true, assetsReturned: true, rehireEligible: true, yearsOfService: 7.3
-  }
-];
-
 const departments = ['All Departments', 'Production', 'Quality', 'Maintenance', 'HR', 'Stores', 'IT', 'Finance'];
 
 export default function InactiveEmployeesPage() {
@@ -290,7 +239,7 @@ export default function InactiveEmployeesPage() {
     const termination = employees.filter(e => e.separationType === 'termination').length;
     const retirement = employees.filter(e => e.separationType === 'retirement').length;
     const rehireEligible = employees.filter(e => e.rehireEligible).length;
-    const avgServiceYears = employees.reduce((sum, e) => sum + e.yearsOfService, 0) / total;
+    const avgServiceYears = total ? employees.reduce((sum, e) => sum + e.yearsOfService, 0) / total : 0;
     const pendingClearance = employees.filter(e => !e.fnfSettled || !e.assetsReturned).length;
     return { total, resignation, termination, retirement, rehireEligible, avgServiceYears, pendingClearance };
   }, [employees]);

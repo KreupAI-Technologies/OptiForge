@@ -22,19 +22,13 @@ import {
   X,
   TrendingUp,
   TrendingDown,
-  DollarSign,
-  ShoppingCart,
-  Package,
-  Users,
   Activity,
   AlertTriangle,
   CheckCircle,
   Clock,
-  Zap,
   Target,
   BarChart3,
   PieChart,
-  LineChart as LineChartIcon,
   Calendar,
   Filter,
   Search,
@@ -58,12 +52,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ComposedChart,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
 } from 'recharts';
 import { exportToCsv } from '@/lib/export';
 import {
@@ -153,30 +141,6 @@ export default function DashboardsPage() {
     { id: 'gauge', name: 'Gauge', icon: <Activity className="w-5 h-5" /> },
     { id: 'list', name: 'List', icon: <CheckCircle className="w-5 h-5" /> },
   ];
-
-  const sampleData = {
-    timeSeries: [
-      { date: 'Jan', value: 4000, sales: 2400, orders: 150 },
-      { date: 'Feb', value: 3000, sales: 1398, orders: 180 },
-      { date: 'Mar', value: 2000, sales: 9800, orders: 220 },
-      { date: 'Apr', value: 2780, sales: 3908, orders: 200 },
-      { date: 'May', value: 1890, sales: 4800, orders: 250 },
-      { date: 'Jun', value: 2390, sales: 3800, orders: 280 },
-    ],
-    pieData: [
-      { name: 'Product A', value: 400, color: '#3b82f6' },
-      { name: 'Product B', value: 300, color: '#10b981' },
-      { name: 'Product C', value: 300, color: '#f59e0b' },
-      { name: 'Product D', value: 200, color: '#8b5cf6' },
-    ],
-    radarData: [
-      { subject: 'Quality', A: 120, B: 110, fullMark: 150 },
-      { subject: 'Delivery', A: 98, B: 130, fullMark: 150 },
-      { subject: 'Cost', A: 86, B: 130, fullMark: 150 },
-      { subject: 'Innovation', A: 99, B: 100, fullMark: 150 },
-      { subject: 'Service', A: 85, B: 90, fullMark: 150 },
-    ],
-  };
 
   useEffect(() => {
     loadDashboards();
@@ -337,7 +301,13 @@ export default function DashboardsPage() {
     return content;
   };
 
-  const renderChartWidget = (title: string, type: string) => {
+  const renderChartWidget = (title: string, type: string, data?: any) => {
+    const series: any[] = Array.isArray(data?.series)
+      ? data.series
+      : Array.isArray(data)
+        ? data
+        : [];
+    const pieData: any[] = Array.isArray(data?.pieData) ? data.pieData : series;
     return (
       <div className="bg-white rounded-lg shadow-sm p-3">
         <div className="flex justify-between items-center mb-2">
@@ -347,121 +317,110 @@ export default function DashboardsPage() {
             <span className="text-gray-700">Settings</span>
           </button>
         </div>
-        <ResponsiveContainer width="100%" height={250}>
-          {type === 'line' ? (
-            <LineChart data={sampleData.timeSeries}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
-              <Line type="monotone" dataKey="sales" stroke="#10b981" strokeWidth={2} />
-            </LineChart>
-          ) : type === 'bar' ? (
-            <BarChart data={sampleData.timeSeries}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="value" fill="#3b82f6" />
-              <Bar dataKey="sales" fill="#10b981" />
-            </BarChart>
-          ) : type === 'area' ? (
-            <AreaChart data={sampleData.timeSeries}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Area type="monotone" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
-              <Area type="monotone" dataKey="sales" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
-            </AreaChart>
-          ) : type === 'pie' ? (
-            <RechartsPie>
-              <Pie
-                data={sampleData.pieData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {sampleData.pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </RechartsPie>
-          ) : (
-            <LineChart data={sampleData.timeSeries}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
-            </LineChart>
-          )}
-        </ResponsiveContainer>
+        {series.length === 0 ? (
+          <div className="h-[250px] flex items-center justify-center text-sm text-gray-500">
+            No data available
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={250}>
+            {type === 'bar' ? (
+              <BarChart data={series}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#3b82f6" />
+              </BarChart>
+            ) : type === 'area' ? (
+              <AreaChart data={series}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Area type="monotone" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+              </AreaChart>
+            ) : type === 'pie' ? (
+              <RechartsPie>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color ?? '#3b82f6'} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </RechartsPie>
+            ) : (
+              <LineChart data={series}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
+              </LineChart>
+            )}
+          </ResponsiveContainer>
+        )}
       </div>
     );
   };
 
-  const renderTableWidget = (title: string) => {
-    const tableData = [
-      { id: 1, product: 'Product A', sales: 12500, orders: 145, revenue: '$45,670' },
-      { id: 2, product: 'Product B', sales: 10800, orders: 128, revenue: '$38,920' },
-      { id: 3, product: 'Product C', sales: 9200, orders: 112, revenue: '$32,450' },
-      { id: 4, product: 'Product D', sales: 7500, orders: 98, revenue: '$28,100' },
-      { id: 5, product: 'Product E', sales: 6800, orders: 85, revenue: '$24,360' },
-    ];
-
+  const renderTableWidget = (title: string, data?: any) => {
+    const rows: any[] = Array.isArray(data?.rows) ? data.rows : Array.isArray(data) ? data : [];
+    const columns: string[] = Array.isArray(data?.columns) && data.columns.length > 0
+      ? data.columns
+      : rows.length > 0
+        ? Object.keys(rows[0]).filter((k) => k !== 'id')
+        : [];
     return (
       <div className="bg-white rounded-lg shadow-sm p-3">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            View All
-          </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sales</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orders</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {tableData.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.product}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{row.sales.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{row.orders}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-green-600">{row.revenue}</td>
+        {rows.length === 0 ? (
+          <div className="py-8 text-center text-sm text-gray-500">No data available</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  {columns.map((col) => (
+                    <th key={col} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      {col}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {rows.map((row, i) => (
+                  <tr key={row.id ?? i} className="hover:bg-gray-50">
+                    {columns.map((col) => (
+                      <td key={col} className="px-4 py-3 text-sm text-gray-700">
+                        {String(row[col] ?? '')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     );
   };
 
-  const renderListWidget = (title: string) => {
-    const items = [
-      { id: 1, text: 'New order #12345 received', time: '5 min ago', type: 'success' },
-      { id: 2, text: 'Low stock alert: Product X', time: '15 min ago', type: 'warning' },
-      { id: 3, text: 'Production batch completed', time: '1 hour ago', type: 'success' },
-      { id: 4, text: 'Quality check failed: Batch #789', time: '2 hours ago', type: 'error' },
-      { id: 5, text: 'Shipment dispatched', time: '3 hours ago', type: 'info' },
-    ];
+  const renderListWidget = (title: string, data?: any) => {
+    const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
 
     const getIconColor = (type: string) => {
       switch (type) {
@@ -480,23 +439,24 @@ export default function DashboardsPage() {
       <div className="bg-white rounded-lg shadow-sm p-3">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            View All
-          </button>
         </div>
-        <div className="space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg">
-              <div className={getIconColor(item.type)}>
-                <CheckCircle className="w-5 h-5" />
+        {items.length === 0 ? (
+          <div className="py-8 text-center text-sm text-gray-500">No items</div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item, i) => (
+              <div key={item.id ?? i} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg">
+                <div className={getIconColor(item.type)}>
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-900">{item.text}</p>
+                  <p className="text-xs text-gray-500 mt-1">{item.time}</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-900">{item.text}</p>
-                <p className="text-xs text-gray-500 mt-1">{item.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -793,38 +753,44 @@ export default function DashboardsPage() {
             </div>
 
             {/* Widgets Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
-              {/* Metric Widgets */}
-              {renderMetricWidget('Total Revenue', '$2,456,789', 12.5, <DollarSign className="w-6 h-6" />, 'bg-green-500', '/reports/finance/revenue-analysis')}
-              {renderMetricWidget('Total Orders', '8,542', 8.2, <ShoppingCart className="w-6 h-6" />, 'bg-blue-500', '/reports/sales/orders/status')}
-              {renderMetricWidget('Production Output', '45,678', -3.1, <Package className="w-6 h-6" />, 'bg-purple-500', '/reports/production/performance')}
-              {renderMetricWidget('Active Users', '3,247', 15.8, <Users className="w-6 h-6" />, 'bg-orange-500', '/reports/crm/customers/acquisition')}
-              {renderMetricWidget('System Uptime', '99.8%', 0.2, <Zap className="w-6 h-6" />, 'bg-yellow-500')}
-              {renderMetricWidget('Efficiency Rate', '94.2%', 2.3, <Target className="w-6 h-6" />, 'bg-teal-500', '/reports/production/performance')}
-
-              {/* Chart Widgets */}
-              <div className="md:col-span-2">
-                {renderChartWidget('Revenue Trend', 'line')}
-              </div>
-              <div>
-                {renderChartWidget('Sales Distribution', 'pie')}
-              </div>
-              <div className="md:col-span-2">
-                {renderChartWidget('Monthly Comparison', 'bar')}
-              </div>
-              <div>
-                {renderChartWidget('Growth Analysis', 'area')}
-              </div>
-
-              {/* Table Widget */}
-              <div className="md:col-span-2">
-                {renderTableWidget('Top Products')}
-              </div>
-
-              {/* List Widget */}
-              <div>
-                {renderListWidget('Recent Activities')}
-              </div>
+            <div className="p-3">
+              {selectedDashboard.widgets.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 p-12 text-center">
+                  <Grid className="w-10 h-10 text-gray-300 mb-3" />
+                  <p className="text-gray-600 font-medium">No widgets configured</p>
+                  <p className="text-gray-500 text-sm mt-1">
+                    {isEditing
+                      ? 'Use “Add Widget” to build out this dashboard.'
+                      : 'Edit this dashboard to add widgets.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {selectedDashboard.widgets.map((widget) => (
+                    <div
+                      key={widget.id}
+                      className={
+                        widget.size?.width && widget.size.width > 1 ? 'md:col-span-2' : ''
+                      }
+                    >
+                      {widget.type === 'metric'
+                        ? renderMetricWidget(
+                            widget.title,
+                            String(widget.data?.value ?? ''),
+                            Number(widget.data?.change ?? 0),
+                            <Target className="w-6 h-6" />,
+                            'bg-blue-500',
+                            widget.config?.dataSource,
+                          )
+                        : widget.type === 'chart'
+                          ? renderChartWidget(widget.title, widget.config?.chartType ?? 'line', widget.data)
+                          : widget.type === 'table'
+                            ? renderTableWidget(widget.title, widget.data)
+                            : renderListWidget(widget.title, widget.data)}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

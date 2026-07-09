@@ -101,20 +101,18 @@ export default function Page() {
     };
   }, [reloadKey]);
 
-  const mockCandidates: RehireCandidate[] = rows;
-
-  const filteredCandidates = mockCandidates.filter(c =>
+  const filteredCandidates = rows.filter(c =>
     selectedStatus === 'all' || c.status === selectedStatus
   );
 
   const stats = {
-    total: mockCandidates.length,
-    pending: mockCandidates.filter(c => c.status === 'pending').length,
-    approved: mockCandidates.filter(c => c.status === 'approved').length,
-    rejected: mockCandidates.filter(c => c.status === 'rejected').length,
-    avgEligibilityScore: Math.round(
-      mockCandidates.reduce((sum, c) => sum + c.eligibilityScore, 0) / mockCandidates.length
-    )
+    total: rows.length,
+    pending: rows.filter(c => c.status === 'pending').length,
+    approved: rows.filter(c => c.status === 'approved').length,
+    rejected: rows.filter(c => c.status === 'rejected').length,
+    avgEligibilityScore: rows.length
+      ? Math.round(rows.reduce((sum, c) => sum + c.eligibilityScore, 0) / rows.length)
+      : 0
   };
 
   const statusColors = {

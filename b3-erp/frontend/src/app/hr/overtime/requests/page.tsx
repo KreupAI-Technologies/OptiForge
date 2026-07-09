@@ -77,10 +77,8 @@ export default function OvertimeRequestsPage() {
     };
   }, []);
 
-  const mockRequests: OvertimeRequest[] = rows;
-
   const filteredData = useMemo(() => {
-    return mockRequests.filter(request => {
+    return rows.filter(request => {
       const matchesSearch = request.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            request.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            request.requestId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -91,12 +89,12 @@ export default function OvertimeRequestsPage() {
   }, [searchTerm, selectedStatus, selectedDepartment, rows]);
 
   const stats = {
-    total: mockRequests.length,
-    pending: mockRequests.filter(r => r.status === 'pending').length,
-    approved: mockRequests.filter(r => r.status === 'approved').length,
-    rejected: mockRequests.filter(r => r.status === 'rejected').length,
-    totalHours: mockRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + r.overtimeHours, 0),
-    totalAmount: mockRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.calculatedAmount || 0), 0)
+    total: rows.length,
+    pending: rows.filter(r => r.status === 'pending').length,
+    approved: rows.filter(r => r.status === 'approved').length,
+    rejected: rows.filter(r => r.status === 'rejected').length,
+    totalHours: rows.filter(r => r.status === 'approved').reduce((sum, r) => sum + r.overtimeHours, 0),
+    totalAmount: rows.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.calculatedAmount || 0), 0)
   };
 
   const columns = [

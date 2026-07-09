@@ -76,24 +76,22 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: ProcessingReimbursement[] = rows;
-
   const filteredReimbursements = useMemo(() => {
-    return mockReimbursements.filter(reimb => {
+    return rows.filter(reimb => {
       const matchesStage = selectedStage === 'all' || reimb.processingStage === selectedStage;
       const matchesDept = selectedDepartment === 'all' || reimb.department === selectedDepartment;
       return matchesStage && matchesDept;
     });
-  }, [selectedStage, selectedDepartment]);
+  }, [rows, selectedStage, selectedDepartment]);
 
   const stats = {
-    totalClaims: mockReimbursements.length,
-    totalAmount: mockReimbursements.reduce((sum, r) => sum + r.amount, 0),
-    verification: mockReimbursements.filter(r => r.processingStage === 'verification').length,
-    accountsReview: mockReimbursements.filter(r => r.processingStage === 'accounts_review').length,
-    paymentQueue: mockReimbursements.filter(r => r.processingStage === 'payment_queue').length,
-    bankProcessing: mockReimbursements.filter(r => r.processingStage === 'bank_processing').length,
-    avgProcessingDays: Math.round(mockReimbursements.reduce((sum, r) => sum + r.processingDays, 0) / mockReimbursements.length)
+    totalClaims: rows.length,
+    totalAmount: rows.reduce((sum, r) => sum + r.amount, 0),
+    verification: rows.filter(r => r.processingStage === 'verification').length,
+    accountsReview: rows.filter(r => r.processingStage === 'accounts_review').length,
+    paymentQueue: rows.filter(r => r.processingStage === 'payment_queue').length,
+    bankProcessing: rows.filter(r => r.processingStage === 'bank_processing').length,
+    avgProcessingDays: rows.length ? Math.round(rows.reduce((sum, r) => sum + r.processingDays, 0) / rows.length) : 0
   };
 
   const getStageColor = (stage: string) => {

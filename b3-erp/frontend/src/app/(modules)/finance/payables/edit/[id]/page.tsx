@@ -64,77 +64,31 @@ interface PayableFormData {
   attachments: string[];
 }
 
-// Mock data for editing
-const mockPayable: PayableFormData = {
-  vendorId: 'VEN-2023-0142',
-  vendorName: 'JSW Steel Limited',
-  billNumber: 'JSW/2025/INV-5678',
-  billDate: '2025-09-15',
-  dueDate: '2025-10-30',
-  poReference: 'PO-2025-1234',
-  creditPeriod: 45,
+// Empty form shell; hydrated from the backend on mount.
+const emptyPayable: PayableFormData = {
+  vendorId: '',
+  vendorName: '',
+  billNumber: '',
+  billDate: '',
+  dueDate: '',
+  poReference: '',
+  creditPeriod: 0,
 
-  lineItems: [
-    {
-      id: '1',
-      productService: 'Steel Plates - IS 2062 E250',
-      description: 'Hot Rolled Steel Plates, Grade E250, Thickness 12mm',
-      hsnSac: '72085100',
-      quantity: 50,
-      unit: 'MT',
-      unitPrice: 48000,
-      discount: 2,
-      taxableAmount: 2352000,
-      gstRate: 18,
-      cgst: 211680,
-      sgst: 211680,
-      igst: 0,
-      totalAmount: 2775360,
-    },
-    {
-      id: '2',
-      productService: 'Steel Channels - ISMC 100',
-      description: 'Indian Standard Medium Channel, Size 100mm',
-      hsnSac: '72162100',
-      quantity: 20,
-      unit: 'MT',
-      unitPrice: 52000,
-      discount: 0,
-      taxableAmount: 1040000,
-      gstRate: 18,
-      cgst: 93600,
-      sgst: 93600,
-      igst: 0,
-      totalAmount: 1227200,
-    },
-  ],
+  lineItems: [],
 
-  subtotal: 3440000,
-  totalDiscount: 48000,
-  taxableAmount: 3392000,
-  totalCGST: 305280,
-  totalSGST: 305280,
+  subtotal: 0,
+  totalDiscount: 0,
+  taxableAmount: 0,
+  totalCGST: 0,
+  totalSGST: 0,
   totalIGST: 0,
-  totalGST: 610560,
-  grandTotal: 4002560,
+  totalGST: 0,
+  grandTotal: 0,
 
-  paymentTerms: 'Net 45 days from invoice date. Payment via NEFT/RTGS.',
-  notes: 'Material to be delivered to Bhiwandi warehouse. Quality certificates required.',
-  attachments: ['invoice.pdf', 'po_copy.pdf'],
+  paymentTerms: '',
+  notes: '',
+  attachments: [],
 };
-
-const indianVendors = [
-  { id: 'VEN-001', name: 'JSW Steel Limited', category: 'Raw Material' },
-  { id: 'VEN-002', name: 'Tata Steel Limited', category: 'Raw Material' },
-  { id: 'VEN-003', name: 'Hindalco Industries Ltd', category: 'Raw Material' },
-  { id: 'VEN-004', name: 'ACC Cement', category: 'Raw Material' },
-  { id: 'VEN-005', name: 'Ultratech Cement Ltd', category: 'Raw Material' },
-  { id: 'VEN-006', name: 'Asian Paints Ltd', category: 'Raw Material' },
-  { id: 'VEN-007', name: 'Berger Paints India', category: 'Raw Material' },
-  { id: 'VEN-008', name: 'VRL Logistics Ltd', category: 'Services' },
-  { id: 'VEN-009', name: 'Blue Dart Express', category: 'Services' },
-  { id: 'VEN-010', name: 'Mahindra Logistics', category: 'Services' },
-];
 
 const gstRates = [0, 5, 12, 18, 28];
 
@@ -145,10 +99,12 @@ export default function EditPayablePage() {
   const params = useParams();
   const payableId = params.id as string;
 
-  const [formData, setFormData] = useState<PayableFormData>(mockPayable);
+  const [formData, setFormData] = useState<PayableFormData>(emptyPayable);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,10 +112,17 @@ export default function EditPayablePage() {
       setIsLoading(false);
       return;
     }
+    setIsLoading(true);
+    setLoadError(null);
+    setNotFound(false);
     (async () => {
       try {
         const raw = await FinanceService.getPayable(payableId);
         if (cancelled) return;
+        if (!raw || (raw.id == null && raw.billNumber == null && raw.vendorName == null)) {
+          setNotFound(true);
+          return;
+        }
         const m: any = raw || {};
         setFormData((prev) => ({
           ...prev,
@@ -183,7 +146,7 @@ export default function EditPayablePage() {
     return () => {
       cancelled = true;
     };
-  }, [payableId]);
+  }, [payableId, reloadKey]);
 
   const calculateLineItemTotals = (item: Partial<BillLineItem>): BillLineItem => {
     const quantity = item.quantity || 0;
@@ -332,8 +295,19 @@ export default function EditPayablePage() {
         </div>
       )}
       {loadError && !isLoading && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700">
-          {loadError}
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center justify-between">
+          <span>{loadError}</span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {notFound && !isLoading && (
+        <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-sm text-yellow-700">
+          Payable not found.
         </div>
       )}
       {/* Header */}
@@ -363,31 +337,19 @@ export default function EditPayablePage() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {/* Vendor Selection */}
+            {/* Vendor */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Vendor <span className="text-red-500">*</span>
               </label>
-              <select
-                value={formData.vendorId}
-                onChange={(e) => {
-                  const vendor = indianVendors.find(v => v.id === e.target.value);
-                  setFormData({
-                    ...formData,
-                    vendorId: e.target.value,
-                    vendorName: vendor?.name || '',
-                  });
-                }}
+              <input
+                type="text"
+                value={formData.vendorName}
+                onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Enter vendor name"
                 required
-              >
-                <option value="">Select Vendor</option>
-                {indianVendors.map((vendor) => (
-                  <option key={vendor.id} value={vendor.id}>
-                    {vendor.name} ({vendor.category})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Bill Number */}

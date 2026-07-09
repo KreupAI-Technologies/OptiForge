@@ -31,7 +31,7 @@ function OmnichannelSupportPageContent() {
   const [showConversationDetails, setShowConversationDetails] = useState(false)
   const { addToast } = useToast()
 
-  const [mockConversations, setMockConversations] = useState<ConversationMessage[]>([])
+  const [conversations, setConversations] = useState<ConversationMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,7 +64,7 @@ function OmnichannelSupportPageContent() {
       setLoading(true)
       setError(null)
       const data = await OmnichannelService.getInteractions()
-      setMockConversations(data.map(mapInteraction))
+      setConversations(data.map(mapInteraction))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load conversations')
     } finally {
@@ -76,122 +76,19 @@ function OmnichannelSupportPageContent() {
     loadConversations()
   }, [loadConversations])
 
-  // Mock data for queue
-  const mockQueueItems: QueueItem[] = [
-    {
-      id: 'Q-001',
-      title: 'Payment processing issue',
-      customer: 'Alice Cooper',
-      channel: 'chat',
-      priority: 'high',
-      status: 'waiting',
-      waitTime: 45,
-      preview: 'My payment was declined but money was deducted from my account...',
-      createdAt: '09:15 AM'
-    },
-    {
-      id: 'Q-002',
-      title: 'Feature request - Export functionality',
-      customer: 'David Lee',
-      channel: 'email',
-      priority: 'low',
-      status: 'waiting',
-      waitTime: 15,
-      preview: 'Would be great to have an export to Excel feature for reports...',
-      createdAt: '10:30 AM'
-    },
-    {
-      id: 'Q-003',
-      title: 'Installation support needed',
-      customer: 'Emma Watson',
-      channel: 'phone',
-      priority: 'critical',
-      status: 'assigned',
-      assignedTo: 'Agent Taylor',
-      waitTime: 8,
-      preview: 'Need help installing the software on our production line...',
-      createdAt: '10:45 AM'
-    },
-    {
-      id: 'Q-004',
-      title: 'Technical documentation request',
-      customer: 'Chris Evans',
-      channel: 'email',
-      priority: 'medium',
-      status: 'waiting',
-      waitTime: 22,
-      preview: 'Could you send me the technical specs for model CM-350?',
-      createdAt: '10:00 AM'
-    }
-  ]
+  // Queue and per-conversation timeline have no backend endpoint yet; render
+  // empty until /support/omnichannel exposes queue + timeline data.
+  const queueItems: QueueItem[] = []
 
   const queueStats: QueueStats = {
-    total: 23,
-    waiting: 15,
-    assigned: 8,
-    avgWaitTime: 18,
-    longestWait: 45
+    total: 0,
+    waiting: 0,
+    assigned: 0,
+    avgWaitTime: 0,
+    longestWait: 0
   }
 
-  // Mock timeline data
-  const mockTimeline: TimelineEvent[] = [
-    {
-      id: '1',
-      type: 'status_change',
-      title: 'Ticket created',
-      description: 'Customer submitted ticket via email',
-      timestamp: '2 hours ago',
-      variant: 'info',
-      metadata: {
-        channel: 'Email',
-        priority: 'High'
-      }
-    },
-    {
-      id: '2',
-      type: 'assignment',
-      title: 'Ticket assigned',
-      description: 'Assigned to Agent Smith',
-      timestamp: '1 hour 55 min ago',
-      user: {
-        name: 'System'
-      },
-      variant: 'default'
-    },
-    {
-      id: '3',
-      type: 'message',
-      title: 'Agent replied',
-      description: 'Thank you for contacting us. I\'m looking into your issue...',
-      timestamp: '1 hour 45 min ago',
-      user: {
-        name: 'Agent Smith'
-      },
-      variant: 'default'
-    },
-    {
-      id: '4',
-      type: 'message',
-      title: 'Customer replied',
-      description: 'Thanks! I tried that but still having the same problem.',
-      timestamp: '1 hour 30 min ago',
-      user: {
-        name: 'John Doe'
-      },
-      variant: 'default'
-    },
-    {
-      id: '5',
-      type: 'note',
-      title: 'Internal note added',
-      description: 'Escalating to Level 2 support for password reset investigation',
-      timestamp: '1 hour ago',
-      user: {
-        name: 'Agent Smith'
-      },
-      variant: 'warning'
-    }
-  ]
+  const timeline: TimelineEvent[] = []
 
   const handleConversationSelect = (id: string) => {
     setSelectedConversation(id)
@@ -215,10 +112,10 @@ function OmnichannelSupportPageContent() {
   }
 
   const filteredConversations = selectedChannel === 'all'
-    ? mockConversations
-    : mockConversations.filter(c => c.channel === selectedChannel)
+    ? conversations
+    : conversations.filter(c => c.channel === selectedChannel)
 
-  const selectedConvData = mockConversations.find(c => c.id === selectedConversation)
+  const selectedConvData = conversations.find(c => c.id === selectedConversation)
 
   return (
     <div className="w-full h-screen flex flex-col bg-gray-50">
@@ -294,7 +191,7 @@ function OmnichannelSupportPageContent() {
           <TabContent activeTab={activeTab} tabId="queue">
             <div className="h-full overflow-y-auto">
               <QueueManager
-                items={mockQueueItems}
+                items={queueItems}
                 stats={queueStats}
                 onItemClick={(item) => {
                   addToast({
@@ -419,7 +316,7 @@ function OmnichannelSupportPageContent() {
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Activity Timeline</h3>
               <TimelineView
-                events={mockTimeline}
+                events={timeline}
                 showAvatars
                 compact
               />

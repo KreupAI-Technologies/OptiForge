@@ -72,10 +72,8 @@ export default function OTApprovalPage() {
     };
   }, []);
 
-  const mockApprovals: OvertimeApproval[] = rows;
-
   const filteredData = useMemo(() => {
-    return mockApprovals.filter(request => {
+    return rows.filter(request => {
       const matchesSearch = request.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            request.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            request.requestId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -85,11 +83,13 @@ export default function OTApprovalPage() {
   }, [searchTerm, selectedDepartment, rows]);
 
   const stats = {
-    pending: mockApprovals.filter(r => r.status === 'pending').length,
-    approvedToday: 12,
-    rejectedToday: 3,
-    totalHours: mockApprovals.reduce((sum, r) => sum + r.overtimeHours, 0),
-    totalAmount: mockApprovals.reduce((sum, r) => sum + r.calculatedAmount, 0)
+    pending: rows.filter(r => r.status === 'pending').length,
+    // Today's approved/rejected counts require a backend aggregate that is not
+    // exposed yet (this view only loads pending requests). See NEEDS-BACKEND.
+    approvedToday: 0,
+    rejectedToday: 0,
+    totalHours: rows.reduce((sum, r) => sum + r.overtimeHours, 0),
+    totalAmount: rows.reduce((sum, r) => sum + r.calculatedAmount, 0)
   };
 
   const handleApprovalAction = (request: OvertimeApproval, action: 'approve' | 'reject') => {

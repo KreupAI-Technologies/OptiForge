@@ -74,9 +74,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockTransactions: Transaction[] = rows;
-
-  const filteredTransactions = mockTransactions.filter(t => {
+  const filteredTransactions = rows.filter(t => {
     const statusMatch = selectedStatus === 'all' || t.status === selectedStatus;
     const cardTypeMatch = selectedCardType === 'all' || t.cardType === selectedCardType;
     const categoryMatch = selectedCategory === 'all' || t.category === selectedCategory;
@@ -86,8 +84,8 @@ export default function Page() {
   const stats = {
     total: filteredTransactions.reduce((sum, t) => sum + t.amount, 0),
     count: filteredTransactions.length,
-    pending: mockTransactions.filter(t => t.status === 'pending').length,
-    flagged: mockTransactions.filter(t => t.status === 'flagged').length
+    pending: rows.filter(t => t.status === 'pending').length,
+    flagged: rows.filter(t => t.status === 'flagged').length
   };
 
   const statusColors = {
@@ -234,8 +232,8 @@ export default function Page() {
       {filteredTransactions.length === 0 && !isLoading && (
         <EmptyState
           icon={Receipt}
-          title={mockTransactions.length === 0 ? 'No transactions yet' : 'No matching transactions'}
-          description={mockTransactions.length === 0 ? 'Card transactions will appear here once recorded.' : 'Try adjusting the status, card type, or category filters.'}
+          title={rows.length === 0 ? 'No transactions yet' : 'No matching transactions'}
+          description={rows.length === 0 ? 'Card transactions will appear here once recorded.' : 'Try adjusting the status, card type, or category filters.'}
         />
       )}
 

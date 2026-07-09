@@ -14,28 +14,6 @@ import {
     X,
     MoreHorizontal
 } from 'lucide-react';
-
-
-const mockDiscrepancies: Discrepancy[] = [
-    {
-        id: '1',
-        projectId: '1',
-        type: 'BOQ_VS_DWG',
-        description: 'Exhaust Hood quantity mismatch: BOQ says 2, DWG shows 3',
-        severity: 'HIGH',
-        status: 'OPEN',
-        createdAt: '2025-02-05'
-    },
-    {
-        id: '1',
-        projectId: '1',
-        type: 'DWG_VS_SITE',
-        description: 'Site wall M1 is 3450mm, Dwg shows 3500mm',
-        severity: 'CRITICAL',
-        status: 'OPEN',
-        createdAt: '2025-02-06'
-    }
-];
 import { designVerificationService, Discrepancy } from '@/services/DesignVerificationService';
 import { boqService, BOQ } from '@/services/BOQService';
 
@@ -44,6 +22,7 @@ export default function ComparisonToolsPage() {
     const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([]);
     const [selectedBOQ, setSelectedBOQ] = useState<BOQ | null>(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
@@ -51,6 +30,7 @@ export default function ComparisonToolsPage() {
 
     const loadData = async () => {
         setLoading(true);
+        setError(null);
         try {
             const [issues, boqs] = await Promise.all([
                 designVerificationService.getDiscrepancies(id),
@@ -58,8 +38,9 @@ export default function ComparisonToolsPage() {
             ]);
             setDiscrepancies(issues);
             if (boqs.length > 0) setSelectedBOQ(boqs[0]);
-        } catch (error) {
-            console.error('Failed to load data:', error);
+        } catch (err) {
+            console.error('Failed to load data:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load design verification data');
         } finally {
             setLoading(false);
         }
@@ -116,6 +97,22 @@ export default function ComparisonToolsPage() {
                     </button>
                 </div>
             </div>
+
+            {error && (
+                <div className="bg-white rounded-xl shadow-sm border border-rose-200 p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-700">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-xs font-bold">{error}</span>
+                    </div>
+                    <button
+                        onClick={loadData}
+                        disabled={loading}
+                        className="text-xs font-bold bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 disabled:opacity-50"
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Comparison View (Conceptual) */}

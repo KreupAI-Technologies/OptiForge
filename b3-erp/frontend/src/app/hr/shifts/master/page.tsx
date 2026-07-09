@@ -98,51 +98,6 @@ export default function ShiftMasterPage() {
     };
   }, []);
 
-  const mockShifts: Shift[] = [
-    {
-      id: 'SH001', name: 'General Day Shift', code: 'GEN-DAY', type: 'day',
-      startTime: '09:00', endTime: '18:00', breakDuration: 60, workingHours: 9, gracePeriod: 15,
-      overtimeEligible: true, nightShiftAllowance: false, assignedEmployees: 65,
-      status: 'active', daysApplicable: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      createdDate: '2024-01-01'
-    },
-    {
-      id: 'SH002', name: 'Night Shift', code: 'NIGHT', type: 'night',
-      startTime: '22:00', endTime: '07:00', breakDuration: 60, workingHours: 9, gracePeriod: 10,
-      overtimeEligible: true, nightShiftAllowance: true, assignedEmployees: 28,
-      status: 'active', daysApplicable: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      createdDate: '2024-01-01'
-    },
-    {
-      id: 'SH003', name: 'Morning Shift', code: 'MORN', type: 'morning',
-      startTime: '06:00', endTime: '15:00', breakDuration: 60, workingHours: 9, gracePeriod: 5,
-      overtimeEligible: true, nightShiftAllowance: false, assignedEmployees: 42,
-      status: 'active', daysApplicable: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      createdDate: '2024-01-15'
-    },
-    {
-      id: 'SH004', name: 'Evening Shift', code: 'EVE', type: 'evening',
-      startTime: '15:00', endTime: '00:00', breakDuration: 60, workingHours: 9, gracePeriod: 10,
-      overtimeEligible: true, nightShiftAllowance: true, assignedEmployees: 35,
-      status: 'active', daysApplicable: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      createdDate: '2024-01-15'
-    },
-    {
-      id: 'SH005', name: 'Flexible Shift', code: 'FLEX', type: 'flexible',
-      startTime: '08:00', endTime: '22:00', breakDuration: 60, workingHours: 9, gracePeriod: 0,
-      overtimeEligible: false, nightShiftAllowance: false, assignedEmployees: 15,
-      status: 'active', daysApplicable: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-      createdDate: '2024-02-01'
-    },
-    {
-      id: 'SH006', name: 'Weekend Shift', code: 'WKND', type: 'day',
-      startTime: '10:00', endTime: '19:00', breakDuration: 60, workingHours: 9, gracePeriod: 15,
-      overtimeEligible: true, nightShiftAllowance: false, assignedEmployees: 8,
-      status: 'active', daysApplicable: ['Saturday', 'Sunday'],
-      createdDate: '2024-03-01'
-    }
-  ];
-
   const getTypeIcon = (type: string) => {
     const icons = {
       day: <Sun className="w-6 h-6 text-yellow-600" />,
@@ -258,6 +213,15 @@ export default function ShiftMasterPage() {
           </button>
         </div>
       </div>
+
+      {/* Empty State */}
+      {shifts.length === 0 && !isLoading && !loadError && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <Clock className="h-12 w-12 text-gray-400 mb-2 mx-auto" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No shift templates yet</h3>
+          <p className="text-gray-600">Create a new shift to define work shift templates.</p>
+        </div>
+      )}
 
       {/* Shifts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

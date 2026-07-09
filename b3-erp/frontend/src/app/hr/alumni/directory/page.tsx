@@ -88,11 +88,9 @@ export default function Page() {
     };
   }, []);
 
-  const mockAlumni: AlumniMember[] = rows;
-
   // Filter alumni
   const filteredAlumni = useMemo(() => {
-    return mockAlumni.filter(member => {
+    return rows.filter(member => {
       const matchesSearch =
         member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         member.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -103,20 +101,22 @@ export default function Page() {
 
       return matchesSearch && matchesDept && matchesLocation && matchesStatus;
     });
-  }, [mockAlumni, searchQuery, selectedDepartment, selectedLocation, selectedStatus]);
+  }, [rows, searchQuery, selectedDepartment, selectedLocation, selectedStatus]);
 
   // Stats
   const stats = useMemo(() => ({
-    total: mockAlumni.length,
-    activeMentors: mockAlumni.filter(m => m.willingToMentor).length,
-    rehireEligible: mockAlumni.filter(m => m.availableForRehire).length,
-    avgTenure: (mockAlumni.reduce((sum, m) => {
-      const years = parseFloat(m.tenure.split(' ')[0]);
-      return sum + years;
-    }, 0) / mockAlumni.length).toFixed(1)
-  }), [mockAlumni]);
+    total: rows.length,
+    activeMentors: rows.filter(m => m.willingToMentor).length,
+    rehireEligible: rows.filter(m => m.availableForRehire).length,
+    avgTenure: rows.length
+      ? (rows.reduce((sum, m) => {
+          const years = parseFloat(m.tenure.split(' ')[0]);
+          return sum + (Number.isFinite(years) ? years : 0);
+        }, 0) / rows.length).toFixed(1)
+      : '0.0'
+  }), [rows]);
 
-  const departments = ['all', ...Array.from(new Set(mockAlumni.map(m => m.department)))];
+  const departments = ['all', ...Array.from(new Set(rows.map(m => m.department)))];
   const locations = ['all', 'Pune', 'Mumbai', 'Bangalore', 'Hyderabad', 'Ahmedabad'];
 
   const handleViewProfile = (member: AlumniMember) => {

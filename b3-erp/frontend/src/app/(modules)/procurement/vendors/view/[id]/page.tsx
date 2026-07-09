@@ -201,315 +201,82 @@ interface Vendor {
   };
 }
 
-// Mock vendor data
-const mockVendor: Vendor = {
-  id: 'V-001',
-  vendorCode: 'VEN-2025-0123',
-  legalName: 'JSW Steel Limited',
-  tradeName: 'JSW Steel',
-  gstNumber: '27AAACJ0308G1Z4',
-  panNumber: 'AAACJ0308G',
-  cinNumber: 'L27101MH1994PLC152925',
-  msmeRegistration: 'MSME-2024-12345',
-  rating: 4.8,
+// Empty vendor shell; hydrated from the backend on mount. Enum fields use
+// valid defaults so config lookups never crash before data loads.
+const emptyVendor: Vendor = {
+  id: '',
+  vendorCode: '',
+  legalName: '',
+  tradeName: '',
+  gstNumber: '',
+  panNumber: '',
+  cinNumber: '',
+  msmeRegistration: '',
+  rating: 0,
   status: 'active',
-  contactPersons: [
-    {
-      id: '1',
-      name: 'Rajesh Kumar',
-      designation: 'Sales Manager',
-      mobile: '+91 98765 43210',
-      email: 'rajesh.kumar@jswsteel.in',
-      department: 'Sales',
-      isPrimary: true,
-    },
-    {
-      id: '2',
-      name: 'Priya Sharma',
-      designation: 'Account Manager',
-      mobile: '+91 98765 43211',
-      email: 'priya.sharma@jswsteel.in',
-      department: 'Accounts',
-      isPrimary: false,
-    },
-    {
-      id: '3',
-      name: 'Amit Patel',
-      designation: 'Technical Support',
-      mobile: '+91 98765 43212',
-      email: 'amit.patel@jswsteel.in',
-      department: 'Technical',
-      isPrimary: false,
-    },
-  ],
-  addresses: [
-    {
-      type: 'registered',
-      addressLine1: 'JSW Centre, Bandra Kurla Complex',
-      addressLine2: 'Bandra East',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pinCode: '400051',
-      country: 'India',
-    },
-    {
-      type: 'factory',
-      addressLine1: 'JSW Steel Plant, Toranagallu',
-      addressLine2: 'Vidyanagar',
-      city: 'Ballari',
-      state: 'Karnataka',
-      pinCode: '583123',
-      country: 'India',
-    },
-    {
-      type: 'warehouse',
-      addressLine1: 'Plot No. 45, MIDC Industrial Area',
-      addressLine2: 'Phase II',
-      city: 'Pune',
-      state: 'Maharashtra',
-      pinCode: '411019',
-      country: 'India',
-    },
-  ],
+  contactPersons: [],
+  addresses: [],
   bankDetails: {
-    bankName: 'HDFC Bank',
-    accountNumber: '50200012345678',
-    ifscCode: 'HDFC0001234',
-    branch: 'Bandra Kurla Complex, Mumbai',
-    accountType: 'Current Account',
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    branch: '',
+    accountType: '',
   },
   paymentTerms: {
-    netDays: 45,
-    discountTerms: '2/10 Net 45',
-    paymentMethod: 'NEFT/RTGS',
+    netDays: 0,
+    discountTerms: '',
+    paymentMethod: '',
   },
-  categories: ['Raw Materials', 'Steel Products', 'Metal Components'],
-  specificMaterials: ['HR Coils', 'CR Coils', 'TMT Bars', 'Structural Steel', 'Galvanized Sheets', 'Steel Plates'],
+  categories: [],
+  specificMaterials: [],
   certifications: {
-    iso9001: true,
-    iso14001: true,
-    ohsas18001: true,
-    other: ['BIS Certification', 'CRS Certification', 'NABL Accredited Labs'],
+    iso9001: false,
+    iso14001: false,
+    ohsas18001: false,
+    other: [],
   },
-  documents: [
-    {
-      id: '1',
-      name: 'GST Certificate',
-      type: 'GST',
-      uploadDate: '2024-01-15',
-      size: '245 KB',
-      url: '#',
-    },
-    {
-      id: '2',
-      name: 'PAN Card',
-      type: 'PAN',
-      uploadDate: '2024-01-15',
-      size: '128 KB',
-      url: '#',
-    },
-    {
-      id: '3',
-      name: 'Cancelled Cheque',
-      type: 'Bank',
-      uploadDate: '2024-01-15',
-      size: '156 KB',
-      url: '#',
-    },
-    {
-      id: '4',
-      name: 'MSME Certificate',
-      type: 'MSME',
-      uploadDate: '2024-01-15',
-      size: '189 KB',
-      url: '#',
-    },
-    {
-      id: '5',
-      name: 'ISO 9001 Certificate',
-      type: 'Certification',
-      uploadDate: '2024-02-10',
-      size: '312 KB',
-      url: '#',
-    },
-    {
-      id: '6',
-      name: 'ISO 14001 Certificate',
-      type: 'Certification',
-      uploadDate: '2024-02-10',
-      size: '298 KB',
-      url: '#',
-    },
-  ],
-  totalPOs: 248,
-  totalSpendYTD: 185600000,
-  registeredDate: '2023-03-15',
-  lastOrderDate: '2025-10-10',
-  notes: 'Premium vendor with excellent track record. Preferred supplier for all steel requirements.',
+  documents: [],
+  totalPOs: 0,
+  totalSpendYTD: 0,
+  registeredDate: '',
+  lastOrderDate: '',
+  notes: '',
   performanceMetrics: {
     onTimeDelivery: {
-      current: 96.5,
-      trend: 'up',
-      monthlyData: [
-        { month: 'Apr', percentage: 92 },
-        { month: 'May', percentage: 94 },
-        { month: 'Jun', percentage: 93 },
-        { month: 'Jul', percentage: 95 },
-        { month: 'Aug', percentage: 96 },
-        { month: 'Sep', percentage: 97 },
-        { month: 'Oct', percentage: 96.5 },
-      ],
+      current: 0,
+      trend: 'stable',
+      monthlyData: [],
     },
     qualityAcceptance: {
-      accepted: 9845,
-      rejected: 155,
-      percentage: 98.45,
+      accepted: 0,
+      rejected: 0,
+      percentage: 0,
       trend: 'stable',
     },
     averageDelay: {
-      days: 1.2,
-      trend: 'down',
+      days: 0,
+      trend: 'stable',
     },
     priceCompetitiveness: {
-      score: 8.7,
-      rank: 'Excellent',
+      score: 0,
+      rank: '',
     },
     responsiveness: {
-      rating: 4.9,
-      avgResponseTime: '2.3 hours',
+      rating: 0,
+      avgResponseTime: '',
     },
-    overallGrade: 'A+',
-    vendorScore: 94.5,
-    rejectionAnalysis: [
-      { reason: 'Dimensional Defects', count: 68, percentage: 43.9 },
-      { reason: 'Surface Defects', count: 45, percentage: 29.0 },
-      { reason: 'Material Grade Mismatch', count: 25, percentage: 16.1 },
-      { reason: 'Packaging Issues', count: 17, percentage: 11.0 },
-    ],
+    overallGrade: 'A',
+    vendorScore: 0,
+    rejectionAnalysis: [],
   },
-  purchaseOrders: [
-    {
-      id: '1',
-      poNumber: 'PO-2025-10-0123',
-      date: '2025-10-10',
-      amount: 4580000,
-      status: 'in_progress',
-      items: 12,
-      deliveryDate: '2025-10-25',
-    },
-    {
-      id: '2',
-      poNumber: 'PO-2025-09-0456',
-      date: '2025-09-28',
-      amount: 6750000,
-      status: 'completed',
-      items: 18,
-      deliveryDate: '2025-10-12',
-    },
-    {
-      id: '3',
-      poNumber: 'PO-2025-09-0234',
-      date: '2025-09-15',
-      amount: 3200000,
-      status: 'completed',
-      items: 8,
-      deliveryDate: '2025-09-30',
-    },
-    {
-      id: '4',
-      poNumber: 'PO-2025-08-0789',
-      date: '2025-08-22',
-      amount: 5890000,
-      status: 'completed',
-      items: 15,
-      deliveryDate: '2025-09-05',
-    },
-    {
-      id: '5',
-      poNumber: 'PO-2025-08-0567',
-      date: '2025-08-10',
-      amount: 4120000,
-      status: 'completed',
-      items: 10,
-      deliveryDate: '2025-08-25',
-    },
-  ],
-  payments: [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2025-0234',
-      date: '2025-10-05',
-      amount: 6750000,
-      status: 'processing',
-      dueDate: '2025-11-19',
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-2025-0198',
-      date: '2025-09-20',
-      amount: 3200000,
-      status: 'paid',
-      dueDate: '2025-11-04',
-      paidDate: '2025-10-15',
-    },
-    {
-      id: '3',
-      invoiceNumber: 'INV-2025-0156',
-      date: '2025-09-01',
-      amount: 5890000,
-      status: 'paid',
-      dueDate: '2025-10-16',
-      paidDate: '2025-10-10',
-    },
-    {
-      id: '4',
-      invoiceNumber: 'INV-2025-0123',
-      date: '2025-08-15',
-      amount: 4120000,
-      status: 'paid',
-      dueDate: '2025-09-29',
-      paidDate: '2025-09-25',
-    },
-  ],
-  qualityIssues: [
-    {
-      id: '1',
-      date: '2025-09-18',
-      poNumber: 'PO-2025-09-0234',
-      issueType: 'Dimensional Defects',
-      description: 'HR Coil thickness variation beyond tolerance (±0.15mm found, ±0.05mm required)',
-      severity: 'medium',
-      status: 'resolved',
-      rejectedQty: 2500,
-      rejectedValue: 125000,
-    },
-    {
-      id: '2',
-      date: '2025-08-25',
-      poNumber: 'PO-2025-08-0456',
-      issueType: 'Surface Defects',
-      description: 'Surface rust spots found on galvanized sheets',
-      severity: 'low',
-      status: 'closed',
-      rejectedQty: 850,
-      rejectedValue: 68000,
-    },
-    {
-      id: '3',
-      date: '2025-07-12',
-      poNumber: 'PO-2025-07-0189',
-      issueType: 'Material Grade Mismatch',
-      description: 'Material certified as Grade 250 but tested as Grade 240',
-      severity: 'high',
-      status: 'closed',
-      rejectedQty: 5000,
-      rejectedValue: 450000,
-    },
-  ],
+  purchaseOrders: [],
+  payments: [],
+  qualityIssues: [],
   riskIndicators: {
     paymentDisputes: 0,
-    qualityIssues: 3,
-    deliveryDelays: 5,
+    qualityIssues: 0,
+    deliveryDelays: 0,
   },
 };
 
@@ -517,18 +284,26 @@ export default function VendorViewPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'transactions'>('overview');
-  const [vendor, setVendor] = useState<Vendor>(mockVendor);
+  const [vendor, setVendor] = useState<Vendor>(emptyVendor);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setIsLoading(true);
       setLoadError(null);
+      setNotFound(false);
       try {
         const raw = (await vendorService.getVendorById(id)) as any;
-        if (!cancelled && raw) {
+        if (cancelled) return;
+        if (!raw || (raw.id == null && raw.legalName == null && raw.vendorCode == null)) {
+          setNotFound(true);
+          return;
+        }
+        {
           setVendor((prev) => ({
             ...prev,
             id: raw.id ?? prev.id,
@@ -564,7 +339,7 @@ export default function VendorViewPage({ params }: { params: Promise<{ id: strin
     };
     load();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, reloadKey]);
 
   const statusColors = {
     active: 'bg-green-100 text-green-700 border-green-200',
@@ -659,6 +434,25 @@ export default function VendorViewPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="w-full h-full px-3 py-2 overflow-auto">
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading vendor...</div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center justify-between">
+          <span>{loadError}</span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {notFound && !isLoading && (
+        <div className="mb-3 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700">Vendor not found.</div>
+      )}
+      {!isLoading && !notFound && (
+      <>
       {/* Header */}
       <div className="mb-3">
         <button
@@ -1531,6 +1325,8 @@ export default function VendorViewPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

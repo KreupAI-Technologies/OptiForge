@@ -66,14 +66,12 @@ export default function Page() {
     };
   }, []);
 
-  const mockHistory: TravelHistory[] = rows;
-
   const stats = {
-    totalTrips: mockHistory.length,
-    domesticTrips: mockHistory.filter(t => t.travelType === 'domestic').length,
-    internationalTrips: mockHistory.filter(t => t.travelType === 'international').length,
-    totalSpent: mockHistory.reduce((sum, t) => sum + t.totalCost, 0),
-    avgTripCost: mockHistory.length ? Math.round(mockHistory.reduce((sum, t) => sum + t.totalCost, 0) / mockHistory.length) : 0
+    totalTrips: rows.length,
+    domesticTrips: rows.filter(t => t.travelType === 'domestic').length,
+    internationalTrips: rows.filter(t => t.travelType === 'international').length,
+    totalSpent: rows.reduce((sum, t) => sum + t.totalCost, 0),
+    avgTripCost: rows.length ? Math.round(rows.reduce((sum, t) => sum + t.totalCost, 0) / rows.length) : 0
   };
 
   return (
@@ -187,7 +185,7 @@ export default function Page() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {mockHistory.map(trip => (
+            {rows.map(trip => (
               <tr key={trip.id} className="hover:bg-gray-50">
                 <td className="px-3 py-2">
                   <div>

@@ -72,18 +72,16 @@ export default function Page() {
     };
   }, []);
 
-  const mockAdvances: TravelAdvance[] = rows;
-
-  const filteredAdvances = mockAdvances.filter(a =>
+  const filteredAdvances = rows.filter(a =>
     selectedStatus === 'all' || a.status === selectedStatus
   );
 
   const stats = {
-    total: mockAdvances.length,
-    pending: mockAdvances.filter(a => a.status === 'pending').length,
-    disbursed: mockAdvances.filter(a => a.status === 'disbursed').length,
-    totalAmount: mockAdvances.reduce((sum, a) => sum + a.advanceAmount, 0),
-    outstanding: mockAdvances.filter(a => a.status === 'disbursed').reduce((sum, a) => sum + a.advanceAmount, 0)
+    total: rows.length,
+    pending: rows.filter(a => a.status === 'pending').length,
+    disbursed: rows.filter(a => a.status === 'disbursed').length,
+    totalAmount: rows.reduce((sum, a) => sum + a.advanceAmount, 0),
+    outstanding: rows.filter(a => a.status === 'disbursed').reduce((sum, a) => sum + a.advanceAmount, 0)
   };
 
   const statusColors = {

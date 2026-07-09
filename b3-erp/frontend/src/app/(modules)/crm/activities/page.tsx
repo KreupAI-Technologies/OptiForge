@@ -51,60 +51,9 @@ const activityStatConfig: Array<{ type: string; key: RecentActivity['type']; ico
   { type: 'Emails', key: 'email', icon: Mail, color: 'orange', href: '/crm/activities/emails' },
 ];
 
-const mockTeamMembers: TeamMember[] = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    avatar: 'SJ',
-    role: 'Senior Sales Executive',
-    tasksCompleted: 42,
-    tasksTotal: 48,
-    meetingsToday: 3,
-    callsToday: 5,
-    emailsSent: 28,
-    productivityScore: 94,
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    avatar: 'MC',
-    role: 'Account Manager',
-    tasksCompleted: 38,
-    tasksTotal: 45,
-    meetingsToday: 2,
-    callsToday: 7,
-    emailsSent: 32,
-    productivityScore: 88,
-  },
-  {
-    id: '3',
-    name: 'Emily Rodriguez',
-    avatar: 'ER',
-    role: 'Sales Representative',
-    tasksCompleted: 35,
-    tasksTotal: 42,
-    meetingsToday: 4,
-    callsToday: 6,
-    emailsSent: 25,
-    productivityScore: 86,
-  },
-  {
-    id: '4',
-    name: 'David Martinez',
-    avatar: 'DM',
-    role: 'Business Development',
-    tasksCompleted: 31,
-    tasksTotal: 40,
-    meetingsToday: 2,
-    callsToday: 4,
-    emailsSent: 19,
-    productivityScore: 82,
-  },
-];
-
 export default function ActivitiesPage() {
   const [activities, setActivities] = useState<RecentActivity[]>([]);
-  const [teamMembers] = useState<TeamMember[]>(mockTeamMembers);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month'>('week');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -151,6 +100,40 @@ export default function ActivitiesPage() {
           duration: a?.duration ?? undefined,
         }));
         if (!cancelled) setActivities(mapped);
+
+        // Team performance from live CRM team analytics.
+        const teamRaw = await crmService.analyticsViews.getTeam().catch(() => null);
+        const teamList: any[] = Array.isArray(teamRaw)
+          ? teamRaw
+          : Array.isArray(teamRaw?.members)
+            ? teamRaw.members
+            : [];
+        if (!cancelled) {
+          setTeamMembers(
+            teamList.map((m, i): TeamMember => {
+              const name: string = m?.name ?? m?.memberName ?? '';
+              return {
+                id: String(m?.id ?? i),
+                name,
+                avatar:
+                  m?.avatar ??
+                  name
+                    .split(' ')
+                    .map((p: string) => p.charAt(0))
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase(),
+                role: m?.role ?? '',
+                tasksCompleted: Number(m?.tasksCompleted ?? 0),
+                tasksTotal: Number(m?.tasksTotal ?? 0),
+                meetingsToday: Number(m?.meetingsToday ?? 0),
+                callsToday: Number(m?.callsToday ?? 0),
+                emailsSent: Number(m?.emailsSent ?? 0),
+                productivityScore: Number(m?.productivityScore ?? 0),
+              };
+            }),
+          );
+        }
       } catch (err) {
         if (!cancelled) setLoadError('Failed to load activities. Please try again.');
       } finally {
@@ -379,13 +362,13 @@ export default function ActivitiesPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-gray-600">Completion Rate</span>
                       <span className="text-xs font-bold text-gray-900">
-                        {((stat.completed / stat.count) * 100).toFixed(0)}%
+                        {stat.count > 0 ? ((stat.completed / stat.count) * 100).toFixed(0) : 0}%
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-green-600 h-2 rounded-full"
-                        style={{ width: `${(stat.completed / stat.count) * 100}%` }}
+                        style={{ width: `${stat.count > 0 ? (stat.completed / stat.count) * 100 : 0}%` }}
                       ></div>
                     </div>
                   </div>
@@ -408,6 +391,9 @@ export default function ActivitiesPage() {
             </div>
 
             <div className="space-y-2">
+              {!isLoading && !loadError && activities.length === 0 && (
+                <div className="py-8 text-center text-gray-500 text-sm">No activities found.</div>
+              )}
               {activities.map((activity) => {
                 const Icon = getActivityIcon(activity.type);
                 return (
@@ -465,6 +451,9 @@ export default function ActivitiesPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-3">Team Performance</h2>
 
             <div className="space-y-2">
+              {!isLoading && teamMembers.length === 0 && (
+                <div className="py-8 text-center text-gray-500 text-sm">No team performance data available.</div>
+              )}
               {teamMembers.map((member) => (
                 <div key={member.id} className="border border-gray-200 rounded-lg p-3">
                   <div className="flex items-start gap-3 mb-3">

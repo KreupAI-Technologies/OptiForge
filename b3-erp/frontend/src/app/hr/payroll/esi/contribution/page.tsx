@@ -50,7 +50,7 @@ export default function ESIContributionPage() {
 
   // Summary/challan object derived from the real fetched records
   const eligibleRecords = records.filter(r => r.eligible);
-  const mockESIMonth: ESIContributionMonth = {
+  const esiMonth: ESIContributionMonth = {
     id: 'ESI-2025-11',
     monthYear: 'November 2025',
     payPeriod: '01-Nov-2025 to 30-Nov-2025',
@@ -109,7 +109,7 @@ export default function ESIContributionPage() {
   // Handler: Download Return
   const handleDownloadReturn = async () => {
     try {
-      await generateESIContributionReturn(mockESIMonth);
+      await generateESIContributionReturn(esiMonth);
       toast({
         title: "Success",
         description: "ESI contribution return downloaded successfully",
@@ -126,7 +126,7 @@ export default function ESIContributionPage() {
   // Handler: Generate Challan
   const handleGenerateChallan = async () => {
     try {
-      await generateESIChallan(mockESIMonth);
+      await generateESIChallan(esiMonth);
       toast({
         title: "Success",
         description: "ESI challan generated successfully",
@@ -162,16 +162,16 @@ export default function ESIContributionPage() {
       <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg shadow-sm border border-pink-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{mockESIMonth.monthYear}</h2>
-            <p className="text-sm text-gray-600 mt-1">Pay Period: {mockESIMonth.payPeriod}</p>
-            <p className="text-xs text-gray-500 mt-1">ESI Month ID: {mockESIMonth.id}</p>
+            <h2 className="text-xl font-bold text-gray-900">{esiMonth.monthYear}</h2>
+            <p className="text-sm text-gray-600 mt-1">Pay Period: {esiMonth.payPeriod}</p>
+            <p className="text-xs text-gray-500 mt-1">ESI Month ID: {esiMonth.id}</p>
           </div>
           <div className="text-right">
-            <span className={`px-4 py-2 text-sm font-semibold rounded-full ${statusColors[mockESIMonth.status]} block mb-2`}>
-              {mockESIMonth.status.toUpperCase()}
+            <span className={`px-4 py-2 text-sm font-semibold rounded-full ${statusColors[esiMonth.status]} block mb-2`}>
+              {esiMonth.status.toUpperCase()}
             </span>
             <p className="text-xs text-gray-600">
-              Due Date: {new Date(mockESIMonth.dueDate).toLocaleDateString('en-IN')}
+              Due Date: {new Date(esiMonth.dueDate).toLocaleDateString('en-IN')}
             </p>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function ESIContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Covered Employees</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{mockESIMonth.employeeCount}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{esiMonth.employeeCount}</p>
               </div>
               <Users className="h-6 w-6 text-pink-600" />
             </div>
@@ -191,7 +191,7 @@ export default function ESIContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Employee Share</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(mockESIMonth.totalEmployeeContribution)}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(esiMonth.totalEmployeeContribution)}</p>
               </div>
               <DollarSign className="h-6 w-6 text-green-600" />
             </div>
@@ -201,7 +201,7 @@ export default function ESIContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Employer Share</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(mockESIMonth.totalEmployerContribution)}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(esiMonth.totalEmployerContribution)}</p>
               </div>
               <TrendingUp className="h-6 w-6 text-purple-600" />
             </div>
@@ -211,7 +211,7 @@ export default function ESIContributionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Total Payable</p>
-                <p className="text-lg font-bold text-pink-900 mt-1">{formatCurrency(mockESIMonth.totalPayable)}</p>
+                <p className="text-lg font-bold text-pink-900 mt-1">{formatCurrency(esiMonth.totalPayable)}</p>
               </div>
               <Heart className="h-6 w-6 text-rose-600" />
             </div>
@@ -222,7 +222,7 @@ export default function ESIContributionPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
           <p className="text-xs font-medium text-blue-600 mb-1">Total ESI Wages</p>
-          <p className="text-xl font-bold text-blue-900">{formatCurrency(mockESIMonth.totalWages)}</p>
+          <p className="text-xl font-bold text-blue-900">{formatCurrency(esiMonth.totalWages)}</p>
           <p className="text-xs text-blue-700 mt-1">Gross wages for ESI eligible employees</p>
         </div>
 

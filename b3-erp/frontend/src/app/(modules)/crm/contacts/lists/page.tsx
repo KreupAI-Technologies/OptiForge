@@ -37,50 +37,13 @@ interface ListContact {
   status: 'subscribed' | 'unsubscribed' | 'bounced';
 }
 
-const mockContacts: ListContact[] = [
-  {
-    id: '1',
-    name: 'John Anderson',
-    email: 'john.anderson@enterprise.com',
-    phone: '+1 (555) 123-4567',
-    company: 'Enterprise Corp',
-    title: 'CTO',
-    addedDate: '2024-08-15',
-    lastEngagement: '2024-10-18',
-    engagementScore: 85,
-    status: 'subscribed',
-  },
-  {
-    id: '2',
-    name: 'Lisa Thompson',
-    email: 'lisa.t@techventures.com',
-    phone: '+1 (555) 234-5678',
-    company: 'TechVentures',
-    title: 'VP Engineering',
-    addedDate: '2024-07-20',
-    lastEngagement: '2024-10-15',
-    engagementScore: 72,
-    status: 'subscribed',
-  },
-  {
-    id: '3',
-    name: 'Robert Chang',
-    email: 'robert.chang@innovate.io',
-    phone: '+1 (555) 345-6789',
-    company: 'Innovate Systems',
-    title: 'Director of IT',
-    addedDate: '2024-09-05',
-    lastEngagement: '2024-10-10',
-    engagementScore: 58,
-    status: 'subscribed',
-  },
-];
-
 export default function ContactListsPage() {
   const [lists, setLists] = useState<ContactList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [contacts] = useState<ListContact[]>(mockContacts);
+  const [contacts, setContacts] = useState<ListContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsError, setContactsError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -139,6 +102,47 @@ export default function ContactListsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'archived' | 'draft'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'contacts' | 'openRate' | 'updated'>('updated');
   const [selectedList, setSelectedList] = useState<ContactList | null>(null);
+
+  useEffect(() => {
+    if (!selectedList) {
+      setContacts([]);
+      setContactsError(null);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        setContactsLoading(true);
+        setContactsError(null);
+        const detail: any = await crmService.contactLists.getById(selectedList.id);
+        const rows: any[] = Array.isArray(detail?.contacts)
+          ? detail.contacts
+          : Array.isArray(detail?.members)
+            ? detail.members
+            : [];
+        if (!mounted) return;
+        setContacts(rows.map((c: any): ListContact => ({
+          id: String(c.id ?? ''),
+          name: c.name ?? c.fullName ?? '',
+          email: c.email ?? '',
+          phone: c.phone ?? '',
+          company: c.company ?? c.companyName ?? '',
+          title: c.title ?? c.jobTitle ?? '',
+          addedDate: c.addedDate ?? c.createdAt ?? '',
+          lastEngagement: c.lastEngagement ?? c.lastEngagementDate ?? '',
+          engagementScore: Number(c.engagementScore ?? 0),
+          status: (c.status ?? 'subscribed') as ListContact['status'],
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setContactsError(e?.message || 'Failed to load contacts');
+        setContacts([]);
+      } finally {
+        if (mounted) setContactsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [selectedList]);
 
   const categories = ['all', ...Array.from(new Set(lists.map(l => l.category)))];
 
@@ -348,6 +352,12 @@ export default function ContactListsPage() {
 
       {/* Lists Grid */}
       <div className="grid grid-cols-1 gap-3">
+        {loading && (
+          <div className="py-8 text-center text-gray-500 text-sm">Loading contact lists…</div>
+        )}
+        {!loading && !error && filteredLists.length === 0 && (
+          <div className="py-8 text-center text-gray-500 text-sm">No contact lists found.</div>
+        )}
         {filteredLists.map((list) => (
           <div key={list.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
             <div className="p-6">
@@ -529,7 +539,15 @@ export default function ContactListsPage() {
 
             <div className="p-6">
               <div className="space-y-2">
-                {contacts.map((contact) => (
+                {contactsLoading && (
+                  <div className="text-center py-8 text-gray-500">Loading contacts…</div>
+                )}
+                {contactsError && !contactsLoading && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {contactsError}
+                  </div>
+                )}
+                {!contactsLoading && !contactsError && contacts.map((contact) => (
                   <div key={contact.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -569,7 +587,7 @@ export default function ContactListsPage() {
                     </div>
                   </div>
                 ))}
-                {contacts.length === 0 && (
+                {!contactsLoading && !contactsError && contacts.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     No contacts to display
                   </div>

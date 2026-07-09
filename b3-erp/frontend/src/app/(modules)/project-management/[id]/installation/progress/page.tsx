@@ -64,14 +64,15 @@ export default function DailyProgressPage() {
     };
 
     const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'progress' | 'cleaning') => {
-        // Simulation: in a real app, we'd upload to S3/Storage and get a URL
+        // NEEDS-BACKEND: no file-upload/storage endpoint exists yet. We reference the
+        // real selected file via an object URL until an upload service is available.
         const file = e.target.files?.[0];
         if (file) {
-            const mockUrl = `/uploads/mock-${Date.now()}.jpg`;
+            const objectUrl = URL.createObjectURL(file);
             if (type === 'progress') {
-                setProgressPhotos([...progressPhotos, mockUrl]);
+                setProgressPhotos([...progressPhotos, objectUrl]);
             } else {
-                setCleaningPhotos([...cleaningPhotos, mockUrl]);
+                setCleaningPhotos([...cleaningPhotos, objectUrl]);
             }
         }
     };

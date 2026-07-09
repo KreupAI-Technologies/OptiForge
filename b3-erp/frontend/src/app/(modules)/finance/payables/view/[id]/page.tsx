@@ -137,221 +137,53 @@ interface Payable {
   lastPurchaseDate: string;
 }
 
-// Mock Data - OptiForge ERP - Indian Manufacturing Context
-const mockPayable: Payable = {
-  id: 'PAY-001',
-  vendorId: 'VEN-2023-0142',
-  vendorName: 'JSW Steel Limited',
-  vendorCode: 'JSW-MUM-001',
-  gstNumber: '27AAACJ8564D1ZV',
-  panNumber: 'AAACJ8564D',
+// Empty payable shell; hydrated from the backend on mount. Enum fields use
+// valid defaults so config lookups never crash before data loads.
+const emptyPayable: Payable = {
+  id: '',
+  vendorId: '',
+  vendorName: '',
+  vendorCode: '',
+  gstNumber: '',
+  panNumber: '',
   vendorCategory: 'raw_material',
 
-  // Financial Summary
-  totalOutstanding: 8750000,
-  overdueAmount: 1250000,
-  dueThisWeek: 2500000,
-  dueThisMonth: 4500000,
-  lastPaymentAmount: 3500000,
-  lastPaymentDate: '2025-10-10',
+  totalOutstanding: 0,
+  overdueAmount: 0,
+  dueThisWeek: 0,
+  dueThisMonth: 0,
+  lastPaymentAmount: 0,
+  lastPaymentDate: '',
 
-  // Credit Terms
-  creditPeriod: 45,
-  creditLimit: 25000000,
-  paymentTerms: 'Net 45 days from invoice date',
+  creditPeriod: 0,
+  creditLimit: 0,
+  paymentTerms: '',
 
-  // Aging Analysis
-  agingBuckets: [
-    {
-      label: 'Current (0-30 days)',
-      days: '0-30',
-      amount: 3500000,
-      percentage: 40,
-      color: 'text-green-700',
-      bgColor: 'bg-green-100',
-      borderColor: 'border-green-200',
-    },
-    {
-      label: '31-60 Days',
-      days: '31-60',
-      amount: 2750000,
-      percentage: 31.4,
-      color: 'text-blue-700',
-      bgColor: 'bg-blue-100',
-      borderColor: 'border-blue-200',
-    },
-    {
-      label: '61-90 Days',
-      days: '61-90',
-      amount: 1250000,
-      percentage: 14.3,
-      color: 'text-yellow-700',
-      bgColor: 'bg-yellow-100',
-      borderColor: 'border-yellow-200',
-    },
-    {
-      label: '90+ Days (Overdue)',
-      days: '90+',
-      amount: 1250000,
-      percentage: 14.3,
-      color: 'text-red-700',
-      bgColor: 'bg-red-100',
-      borderColor: 'border-red-200',
-    },
-  ],
+  agingBuckets: [],
 
-  // Bills
-  bills: [
-    {
-      id: '1',
-      billNumber: 'JSW/2025/INV-5678',
-      billDate: '2025-09-15',
-      dueDate: '2025-10-30',
-      poReference: 'PO-2025-1234',
-      amount: 2500000,
-      paidAmount: 0,
-      balanceAmount: 2500000,
-      status: 'outstanding',
-      agingDays: 32,
-    },
-    {
-      id: '2',
-      billNumber: 'JSW/2025/INV-5456',
-      billDate: '2025-09-05',
-      dueDate: '2025-10-20',
-      poReference: 'PO-2025-1189',
-      amount: 3500000,
-      paidAmount: 1500000,
-      balanceAmount: 2000000,
-      status: 'partially_paid',
-      agingDays: 42,
-    },
-    {
-      id: '3',
-      billNumber: 'JSW/2025/INV-5234',
-      billDate: '2025-08-20',
-      dueDate: '2025-10-04',
-      poReference: 'PO-2025-1098',
-      amount: 1750000,
-      paidAmount: 0,
-      balanceAmount: 1750000,
-      status: 'overdue',
-      agingDays: 58,
-    },
-    {
-      id: '4',
-      billNumber: 'JSW/2025/INV-5123',
-      billDate: '2025-08-10',
-      dueDate: '2025-09-24',
-      poReference: 'PO-2025-1045',
-      amount: 2500000,
-      paidAmount: 0,
-      balanceAmount: 2500000,
-      status: 'overdue',
-      agingDays: 68,
-    },
-    {
-      id: '5',
-      billNumber: 'JSW/2025/INV-4987',
-      billDate: '2025-07-25',
-      dueDate: '2025-09-08',
-      poReference: 'PO-2025-0987',
-      amount: 3500000,
-      paidAmount: 3500000,
-      balanceAmount: 0,
-      status: 'paid',
-      agingDays: 84,
-    },
-  ],
+  bills: [],
 
-  // Payment Schedule
-  paymentSchedule: [
-    {
-      id: '1',
-      dueDate: '2025-10-20',
-      amount: 2000000,
-      status: 'upcoming',
-      billReference: 'JSW/2025/INV-5456',
-    },
-    {
-      id: '2',
-      dueDate: '2025-10-30',
-      amount: 2500000,
-      status: 'upcoming',
-      billReference: 'JSW/2025/INV-5678',
-    },
-    {
-      id: '3',
-      dueDate: '2025-11-15',
-      amount: 1500000,
-      status: 'upcoming',
-      billReference: 'JSW/2025/INV-5789 (Expected)',
-    },
-    {
-      id: '4',
-      dueDate: '2025-11-30',
-      amount: 2750000,
-      status: 'upcoming',
-      billReference: 'JSW/2025/INV-5890 (Expected)',
-    },
-  ],
+  paymentSchedule: [],
 
-  // Payment History
-  paymentHistory: [
-    {
-      id: '1',
-      paymentDate: '2025-10-10',
-      amount: 3500000,
-      paymentMethod: 'NEFT',
-      referenceNumber: 'NEFT25101000123456',
-      notes: 'Payment for Invoice JSW/2025/INV-4987',
-    },
-    {
-      id: '2',
-      paymentDate: '2025-09-28',
-      amount: 1500000,
-      paymentMethod: 'RTGS',
-      referenceNumber: 'RTGS25092800789012',
-      notes: 'Partial payment for Invoice JSW/2025/INV-5456',
-    },
-    {
-      id: '3',
-      paymentDate: '2025-09-15',
-      amount: 2500000,
-      paymentMethod: 'NEFT',
-      referenceNumber: 'NEFT25091500456789',
-      notes: 'Payment for Invoice JSW/2025/INV-4765',
-    },
-    {
-      id: '4',
-      paymentDate: '2025-08-30',
-      amount: 3200000,
-      paymentMethod: 'RTGS',
-      referenceNumber: 'RTGS25083000234567',
-      notes: 'Payment for Invoice JSW/2025/INV-4543',
-    },
-  ],
+  paymentHistory: [],
 
-  // Vendor Details
   vendorContact: {
-    name: 'Rajesh Kumar',
-    designation: 'Regional Sales Manager',
-    email: 'rajesh.kumar@jsw.in',
-    phone: '+91-22-6652-8000',
-    department: 'Sales & Customer Service',
+    name: '',
+    designation: '',
+    email: '',
+    phone: '',
+    department: '',
   },
-  address: 'JSW Centre, Bandra Kurla Complex',
-  city: 'Mumbai',
-  state: 'Maharashtra',
-  pincode: '400051',
+  address: '',
+  city: '',
+  state: '',
+  pincode: '',
 
-  // Status
   accountStatus: 'active',
   riskRating: 'low',
 
-  // Dates
-  vendorSince: '2022-03-15',
-  lastPurchaseDate: '2025-09-15',
+  vendorSince: '',
+  lastPurchaseDate: '',
 };
 
 const statusColors = {
@@ -378,9 +210,11 @@ export default function ViewPayablePage() {
   const router = useRouter();
   const params = useParams();
   const payableId = params.id as string;
-  const [payable, setPayable] = useState<Payable>(mockPayable);
+  const [payable, setPayable] = useState<Payable>(emptyPayable);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -388,10 +222,17 @@ export default function ViewPayablePage() {
       setIsLoading(false);
       return;
     }
+    setIsLoading(true);
+    setLoadError(null);
+    setNotFound(false);
     (async () => {
       try {
         const raw = await FinanceService.getPayable(payableId);
         if (cancelled) return;
+        if (!raw || (raw.id == null && raw.vendorName == null)) {
+          setNotFound(true);
+          return;
+        }
         const m: any = raw || {};
         setPayable((prev) => ({
           ...prev,
@@ -415,7 +256,7 @@ export default function ViewPayablePage() {
     return () => {
       cancelled = true;
     };
-  }, [payableId]);
+  }, [payableId, reloadKey]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'bills' | 'payment_schedule'>('overview');
 
@@ -458,11 +299,26 @@ export default function ViewPayablePage() {
         </div>
       )}
       {loadError && !isLoading && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
-          <AlertCircle className="h-4 w-4 mr-1" />
-          {loadError}
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center justify-between">
+          <span className="flex items-center">
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {loadError}
+          </span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
       )}
+      {notFound && !isLoading && (
+        <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-sm text-yellow-700">
+          Payable not found.
+        </div>
+      )}
+      {!isLoading && !notFound && (
+      <>
       {/* Header */}
       <div className="mb-3">
         <button
@@ -549,7 +405,7 @@ export default function ViewPayablePage() {
                 <p className="text-xs font-medium text-orange-600 uppercase">Overdue Amount</p>
               </div>
               <p className="text-2xl font-bold text-orange-900">{formatLakhsCrores(payable.overdueAmount)}</p>
-              <p className="text-xs text-orange-600 mt-1">{((payable.overdueAmount / payable.totalOutstanding) * 100).toFixed(1)}% of total</p>
+              <p className="text-xs text-orange-600 mt-1">{payable.totalOutstanding ? ((payable.overdueAmount / payable.totalOutstanding) * 100).toFixed(1) : '0.0'}% of total</p>
             </div>
 
             <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-3 border border-yellow-200">
@@ -708,17 +564,17 @@ export default function ViewPayablePage() {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
-                          className={`h-2 rounded-full ${(payable.totalOutstanding / payable.creditLimit) * 100 > 80
+                          className={`h-2 rounded-full ${payable.creditLimit && (payable.totalOutstanding / payable.creditLimit) * 100 > 80
                               ? 'bg-red-600'
-                              : (payable.totalOutstanding / payable.creditLimit) * 100 > 60
+                              : payable.creditLimit && (payable.totalOutstanding / payable.creditLimit) * 100 > 60
                                 ? 'bg-yellow-600'
                                 : 'bg-green-600'
                             }`}
-                          style={{ width: `${(payable.totalOutstanding / payable.creditLimit) * 100}%` }}
+                          style={{ width: `${payable.creditLimit ? (payable.totalOutstanding / payable.creditLimit) * 100 : 0}%` }}
                         ></div>
                       </div>
                       <p className="text-xs text-gray-600 text-right">
-                        {((payable.totalOutstanding / payable.creditLimit) * 100).toFixed(1)}% utilized
+                        {payable.creditLimit ? ((payable.totalOutstanding / payable.creditLimit) * 100).toFixed(1) : '0.0'}% utilized
                       </p>
                     </div>
                   </div>
@@ -903,6 +759,8 @@ export default function ViewPayablePage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

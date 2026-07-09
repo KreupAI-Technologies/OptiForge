@@ -8,74 +8,122 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Printer, Calendar, DollarSign } from 'lucide-react';
 import { procurementPurchaseInvoiceService } from '@/services/procurement-purchase-invoice.service';
 
+interface BillItem {
+    description: string;
+    quantity: number;
+    rate: number;
+    amount: number;
+}
+
+interface Bill {
+    id: string;
+    number: string;
+    vendor: { name: string; id: string; address: string };
+    date: string;
+    dueDate: string;
+    status: string;
+    items: BillItem[];
+    subtotal: number;
+    tax: number;
+    total: number;
+    balanceDue: number;
+}
+
 export default function PurchaseBillDetailPage() {
     const params = useParams();
     const router = useRouter();
     const billId = params.id as string;
 
-    // Sample bill data — used until the backend returns the invoice.
-    const mockBill = {
-        id: billId,
-        number: billId,
-        vendor: {
-            name: 'Steel Suppliers Ltd',
-            id: 'VEN-001',
-            address: 'Industrial Area, Pune',
-        },
-        date: '2025-01-15',
-        dueDate: '2025-02-15',
-        status: 'Open',
-        items: [
-            { description: 'Steel Sheets - Grade A', quantity: 100, rate: 2500, amount: 250000 },
-            { description: 'Delivery Charges', quantity: 1, rate: 5000, amount: 5000 },
-        ],
-        subtotal: 255000,
-        tax: 45900,
-        total: 300900,
-        balanceDue: 300900,
-    };
-
-    const [bill, setBill] = useState(mockBill);
+    const [bill, setBill] = useState<Bill | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [notFound, setNotFound] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         let cancelled = false;
         const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            setNotFound(false);
             try {
                 const raw = await procurementPurchaseInvoiceService.getInvoiceById(billId);
-                if (cancelled || !raw || !(raw.id || raw.invoiceNumber)) return;
-                const items = Array.isArray(raw.items) && raw.items.length
+                if (cancelled) return;
+                if (!raw || !(raw.id || raw.invoiceNumber)) {
+                    setNotFound(true);
+                    return;
+                }
+                const items: BillItem[] = Array.isArray(raw.items)
                     ? raw.items.map((it: any) => ({
                         description: it.itemName ?? it.description ?? '',
                         quantity: Number(it.quantity ?? 0),
                         rate: Number(it.unitPrice ?? it.rate ?? 0),
                         amount: Number(it.totalAmount ?? it.amount ?? 0),
                     }))
-                    : mockBill.items;
-                const total = Number(raw.totalAmount ?? raw.total ?? mockBill.total);
+                    : [];
+                const total = Number(raw.totalAmount ?? raw.total ?? 0);
                 setBill({
                     id: raw.id ?? billId,
                     number: raw.invoiceNumber ?? billId,
                     vendor: {
-                        name: raw.vendorName ?? mockBill.vendor.name,
-                        id: raw.vendorId ?? mockBill.vendor.id,
-                        address: raw.vendorAddress ?? mockBill.vendor.address,
+                        name: raw.vendorName ?? '',
+                        id: raw.vendorId ?? '',
+                        address: raw.vendorAddress ?? '',
                     },
-                    date: (raw.invoiceDate ?? raw.date ?? mockBill.date)?.toString().slice(0, 10),
-                    dueDate: (raw.dueDate ?? mockBill.dueDate)?.toString().slice(0, 10),
-                    status: raw.status ?? mockBill.status,
+                    date: (raw.invoiceDate ?? raw.date ?? '')?.toString().slice(0, 10),
+                    dueDate: (raw.dueDate ?? '')?.toString().slice(0, 10),
+                    status: raw.status ?? '',
                     items,
-                    subtotal: Number(raw.subtotal ?? mockBill.subtotal),
-                    tax: Number(raw.taxAmount ?? raw.tax ?? mockBill.tax),
+                    subtotal: Number(raw.subtotal ?? 0),
+                    tax: Number(raw.taxAmount ?? raw.tax ?? 0),
                     total,
                     balanceDue: Number(raw.balanceDue ?? raw.amountDue ?? total),
                 });
-            } catch {
-                // keep sample data on error
+            } catch (err) {
+                if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load bill');
+            } finally {
+                if (!cancelled) setIsLoading(false);
             }
         };
         load();
         return () => { cancelled = true; };
-    }, [billId]);
+    }, [billId, reloadKey]);
+
+    if (isLoading) {
+        return (
+            <div className="w-full p-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">Loading bill...</div>
+            </div>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <div className="w-full p-3">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center justify-between">
+                    <span>{loadError}</span>
+                    <button
+                        onClick={() => setReloadKey((k) => k + 1)}
+                        className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (notFound || !bill) {
+        return (
+            <div className="w-full p-3">
+                <Button variant="ghost" onClick={() => router.back()} className="mb-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                </Button>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700">Bill not found.</div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full p-3">

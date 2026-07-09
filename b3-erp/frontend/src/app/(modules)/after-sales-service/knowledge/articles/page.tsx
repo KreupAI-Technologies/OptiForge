@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { FileText, Search, Eye, Edit, Trash2, Plus, Calendar, User, Tag, ThumbsUp, MessageSquare, TrendingUp, Filter, ChevronRight, X, CheckCircle, AlertTriangle, BarChart3, Clock, Star } from 'lucide-react';
 import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 
@@ -41,137 +41,6 @@ function mapArticle(a: any): Article {
   };
 }
 
-const mockArticles: Article[] = [
-  {
-    id: '1',
-    title: 'How to Perform Regular Maintenance on Kitchen Equipment',
-    description: 'Comprehensive guide on maintaining kitchen appliances to ensure optimal performance and longevity',
-    category: 'Maintenance',
-    author: 'Rajesh Kumar',
-    dateCreated: '2025-09-15',
-    dateUpdated: '2025-10-18',
-    views: 342,
-    likes: 45,
-    comments: 12,
-    featured: true,
-    status: 'published',
-    tags: ['Kitchen', 'Maintenance', 'Equipment'],
-    readTime: 8
-  },
-  {
-    id: '2',
-    title: 'Troubleshooting Common Microwave Issues',
-    description: 'Step-by-step guide to diagnose and fix the most common microwave problems',
-    category: 'Troubleshooting',
-    author: 'Priya Sharma',
-    dateCreated: '2025-09-10',
-    dateUpdated: '2025-10-17',
-    views: 287,
-    likes: 38,
-    comments: 8,
-    featured: true,
-    status: 'published',
-    tags: ['Microwave', 'Troubleshooting', 'DIY'],
-    readTime: 6
-  },
-  {
-    id: '3',
-    title: 'Understanding Warranty Coverage and Limitations',
-    description: 'Complete overview of what is and is not covered under our standard warranty',
-    category: 'Warranty',
-    author: 'Amit Singh',
-    dateCreated: '2025-08-25',
-    dateUpdated: '2025-10-16',
-    views: 215,
-    likes: 28,
-    comments: 5,
-    featured: false,
-    status: 'published',
-    tags: ['Warranty', 'Coverage', 'Policy'],
-    readTime: 5
-  },
-  {
-    id: '4',
-    title: 'Best Practices for Installation Safety',
-    description: 'Important safety guidelines to follow during equipment installation',
-    category: 'Installation',
-    author: 'Vikram Patel',
-    dateCreated: '2025-08-20',
-    dateUpdated: '2025-10-15',
-    views: 198,
-    likes: 31,
-    comments: 7,
-    featured: false,
-    status: 'published',
-    tags: ['Safety', 'Installation', 'Guidelines'],
-    readTime: 7
-  },
-  {
-    id: '5',
-    title: 'Water Filter Replacement Guide',
-    description: 'How to safely replace water filters in your appliances',
-    category: 'Maintenance',
-    author: 'Neha Desai',
-    dateCreated: '2025-08-15',
-    dateUpdated: '2025-10-14',
-    views: 156,
-    likes: 22,
-    comments: 4,
-    featured: false,
-    status: 'published',
-    tags: ['Filters', 'Maintenance', 'Care'],
-    readTime: 4
-  },
-  {
-    id: '6',
-    title: 'Energy Efficiency Tips for Your Refrigerator',
-    description: 'Learn how to optimize your refrigerator settings for maximum energy efficiency',
-    category: 'Optimization',
-    author: 'Sanjay Verma',
-    dateCreated: '2025-08-10',
-    dateUpdated: '2025-10-13',
-    views: 289,
-    likes: 52,
-    comments: 11,
-    featured: true,
-    status: 'published',
-    tags: ['Energy', 'Efficiency', 'Refrigerator'],
-    readTime: 6
-  },
-  {
-    id: '7',
-    title: 'Understanding Error Codes on Your Display Panel',
-    description: 'A complete guide to interpreting and resolving error codes displayed on modern appliances',
-    category: 'Troubleshooting',
-    author: 'Isha Nair',
-    dateCreated: '2025-07-30',
-    dateUpdated: '2025-10-12',
-    views: 421,
-    likes: 67,
-    comments: 18,
-    featured: true,
-    status: 'published',
-    tags: ['Error Codes', 'Troubleshooting', 'Support'],
-    readTime: 9
-  },
-  {
-    id: '8',
-    title: 'Extended Service Plan Benefits',
-    description: 'Overview of benefits included in our extended service plans',
-    category: 'Service Plans',
-    author: 'Rohan Gupta',
-    dateCreated: '2025-07-25',
-    dateUpdated: '2025-10-11',
-    views: 134,
-    likes: 19,
-    comments: 3,
-    featured: false,
-    status: 'published',
-    tags: ['Service Plans', 'Coverage', 'Benefits'],
-    readTime: 5
-  }
-];
-
 export default function ArticlesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -181,18 +50,27 @@ export default function ArticlesPage() {
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load articles from API
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AfterSalesPagesService.knowledgeArticles();
-        setArticles(Array.isArray(raw) ? raw.map(mapArticle) : []);
-      } catch {
-        setArticles([]);
-      }
-    })();
+  const loadArticles = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await AfterSalesPagesService.knowledgeArticles();
+      setArticles(Array.isArray(raw) ? raw.map(mapArticle) : []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load articles');
+      setArticles([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadArticles();
+  }, [loadArticles]);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -435,7 +313,23 @@ export default function ArticlesPage() {
 
       {/* Articles List */}
       <div className="space-y-2">
-        {filteredArticles.map((article) => (
+        {isLoading && (
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500 shadow-sm">
+            Loading articles…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="bg-white rounded-lg border border-red-200 p-8 text-center shadow-sm">
+            <p className="text-red-700 font-medium mb-3">{loadError}</p>
+            <button
+              onClick={loadArticles}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!isLoading && !loadError && filteredArticles.map((article) => (
           <div
             key={article.id}
             onClick={() => handleArticleClick(article)}
@@ -529,7 +423,7 @@ export default function ArticlesPage() {
           </div>
         ))}
 
-        {filteredArticles.length === 0 && (
+        {!isLoading && !loadError && filteredArticles.length === 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center shadow-sm">
             <FileText className="h-12 w-12 text-gray-300 mb-2" />
             <p className="text-gray-600 font-medium">No articles found</p>

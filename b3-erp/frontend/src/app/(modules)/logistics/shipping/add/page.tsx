@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { MasterDataService, MDWarehouse, MDProduct } from '@/services/master-data.service';
 import { LogisticsService } from '@/services/logistics.service';
+import { salesOrderService } from '@/services/sales-order.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -114,12 +115,22 @@ export default function AddShipmentPage() {
     volume: number;
   };
 
+  type OrderItem = {
+    id: string;
+    customer: string;
+    date: string;
+    amount: number;
+    items: number;
+  };
+
   const [warehouses, setWarehouses] = useState<WarehouseItem[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [warehousesLoading, setWarehousesLoading] = useState(false);
   const [stockItemsLoading, setStockItemsLoading] = useState(false);
   const [carriers, setCarriers] = useState<string[]>([]);
   const [carriersLoading, setCarriersLoading] = useState(false);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -192,14 +203,6 @@ export default function AddShipmentPage() {
   const serviceTypes = ['Door to Door', 'Port to Port', 'Door to Port', 'Port to Door'];
   const paymentTermsOptions = ['Prepaid', 'To Pay', 'Third Party'];
 
-  // Mock orders — static: order-lookup is a different flow, not an entity-picker list
-  const mockOrders = [
-    { id: 'SO-2024-001', customer: 'Tata Steel Limited', date: '2024-01-10', amount: 125000, items: 5 },
-    { id: 'SO-2024-002', customer: 'JSW Steel', date: '2024-01-12', amount: 89000, items: 3 },
-    { id: 'SO-2024-003', customer: 'Bharat Heavy Electricals', date: '2024-01-13', amount: 156000, items: 7 },
-    { id: 'PO-2024-015', customer: 'Larsen & Toubro', date: '2024-01-14', amount: 234000, items: 10 },
-  ];
-
   useEffect(() => {
     setWarehousesLoading(true);
     MasterDataService.getWarehouses().then((live) => {
@@ -238,6 +241,22 @@ export default function AddShipmentPage() {
       })));
       setStockItemsLoading(false);
     });
+
+    setOrdersLoading(true);
+    salesOrderService
+      .getAllOrders()
+      .then((res) => {
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setOrders(list.map((o) => ({
+          id: o.orderNumber || o.id,
+          customer: o.customerName || '',
+          date: (o.orderDate || '').toString().slice(0, 10),
+          amount: Number(o.totalAmount ?? 0),
+          items: Array.isArray(o.items) ? o.items.length : 0,
+        })));
+      })
+      .catch(() => setOrders([]))
+      .finally(() => setOrdersLoading(false));
   }, []);
 
   const handleInputChange = (field: keyof ShipmentForm, value: any) => {
@@ -286,7 +305,7 @@ export default function AddShipmentPage() {
     }
   };
 
-  const handleOrderSelect = (order: typeof mockOrders[0]) => {
+  const handleOrderSelect = (order: OrderItem) => {
     handleInputChange('referenceNumber', order.id);
     handleInputChange('toCustomer', order.customer);
     setShowOrderSearch(false);
@@ -422,7 +441,7 @@ export default function AddShipmentPage() {
     router.push('/logistics/shipping');
   };
 
-  const filteredOrders = mockOrders.filter(order =>
+  const filteredOrders = orders.filter(order =>
     order.id.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
     order.customer.toLowerCase().includes(orderSearchQuery.toLowerCase())
   );
@@ -1551,7 +1570,13 @@ export default function AddShipmentPage() {
             </div>
             <div className="overflow-y-auto max-h-96 p-3">
               <div className="space-y-3">
-                {filteredOrders.map(order => (
+                {ordersLoading && (
+                  <div className="p-3 text-center text-gray-500 text-sm">Loading orders…</div>
+                )}
+                {!ordersLoading && filteredOrders.length === 0 && (
+                  <div className="p-3 text-center text-gray-500 text-sm">No orders found.</div>
+                )}
+                {!ordersLoading && filteredOrders.map(order => (
                   <button
                     key={order.id}
                     type="button"

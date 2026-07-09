@@ -137,65 +137,6 @@ const emptyPayment: Payment = {
   updatedAt: '',
 };
 
-const mockActivityLogs: ActivityLog[] = [
-  {
-    id: '1',
-    timestamp: '2025-10-16T14:20:00',
-    action: 'Payment Reconciled',
-    description: 'Payment reconciled with bank statement',
-    performedBy: 'Sarah Finance',
-    status: 'success',
-  },
-  {
-    id: '2',
-    timestamp: '2025-10-15T16:45:00',
-    action: 'Status Updated',
-    description: 'Payment status changed from Processing to Completed',
-    performedBy: 'System',
-    status: 'success',
-  },
-  {
-    id: '3',
-    timestamp: '2025-10-15T16:30:00',
-    action: 'Payment Confirmation',
-    description: 'Bank confirmation received for NEFT transaction',
-    performedBy: 'Banking System',
-    status: 'info',
-  },
-  {
-    id: '4',
-    timestamp: '2025-10-15T12:00:00',
-    action: 'Notification Sent',
-    description: 'Payment acknowledgment email sent to customer',
-    performedBy: 'Email System',
-    status: 'info',
-  },
-  {
-    id: '5',
-    timestamp: '2025-10-15T11:30:00',
-    action: 'Payment Approved',
-    description: 'Payment approved by manager',
-    performedBy: 'John Manager',
-    status: 'success',
-  },
-  {
-    id: '6',
-    timestamp: '2025-10-15T10:45:00',
-    action: 'Status Updated',
-    description: 'Payment status changed from Pending to Processing',
-    performedBy: 'System',
-    status: 'info',
-  },
-  {
-    id: '7',
-    timestamp: '2025-10-15T10:30:00',
-    action: 'Payment Initiated',
-    description: 'Payment record created for INV-2025-001',
-    performedBy: 'Finance Team',
-    status: 'success',
-  },
-];
-
 const statusConfig = {
   pending: {
     color: 'bg-yellow-100 text-yellow-700 border-yellow-300',
@@ -256,9 +197,11 @@ export default function PaymentViewPage() {
   const params = useParams();
   const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'activity'>('overview');
   const [payment, setPayment] = useState<Payment>(emptyPayment);
-  const [activityLogs] = useState<ActivityLog[]>(mockActivityLogs);
+  const [activityLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const paymentId = params.id as string;
 
@@ -268,11 +211,18 @@ export default function PaymentViewPage() {
       setIsLoading(false);
       return;
     }
+    setIsLoading(true);
+    setLoadError(null);
+    setNotFound(false);
     (async () => {
       try {
         const raw = await FinanceService.getPayment(paymentId);
         if (cancelled) return;
         const m: any = raw || {};
+        if (!raw || (m.id == null && m.paymentNumber == null)) {
+          setNotFound(true);
+          return;
+        }
         setPayment((prev) => ({
           ...prev,
           ...(m.id != null ? { id: String(m.id) } : {}),
@@ -297,7 +247,7 @@ export default function PaymentViewPage() {
     return () => {
       cancelled = true;
     };
-  }, [paymentId]);
+  }, [paymentId, reloadKey]);
 
   const StatusIcon = statusConfig[payment.status].icon;
   const MethodIcon = methodConfig[payment.paymentMethod].icon;
@@ -331,9 +281,22 @@ export default function PaymentViewPage() {
         </div>
       )}
       {loadError && !isLoading && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
-          <AlertCircle className="h-4 w-4 mr-1" />
-          {loadError}
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center justify-between">
+          <span className="flex items-center">
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {loadError}
+          </span>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="ml-3 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {notFound && !isLoading && (
+        <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-sm text-yellow-700">
+          Payment not found.
         </div>
       )}
       {/* Header */}
@@ -891,6 +854,9 @@ export default function PaymentViewPage() {
             Activity Timeline
           </h3>
           <div className="space-y-2">
+            {activityLogs.length === 0 && (
+              <div className="text-center py-8 text-gray-400 text-sm">No activity records available.</div>
+            )}
             {activityLogs.map((log, index) => (
               <div key={log.id} className="flex items-start space-x-4">
                 <div className="flex flex-col items-center">

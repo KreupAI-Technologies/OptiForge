@@ -262,13 +262,13 @@ export default function DispatchPlanningEnhancedPage() {
   const updatedItems = formData.items.map(item => {
    if (item.id === id) {
     const updated = { ...item, [field]: value };
-    // Auto-fill from mock data if item code selected
+    // Auto-fill from the fetched dispatch catalog when an item code is selected
     if (field === 'itemCode') {
-     const mockItem = itemCatalog.find(m => m.code === value);
-     if (mockItem) {
-      updated.description = mockItem.name;
-      updated.weight = mockItem.weight;
-      updated.volume = mockItem.volume;
+     const catalogItem = itemCatalog.find(m => m.code === value);
+     if (catalogItem) {
+      updated.description = catalogItem.name;
+      updated.weight = catalogItem.weight;
+      updated.volume = catalogItem.volume;
      }
     }
     return updated;

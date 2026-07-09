@@ -78,10 +78,8 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mockExpenses: TravelExpense[] = rows;
-
   const filteredExpenses = useMemo(() => {
-    return mockExpenses.filter(exp => {
+    return rows.filter(exp => {
       const matchesStatus = selectedStatus === 'all' || exp.status === selectedStatus;
       const matchesDept = selectedDepartment === 'all' || exp.department === selectedDepartment;
       return matchesStatus && matchesDept;
@@ -89,12 +87,12 @@ export default function Page() {
   }, [selectedStatus, selectedDepartment, rows]);
 
   const stats = {
-    totalExpenses: mockExpenses.length,
-    pending: mockExpenses.filter(e => e.status === 'pending').length,
-    approved: mockExpenses.filter(e => e.status === 'approved').length,
-    totalAmount: mockExpenses.reduce((sum, e) => sum + e.totalExpenses, 0),
-    netPayable: mockExpenses.reduce((sum, e) => sum + e.netPayable, 0),
-    drafts: mockExpenses.filter(e => e.status === 'draft').length
+    totalExpenses: rows.length,
+    pending: rows.filter(e => e.status === 'pending').length,
+    approved: rows.filter(e => e.status === 'approved').length,
+    totalAmount: rows.reduce((sum, e) => sum + e.totalExpenses, 0),
+    netPayable: rows.reduce((sum, e) => sum + e.netPayable, 0),
+    drafts: rows.filter(e => e.status === 'draft').length
   };
 
   const getStatusColor = (status: string) => {

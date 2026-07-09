@@ -71,8 +71,6 @@ export default function MyExpensesPage() {
     };
   }, []);
 
-  const mockExpenses: ExpenseClaim[] = rows;
-
   const filteredExpenses = useMemo(() => {
     return rows.filter(expense => {
       const matchesStatus = selectedStatus === 'all' || expense.status === selectedStatus;
@@ -82,14 +80,14 @@ export default function MyExpensesPage() {
   }, [selectedStatus, selectedCategory, rows]);
 
   const stats = {
-    total: mockExpenses.filter(e => e.status !== 'draft').length,
-    draft: mockExpenses.filter(e => e.status === 'draft').length,
-    submitted: mockExpenses.filter(e => e.status === 'submitted').length,
-    approved: mockExpenses.filter(e => e.status === 'approved').length,
-    rejected: mockExpenses.filter(e => e.status === 'rejected').length,
-    paid: mockExpenses.filter(e => e.status === 'paid').length,
-    totalAmount: mockExpenses.filter(e => e.status !== 'draft').reduce((sum, e) => sum + e.amount, 0),
-    approvedAmount: mockExpenses.filter(e => ['approved', 'paid'].includes(e.status)).reduce((sum, e) => sum + e.amount, 0)
+    total: rows.filter(e => e.status !== 'draft').length,
+    draft: rows.filter(e => e.status === 'draft').length,
+    submitted: rows.filter(e => e.status === 'submitted').length,
+    approved: rows.filter(e => e.status === 'approved').length,
+    rejected: rows.filter(e => e.status === 'rejected').length,
+    paid: rows.filter(e => e.status === 'paid').length,
+    totalAmount: rows.filter(e => e.status !== 'draft').reduce((sum, e) => sum + e.amount, 0),
+    approvedAmount: rows.filter(e => ['approved', 'paid'].includes(e.status)).reduce((sum, e) => sum + e.amount, 0)
   };
 
   const getStatusColor = (status: string) => {

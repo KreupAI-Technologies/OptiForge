@@ -69,20 +69,18 @@ export default function Page() {
     };
   }, []);
 
-  const mockCards: Card[] = rows;
-
-  const filteredCards = mockCards.filter(c => {
+  const filteredCards = rows.filter(c => {
     const matchesType = selectedType === 'all' || c.cardType === selectedType;
     const matchesStatus = selectedStatus === 'all' || c.status === selectedStatus;
     return matchesType && matchesStatus;
   });
 
   const stats = {
-    total: mockCards.length,
-    active: mockCards.filter(c => c.status === 'active').length,
-    blocked: mockCards.filter(c => c.status === 'blocked').length,
-    totalLimit: mockCards.reduce((sum, c) => sum + c.limit, 0),
-    totalSpent: mockCards.reduce((sum, c) => sum + c.spent, 0)
+    total: rows.length,
+    active: rows.filter(c => c.status === 'active').length,
+    blocked: rows.filter(c => c.status === 'blocked').length,
+    totalLimit: rows.reduce((sum, c) => sum + c.limit, 0),
+    totalSpent: rows.reduce((sum, c) => sum + c.spent, 0)
   };
 
   const statusColors = {
@@ -214,8 +212,8 @@ export default function Page() {
       {filteredCards.length === 0 && !isLoading && (
         <EmptyState
           icon={CreditCard}
-          title={mockCards.length === 0 ? 'No cards found' : 'No matching cards'}
-          description={mockCards.length === 0 ? 'Corporate cards will appear here once issued.' : 'Try adjusting the type or status filters.'}
+          title={rows.length === 0 ? 'No cards found' : 'No matching cards'}
+          description={rows.length === 0 ? 'Corporate cards will appear here once issued.' : 'Try adjusting the type or status filters.'}
         />
       )}
 

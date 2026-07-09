@@ -76,10 +76,8 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: PaidReimbursement[] = rows;
-
   const filteredReimbursements = useMemo(() => {
-    return mockReimbursements.filter(reimb => {
+    return rows.filter(reimb => {
       const matchesYear = selectedYear === 'all' || reimb.fiscalYear === selectedYear;
       const matchesType = selectedType === 'all' || reimb.claimType === selectedType;
       const matchesSearch = searchTerm === '' ||
@@ -88,23 +86,23 @@ export default function Page() {
         reimb.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesYear && matchesType && matchesSearch;
     });
-  }, [selectedYear, selectedType, searchTerm]);
+  }, [rows, selectedYear, selectedType, searchTerm]);
 
   const stats = {
-    totalClaims: mockReimbursements.length,
-    totalAmount: mockReimbursements.reduce((sum, r) => sum + r.amount, 0),
-    currentMonth: mockReimbursements.filter(r => {
+    totalClaims: rows.length,
+    totalAmount: rows.reduce((sum, r) => sum + r.amount, 0),
+    currentMonth: rows.filter(r => {
       const paidDate = new Date(r.paidDate);
       const now = new Date();
       return paidDate.getMonth() === now.getMonth() && paidDate.getFullYear() === now.getFullYear();
     }).length,
-    currentMonthAmount: mockReimbursements.filter(r => {
+    currentMonthAmount: rows.filter(r => {
       const paidDate = new Date(r.paidDate);
       const now = new Date();
       return paidDate.getMonth() === now.getMonth() && paidDate.getFullYear() === now.getFullYear();
     }).reduce((sum, r) => sum + r.amount, 0),
-    avgClaimAmount: Math.round(mockReimbursements.reduce((sum, r) => sum + r.amount, 0) / mockReimbursements.length),
-    bankTransfers: mockReimbursements.filter(r => r.paymentMode === 'bank_transfer').length
+    avgClaimAmount: rows.length ? Math.round(rows.reduce((sum, r) => sum + r.amount, 0) / rows.length) : 0,
+    bankTransfers: rows.filter(r => r.paymentMode === 'bank_transfer').length
   };
 
   const getPaymentModeLabel = (mode: string) => {
@@ -407,73 +405,73 @@ export default function Page() {
           <div className="p-4 bg-blue-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Medical</h4>
             <p className="text-2xl font-bold text-blue-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Medical').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Medical').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Medical').length} claims
+              {rows.filter(r => r.claimType === 'Medical').length} claims
             </p>
           </div>
           <div className="p-4 bg-green-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Education</h4>
             <p className="text-2xl font-bold text-green-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Education').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Education').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Education').length} claims
+              {rows.filter(r => r.claimType === 'Education').length} claims
             </p>
           </div>
           <div className="p-4 bg-purple-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Conveyance</h4>
             <p className="text-2xl font-bold text-purple-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Conveyance').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Conveyance').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Conveyance').length} claims
+              {rows.filter(r => r.claimType === 'Conveyance').length} claims
             </p>
           </div>
           <div className="p-4 bg-orange-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Relocation</h4>
             <p className="text-2xl font-bold text-orange-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Relocation').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Relocation').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Relocation').length} claims
+              {rows.filter(r => r.claimType === 'Relocation').length} claims
             </p>
           </div>
           <div className="p-4 bg-teal-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Uniform</h4>
             <p className="text-2xl font-bold text-teal-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Uniform').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Uniform').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Uniform').length} claims
+              {rows.filter(r => r.claimType === 'Uniform').length} claims
             </p>
           </div>
           <div className="p-4 bg-indigo-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Mobile</h4>
             <p className="text-2xl font-bold text-indigo-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Mobile').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Mobile').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Mobile').length} claims
+              {rows.filter(r => r.claimType === 'Mobile').length} claims
             </p>
           </div>
           <div className="p-4 bg-pink-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Internet</h4>
             <p className="text-2xl font-bold text-pink-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Internet').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Internet').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Internet').length} claims
+              {rows.filter(r => r.claimType === 'Internet').length} claims
             </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">Other</h4>
             <p className="text-2xl font-bold text-gray-600">
-              ₹{(mockReimbursements.filter(r => r.claimType === 'Other').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
+              ₹{(rows.filter(r => r.claimType === 'Other').reduce((sum, r) => sum + r.amount, 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              {mockReimbursements.filter(r => r.claimType === 'Other').length} claims
+              {rows.filter(r => r.claimType === 'Other').length} claims
             </p>
           </div>
         </div>

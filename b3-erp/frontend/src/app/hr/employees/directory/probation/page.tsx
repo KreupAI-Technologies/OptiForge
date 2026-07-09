@@ -100,51 +100,6 @@ export default function ProbationEmployeesPage() {
     };
   }, []);
 
-  const mockProbationEmployees: ProbationEmployee[] = [
-    {
-      id: 'PE001', employeeCode: 'KMF2024001', name: 'Vikram Singh', designation: 'Production Supervisor', department: 'Production',
-      joiningDate: '2024-08-01', probationPeriod: 6, probationEndDate: '2025-01-31', daysRemaining: 65,
-      reviewScheduled: true, reviewDate: '2025-01-15', supervisor: 'Rajesh Kumar Sharma', performanceScore: 4.2,
-      feedback: 'Good performance, shows initiative', recommendation: 'confirm', attendancePercentage: 96,
-      completedTrainings: 3, totalTrainings: 4, status: 'ongoing'
-    },
-    {
-      id: 'PE002', employeeCode: 'KMF2024002', name: 'Kavita Desai', designation: 'HR Executive', department: 'Human Resources',
-      joiningDate: '2024-07-01', probationPeriod: 6, probationEndDate: '2024-12-31', daysRemaining: 28,
-      reviewScheduled: true, reviewDate: '2024-12-15', supervisor: 'Sunita Rao', performanceScore: 4.5,
-      feedback: 'Excellent work ethic and team player', recommendation: 'confirm', attendancePercentage: 98,
-      completedTrainings: 5, totalTrainings: 5, status: 'review_due'
-    },
-    {
-      id: 'PE003', employeeCode: 'KMF2024003', name: 'Arjun Pillai', designation: 'Quality Inspector', department: 'Quality',
-      joiningDate: '2024-09-01', probationPeriod: 3, probationEndDate: '2024-11-30', daysRemaining: -3,
-      reviewScheduled: false, supervisor: 'Meera Nair', performanceScore: 3.8,
-      feedback: 'Needs improvement in attention to detail', recommendation: 'extend', attendancePercentage: 92,
-      completedTrainings: 2, totalTrainings: 3, status: 'review_due'
-    },
-    {
-      id: 'PE004', employeeCode: 'KMF2024004', name: 'Deepa Joshi', designation: 'Accounts Assistant', department: 'Finance',
-      joiningDate: '2024-06-01', probationPeriod: 6, probationEndDate: '2024-11-30', daysRemaining: -3,
-      reviewScheduled: true, reviewDate: '2024-11-28', supervisor: 'Amit Shah', performanceScore: 4.7,
-      feedback: 'Outstanding performance, quick learner', recommendation: 'confirm', attendancePercentage: 100,
-      completedTrainings: 4, totalTrainings: 4, status: 'confirmed'
-    },
-    {
-      id: 'PE005', employeeCode: 'KMF2024005', name: 'Manoj Kumar', designation: 'IT Support Engineer', department: 'IT',
-      joiningDate: '2024-08-15', probationPeriod: 6, probationEndDate: '2025-02-14', daysRemaining: 79,
-      reviewScheduled: false, supervisor: 'Rahul Verma', performanceScore: 4.0,
-      feedback: 'Good technical skills, improving communication', recommendation: 'pending', attendancePercentage: 94,
-      completedTrainings: 2, totalTrainings: 5, status: 'ongoing'
-    },
-    {
-      id: 'PE006', employeeCode: 'KMF2024006', name: 'Priya Menon', designation: 'Marketing Executive', department: 'Marketing',
-      joiningDate: '2024-07-15', probationPeriod: 6, probationEndDate: '2025-01-14', daysRemaining: 48,
-      reviewScheduled: true, reviewDate: '2025-01-05', supervisor: 'Kavita Malhotra', performanceScore: 4.3,
-      feedback: 'Creative ideas, needs to work on deadlines', recommendation: 'confirm', attendancePercentage: 95,
-      completedTrainings: 3, totalTrainings: 4, status: 'ongoing'
-    }
-  ];
-
   const departments = ['all', 'Production', 'Human Resources', 'Quality', 'Finance', 'IT', 'Marketing'];
 
   const filteredData = useMemo(() => {

@@ -38,56 +38,13 @@ interface RoleContact {
   totalValue: number;
 }
 
-const mockContacts: RoleContact[] = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@techcorp.com',
-    phone: '+1 (415) 555-0100',
-    company: 'TechCorp Global',
-    title: 'Chief Technology Officer',
-    roleId: '1',
-    lastContact: '2024-10-18',
-    status: 'hot',
-    dealsPending: 3,
-    dealsClosed: 12,
-    totalValue: 8500000,
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    email: 'michael.chen@innovate.io',
-    phone: '+1 (650) 555-0200',
-    company: 'InnovateTech',
-    title: 'Chief Technology Officer',
-    roleId: '1',
-    lastContact: '2024-10-15',
-    status: 'engaged',
-    dealsPending: 2,
-    dealsClosed: 8,
-    totalValue: 6200000,
-  },
-  {
-    id: '3',
-    name: 'Emily Rodriguez',
-    email: 'emily.r@enterprise.com',
-    phone: '+1 (212) 555-0300',
-    company: 'Enterprise Solutions',
-    title: 'VP of Engineering',
-    roleId: '2',
-    lastContact: '2024-10-20',
-    status: 'hot',
-    dealsPending: 4,
-    dealsClosed: 15,
-    totalValue: 7800000,
-  },
-];
-
 export default function ContactRolesPage() {
   const [roles, setRoles] = useState<ContactRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [contacts] = useState<RoleContact[]>(mockContacts);
+  const [contacts, setContacts] = useState<RoleContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsError, setContactsError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -138,6 +95,49 @@ export default function ContactRolesPage() {
   const [filterType, setFilterType] = useState<'all' | 'decision-maker' | 'budget-holder' | 'influencer'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'contacts' | 'deals' | 'influence'>('influence');
   const [selectedRole, setSelectedRole] = useState<ContactRole | null>(null);
+
+  useEffect(() => {
+    if (!selectedRole) {
+      setContacts([]);
+      setContactsError(null);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        setContactsLoading(true);
+        setContactsError(null);
+        const detail: any = await crmService.contactRoles.getById(selectedRole.id);
+        const rows: any[] = Array.isArray(detail?.contacts)
+          ? detail.contacts
+          : Array.isArray(detail?.members)
+            ? detail.members
+            : [];
+        if (!mounted) return;
+        setContacts(rows.map((c: any): RoleContact => ({
+          id: String(c.id ?? ''),
+          name: c.name ?? c.fullName ?? '',
+          email: c.email ?? '',
+          phone: c.phone ?? '',
+          company: c.company ?? c.companyName ?? '',
+          title: c.title ?? c.jobTitle ?? '',
+          roleId: String(c.roleId ?? selectedRole.id),
+          lastContact: c.lastContact ?? c.lastContactDate ?? '',
+          status: (c.status ?? 'cold') as RoleContact['status'],
+          dealsPending: Number(c.dealsPending ?? 0),
+          dealsClosed: Number(c.dealsClosed ?? 0),
+          totalValue: Number(c.totalValue ?? 0),
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setContactsError(e?.message || 'Failed to load contacts');
+        setContacts([]);
+      } finally {
+        if (mounted) setContactsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [selectedRole]);
 
   const filteredRoles = roles
     .filter(role => {
@@ -321,6 +321,12 @@ export default function ContactRolesPage() {
 
       {/* Roles Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {loading && (
+          <div className="py-8 text-center text-gray-500 text-sm">Loading contact roles…</div>
+        )}
+        {!loading && !error && filteredRoles.length === 0 && (
+          <div className="py-8 text-center text-gray-500 text-sm">No contact roles found.</div>
+        )}
         {filteredRoles.map((role) => (
           <div key={role.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
             <div className="p-6">
@@ -479,7 +485,15 @@ export default function ContactRolesPage() {
 
             <div className="p-6">
               <div className="space-y-2">
-                {contacts.filter(c => c.roleId === selectedRole.id).map((contact) => (
+                {contactsLoading && (
+                  <div className="text-center py-8 text-gray-500">Loading contacts…</div>
+                )}
+                {contactsError && !contactsLoading && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {contactsError}
+                  </div>
+                )}
+                {!contactsLoading && !contactsError && contacts.filter(c => c.roleId === selectedRole.id).map((contact) => (
                   <div key={contact.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -520,7 +534,7 @@ export default function ContactRolesPage() {
                     </div>
                   </div>
                 ))}
-                {contacts.filter(c => c.roleId === selectedRole.id).length === 0 && (
+                {!contactsLoading && !contactsError && contacts.filter(c => c.roleId === selectedRole.id).length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     No contacts found for this role
                   </div>

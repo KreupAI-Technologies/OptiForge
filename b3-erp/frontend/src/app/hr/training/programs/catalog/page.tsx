@@ -77,10 +77,8 @@ export default function ProgramCatalogPage() {
     };
   }, []);
 
-  const mockPrograms: TrainingProgram[] = rows;
-
   const filteredPrograms = useMemo(() => {
-    return mockPrograms.filter(program => {
+    return rows.filter(program => {
       const matchesSearch = program.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            program.code.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || program.category === selectedCategory;
@@ -91,11 +89,11 @@ export default function ProgramCatalogPage() {
   }, [searchTerm, selectedCategory, selectedMode, selectedLevel, rows]);
 
   const stats = {
-    total: mockPrograms.length,
-    active: mockPrograms.filter(p => p.status === 'active').length,
-    upcoming: mockPrograms.filter(p => p.status === 'upcoming').length,
-    totalEnrolled: mockPrograms.reduce((sum, p) => sum + p.enrolled, 0),
-    withCertification: mockPrograms.filter(p => p.certification).length
+    total: rows.length,
+    active: rows.filter(p => p.status === 'active').length,
+    upcoming: rows.filter(p => p.status === 'upcoming').length,
+    totalEnrolled: rows.reduce((sum, p) => sum + p.enrolled, 0),
+    withCertification: rows.filter(p => p.certification).length
   };
 
   const getCategoryColor = (category: string) => {

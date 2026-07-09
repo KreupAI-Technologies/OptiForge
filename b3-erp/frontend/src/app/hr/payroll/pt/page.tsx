@@ -40,7 +40,7 @@ export default function ProfessionalTaxPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Summary object derived from the real fetched records
-  const mockPTMonth: PTMonth = {
+  const ptMonth: PTMonth = {
     id: 'PT-2025-11',
     monthYear: 'November 2025',
     payPeriod: '01-Nov-2025 to 30-Nov-2025',
@@ -121,16 +121,16 @@ export default function ProfessionalTaxPage() {
       <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg shadow-sm border border-orange-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{mockPTMonth.monthYear}</h2>
-            <p className="text-sm text-gray-600 mt-1">Pay Period: {mockPTMonth.payPeriod}</p>
-            <p className="text-xs text-gray-500 mt-1">PT Month ID: {mockPTMonth.id}</p>
+            <h2 className="text-xl font-bold text-gray-900">{ptMonth.monthYear}</h2>
+            <p className="text-sm text-gray-600 mt-1">Pay Period: {ptMonth.payPeriod}</p>
+            <p className="text-xs text-gray-500 mt-1">PT Month ID: {ptMonth.id}</p>
           </div>
           <div className="text-right">
-            <span className={`px-4 py-2 text-sm font-semibold rounded-full ${statusColors[mockPTMonth.status]} block mb-2`}>
-              {mockPTMonth.status.toUpperCase()}
+            <span className={`px-4 py-2 text-sm font-semibold rounded-full ${statusColors[ptMonth.status]} block mb-2`}>
+              {ptMonth.status.toUpperCase()}
             </span>
             <p className="text-xs text-gray-600">
-              Due Date: {new Date(mockPTMonth.dueDate).toLocaleDateString('en-IN')}
+              Due Date: {new Date(ptMonth.dueDate).toLocaleDateString('en-IN')}
             </p>
           </div>
         </div>
@@ -140,7 +140,7 @@ export default function ProfessionalTaxPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Employees</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{mockPTMonth.employeeCount}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{ptMonth.employeeCount}</p>
               </div>
               <Users className="h-6 w-6 text-orange-600" />
             </div>
@@ -150,7 +150,7 @@ export default function ProfessionalTaxPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Total PT Collected</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(mockPTMonth.totalPTCollected)}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(ptMonth.totalPTCollected)}</p>
               </div>
               <DollarSign className="h-6 w-6 text-green-600" />
             </div>
@@ -160,7 +160,7 @@ export default function ProfessionalTaxPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">State</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{mockPTMonth.state}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{ptMonth.state}</p>
               </div>
               <MapPin className="h-6 w-6 text-blue-600" />
             </div>
@@ -170,7 +170,7 @@ export default function ProfessionalTaxPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Status</p>
-                <p className="text-sm font-bold text-gray-900 mt-1">{mockPTMonth.status.toUpperCase()}</p>
+                <p className="text-sm font-bold text-gray-900 mt-1">{ptMonth.status.toUpperCase()}</p>
               </div>
               <Receipt className="h-6 w-6 text-purple-600" />
             </div>

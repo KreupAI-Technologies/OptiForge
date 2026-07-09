@@ -75,23 +75,21 @@ export default function Page() {
     };
   }, []);
 
-  const mockReimbursements: PendingReimbursement[] = rows;
-
   const filteredReimbursements = useMemo(() => {
-    return mockReimbursements.filter(reimb => {
+    return rows.filter(reimb => {
       const matchesDept = selectedDepartment === 'all' || reimb.department === selectedDepartment;
       const matchesType = selectedType === 'all' || reimb.claimType === selectedType;
       return matchesDept && matchesType;
     });
-  }, [selectedDepartment, selectedType]);
+  }, [rows, selectedDepartment, selectedType]);
 
   const stats = {
-    totalClaims: mockReimbursements.length,
-    totalAmount: mockReimbursements.reduce((sum, r) => sum + r.amount, 0),
-    highPriority: mockReimbursements.filter(r => r.priority === 'high').length,
-    mediumPriority: mockReimbursements.filter(r => r.priority === 'medium').length,
-    avgPendingDays: Math.round(mockReimbursements.reduce((sum, r) => sum + r.pendingDays, 0) / mockReimbursements.length),
-    overdueCount: mockReimbursements.filter(r => r.pendingDays > 7).length
+    totalClaims: rows.length,
+    totalAmount: rows.reduce((sum, r) => sum + r.amount, 0),
+    highPriority: rows.filter(r => r.priority === 'high').length,
+    mediumPriority: rows.filter(r => r.priority === 'medium').length,
+    avgPendingDays: rows.length ? Math.round(rows.reduce((sum, r) => sum + r.pendingDays, 0) / rows.length) : 0,
+    overdueCount: rows.filter(r => r.pendingDays > 7).length
   };
 
   const getPriorityColor = (priority: string) => {

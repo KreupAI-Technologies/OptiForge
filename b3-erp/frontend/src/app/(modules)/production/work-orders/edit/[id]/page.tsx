@@ -87,53 +87,7 @@ interface WorkOrderFormData {
   estimatedOverheadCost: string;
 }
 
-// Mock data for dropdowns
-const products = [
-  {
-    code: 'MKC-CAB-001',
-    name: 'Premium Modular Kitchen Cabinet - Upper Unit',
-    description: '900mm x 600mm x 300mm Wall-mounted Cabinet',
-    drawingNumber: 'DRG-MKC-001-Rev3',
-    revision: 'C',
-    bomRef: 'BOM-MKC-CAB-001-Rev2',
-    routingRef: 'RTG-MKC-CAB-001',
-  },
-  {
-    code: 'SFC-TBL-002',
-    name: 'Steel Office Table - Executive',
-    description: '1500mm x 750mm x 750mm with powder coating',
-    drawingNumber: 'DRG-SFC-TBL-002-Rev2',
-    revision: 'B',
-    bomRef: 'BOM-SFC-TBL-002-Rev1',
-    routingRef: 'RTG-SFC-TBL-002',
-  },
-  {
-    code: 'ELP-PNL-003',
-    name: 'Electrical Control Panel - 32A',
-    description: 'MCB Distribution Panel with 32A Rating',
-    drawingNumber: 'DRG-ELP-003-Rev4',
-    revision: 'D',
-    bomRef: 'BOM-ELP-PNL-003-Rev3',
-    routingRef: 'RTG-ELP-PNL-003',
-  },
-  {
-    code: 'MTR-ASM-004',
-    name: '3-Phase Motor Assembly - 5HP',
-    description: 'Industrial motor with gearbox assembly',
-    drawingNumber: 'DRG-MTR-004-Rev2',
-    revision: 'B',
-    bomRef: 'BOM-MTR-ASM-004-Rev1',
-    routingRef: 'RTG-MTR-ASM-004',
-  },
-];
-
-const salesOrders = [
-  { ref: 'SO-2025-0892', customer: 'Sharma Modular Kitchens Pvt Ltd', productCode: 'MKC-CAB-001', quantity: 50 },
-  { ref: 'SO-2025-0895', customer: 'Metro Office Interiors', productCode: 'SFC-TBL-002', quantity: 100 },
-  { ref: 'SO-2025-0898', customer: 'Electrical Solutions India', productCode: 'ELP-PNL-003', quantity: 75 },
-  { ref: 'SO-2025-0901', customer: 'Industrial Pumps Ltd', productCode: 'MTR-ASM-004', quantity: 25 },
-];
-
+// Static config option lists (not entity data)
 const workCenters = [
   'Assembly Line 1',
   'Assembly Line 2',
@@ -148,127 +102,7 @@ const workCenters = [
 
 const shifts = ['Morning (6AM-2PM)', 'Afternoon (2PM-10PM)', 'Night (10PM-6AM)', 'Morning/Afternoon', 'All Shifts'];
 
-const supervisors = ['Rajesh Kumar', 'Priya Desai', 'Amit Sharma', 'Suresh Patel', 'Neha Gupta'];
-const foremen = ['Amit Patel', 'Vijay Singh', 'Ramesh Kumar', 'Anil Sharma', 'Suresh Yadav'];
-
 const uomOptions = ['Pcs', 'Sets', 'KG', 'MT', 'Ltrs', 'Meters', 'SqM'];
-
-// Mock BOM explosion data
-const mockBOMMaterials: MaterialRequirement[] = [
-  {
-    id: '1',
-    itemCode: 'PLY-18MM-BWP',
-    description: 'BWP Plywood 18mm - 8ft x 4ft (IS 303)',
-    requiredQty: '25',
-    uom: 'Sheets',
-    stockAvailable: 150,
-    stockStatus: 'available',
-    canSubstitute: false,
-    substituteItem: '',
-  },
-  {
-    id: '2',
-    itemCode: 'HNG-BLM-165',
-    description: 'Blum Soft-close Hinges 165° - European Standard',
-    requiredQty: '200',
-    uom: 'Pcs',
-    stockAvailable: 850,
-    stockStatus: 'available',
-    canSubstitute: true,
-    substituteItem: 'HNG-HFL-165',
-  },
-  {
-    id: '3',
-    itemCode: 'HDWR-KNB-SS',
-    description: 'Stainless Steel Cabinet Handles - Chrome Finish',
-    requiredQty: '100',
-    uom: 'Pcs',
-    stockAvailable: 450,
-    stockStatus: 'available',
-    canSubstitute: false,
-    substituteItem: '',
-  },
-  {
-    id: '4',
-    itemCode: 'LMNT-PVC-2MM',
-    description: 'PVC Edge Banding - Oak Finish 2mm x 50m',
-    requiredQty: '15',
-    uom: 'Rolls',
-    stockAvailable: 8,
-    stockStatus: 'shortage',
-    canSubstitute: true,
-    substituteItem: 'LMNT-PVC-ALT',
-  },
-  {
-    id: '5',
-    itemCode: 'PAINT-PU-WHT',
-    description: 'Polyurethane Paint - Pure White Matt Finish',
-    requiredQty: '20',
-    uom: 'Ltrs',
-    stockAvailable: 45,
-    stockStatus: 'available',
-    canSubstitute: false,
-    substituteItem: '',
-  },
-];
-
-// Mock routing operations
-const mockRoutingOperations: Operation[] = [
-  {
-    id: '1',
-    sequence: 10,
-    operationName: 'Cutting & Sizing',
-    workCenter: 'CNC Cutting Center',
-    setupTime: '30',
-    runTime: '240',
-    estimatedDuration: '4.5 hrs',
-  },
-  {
-    id: '2',
-    sequence: 20,
-    operationName: 'Edge Banding',
-    workCenter: 'Edge Banding Machine',
-    setupTime: '20',
-    runTime: '180',
-    estimatedDuration: '3.3 hrs',
-  },
-  {
-    id: '3',
-    sequence: 30,
-    operationName: 'Drilling & Hardware Mounting',
-    workCenter: 'Assembly Line 1',
-    setupTime: '15',
-    runTime: '360',
-    estimatedDuration: '6.3 hrs',
-  },
-  {
-    id: '4',
-    sequence: 40,
-    operationName: 'Painting & Finishing',
-    workCenter: 'Paint Shop',
-    setupTime: '45',
-    runTime: '420',
-    estimatedDuration: '7.8 hrs',
-  },
-  {
-    id: '5',
-    sequence: 50,
-    operationName: 'Quality Inspection',
-    workCenter: 'QC Station',
-    setupTime: '10',
-    runTime: '90',
-    estimatedDuration: '1.7 hrs',
-  },
-  {
-    id: '6',
-    sequence: 60,
-    operationName: 'Packing & Dispatch',
-    workCenter: 'Packing Station',
-    setupTime: '15',
-    runTime: '120',
-    estimatedDuration: '2.3 hrs',
-  },
-];
 
 const stockStatusColors = {
   available: 'bg-green-100 text-green-700',
@@ -377,32 +211,6 @@ export default function EditWorkOrderPage() {
 
   const updateFormData = (field: keyof WorkOrderFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleProductChange = (productCode: string) => {
-    const product = products.find(p => p.code === productCode);
-    if (product) {
-      updateFormData('productCode', product.code);
-      updateFormData('productName', product.name);
-      updateFormData('productDescription', product.description);
-      updateFormData('drawingNumber', product.drawingNumber);
-      updateFormData('revision', product.revision);
-      updateFormData('bomRef', product.bomRef);
-      updateFormData('routingRef', product.routingRef);
-      // In real app, load BOM and routing from backend
-      updateFormData('materialRequirements', mockBOMMaterials);
-      updateFormData('operations', mockRoutingOperations);
-    }
-  };
-
-  const handleSalesOrderChange = (soRef: string) => {
-    const so = salesOrders.find(s => s.ref === soRef);
-    if (so) {
-      updateFormData('salesOrderRef', so.ref);
-      updateFormData('customerName', so.customer);
-      updateFormData('quantity', so.quantity.toString());
-      handleProductChange(so.productCode);
-    }
   };
 
   const addSecondaryWorkCenter = () => {
@@ -618,16 +426,13 @@ export default function EditWorkOrderPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sales Order Reference
                   </label>
-                  <select
+                  <input
+                    type="text"
                     value={formData.salesOrderRef}
-                    onChange={(e) => handleSalesOrderChange(e.target.value)}
+                    onChange={(e) => updateFormData('salesOrderRef', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Select Sales Order</option>
-                    {salesOrders.map(so => (
-                      <option key={so.ref} value={so.ref}>{so.ref} - {so.customer}</option>
-                    ))}
-                  </select>
+                    placeholder="Sales order reference"
+                  />
                 </div>
 
                 <div>
@@ -653,20 +458,14 @@ export default function EditWorkOrderPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Product <span className="text-red-500">*</span>
+                    Product Code <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <input
+                    type="text"
                     value={formData.productCode}
-                    onChange={(e) => handleProductChange(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Select Product</option>
-                    {products.map(product => (
-                      <option key={product.code} value={product.code}>
-                        {product.code} - {product.name}
-                      </option>
-                    ))}
-                  </select>
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                  />
                 </div>
 
                 <div>
@@ -869,30 +668,24 @@ export default function EditWorkOrderPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Supervisor</label>
-                  <select
+                  <input
+                    type="text"
                     value={formData.supervisor}
                     onChange={(e) => updateFormData('supervisor', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Select Supervisor</option>
-                    {supervisors.map(sup => (
-                      <option key={sup} value={sup}>{sup}</option>
-                    ))}
-                  </select>
+                    placeholder="Supervisor name"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Foreman</label>
-                  <select
+                  <input
+                    type="text"
                     value={formData.foreman}
                     onChange={(e) => updateFormData('foreman', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Select Foreman</option>
-                    {foremen.map(fm => (
-                      <option key={fm} value={fm}>{fm}</option>
-                    ))}
-                  </select>
+                    placeholder="Foreman name"
+                  />
                 </div>
 
                 <div>
