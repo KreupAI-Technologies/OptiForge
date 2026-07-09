@@ -134,10 +134,7 @@ export default function MyLeaveBalancePage() {
             <span>Download Report</span>
           </button>
           <button
-            onClick={() => {
-              console.log('Navigating to apply leave page...');
-              router.push('/hr/leave/apply');
-            }}
+            onClick={() => router.push('/hr/leave/apply')}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
