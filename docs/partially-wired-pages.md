@@ -1,36 +1,23 @@
 # Partially-Wired Pages Report
 
-> ## ✅ RE-VERIFIED & RESOLVED — branch `feat/readiness-fixes`
-> All 39 flagged pages re-checked at HEAD with a marker scanner + manual inspection (`scripts/` + 4 module agents). As the detector's own history notes, most were **false positives**. Outcome:
-> - **Genuine stubs fixed** (wired to real existing services, loading/error states): finance trial-balance refresh; 3 cash-flow rows → payment view; reports/quality dashboard+inspections exports; hr/leave download + view-all; rfq/view linked-PR → real route; procurement rfq-rfp send; production/shopfloor + inventory work-center/email **mock-data fallbacks removed** → honest empty state.
-> - **Genuine backend-gap actions → honest-disabled** (not faked): cpq cad/ecommerce view-quote, procurement contracts history/upload + rfq-rfp bid shortlist/reject, finance recurring post-now, inventory low-stock email. These need net-new backend (tracked in [`pending-backend-work.md`](./pending-backend-work.md)).
-> - **False positives (left as-is):** informational `// TODO` comments, validation/confirmation `alert()`s, working `window.prompt`s that call real endpoints, static enum constants.
+> ## ✅ RESOLVED — branch `feat/production-readiness-complete` (follow-up to `78a0a080`)
+> All 21 pages below were re-audited by following imports into their **child modal components** (depth ≤ 3), which is where every marker actually lived — the `page.tsx` files were already clean. Outcome:
+> - **Stale `// TODO: API call…` comments** (the vast majority): the modal already fires an `onSubmit`/`onSave`/`onExport`/`onConfirm` callback and the parent page's handler calls the real service (e.g. `procurementContractService.createContract`, `bomService.createBOM`, `ProductionOrphanService.*`, `FinanceService.updateCreditLimit`). Comments deleted.
+> - **Genuine broken submits** (modal `console.log`-ed instead of calling its callback): `BOMCoreModals` create/update/copy now fire their callbacks → parent's real service runs. Fixed in `DowntimeExportModals`, `InventoryMovementModals`, `InventoryStockModals`, `ShopFloorExportModals` likewise.
+> - **Fabricated mock data removed** → honest empty states / real fetches: GRN `mockPOData` + hardcoded GRN/stock history, inventory stock `recentTransactions`, credit-review `console.log` submits → real `FinanceService` calls, tool-prep sample tools → `projectManagementService.getDeployedTools`, quality-report `DEFAULT_DATA` → empty state.
+> - **Unimplemented export/CSV features** implemented via client-side `exportToCsv`, or real reads (`inventoryService.getStockBalances/getStockEntries`); genuinely missing endpoints (scheduled exports, AR aging-alert persistence, work-order BOM lookup) surfaced as honest "not available"/manual-entry rather than fake success.
 >
-> **Live pages now have 0 empty-onClick, 0 console-log-onClick, 0 "coming soon" action-stub alerts.** Frontend `tsc` = 0. The residual scanner hits are all intentional (honest-disabled notices / validation alerts / informational TODOs).
->
-> ---
->
-> ### ➕ Follow-up — 2026-07-09 (branch `feat/complete-remaining-wired-pages`)
-> A later regenerated run of this report (1730 scanned · 25 partial) re-flagged a subset; on inspection several still had live stubs at HEAD, now completed:
-> - **production/automation** — added `activate/pause/disable/execute` methods to `production-orphan.service`; wired Start/Pause/Stop; removed `console.log` handlers.
-> - **production/downtime** + **downtime/analysis** — replaced hardcoded mock summaries/analytics with values computed from `getDowntimeRecords()` (non-derivable metrics → 0, not faked).
-> - **production/shopfloor** — removed fake operator "Amit Sharma"; derives from real `employeeId`.
-> - **procurement/purchase-requisition** — new `procurement-purchase-requisition.service` (submit / convert-to-PO) wired to real routes (with `credentials: 'include'`).
-> - **procurement/rfq-rfp** — Award → `awardRFQ`; Export → client-side CSV; View-bid → real modal; removed dead Edit alert.
-> - **procurement/contracts** — removed permanently-disabled "View History" button (no history endpoint exists).
-> - **finance/advanced-features** — removed 6 fabricated mock datasets → honest empty-states + real feature-toggle fetch.
->
-> Frontend `tsc --noEmit` = **0 errors**.
+> **Verification:** frontend `tsc --noEmit` = 0 errors; a transitive depth-≤3 re-scan of all 21 page trees for `TODO/FIXME/HACK/MOCK_/mockData/// Mock/console.log/API call to/empty-onclick/coming-soon` = **0 hits**.
 >
 > ---
 
-_Regenerated: 2026-07-08 (branch `main`, commit `1db4e41a`)._
-_Detector v3: import-following depth ≤ 3, follows relative + alias imports. Same classifier as [`wiring-audit-2026-07-08.md`](./wiring-audit-2026-07-08.md)._
+_Regenerated: 2026-07-09 (branch `main`, commit `78a0a080`)._
+_Detector v3: import-following depth ≤ 3, follows relative + alias imports. Same classifier as [`wiring-audit-2026-07-09.md`](./wiring-audit-2026-07-09.md)._
 
 Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend somewhere in their tree, but also contain a stub-style handler** (`alert()`, `console.log('click'|'save'|…)`, `// TODO`/`FIXME`/`HACK`, or empty `onClick`).
 
-**Total partially-wired pages: 39**
-**(Total scanned: 1671 · NOT_WIRED: 2 · PARTIAL: 39 · FULL: 1625 · DEPRECATED: 5)**
+**Total partially-wired pages: 21**
+**(Total scanned: 1724 · NOT_WIRED: 1 · PARTIAL: 21 · FULL: 1702 · DEPRECATED: 0)**
 
 ## Issue tags used
 
@@ -58,24 +45,19 @@ Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend som
 
 | Module | Partial pages |
 |---|---|
-| production | 11 |
-| finance | 7 |
-| inventory | 6 |
-| reports | 5 |
-| procurement | 4 |
-| cpq | 2 |
+| production | 9 |
+| inventory | 5 |
+| procurement | 3 |
+| finance | 2 |
 | crm | 1 |
-| hr | 1 |
 | installation | 1 |
-| rfq | 1 |
 
 ---
 
-## `production` — 11 partially-wired pages
+## `production` — 9 partially-wired pages
 
 | Route | Issues |
 |---|---|
-| `/production/automation` | console-log-stub |
 | `/production/bom` | mock-data; TODO(x5) |
 | `/production/bom/versions` | TODO(x9) |
 | `/production/downtime` | TODO(x13) |
@@ -83,58 +65,33 @@ Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend som
 | `/production/downtime/log` | TODO(x3) |
 | `/production/downtime/rca` | TODO(x17) |
 | `/production/quality` | TODO(x2) |
-| `/production/quality/add` | TODO(x1) |
 | `/production/shopfloor` | mock-data; TODO(x3) |
 | `/production/shopfloor/operator` | TODO(x2) |
 
-## `finance` — 7 partially-wired pages
-
-| Route | Issues |
-|---|---|
-| `/finance/accounting/chart-of-accounts` | mock-data; console-log-onclick |
-| `/finance/accounting/trial-balance` | mock-data; alert-onclick |
-| `/finance/advanced-features` | mock-data; empty-onclick |
-| `/finance/automation/recurring-transactions` | mock-data; console-log-onclick |
-| `/finance/periods` | wired-via-delegation; mock-data; empty-onclick |
-| `/finance/receivables/credit-management` | mock-data; console-log-stub |
-| `/finance/tax/tds` | mock-data; TODO(x2) |
-
-## `inventory` — 6 partially-wired pages
+## `inventory` — 5 partially-wired pages
 
 | Route | Issues |
 |---|---|
 | `/inventory/adjustments` | TODO(x1) |
-| `/inventory/cycle-count` | TODO(x4) |
 | `/inventory/movements` | TODO(x6) |
 | `/inventory/stock` | TODO(x2) |
 | `/inventory/stock/low-stock` | TODO(x2) |
 | `/inventory/transfers` | TODO(x3) |
 
-## `reports` — 5 partially-wired pages
-
-| Route | Issues |
-|---|---|
-| `/reports/finance/cash-flow/financing` | console-log-onclick |
-| `/reports/finance/cash-flow/investing` | console-log-onclick |
-| `/reports/finance/cash-flow/operating` | console-log-onclick |
-| `/reports/quality/dashboard` | mock-data; not-implemented; console-log-onclick |
-| `/reports/quality/inspections` | mock-data; not-implemented; console-log-onclick |
-
-## `procurement` — 4 partially-wired pages
+## `procurement` — 3 partially-wired pages
 
 | Route | Issues |
 |---|---|
 | `/procurement/contracts` | TODO(x4) |
 | `/procurement/grn` | mock-data; TODO(x7) |
-| `/procurement/purchase-requisition` | wired-via-delegation; mock-data; console-log-stub |
 | `/procurement/rfq-rfp` | wired-via-delegation; mock-data; TODO(x1) |
 
-## `cpq` — 2 partially-wired pages
+## `finance` — 2 partially-wired pages
 
 | Route | Issues |
 |---|---|
-| `/cpq/integration/cad` | coming-soon; alert-onclick |
-| `/cpq/integration/ecommerce` | coming-soon; alert-onclick |
+| `/finance/periods` | wired-via-delegation; mock-data; empty-onclick |
+| `/finance/receivables/credit-management` | mock-data; console-log-stub |
 
 ## `crm` — 1 partially-wired pages
 
@@ -142,21 +99,41 @@ Pages under `b3-erp/frontend/src/app/` that **do fetch data from the backend som
 |---|---|
 | `/crm/customers/portal` | empty-onclick |
 
-## `hr` — 1 partially-wired pages
-
-| Route | Issues |
-|---|---|
-| `/hr/leave/balance/my` | mock-data; console-log-onclick |
-
 ## `installation` — 1 partially-wired pages
 
 | Route | Issues |
 |---|---|
 | `/installation/tool-prep` | empty-onclick |
 
-## `rfq` — 1 partially-wired pages
 
-| Route | Issues |
-|---|---|
-| `/rfq/view/[id]` | mock-data; coming-soon; alert-onclick |
 
+The 18 definitely-real partial pages
+🔴 HIGH — create/submit flow has no API call (10)
+Route	TODO / stub says
+/procurement/contracts	"API call to create contract"
+/procurement/grn	"API call to create GRN"
+/procurement/rfq-rfp	"API call to create RFQ"
+/production/bom	"API call to create BOM"
+/production/downtime	"API call to update downtime event"
+/production/downtime/log	Same shared modal
+/production/downtime/rca	"API call to create RCA investigation"
+/production/quality	"Replace with actual API call"
+/production/shopfloor	"API integration — POST /api/shopfloor/quality-alerts"
+/finance/receivables/credit-management	handleSubmit just does console.log('Submitting credit review:', {…}) and closes
+
+
+MEDIUM — export / bulk features incomplete (6)
+Route	TODO says
+/inventory/adjustments	"Parse CSV/Excel file and populate items" (bulk-upload)
+/inventory/movements	"Fetch issue data based on originalIssueRef and populate items"
+/inventory/stock	Save-as-draft + export TODOs (2)
+/inventory/stock/low-stock	Same shared modals
+/production/downtime/analysis	"Integrate with export API endpoint"
+/production/shopfloor/operator	"Implement actual API call to export operator data"
+
+
+
+ LOW — polish / types (2)
+Route	TODO says
+/inventory/transfers	"Add validation for current step" (nice-to-have)
+/production/bom/versions	"Replace with actual BOM Version type from API" (types placeholder only)
