@@ -32,6 +32,13 @@ export class PayrollStatutoryFilingController {
     return this.service.findAll({ companyId, category, status, search });
   }
 
+  @Get('summary')
+  @ApiOperation({ summary: 'Aggregate statutory filings grouped by category' })
+  @ApiQuery({ name: 'companyId', required: false })
+  getSummary(@Query('companyId') companyId?: string) {
+    return this.service.summary(companyId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a statutory filing by ID' })
   findOne(@Param('id') id: string): Promise<PayrollStatutoryFiling> {

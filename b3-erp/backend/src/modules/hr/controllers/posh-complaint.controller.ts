@@ -1,0 +1,47 @@
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { PoshComplaintService } from '../services/posh-complaint.service';
+import { PoshComplaint } from '../entities/posh-complaint.entity';
+
+@ApiTags('HR - POSH Complaints')
+@Controller('hr/posh-complaints')
+export class PoshComplaintController {
+  constructor(private readonly service: PoshComplaintService) {}
+
+  @Get()
+  findAll(
+    @Query('companyId') companyId: string,
+    @Query('status') status?: string,
+  ): Promise<PoshComplaint[]> {
+    return this.service.findAll(companyId || 'company-1', status);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string): Promise<PoshComplaint> {
+    return this.service.findOne(id);
+  }
+
+  @Post()
+  create(
+    @Body() body: Partial<PoshComplaint> & { companyId: string },
+  ): Promise<PoshComplaint> {
+    return this.service.create({
+      ...body,
+      companyId: body.companyId || 'company-1',
+    });
+  }
+
+  @Put(':id')
+  update(
+    @Param('id') id: string,
+    @Body() body: Partial<PoshComplaint>,
+  ): Promise<PoshComplaint> {
+    return this.service.update(id, body);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string): Promise<{ success: boolean }> {
+    await this.service.remove(id);
+    return { success: true };
+  }
+}

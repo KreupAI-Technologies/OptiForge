@@ -910,6 +910,157 @@ function PIPSection({ pips, subTab }: { pips: PerformanceImprovementPlan[]; subT
 }
 
 // ============================================================================
+// Performance Reports (real aggregate over /hr/performance-reviews)
+// ============================================================================
+
+function PerformanceReportsSection({
+  reviews,
+  subTab,
+}: {
+  reviews: PerformanceReview[];
+  subTab: ReportsSubTab;
+}) {
+  const rated = reviews.filter((r) => r.finalRating != null);
+  const total = reviews.length;
+  const avgRating = rated.length
+    ? rated.reduce((s, r) => s + Number(r.finalRating || 0), 0) / rated.length
+    : 0;
+
+  // Rating distribution (rounded to nearest whole 1-5)
+  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  rated.forEach((r) => {
+    const bucket = Math.min(5, Math.max(1, Math.round(Number(r.finalRating))));
+    distribution[bucket] += 1;
+  });
+
+  // By department
+  const byDept: Record<string, { count: number; sum: number; rated: number }> = {};
+  reviews.forEach((r) => {
+    const d = r.department || 'Unassigned';
+    byDept[d] = byDept[d] || { count: 0, sum: 0, rated: 0 };
+    byDept[d].count += 1;
+    if (r.finalRating != null) {
+      byDept[d].sum += Number(r.finalRating);
+      byDept[d].rated += 1;
+    }
+  });
+
+  // By status (trend proxy)
+  const byStatus: Record<string, number> = {};
+  reviews.forEach((r) => {
+    const s = String(r.status || 'unknown');
+    byStatus[s] = (byStatus[s] || 0) + 1;
+  });
+
+  if (total === 0) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div className="text-center py-8 text-gray-400">
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>No performance review data yet</p>
+          <p className="text-sm mt-2">Reports aggregate over performance review records.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <p className="text-2xl font-bold text-white">{total}</p>
+          <p className="text-sm text-gray-400">Total Reviews</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <p className="text-2xl font-bold text-white">{rated.length}</p>
+          <p className="text-sm text-gray-400">Finalised</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <p className="text-2xl font-bold text-white">{avgRating.toFixed(2)}</p>
+          <p className="text-sm text-gray-400">Avg. Final Rating</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <p className="text-2xl font-bold text-white">{Object.keys(byDept).length}</p>
+          <p className="text-sm text-gray-400">Departments</p>
+        </div>
+      </div>
+
+      {(subTab === 'analytics' || subTab === 'distribution') && (
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <p className="text-sm text-gray-400 mb-3">Rating Distribution</p>
+          <div className="space-y-3">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = distribution[star];
+              const pct = rated.length ? (count / rated.length) * 100 : 0;
+              return (
+                <div key={star}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-300 flex items-center gap-1">
+                      {star} <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
+                    </span>
+                    <span className="text-white">{count} ({pct.toFixed(0)}%)</span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(subTab === 'analytics' || subTab === 'department') && (
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-900">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Department</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Reviews</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Avg. Rating</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {Object.entries(byDept).map(([dept, v]) => (
+                <tr key={dept} className="hover:bg-gray-750">
+                  <td className="px-4 py-3 text-white">{dept}</td>
+                  <td className="px-4 py-3 text-gray-300">{v.count}</td>
+                  <td className="px-4 py-3 text-gray-300">
+                    {v.rated ? (v.sum / v.rated).toFixed(2) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {subTab === 'trends' && (
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <p className="text-sm text-gray-400 mb-3">Reviews by Status</p>
+          <div className="space-y-3">
+            {Object.entries(byStatus).map(([status, count]) => (
+              <div key={status}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-300 capitalize">{status.replace(/_/g, ' ')}</span>
+                  <span className="text-white">{count}</span>
+                </div>
+                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full"
+                    style={{ width: `${total ? (count / total) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -1127,7 +1278,7 @@ export default function PerformanceManagementPage() {
       case 'pip':
         return <PIPSection pips={pips} subTab={pipSubTab} />;
       case 'reports':
-        return <div className="text-gray-400 text-center py-8">Reports: {reportsSubTab.replace('_', ' ')} coming soon</div>;
+        return <PerformanceReportsSection reviews={reviews} subTab={reportsSubTab} />;
       default:
         return null;
     }

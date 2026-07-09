@@ -78,6 +78,8 @@ const MIGRATION_ORDER: string[] = [
     'orphan_finance.sql',
     'orphan_finance_statutory.sql',
     'orphan_hr.sql',
+    'orphan_hr_training_alumni.sql',
+    'orphan_hr_compliance.sql',
     'orphan_quality.sql',
     'orphan_after_sales.sql',
     'orphan_after-sales-service.sql',

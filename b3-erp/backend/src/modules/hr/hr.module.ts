@@ -68,6 +68,7 @@ import { CorporateCard } from './entities/corporate-card.entity';
 import { CardTransaction } from './entities/card-transaction.entity';
 import { ExpenseClaim } from './entities/expense-claim.entity';
 import { Alumni } from './entities/alumni.entity';
+import { AlumniComment } from './entities/alumni-comment.entity';
 import { OvertimeRequest } from './entities/overtime-request.entity';
 import { SafetyIncident } from './entities/safety-incident.entity';
 import { TrainingProgram } from './entities/training-program.entity';
@@ -77,6 +78,7 @@ import { CorporateCardController } from './controllers/corporate-card.controller
 import { CardTransactionController } from './controllers/card-transaction.controller';
 import { ExpenseClaimController } from './controllers/expense-claim.controller';
 import { AlumniController } from './controllers/alumni.controller';
+import { AlumniCommentController } from './controllers/alumni-comment.controller';
 import { OvertimeRequestController } from './controllers/overtime-request.controller';
 import { SafetyIncidentController } from './controllers/safety-incident.controller';
 import { TrainingProgramController } from './controllers/training-program.controller';
@@ -86,6 +88,7 @@ import { CorporateCardService } from './services/corporate-card.service';
 import { CardTransactionService } from './services/card-transaction.service';
 import { ExpenseClaimService } from './services/expense-claim.service';
 import { AlumniService } from './services/alumni.service';
+import { AlumniCommentService } from './services/alumni-comment.service';
 import { OvertimeRequestService } from './services/overtime-request.service';
 import { SafetyIncidentService } from './services/safety-incident.service';
 import { TrainingProgramService } from './services/training-program.service';
@@ -196,6 +199,16 @@ import { VehicleAssignmentService } from './services/vehicle-assignment.service'
 import { AmcContractService } from './services/amc-contract.service';
 import { PreventiveMaintenanceService } from './services/preventive-maintenance.service';
 import { CertificateRequestService } from './services/certificate-request.service';
+// HR Compliance orphan-endpoint builds (compliance certificates, POSH, remediation)
+import { ComplianceCertificate } from './entities/compliance-certificate.entity';
+import { PoshComplaint } from './entities/posh-complaint.entity';
+import { RemediationPlan } from './entities/remediation-plan.entity';
+import { ComplianceCertificateController } from './controllers/compliance-certificate.controller';
+import { PoshComplaintController } from './controllers/posh-complaint.controller';
+import { RemediationPlanController } from './controllers/remediation-plan.controller';
+import { ComplianceCertificateService } from './services/compliance-certificate.service';
+import { PoshComplaintService } from './services/posh-complaint.service';
+import { RemediationPlanService } from './services/remediation-plan.service';
 import { DocumentAuditLogService } from './services/document-audit-log.service';
 import { AssetReportService } from './services/asset-report.service';
 
@@ -373,6 +386,7 @@ import { PrismaModule } from '../prisma/prisma.module';
       CardTransaction,
       ExpenseClaim,
       Alumni,
+      AlumniComment,
       OvertimeRequest,
       SafetyIncident,
       TrainingProgram,
@@ -411,6 +425,9 @@ import { PrismaModule } from '../prisma/prisma.module';
       AmcContract,
       PreventiveMaintenance,
       CertificateRequest,
+      ComplianceCertificate,
+      PoshComplaint,
+      RemediationPlan,
       DocumentAuditLog,
       SuccessionPlan,
       ProbationReview,
@@ -485,6 +502,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     CardTransactionController,
     ExpenseClaimController,
     AlumniController,
+    AlumniCommentController,
     OvertimeRequestController,
     SafetyIncidentController,
     TrainingProgramController,
@@ -523,6 +541,9 @@ import { PrismaModule } from '../prisma/prisma.module';
     AmcContractController,
     PreventiveMaintenanceController,
     CertificateRequestController,
+    ComplianceCertificateController,
+    PoshComplaintController,
+    RemediationPlanController,
     DocumentAuditLogController,
     AssetReportController,
     SuccessionPlanController,
@@ -590,6 +611,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     CardTransactionService,
     ExpenseClaimService,
     AlumniService,
+    AlumniCommentService,
     OvertimeRequestService,
     SafetyIncidentService,
     TrainingProgramService,
@@ -628,6 +650,9 @@ import { PrismaModule } from '../prisma/prisma.module';
     AmcContractService,
     PreventiveMaintenanceService,
     CertificateRequestService,
+    ComplianceCertificateService,
+    PoshComplaintService,
+    RemediationPlanService,
     DocumentAuditLogService,
     AssetReportService,
     SuccessionPlanService,

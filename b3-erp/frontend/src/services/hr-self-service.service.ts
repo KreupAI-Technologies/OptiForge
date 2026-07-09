@@ -213,6 +213,19 @@ export interface Alumni {
   status?: string;
 }
 
+export interface AlumniComment {
+  id: string;
+  companyId?: string;
+  postId: string;
+  alumniId?: string;
+  authorId?: string;
+  authorName?: string;
+  body: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface OvertimeRequest {
   id: string;
   companyId: string;
@@ -308,6 +321,17 @@ export class HrSelfServiceService {
   }
   static updateAlumni(id: string, payload: Partial<Alumni>) {
     return putJson<Alumni>(`/hr/alumni/${id}`, payload);
+  }
+  static getAlumniComments(filters?: { postId?: string; status?: string }) {
+    return list<AlumniComment>(`/hr/alumni-comments${qs({ ...filters })}`);
+  }
+  static createAlumniComment(
+    payload: Partial<AlumniComment> & { postId: string; body: string },
+  ) {
+    return postJson<AlumniComment>('/hr/alumni-comments', {
+      companyId: 'company-1',
+      ...payload,
+    });
   }
   static getOvertimeRequests(status?: string) {
     return list<OvertimeRequest>(`/hr/overtime-requests${qs({ status })}`);
