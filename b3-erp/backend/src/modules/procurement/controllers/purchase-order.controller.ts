@@ -75,6 +75,26 @@ export class PurchaseOrderController {
     return this.poService.approve(id, approverData);
   }
 
+  @Post('bulk-import')
+  @ApiOperation({ summary: 'Bulk-import a purchase order from parsed line-item rows' })
+  async bulkImport(@Body() body: { rows: any[]; meta?: any }): Promise<PurchaseOrderResponseDto> {
+    const rows = Array.isArray(body) ? (body as any[]) : body?.rows;
+    const meta = Array.isArray(body) ? undefined : body?.meta;
+    return this.poService.bulkImport(rows, meta);
+  }
+
+  @Post(':id/delegate')
+  @ApiOperation({ summary: 'Delegate purchase order approval' })
+  async delegate(@Param('id') id: string, @Body() delegateData: any): Promise<PurchaseOrderResponseDto> {
+    return this.poService.delegate(id, delegateData);
+  }
+
+  @Post(':id/request-info')
+  @ApiOperation({ summary: 'Request more information on a purchase order approval' })
+  async requestInfo(@Param('id') id: string, @Body() infoData: any): Promise<PurchaseOrderResponseDto> {
+    return this.poService.requestInfo(id, infoData);
+  }
+
   @Post(':id/close')
   @ApiOperation({ summary: 'Close purchase order' })
   async close(@Param('id') id: string): Promise<PurchaseOrderResponseDto> {

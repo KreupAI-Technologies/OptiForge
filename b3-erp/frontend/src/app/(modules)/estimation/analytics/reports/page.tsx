@@ -21,7 +21,9 @@ import {
 } from 'lucide-react'
 import {
   estimationReportScheduleService,
-  type ReportSchedule
+  estimationReportExportService,
+  type ReportSchedule,
+  type ReportExportFormat,
 } from '@/services/estimation-report-schedule.service'
 
 interface Report {
@@ -122,15 +124,45 @@ export default function EstimationAnalyticsReportsPage() {
     loadReports()
   }, [loadReports])
 
-  // Report file download/generation has no backend endpoint yet
-  // (estimation/report-schedules only exposes schedule CRUD). Surface an
-  // honest, non-blocking notice instead of faking a download.
   const [notice, setNotice] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [bulkDownloading, setBulkDownloading] = useState(false)
 
-  const handleDownloadReport = (_reportId: string, reportName: string) => {
-    setNotice(
-      `Downloading "${reportName}" is not yet available — the report-generation backend endpoint has not been implemented.`,
+  // Map a report's category/name to one of the built-in export types the
+  // backend can render (estimates | win-loss | accuracy).
+  const resolveExportType = (report: Report): string => {
+    const key = `${report.category} ${report.name}`.toLowerCase()
+    if (key.includes('win') || key.includes('loss')) return 'win-loss'
+    if (
+      key.includes('accuracy') ||
+      key.includes('quality') ||
+      key.includes('variance')
     )
+      return 'accuracy'
+    return 'estimates'
+  }
+
+  const handleDownloadReport = async (
+    reportId: string,
+    reportName: string,
+    format: ReportExportFormat = 'pdf',
+  ) => {
+    const report = reports.find((r) => r.id === reportId)
+    const type = report ? resolveExportType(report) : 'estimates'
+    setNotice(null)
+    setError(null)
+    setDownloadingId(reportId)
+    try {
+      await estimationReportExportService.exportReport(type, format)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : `Failed to download "${reportName}"`,
+      )
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   const handleScheduleReport = (reportId: string, reportName: string) => {
@@ -145,15 +177,20 @@ export default function EstimationAnalyticsReportsPage() {
     router.push('/estimation/analytics/reports/schedule')
   }
 
-  const handleBulkDownload = () => {
-    const availableReports = reports.filter(r => r.status === 'available')
-    if (availableReports.length === 0) {
-      setNotice('No reports available for download.')
-      return
+  const handleBulkDownload = async () => {
+    setNotice(null)
+    setError(null)
+    setBulkDownloading(true)
+    try {
+      // A single Excel workbook with one sheet per built-in report type.
+      await estimationReportExportService.bulkExport('excel')
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to download reports',
+      )
+    } finally {
+      setBulkDownloading(false)
     }
-    setNotice(
-      'Bulk report download is not yet available — the report-generation backend endpoint has not been implemented.',
-    )
   }
 
   const handleViewSchedule = (reportId: string) => {
@@ -427,10 +464,21 @@ export default function EstimationAnalyticsReportsPage() {
               {report.status === 'available' && (
                 <>
                   <button
-                    onClick={() => handleDownloadReport(report.id, report.name)}
-                    className="flex-1 px-3 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
-                    <Download className="h-4 w-4" />
-                    Download
+                    onClick={() => handleDownloadReport(report.id, report.name, 'pdf')}
+                    disabled={downloadingId === report.id}
+                    className="flex-1 px-3 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 text-sm disabled:opacity-60">
+                    {downloadingId === report.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {downloadingId === report.id ? 'Downloading…' : 'PDF'}
+                  </button>
+                  <button
+                    onClick={() => handleDownloadReport(report.id, report.name, 'excel')}
+                    disabled={downloadingId === report.id}
+                    className="px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-60">
+                    Excel
                   </button>
                   <button
                     onClick={() => handleScheduleReport(report.id, report.name)}
@@ -485,12 +533,21 @@ export default function EstimationAnalyticsReportsPage() {
           </button>
           <button
             onClick={handleBulkDownload}
-            className="px-4 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 text-left">
+            disabled={bulkDownloading}
+            className="px-4 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 text-left disabled:opacity-60">
             <div className="flex items-center gap-3">
-              <Download className="h-5 w-5 text-green-600" />
+              {bulkDownloading ? (
+                <Loader2 className="h-5 w-5 text-green-600 animate-spin" />
+              ) : (
+                <Download className="h-5 w-5 text-green-600" />
+              )}
               <div>
-                <p className="text-sm font-medium">Bulk Download</p>
-                <p className="text-xs text-gray-500">Download multiple reports</p>
+                <p className="text-sm font-medium">
+                  {bulkDownloading ? 'Downloading…' : 'Bulk Download'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  All reports as one Excel workbook
+                </p>
               </div>
             </div>
           </button>

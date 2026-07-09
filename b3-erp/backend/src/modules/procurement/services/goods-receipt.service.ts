@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GoodsReceipt, GRNStatus } from '../entities/goods-receipt.entity';
 import { GoodsReceiptItem, GRNItemStatus } from '../entities/goods-receipt-item.entity';
+import { PurchaseInvoice } from '../entities/purchase-invoice.entity';
 import { CreateGoodsReceiptDto, UpdateGoodsReceiptDto, GoodsReceiptResponseDto } from '../dto';
 import { EventBusService } from '../../workflow/services/event-bus.service';
 
@@ -13,6 +14,8 @@ export class GoodsReceiptService {
     private readonly grnRepository: Repository<GoodsReceipt>,
     @InjectRepository(GoodsReceiptItem)
     private readonly grnItemRepository: Repository<GoodsReceiptItem>,
+    @InjectRepository(PurchaseInvoice)
+    private readonly invoiceRepository: Repository<PurchaseInvoice>,
     private readonly eventBus: EventBusService,
   ) { }
 
@@ -126,6 +129,47 @@ export class GoodsReceiptService {
     grn.isPostedToInventory = true;
     grn.inventoryPostedAt = new Date();
     grn.status = GRNStatus.POSTED;
+
+    const updated = await this.grnRepository.save(grn);
+    return this.mapToResponse(updated);
+  }
+
+  async matchInvoice(
+    id: string,
+    matchData: { invoiceId?: string; invoiceNumber?: string; matchedBy?: string; notes?: string },
+  ): Promise<GoodsReceiptResponseDto> {
+    const grn = await this.grnRepository.findOne({ where: { id } });
+    if (!grn) {
+      throw new NotFoundException(`Goods Receipt with ID ${id} not found`);
+    }
+
+    if (!matchData?.invoiceId && !matchData?.invoiceNumber) {
+      throw new BadRequestException('invoiceId or invoiceNumber is required to match an invoice');
+    }
+
+    let invoice: PurchaseInvoice | null = null;
+    if (matchData.invoiceId) {
+      invoice = await this.invoiceRepository.findOne({ where: { id: matchData.invoiceId } });
+    } else if (matchData.invoiceNumber) {
+      invoice =
+        (await this.invoiceRepository.findOne({
+          where: { internalInvoiceNumber: matchData.invoiceNumber },
+        })) ??
+        (await this.invoiceRepository.findOne({
+          where: { vendorInvoiceNumber: matchData.invoiceNumber },
+        }));
+    }
+
+    if (!invoice) {
+      throw new NotFoundException('Referenced purchase invoice not found');
+    }
+
+    grn.isInvoiceMatched = true;
+    grn.matchedInvoiceId = invoice.id;
+    grn.matchedInvoiceNumber = invoice.internalInvoiceNumber || invoice.vendorInvoiceNumber;
+    grn.invoiceMatchedAt = new Date();
+    grn.invoiceMatchedBy = matchData.matchedBy || '';
+    grn.invoiceMatchNotes = matchData.notes || '';
 
     const updated = await this.grnRepository.save(grn);
     return this.mapToResponse(updated);

@@ -7,6 +7,10 @@ import {
   estimationCategoryService,
   EstimationCategory,
 } from '@/services/estimation-category.service'
+import {
+  estimationReportExportService,
+  type ReportExportFormat,
+} from '@/services/estimation-report-schedule.service'
 
 export default function CustomReportPage() {
   const router = useRouter()
@@ -31,6 +35,7 @@ export default function CustomReportPage() {
   ])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [generateError, setGenerateError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -118,7 +123,15 @@ export default function CustomReportPage() {
     }
   }
 
-  const handleGenerate = () => {
+  // The backend renders PDF / Excel / CSV. PowerPoint isn't supported, so it
+  // falls back to PDF.
+  const toExportFormat = (fmt: string): ReportExportFormat => {
+    if (fmt === 'excel') return 'excel'
+    if (fmt === 'csv') return 'csv'
+    return 'pdf'
+  }
+
+  const handleGenerate = async () => {
     setGenerateError(null)
     if (!reportName.trim()) {
       setGenerateError('Please enter a report name')
@@ -133,13 +146,30 @@ export default function CustomReportPage() {
       return
     }
 
-    // Ad-hoc custom report generation has no backend endpoint yet
-    // (estimation/report-schedules only supports scheduled CRUD, and
-    // estimation analytics exposes no report-render endpoint). Surface an
-    // honest message instead of faking success. See NEEDS BACKEND note.
-    setGenerateError(
-      'Custom report generation is not yet available — the reporting backend endpoint has not been implemented. To automate delivery of a report, use "Schedule Report" instead.',
-    )
+    setGenerating(true)
+    try {
+      await estimationReportExportService.generateCustom(
+        {
+          reportName: reportName.trim(),
+          description: reportDescription.trim() || undefined,
+          metrics: selectedMetrics,
+          filters: selectedFilters,
+          groupBy,
+          dateRange,
+          startDate: dateRange === 'custom' ? customStartDate : undefined,
+          endDate: dateRange === 'custom' ? customEndDate : undefined,
+        },
+        toExportFormat(outputFormat),
+      )
+    } catch (err) {
+      setGenerateError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to generate the custom report',
+      )
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const metricsByCategory = availableMetrics.reduce((acc, metric) => {
@@ -169,10 +199,11 @@ export default function CustomReportPage() {
           </div>
           <button
             onClick={handleGenerate}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={generating}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
           >
             <Download className="w-4 h-4" />
-            Generate Report
+            {generating ? 'Generating…' : 'Generate Report'}
           </button>
         </div>
       </div>
@@ -474,10 +505,11 @@ export default function CustomReportPage() {
           </button>
           <button
             onClick={handleGenerate}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={generating}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
           >
             <Download className="w-4 h-4" />
-            Generate Report
+            {generating ? 'Generating…' : 'Generate Report'}
           </button>
         </div>
       </div>

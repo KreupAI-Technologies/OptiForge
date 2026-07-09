@@ -5,7 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ChartOfAccounts } from '../entities/chart-of-accounts.entity';
+import {
+  ChartOfAccounts,
+  AccountType,
+  AccountSubType,
+  BalanceType,
+} from '../entities/chart-of-accounts.entity';
 import {
   CreateChartOfAccountsDto,
   UpdateChartOfAccountsDto,
@@ -56,6 +61,159 @@ export class ChartOfAccountsService {
 
     const savedAccount = await this.chartOfAccountsRepository.save(account);
     return this.mapToResponseDto(savedAccount);
+  }
+
+  /**
+   * Bulk import a parsed array of chart-of-accounts rows. Rows are validated
+   * and created via the same create() logic. Parent linking is resolved by
+   * parentCode (against both pre-existing and just-created accounts). Returns a
+   * per-row result summary. When validateOnly is set, nothing is persisted.
+   */
+  async bulkImport(
+    rows: any[],
+    options?: { validateOnly?: boolean; createdBy?: string },
+  ): Promise<{
+    total: number;
+    created: number;
+    skipped: number;
+    failed: number;
+    validateOnly: boolean;
+    results: {
+      row: number;
+      accountCode?: string;
+      status: 'created' | 'skipped' | 'failed' | 'valid';
+      message?: string;
+    }[];
+  }> {
+    if (!Array.isArray(rows)) {
+      throw new BadRequestException('Expected a JSON array of account rows');
+    }
+
+    const validateOnly = options?.validateOnly === true;
+    const results: {
+      row: number;
+      accountCode?: string;
+      status: 'created' | 'skipped' | 'failed' | 'valid';
+      message?: string;
+    }[] = [];
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    // Cache codes we know about (existing + newly created) to resolve parents
+    // and detect duplicates within the batch.
+    const existing = await this.chartOfAccountsRepository.find({
+      select: ['id', 'accountCode'],
+    });
+    const codeToId = new Map<string, string>(
+      existing.map((a) => [a.accountCode, a.id]),
+    );
+
+    const typeMap: Record<string, AccountType> = {
+      asset: AccountType.ASSET,
+      assets: AccountType.ASSET,
+      liability: AccountType.LIABILITY,
+      liabilities: AccountType.LIABILITY,
+      equity: AccountType.EQUITY,
+      income: AccountType.INCOME,
+      revenue: AccountType.INCOME,
+      expense: AccountType.EXPENSE,
+      expenses: AccountType.EXPENSE,
+    };
+    const subTypeByType: Record<AccountType, AccountSubType> = {
+      [AccountType.ASSET]: AccountSubType.CURRENT_ASSET,
+      [AccountType.LIABILITY]: AccountSubType.CURRENT_LIABILITY,
+      [AccountType.EQUITY]: AccountSubType.SHARE_CAPITAL,
+      [AccountType.INCOME]: AccountSubType.OPERATING_INCOME,
+      [AccountType.EXPENSE]: AccountSubType.OPERATING_EXPENSE,
+    };
+    const normalBalanceByType: Record<AccountType, BalanceType> = {
+      [AccountType.ASSET]: BalanceType.DEBIT,
+      [AccountType.LIABILITY]: BalanceType.CREDIT,
+      [AccountType.EQUITY]: BalanceType.CREDIT,
+      [AccountType.INCOME]: BalanceType.CREDIT,
+      [AccountType.EXPENSE]: BalanceType.DEBIT,
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i] || {};
+      const accountCode = String(r.code ?? r.accountCode ?? '').trim();
+      const accountName = String(r.name ?? r.accountName ?? '').trim();
+      const rawType = String(r.type ?? r.accountType ?? '')
+        .trim()
+        .toLowerCase();
+
+      try {
+        if (!accountCode || !accountName || !rawType) {
+          throw new Error('code, name and type are required');
+        }
+        const accountType = typeMap[rawType];
+        if (!accountType) {
+          throw new Error(`Unknown account type "${r.type ?? r.accountType}"`);
+        }
+        if (codeToId.has(accountCode)) {
+          skipped++;
+          results.push({
+            row: i + 1,
+            accountCode,
+            status: 'skipped',
+            message: 'Account code already exists',
+          });
+          continue;
+        }
+
+        const parentCode = String(
+          r.parentCode ?? r.parent_code ?? r.parentAccountCode ?? '',
+        ).trim();
+        const parentAccountId = parentCode
+          ? codeToId.get(parentCode)
+          : undefined;
+        if (parentCode && !parentAccountId) {
+          throw new Error(`Parent code "${parentCode}" not found`);
+        }
+
+        if (validateOnly) {
+          results.push({ row: i + 1, accountCode, status: 'valid' });
+          // Register the code so later rows can reference it as a parent.
+          codeToId.set(accountCode, `pending-${accountCode}`);
+          continue;
+        }
+
+        const dto: CreateChartOfAccountsDto = {
+          accountCode,
+          accountName,
+          accountType,
+          accountSubType: subTypeByType[accountType],
+          normalBalance: normalBalanceByType[accountType],
+          description: r.description ? String(r.description) : undefined,
+          parentAccountId,
+          openingBalance:
+            r.openingBalance ?? r.opening_balance ?? undefined,
+        };
+
+        const createdAccount = await this.create(dto);
+        codeToId.set(accountCode, createdAccount.id);
+        created++;
+        results.push({ row: i + 1, accountCode, status: 'created' });
+      } catch (err) {
+        failed++;
+        results.push({
+          row: i + 1,
+          accountCode: accountCode || undefined,
+          status: 'failed',
+          message: err instanceof Error ? err.message : 'Failed to import row',
+        });
+      }
+    }
+
+    return {
+      total: rows.length,
+      created,
+      skipped,
+      failed,
+      validateOnly,
+      results,
+    };
   }
 
   async findAll(filters?: {

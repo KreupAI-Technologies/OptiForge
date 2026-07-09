@@ -18,6 +18,27 @@ export const procurementPagesService = {
   async getVendors(): Promise<any[]> { return asArray(await request('/procurement/vendors')); },
   async getRfqs(): Promise<any[]> { return asArray(await request('/procurement/rfqs')); },
 
+  // ---- PO approval actions (procurement/purchase-orders/:id/*) ----
+  async delegatePurchaseOrder(id: string, payload: { delegatedTo: string; delegatedBy?: string; notes?: string }): Promise<any> {
+    return request(`/procurement/purchase-orders/${id}/delegate`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+  async requestInfoPurchaseOrder(id: string, payload: { message: string; requestedBy?: string }): Promise<any> {
+    return request(`/procurement/purchase-orders/${id}/request-info`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+  async bulkImportPurchaseOrder(rows: any[], meta?: Record<string, any>): Promise<any> {
+    return request('/procurement/purchase-orders/bulk-import', { method: 'POST', body: JSON.stringify({ rows, meta }) });
+  },
+
+  // ---- PR approval actions (procurement/purchase-requisitions/:id/*) ----
+  async requestInfoPurchaseRequisition(id: string, payload: { message: string; requestedBy?: string }): Promise<any> {
+    return request(`/procurement/purchase-requisitions/${id}/request-info`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  // ---- GRN invoice matching (procurement/goods-receipts/:id/match-invoice) ----
+  async matchGrnInvoice(id: string, payload: { invoiceId?: string; invoiceNumber?: string; matchedBy?: string; notes?: string }): Promise<any> {
+    return request(`/procurement/goods-receipts/${id}/match-invoice`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+
   // ---- Dashboard insights (procurement/insights/*) ----
   async getAnalyticsInsights(): Promise<any> { return request('/procurement/insights/analytics'); },
   async getAutomationInsights(): Promise<any> { return request('/procurement/insights/automation'); },

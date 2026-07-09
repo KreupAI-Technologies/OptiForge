@@ -1171,12 +1171,24 @@ class CommonMastersService {
     }
 
     async createUomConversion(data: { fromUomId: string; toUomId: string; conversionFactor: number; companyId: string; itemId?: string }): Promise<UomConversion> {
-        const response = await apiClient.post<UomConversion>('/api/v1/common-masters/uom-conversions', data);
+        // Backend contract uses `factor`; the UI model uses `conversionFactor`.
+        const payload = {
+            fromUomId: data.fromUomId,
+            toUomId: data.toUomId,
+            factor: data.conversionFactor,
+            companyId: data.companyId,
+        };
+        const response = await apiClient.post<UomConversion>('/api/v1/common-masters/uom-conversions', payload);
         return response.data;
     }
 
     async updateUomConversion(id: string, data: Partial<UomConversion>): Promise<UomConversion> {
-        const response = await apiClient.put<UomConversion>(`/api/v1/common-masters/uom-conversions/${id}`, data);
+        const payload: Record<string, unknown> = { ...data };
+        if (data.conversionFactor !== undefined) {
+            payload.factor = data.conversionFactor;
+            delete payload.conversionFactor;
+        }
+        const response = await apiClient.put<UomConversion>(`/api/v1/common-masters/uom-conversions/${id}`, payload);
         return response.data;
     }
 

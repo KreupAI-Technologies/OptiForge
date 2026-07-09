@@ -176,6 +176,144 @@ export class PurchaseOrderService {
     return this.mapToResponse(updatedPO);
   }
 
+  async delegate(
+    id: string,
+    delegateData: { delegatedTo: string; delegatedBy?: string; notes?: string },
+  ): Promise<PurchaseOrderResponseDto> {
+    const po = await this.poRepository.findOne({ where: { id } });
+    if (!po) {
+      throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+    }
+
+    if (!delegateData?.delegatedTo) {
+      throw new BadRequestException('delegatedTo is required');
+    }
+
+    po.delegatedTo = delegateData.delegatedTo;
+    po.delegatedBy = delegateData.delegatedBy || '';
+    po.delegatedAt = new Date();
+    po.delegationNotes = delegateData.notes || '';
+
+    const updatedPO = await this.poRepository.save(po);
+    return this.mapToResponse(updatedPO);
+  }
+
+  async requestInfo(
+    id: string,
+    infoData: { message: string; requestedBy?: string },
+  ): Promise<PurchaseOrderResponseDto> {
+    const po = await this.poRepository.findOne({ where: { id } });
+    if (!po) {
+      throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+    }
+
+    if (!infoData?.message) {
+      throw new BadRequestException('message is required');
+    }
+
+    po.infoRequested = true;
+    po.infoRequestedBy = infoData.requestedBy || '';
+    po.infoRequestMessage = infoData.message;
+    po.infoRequestedAt = new Date();
+
+    const updatedPO = await this.poRepository.save(po);
+    return this.mapToResponse(updatedPO);
+  }
+
+  async bulkImport(
+    rows: any[],
+    meta?: { vendorId?: string; vendorName?: string; deliveryDate?: string; buyerId?: string; buyerName?: string; deliveryAddress?: string },
+  ): Promise<PurchaseOrderResponseDto> {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new BadRequestException('rows must be a non-empty array of line items');
+    }
+
+    const poNumber = await this.generatePONumber();
+
+    const normalized = rows.map((r, index) => {
+      const orderedQuantity = Number(r.orderedQuantity ?? r.quantity ?? 0);
+      const unitPrice = Number(r.unitPrice ?? r.price ?? 0);
+      const discountPercentage = Number(r.discountPercentage ?? r.discount ?? 0);
+      const taxRate = Number(r.taxRate ?? r.tax ?? 0);
+      const lineTotal = orderedQuantity * unitPrice;
+      const discountAmount = (lineTotal * discountPercentage) / 100;
+      const netLineTotal = lineTotal - discountAmount;
+      const itemTaxAmount = (netLineTotal * taxRate) / 100;
+      return {
+        lineNumber: Number(r.lineNumber ?? index + 1),
+        itemId: String(r.itemId ?? r.itemCode ?? r.description ?? ''),
+        itemCode: r.itemCode ?? null,
+        itemName: r.itemName ?? r.description ?? '',
+        description: r.description ?? null,
+        uom: r.uom ?? r.unit ?? null,
+        orderedQuantity,
+        unitPrice,
+        discountPercentage,
+        discountAmount,
+        netUnitPrice: orderedQuantity > 0 ? unitPrice - discountAmount / orderedQuantity : unitPrice,
+        lineTotal: netLineTotal,
+        taxCode: r.taxCode ?? null,
+        taxRate,
+        taxAmount: itemTaxAmount,
+        totalAmount: netLineTotal + itemTaxAmount,
+        accountCode: r.accountCode ?? null,
+        requiredDate: r.requiredDate ? new Date(r.requiredDate) : undefined,
+      };
+    });
+
+    const subtotal = normalized.reduce((sum, i) => sum + i.lineTotal, 0);
+    const taxAmount = normalized.reduce((sum, i) => sum + i.taxAmount, 0);
+    const totalAmount = subtotal + taxAmount;
+
+    const po = this.poRepository.create({
+      poNumber,
+      poDate: new Date(),
+      deliveryDate: meta?.deliveryDate ? new Date(meta.deliveryDate) : new Date(),
+      status: POStatus.DRAFT,
+      vendorId: meta?.vendorId || 'IMPORTED',
+      vendorName: meta?.vendorName || 'Imported Vendor',
+      deliveryAddress: meta?.deliveryAddress || 'N/A',
+      buyerId: meta?.buyerId || 'IMPORT',
+      buyerName: meta?.buyerName || 'Bulk Import',
+      subtotal,
+      taxAmount,
+      totalAmount,
+      balanceAmount: totalAmount,
+    });
+
+    const savedPO = await this.poRepository.save(po);
+
+    const poItems = normalized.map((item) =>
+      this.poItemRepository.create({
+        purchaseOrderId: savedPO.id,
+        lineNumber: item.lineNumber,
+        itemId: item.itemId,
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        description: item.description,
+        uom: item.uom,
+        orderedQuantity: item.orderedQuantity,
+        pendingQuantity: item.orderedQuantity,
+        unitPrice: item.unitPrice,
+        discountPercentage: item.discountPercentage,
+        discountAmount: item.discountAmount,
+        netUnitPrice: item.netUnitPrice,
+        lineTotal: item.lineTotal,
+        taxCode: item.taxCode,
+        taxRate: item.taxRate,
+        taxAmount: item.taxAmount,
+        totalAmount: item.totalAmount,
+        requiredDate: item.requiredDate,
+        accountCode: item.accountCode,
+        status: POItemStatus.PENDING,
+      }),
+    );
+
+    await this.poItemRepository.save(poItems);
+
+    return this.mapToResponse(savedPO);
+  }
+
   async close(id: string): Promise<PurchaseOrderResponseDto> {
     const po = await this.poRepository.findOne({ where: { id } });
     if (!po) {

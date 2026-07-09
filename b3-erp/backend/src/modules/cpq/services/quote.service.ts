@@ -415,6 +415,15 @@ export class QuoteService {
     await this.templateRepository.remove(template);
   }
 
+  async toggleTemplateFavorite(
+    companyId: string,
+    id: string,
+  ): Promise<QuoteTemplate> {
+    const template = await this.findTemplateById(companyId, id);
+    template.isFavorite = !template.isFavorite;
+    return this.templateRepository.save(template);
+  }
+
   // Quote Comparison
   async compareQuotes(
     companyId: string,

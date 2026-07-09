@@ -50,6 +50,14 @@ export class AutomationRuleController {
     return this.automationRuleService.update(companyId, id, data);
   }
 
+  @Post(':id/run')
+  run(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+  ) {
+    return this.automationRuleService.run(companyId, id);
+  }
+
   @Delete(':id')
   delete(
     @Headers('x-company-id') companyId: string,

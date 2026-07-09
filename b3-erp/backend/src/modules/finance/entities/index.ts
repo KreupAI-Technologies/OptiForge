@@ -30,5 +30,11 @@ export * from './payment.entity';
 // Tax Management
 export * from './tax.entity';
 
+// Statutory filings (GST / TDS returns, challans)
+export * from './statutory-return.entity';
+
+// Period-close checklist read model
+export * from './period-close-step.entity';
+
 // Finance extras (new page-backing entities)
 export * from './finance-extras.entity';

@@ -33,6 +33,10 @@ import {
   GSTTransaction,
   TDSTransaction,
   GSTRPeriod,
+  GstReturn,
+  TdsReturn,
+  TdsChallan,
+  PeriodCloseStep,
 } from './entities';
 import { ApVendorAccount } from './entities/ap-vendor-account.entity';
 import { ArCustomerAccount } from './entities/ar-customer-account.entity';
@@ -103,6 +107,15 @@ import { FinanceOperationsService } from './services/finance-operations.service'
 import { FinanceOperationsController } from './controllers/finance-operations.controller';
 import { Company } from '../core/entities/company.entity';
 
+// Statutory filings + period close + reports export
+import { GstReturnService } from './services/gst-return.service';
+import { TdsReturnService } from './services/tds-return.service';
+import { PeriodCloseService } from './services/period-close.service';
+import { GstReturnController } from './controllers/gst-return.controller';
+import { TdsReturnController } from './controllers/tds-return.controller';
+import { PeriodCloseController } from './controllers/period-close.controller';
+import { ProfitLossExportController } from './controllers/profit-loss-export.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -159,6 +172,12 @@ import { Company } from '../core/entities/company.entity';
       TDSTransaction,
       GSTRPeriod,
 
+      // Statutory filings (GST/TDS returns, challans) + period close
+      GstReturn,
+      TdsReturn,
+      TdsChallan,
+      PeriodCloseStep,
+
       // Accounts Payable / Receivable master
       ApVendorAccount,
       ArCustomerAccount,
@@ -196,6 +215,10 @@ import { Company } from '../core/entities/company.entity';
     AdvancedFeatureController,
     FinanceExtrasController,
     FinanceOperationsController,
+    GstReturnController,
+    TdsReturnController,
+    PeriodCloseController,
+    ProfitLossExportController,
   ],
   providers: [
     ChartOfAccountsService,
@@ -224,6 +247,9 @@ import { Company } from '../core/entities/company.entity';
     AdvancedFeatureService,
     FinanceExtrasService,
     FinanceOperationsService,
+    GstReturnService,
+    TdsReturnService,
+    PeriodCloseService,
   ],
   exports: [
     ChartOfAccountsService,

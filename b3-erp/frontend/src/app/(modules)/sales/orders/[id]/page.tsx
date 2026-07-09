@@ -244,7 +244,7 @@ export default function SalesOrderDetailPage() {
                             <Button className="w-full" variant="outline" onClick={() => router.push('/sales/invoices/create')}>
                                 Create Invoice
                             </Button>
-                            <Button className="w-full" variant="outline" onClick={() => router.push('/sales/delivery')}>
+                            <Button className="w-full" variant="outline" onClick={() => router.push('/sales/delivery/notes')}>
                                 Create Delivery Note
                             </Button>
                             <Button className="w-full" variant="outline" onClick={() => router.push('/sales/orders')}>

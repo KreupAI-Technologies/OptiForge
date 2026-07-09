@@ -1,5 +1,10 @@
 # Partially-Wired Pages Report — Verified
 
+> ## ⚠️ SUPERSEDED (historical) — see [`partially-wired-pages.md`](./partially-wired-pages.md)
+> This is the **2026-07-06 investigation** (356→43 pages, since fixed on `main`). It is kept for history. The current, re-verified partial-wiring status is in [`partially-wired-pages.md`](./partially-wired-pages.md) (v3 detector) and the backend gaps in [`pending-backend-work.md`](./pending-backend-work.md). No open action items remain in this file.
+>
+> ---
+
 _Verified via import-following investigation on 2026-07-06_
 
 > ✅ **COMPLETED 2026-07-07** — All 43 GENUINELY-PARTIAL pages (Section 1) fixed on `main` in 4 commits (`37263949`, `4317cb42`, `e7306512`, `2dd6fb4c`). Frontend `tsc --noEmit` = 0 errors at every commit (baseline was already clean). Breakdown:

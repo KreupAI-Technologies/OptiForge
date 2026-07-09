@@ -41,6 +41,7 @@ import {
 import { PurchaseRequisitionModal } from '@/components/production/PurchaseRequisitionModal';
 import { workOrderService } from '@/services/work-order.service';
 import { purchaseRequisitionService } from '@/services/purchase-requisition.service';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // TypeScript Interfaces
 interface MaterialRequirement {
@@ -232,6 +233,8 @@ export default function AddWorkOrderPage() {
   const [woNumber] = useState(generateWONumber());
   const [selectedSecondaryWC, setSelectedSecondaryWC] = useState('');
   const [showBOMExplosion, setShowBOMExplosion] = useState(false);
+  const [loadingBomExplosion, setLoadingBomExplosion] = useState(false);
+  const [bomExplosionError, setBomExplosionError] = useState<string | null>(null);
   const [showSchedulePreview, setShowSchedulePreview] = useState(false);
   const [isPRModalOpen, setIsPRModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -291,37 +294,79 @@ export default function AddWorkOrderPage() {
     }
   }, [formData.dueDate]);
 
-  const handleProductChange = (productCode: string) => {
+  const handleProductChange = async (productCode: string) => {
     const product = products.find(p => p.code === productCode);
-    if (product) {
-      updateFormData('productCode', product.code);
-      updateFormData('productName', product.name);
-      updateFormData('productDescription', product.description);
-      updateFormData('drawingNumber', product.drawingNumber);
-      updateFormData('revision', product.revision);
-      updateFormData('bomRef', product.bomRef);
-      updateFormData('routingRef', product.routingRef);
-      // Show BOM/routing sections with blank starter rows for the user to fill in.
-      // (No BOM-explosion endpoint is wired for this page — see NEEDS BACKEND.)
-      if (formData.materialRequirements.length === 0) {
-        updateFormData('materialRequirements', [{
-          id: Math.random().toString(36).substr(2, 9),
-          itemCode: '', description: '', requiredQty: '1', uom: 'Pcs',
-          stockAvailable: 0, stockStatus: 'available' as const,
-          canSubstitute: false, substituteItem: '', reserveStock: false,
-        }]);
+    if (!product) return;
+
+    updateFormData('productCode', product.code);
+    updateFormData('productName', product.name);
+    updateFormData('productDescription', product.description);
+    updateFormData('drawingNumber', product.drawingNumber);
+    updateFormData('revision', product.revision);
+    updateFormData('bomRef', product.bomRef);
+    updateFormData('routingRef', product.routingRef);
+    setShowBOMExplosion(true);
+
+    // Explode the BOM (by code or id) to populate material requirements.
+    setBomExplosionError(null);
+    if (product.bomRef) {
+      setLoadingBomExplosion(true);
+      try {
+        const qty = parseFloat(formData.quantity) || 1;
+        const exploded: any = await ProductionOrphanService.getBomExplosion(product.bomRef, qty);
+        const rows = Array.isArray(exploded?.explodedItems) ? exploded.explodedItems : [];
+        if (rows.length > 0) {
+          updateFormData(
+            'materialRequirements',
+            rows.map((it: any) => {
+              const reqQty = it.extendedNetQuantity ?? it.extendedQuantity ?? it.netQuantity ?? it.quantity ?? 0;
+              return {
+                id: Math.random().toString(36).substr(2, 9),
+                itemCode: it.itemCode ?? '',
+                description: it.itemName ?? '',
+                requiredQty: String(reqQty),
+                uom: it.uom ?? 'Pcs',
+                stockAvailable: 0,
+                stockStatus: 'available' as const,
+                canSubstitute: false,
+                substituteItem: '',
+                reserveStock: false,
+              };
+            }),
+          );
+        } else if (formData.materialRequirements.length === 0) {
+          updateFormData('materialRequirements', [blankMaterialRow()]);
+        }
+      } catch (err: any) {
+        setBomExplosionError(
+          err?.message ?? 'Could not load BOM components. Enter material requirements manually.',
+        );
+        if (formData.materialRequirements.length === 0) {
+          updateFormData('materialRequirements', [blankMaterialRow()]);
+        }
+      } finally {
+        setLoadingBomExplosion(false);
       }
-      if (formData.operations.length === 0) {
-        updateFormData('operations', [{
-          id: Math.random().toString(36).substr(2, 9),
-          sequence: 10, operationName: '', workCenter: 'Assembly Line 1',
-          setupTime: '0', runTime: '0', timePerPiece: '0',
-          estimatedDuration: '0 hrs', resourceAvailability: 'available' as const,
-        }]);
-      }
-      setShowBOMExplosion(true);
+    } else if (formData.materialRequirements.length === 0) {
+      updateFormData('materialRequirements', [blankMaterialRow()]);
+    }
+
+    if (formData.operations.length === 0) {
+      updateFormData('operations', [{
+        id: Math.random().toString(36).substr(2, 9),
+        sequence: 10, operationName: '', workCenter: 'Assembly Line 1',
+        setupTime: '0', runTime: '0', timePerPiece: '0',
+        estimatedDuration: '0 hrs', resourceAvailability: 'available' as const,
+      }]);
     }
   };
+
+  const blankMaterialRow = (): MaterialRequirement => ({
+    id: Math.random().toString(36).substr(2, 9),
+    itemCode: '', description: '', requiredQty: '1', uom: 'Pcs',
+    stockAvailable: 0, stockStatus: 'available',
+    canSubstitute: false, substituteItem: '', reserveStock: false,
+  });
 
   const handleSalesOrderChange = (soRef: string) => {
     const so = salesOrders.find(s => s.ref === soRef);
@@ -485,9 +530,25 @@ export default function AddWorkOrderPage() {
         (sum: number, item: any) => sum + (parseFloat(item.estimatedCost) || 0),
         0,
       );
-      // Real PR-create endpoint exists (POST /procurement/purchase-requisitions).
-      // NOTE: the modal collects itemCode/estimatedCost but not the itemId the
-      // backend DTO requires, so items are sent without itemId. See NEEDS BACKEND.
+      // Resolve item codes to master item ids (the backend PR DTO requires itemId).
+      const codes: string[] = (prData.items || [])
+        .filter((it: any) => !it.itemId && it.itemCode)
+        .map((it: any) => it.itemCode);
+      let resolvedByCode: Record<string, string> = {};
+      if (codes.length) {
+        try {
+          const resolved = await ProductionOrphanService.resolveItems(codes);
+          resolvedByCode = (resolved || []).reduce(
+            (acc: Record<string, string>, r: any) => {
+              if (r?.itemCode && r?.itemId) acc[r.itemCode] = r.itemId;
+              return acc;
+            },
+            {},
+          );
+        } catch {
+          // Fall back to itemCode if resolution fails.
+        }
+      }
       await purchaseRequisitionService.createRequisition({
         title: `Materials for Work Order ${woNumber}`,
         description: `Auto-generated from work order ${woNumber} material shortages`,
@@ -497,7 +558,7 @@ export default function AddWorkOrderPage() {
         currency: 'INR',
         justification: `Material shortage for work order ${woNumber}`,
         items: (prData.items || []).map((item: any) => ({
-          itemId: item.itemId || item.itemCode,
+          itemId: item.itemId || resolvedByCode[item.itemCode] || item.itemCode,
           quantity: parseFloat(item.requiredQty) || 0,
           estimatedUnitPrice: parseFloat(item.estimatedCost) || 0,
           requiredDate: formData.dueDate || new Date().toISOString().split('T')[0],
@@ -885,7 +946,7 @@ export default function AddWorkOrderPage() {
             </div>
 
             {/* BOM Explosion */}
-            {showBOMExplosion && formData.materialRequirements.length > 0 && (
+            {showBOMExplosion && (
               <div className="bg-white rounded-lg border border-gray-200 p-3">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center">
@@ -893,6 +954,9 @@ export default function AddWorkOrderPage() {
                     BOM Explosion - Material Requirements
                   </h2>
                   <div className="flex items-center space-x-3">
+                    {loadingBomExplosion && (
+                      <span className="text-sm text-blue-600">Loading BOM…</span>
+                    )}
                     <span className="text-sm text-gray-600">{formData.materialRequirements.length} items</span>
                     <button
                       onClick={addMaterialRequirement}
@@ -903,6 +967,12 @@ export default function AddWorkOrderPage() {
                     </button>
                   </div>
                 </div>
+
+                {bomExplosionError && (
+                  <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                    {bomExplosionError}
+                  </div>
+                )}
 
                 {/* Material Shortage Alert */}
                 {checkMaterialShortages() > 0 && (

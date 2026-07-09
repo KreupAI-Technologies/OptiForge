@@ -75,6 +75,24 @@ class WorkflowAutomationService {
   async delete(companyId: string, id: string): Promise<void> {
     await apiClient.delete(`${this.baseUrl}/${id}`);
   }
+
+  /**
+   * Trigger a rule run now. The backend records the execution (bumps
+   * executionCount + lastRun) and returns the updated rule plus a run summary.
+   */
+  async run(
+    companyId: string,
+    id: string,
+  ): Promise<{
+    rule: AutomationRuleDTO;
+    run: { status: string; executedAt: string; executionCount: number };
+  }> {
+    const response = await apiClient.post<{
+      rule: AutomationRuleDTO;
+      run: { status: string; executedAt: string; executionCount: number };
+    }>(`${this.baseUrl}/${id}/run`, {});
+    return response.data;
+  }
 }
 
 export const workflowAutomationService = new WorkflowAutomationService();

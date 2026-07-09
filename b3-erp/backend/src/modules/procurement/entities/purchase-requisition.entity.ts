@@ -136,6 +136,19 @@ export class PurchaseRequisition {
   @Column({ type: 'text', nullable: true })
   rejectionReason: string;
 
+  // Approval Info Request
+  @Column({ default: false })
+  infoRequested: boolean;
+
+  @Column({ nullable: true, length: 100 })
+  infoRequestedBy: string;
+
+  @Column({ type: 'text', nullable: true })
+  infoRequestMessage: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  infoRequestedAt: Date;
+
   // Conversion to PO
   @Column({ type: 'json', nullable: true })
   purchaseOrders: {

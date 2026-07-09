@@ -4,6 +4,7 @@ export * from './phase-transition.entity';
 export * from './workflow-document.entity';
 export * from './workflow-approval.entity';
 export * from './approval-step.entity';
+export * from './approval-comment.entity';
 export * from './quality-gate.entity';
 export * from './quality-gate-item.entity';
 export * from './defect.entity';

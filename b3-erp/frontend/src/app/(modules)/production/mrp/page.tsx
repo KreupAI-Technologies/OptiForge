@@ -146,6 +146,8 @@ const MRPPage: React.FC = () => {
   const [livePlannedOrders, setLivePlannedOrders] = useState<any[]>([]);
   const [liveShortages, setLiveShortages] = useState<any[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [prBusy, setPrBusy] = useState(false);
+  const [prMessage, setPrMessage] = useState<string | null>(null);
 
   // MRP Configuration State
   const [mrpConfig, setMrpConfig] = useState({
@@ -710,19 +712,46 @@ const MRPPage: React.FC = () => {
     setPurchaseSuggestions((prev) => prev.map((item) => ({ ...item, selected: !allSelected })));
   };
 
-  // Create Bulk Purchase Requisitions
-  // NEEDS BACKEND: no purchase-requisition creation endpoint is reachable from the
-  // shared production service. Keep the selection validation; surface a clear note
-  // instead of a fake success until a PR endpoint exists.
-  const handleCreateBulkPR = () => {
+  // Create Bulk Purchase Requisitions — persists real purchase requisitions via
+  // the production planning-actions endpoint (POST /production/mrp/bulk-requisitions).
+  const handleCreateBulkPR = async () => {
     const selectedItems = purchaseSuggestions.filter((item) => item.selected);
     if (selectedItems.length === 0) {
       alert('Please select at least one item to create purchase requisitions.');
       return;
     }
-    setLoadError(
-      'Bulk purchase-requisition creation is not available yet (no backend endpoint).',
-    );
+    setPrBusy(true);
+    setPrMessage(null);
+    setLoadError(null);
+    try {
+      const created = await ProductionOrphanService.createBulkRequisitions({
+        consolidateByVendor: true,
+        items: selectedItems.map((item) => ({
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          uom: item.uom,
+          quantity: item.suggestedQty,
+          estimatedUnitPrice: item.unitCost,
+          requiredDate: item.requiredDate,
+          preferredVendor: item.preferredVendor,
+          priority: item.priority,
+        })),
+        priority:
+          selectedItems.some((i) => i.priority === 'High') ? 'High' : 'Medium',
+      });
+      const count = Array.isArray(created) ? created.length : 0;
+      setPrMessage(
+        `Created ${count} purchase requisition${count === 1 ? '' : 's'} from ${selectedItems.length} selected item${selectedItems.length === 1 ? '' : 's'}.`,
+      );
+      // Clear selection after successful creation.
+      setPurchaseSuggestions((prev) => prev.map((item) => ({ ...item, selected: false })));
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to create purchase requisitions.',
+      );
+    } finally {
+      setPrBusy(false);
+    }
   };
 
   // Export the currently-active tab's rows to CSV.
@@ -836,6 +865,12 @@ const MRPPage: React.FC = () => {
           <div className="mt-2 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
             <AlertTriangle className="h-4 w-4" />
             {loadError}
+          </div>
+        )}
+        {prMessage && (
+          <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+            <span>{prMessage}</span>
+            <button onClick={() => setPrMessage(null)} className="text-green-600 hover:text-green-900">Dismiss</button>
           </div>
         )}
       </div>
@@ -1255,11 +1290,13 @@ const MRPPage: React.FC = () => {
                 </button>
                 <button
                   onClick={handleCreateBulkPR}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                  disabled={prBusy}
+                  className="flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FileText className="w-4 h-4 mr-2" />
-                  Create Bulk PR (
-                  {purchaseSuggestions.filter((item) => item.selected).length})
+                  {prBusy
+                    ? 'Creating…'
+                    : `Create Bulk PR (${purchaseSuggestions.filter((item) => item.selected).length})`}
                 </button>
               </div>
             </div>

@@ -9,8 +9,10 @@ import { ReportCatalogController } from './report-catalog.controller';
 import { ReportDashboardController } from './report-dashboard.controller';
 import { ReportDatasetController } from './report-dataset.controller';
 import { ReportSavedItemController } from './report-saved-item.controller';
+import { ReportGenerationController } from './report-generation.controller';
 import { ReportsController } from './reports.controller';
 import { ReportCatalogService } from './services/report-catalog.service';
+import { ReportGenerationService } from './services/report-generation.service';
 import { ReportDashboardService } from './services/report-dashboard.service';
 import { ReportDatasetService } from './services/report-dataset.service';
 import { ReportSavedItemService } from './services/report-saved-item.service';
@@ -29,6 +31,7 @@ import { ReportsManagementService } from './services/reports-management.service'
     ReportSavedItemController,
     ReportDashboardController,
     ReportDatasetController,
+    ReportGenerationController,
     ReportsController,
   ],
   providers: [
@@ -37,6 +40,7 @@ import { ReportsManagementService } from './services/reports-management.service'
     ReportCatalogService,
     ReportSavedItemService,
     ReportDashboardService,
+    ReportGenerationService,
   ],
   exports: [
     ReportsManagementService,

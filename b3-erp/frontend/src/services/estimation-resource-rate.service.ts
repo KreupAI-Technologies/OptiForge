@@ -136,6 +136,23 @@ export interface SubcontractorRate {
   createdAt: string;
 }
 
+export interface ResourceRateHistoryEntry {
+  id?: string;
+  resourceRateId?: string;
+  field?: string;
+  changeType?: string;
+  previousRate?: number;
+  newRate?: number;
+  previousValue?: string | number | null;
+  newValue?: string | number | null;
+  reason?: string;
+  changedBy?: string;
+  changedByName?: string;
+  effectiveFrom?: string;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
 // ==================== Service Class ====================
 
 class EstimationResourceRateService {
@@ -308,6 +325,47 @@ class EstimationResourceRateService {
       `${this.baseUrl}/subcontractors/all?${params.toString()}`
     );
     return response.data;
+  }
+
+  async findEquipmentRateById(companyId: string, id: string): Promise<EquipmentRate> {
+    const response = await apiClient.get<EquipmentRate>(
+      `${this.baseUrl}/equipment/${id}`
+    );
+    return response.data;
+  }
+
+  async findSubcontractorRateById(
+    companyId: string,
+    id: string
+  ): Promise<SubcontractorRate> {
+    const response = await apiClient.get<SubcontractorRate>(
+      `${this.baseUrl}/subcontractors/${id}`
+    );
+    return response.data;
+  }
+
+  // Rate-change history (audit trail) for a given resource rate. The backend
+  // exposes it at GET <resource>/:id/history and returns the raw rows; the
+  // caller renders an honest empty state when none exist.
+  async getResourceRateHistory(companyId: string, id: string): Promise<ResourceRateHistoryEntry[]> {
+    const response = await apiClient.get<ResourceRateHistoryEntry[]>(
+      `${this.baseUrl}/${id}/history`
+    );
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async getEquipmentRateHistory(companyId: string, id: string): Promise<ResourceRateHistoryEntry[]> {
+    const response = await apiClient.get<ResourceRateHistoryEntry[]>(
+      `${this.baseUrl}/equipment/${id}/history`
+    );
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async getSubcontractorRateHistory(companyId: string, id: string): Promise<ResourceRateHistoryEntry[]> {
+    const response = await apiClient.get<ResourceRateHistoryEntry[]>(
+      `${this.baseUrl}/subcontractors/${id}/history`
+    );
+    return Array.isArray(response.data) ? response.data : [];
   }
 }
 

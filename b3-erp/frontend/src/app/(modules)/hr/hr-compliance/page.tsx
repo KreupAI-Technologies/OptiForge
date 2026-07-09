@@ -29,6 +29,11 @@ import {
   type AuditFinding,
   type ComplianceAlert,
   type ComplianceDashboard,
+  type ComplianceCertificateRecord,
+  type PolicyAcknowledgmentRecord,
+  type PoshComplaintRecord,
+  type RemediationPlanRecord,
+  type StatutoryReportSummary,
 } from '@/services/hr-compliance.service';
 
 // ============================================================================
@@ -504,10 +509,18 @@ function StatutoryReturnsSection({
 
 function LicensesSection({
   licenses,
-  subTab
+  subTab,
+  certificates,
+  certLoading,
+  certError,
+  onReloadCertificates,
 }: {
   licenses: License[];
   subTab: LicensesSubTab;
+  certificates: ComplianceCertificateRecord[];
+  certLoading: boolean;
+  certError: string | null;
+  onReloadCertificates: () => void;
 }) {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -650,19 +663,85 @@ function LicensesSection({
   }
 
   // Certificates
+  const getCertStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-900 text-green-300';
+      case 'expired': return 'bg-red-900 text-red-300';
+      case 'suspended': return 'bg-orange-900 text-orange-300';
+      case 'pending': return 'bg-yellow-900 text-yellow-300';
+      default: return 'bg-gray-700 text-gray-300';
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">Compliance Certificates</h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-          <Plus className="h-4 w-4" />
-          Add Certificate
+        <button
+          onClick={onReloadCertificates}
+          className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
         </button>
       </div>
 
-      <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
-        Compliance certificates management coming soon
-      </div>
+      {certLoading ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+          Loading certificates...
+        </div>
+      ) : certError ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-red-800 text-center text-red-400">
+          {certError}
+          <div className="mt-3">
+            <button onClick={onReloadCertificates} className="text-blue-400 hover:text-blue-300 text-sm">Retry</button>
+          </div>
+        </div>
+      ) : certificates.length === 0 ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+          No compliance certificates recorded yet.
+        </div>
+      ) : (
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-900">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Code</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Certificate</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Authority</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Number</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Valid Till</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {certificates.map((cert) => (
+                <tr key={cert.id} className="hover:bg-gray-750">
+                  <td className="px-4 py-3">
+                    <span className="text-blue-400 font-mono text-sm">{cert.certificateCode || '-'}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div>
+                      <p className="text-white">{cert.certificateName || '-'}</p>
+                      {cert.description && <p className="text-xs text-gray-500">{cert.description}</p>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-300 capitalize">{cert.certificateType || '-'}</td>
+                  <td className="px-4 py-3 text-gray-300">{cert.issuingAuthority || '-'}</td>
+                  <td className="px-4 py-3 text-gray-300">{cert.certificateNumber || '-'}</td>
+                  <td className="px-4 py-3 text-gray-300">{cert.validTo || '-'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded text-xs ${getCertStatusColor(cert.status)}`}>
+                      {cert.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -674,11 +753,19 @@ function LicensesSection({
 function PolicyComplianceSection({
   violations,
   disciplinaryActions,
-  subTab
+  subTab,
+  acknowledgments,
+  ackLoading,
+  ackError,
+  onReloadAcknowledgments,
 }: {
   violations: PolicyViolation[];
   disciplinaryActions: DisciplinaryAction[];
   subTab: PolicySubTab;
+  acknowledgments: PolicyAcknowledgmentRecord[];
+  ackLoading: boolean;
+  ackError: string | null;
+  onReloadAcknowledgments: () => void;
 }) {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -691,15 +778,81 @@ function PolicyComplianceSection({
   };
 
   if (subTab === 'acknowledgment') {
+    const ackStatusColor = (status: string) => {
+      switch (status) {
+        case 'acknowledged': return 'bg-green-900 text-green-300';
+        case 'pending': return 'bg-yellow-900 text-yellow-300';
+        case 'overdue': return 'bg-red-900 text-red-300';
+        default: return 'bg-gray-700 text-gray-300';
+      }
+    };
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Policy Acknowledgment</h3>
+          <button
+            onClick={onReloadAcknowledgments}
+            className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
-          Policy acknowledgment tracking coming soon
-        </div>
+        {ackLoading ? (
+          <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+            Loading acknowledgments...
+          </div>
+        ) : ackError ? (
+          <div className="bg-gray-800 rounded-lg p-8 border border-red-800 text-center text-red-400">
+            {ackError}
+            <div className="mt-3">
+              <button onClick={onReloadAcknowledgments} className="text-blue-400 hover:text-blue-300 text-sm">Retry</button>
+            </div>
+          </div>
+        ) : acknowledgments.length === 0 ? (
+          <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+            No policy acknowledgments recorded yet.
+          </div>
+        ) : (
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-900">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Employee</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Policy</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Version</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Assigned</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Due</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Acknowledged</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {acknowledgments.map((ack) => (
+                  <tr key={ack.id} className="hover:bg-gray-750">
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-white">{ack.employeeName || '-'}</p>
+                        {ack.department && <p className="text-xs text-gray-500">{ack.department}</p>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-300">{ack.policyName || '-'}</td>
+                    <td className="px-4 py-3 text-gray-300">{ack.policyVersion || '-'}</td>
+                    <td className="px-4 py-3 text-gray-300">{ack.assignedDate || '-'}</td>
+                    <td className="px-4 py-3 text-gray-300">{ack.dueDate || '-'}</td>
+                    <td className="px-4 py-3 text-gray-300">{ack.acknowledgmentDate || '-'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs ${ackStatusColor(ack.status)}`}>
+                        {ack.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     );
   }
@@ -852,11 +1005,19 @@ function PolicyComplianceSection({
 function EqualOpportunitySection({
   diversityMetrics,
   grievances,
-  subTab
+  subTab,
+  poshComplaints,
+  poshLoading,
+  poshError,
+  onReloadPosh,
 }: {
   diversityMetrics: DiversityMetrics[];
   grievances: Grievance[];
   subTab: EqualOpportunitySubTab;
+  poshComplaints: PoshComplaintRecord[];
+  poshLoading: boolean;
+  poshError: string | null;
+  onReloadPosh: () => void;
 }) {
   if (subTab === 'diversity') {
     const metrics = diversityMetrics[0];
@@ -1023,32 +1184,107 @@ function EqualOpportunitySection({
   }
 
   if (subTab === 'posh') {
+    const poshStatusColor = (status: string) => {
+      switch (status) {
+        case 'resolved': return 'bg-green-900 text-green-300';
+        case 'closed': return 'bg-green-900 text-green-300';
+        case 'under_inquiry': return 'bg-yellow-900 text-yellow-300';
+        case 'registered': return 'bg-blue-900 text-blue-300';
+        default: return 'bg-gray-700 text-gray-300';
+      }
+    };
+    const poshSeverityColor = (severity?: string) => {
+      switch (severity) {
+        case 'high': return 'bg-red-900 text-red-300';
+        case 'normal': return 'bg-yellow-900 text-yellow-300';
+        case 'low': return 'bg-green-900 text-green-300';
+        default: return 'bg-gray-700 text-gray-300';
+      }
+    };
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">POSH Compliance</h3>
+          <button
+            onClick={onReloadPosh}
+            className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
-          POSH complaint management coming soon
-        </div>
+        {poshLoading ? (
+          <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+            Loading complaints...
+          </div>
+        ) : poshError ? (
+          <div className="bg-gray-800 rounded-lg p-8 border border-red-800 text-center text-red-400">
+            {poshError}
+            <div className="mt-3">
+              <button onClick={onReloadPosh} className="text-blue-400 hover:text-blue-300 text-sm">Retry</button>
+            </div>
+          </div>
+        ) : poshComplaints.length === 0 ? (
+          <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+            No POSH complaints registered yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {poshComplaints.map((c) => (
+              <div key={c.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-blue-400 font-mono text-sm">{c.complaintCode || c.id.slice(0, 8)}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs ${poshSeverityColor(c.severity)}`}>
+                        {c.severity || 'normal'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-xs ${poshStatusColor(c.status)}`}>
+                        {c.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <h4 className="text-white font-medium">{c.subject || 'POSH Complaint'}</h4>
+                    {c.description && <p className="text-sm text-gray-400">{c.description}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400">Filed On</p>
+                    <p className="text-white text-sm">{c.filingDate || '-'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-400">Complainant</p>
+                    <p className="text-sm text-gray-300">{c.isAnonymous ? 'Anonymous' : c.complainantName || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Assigned To</p>
+                    <p className="text-sm text-gray-300">{c.assignedToName || 'Not assigned'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Incident Date</p>
+                    <p className="text-sm text-gray-300">{c.incidentDate || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
-  // EEO Reports
+  // EEO Reports — no backend diversity/EEO data model exists yet, so we keep
+  // this section honest rather than fabricating aggregates.
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">EEO Reports</h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-          <Plus className="h-4 w-4" />
-          Generate Report
-        </button>
       </div>
 
       <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
-        EEO reports coming soon
+        No EEO report data available. EEO reporting requires a diversity data
+        source that is not yet configured for this workspace.
       </div>
     </div>
   );
@@ -1061,11 +1297,19 @@ function EqualOpportunitySection({
 function AuditSection({
   audits,
   findings,
-  subTab
+  subTab,
+  remediationPlans,
+  remediationLoading,
+  remediationError,
+  onReloadRemediation,
 }: {
   audits: ComplianceAudit[];
   findings: AuditFinding[];
   subTab: AuditSubTab;
+  remediationPlans: RemediationPlanRecord[];
+  remediationLoading: boolean;
+  remediationError: string | null;
+  onReloadRemediation: () => void;
 }) {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1224,19 +1468,96 @@ function AuditSection({
   }
 
   // Remediation Plans
+  const remediationStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-900 text-green-300';
+      case 'verified': return 'bg-green-900 text-green-300';
+      case 'in_progress': return 'bg-blue-900 text-blue-300';
+      case 'overdue': return 'bg-red-900 text-red-300';
+      case 'open': return 'bg-yellow-900 text-yellow-300';
+      default: return 'bg-gray-700 text-gray-300';
+    }
+  };
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">Remediation Plans</h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-          <Plus className="h-4 w-4" />
-          Create Plan
+        <button
+          onClick={onReloadRemediation}
+          className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
         </button>
       </div>
 
-      <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
-        Remediation plan management coming soon
-      </div>
+      {remediationLoading ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+          Loading remediation plans...
+        </div>
+      ) : remediationError ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-red-800 text-center text-red-400">
+          {remediationError}
+          <div className="mt-3">
+            <button onClick={onReloadRemediation} className="text-blue-400 hover:text-blue-300 text-sm">Retry</button>
+          </div>
+        </div>
+      ) : remediationPlans.length === 0 ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+          No remediation plans recorded yet.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {remediationPlans.map((plan) => (
+            <div key={plan.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-blue-400 font-mono text-sm">{plan.planCode || plan.id.slice(0, 8)}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs ${getSeverityColor(plan.priority || 'medium')}`}>
+                      {plan.priority || 'medium'}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-xs ${remediationStatusColor(plan.status)}`}>
+                      {plan.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <h4 className="text-white font-medium">{plan.planTitle || 'Remediation Plan'}</h4>
+                  {plan.description && <p className="text-sm text-gray-400">{plan.description}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-400">Target Completion</p>
+                  <p className="text-white text-sm">{plan.targetCompletionDate || 'Not set'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4 mb-3">
+                <div>
+                  <p className="text-xs text-gray-400">Finding</p>
+                  <p className="text-sm text-gray-300">{plan.findingCode || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Audit</p>
+                  <p className="text-sm text-gray-300">{plan.auditName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Responsible</p>
+                  <p className="text-sm text-gray-300">{plan.responsiblePersonName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Progress</p>
+                  <p className="text-sm text-gray-300">{plan.progressPercent ?? 0}%</p>
+                </div>
+              </div>
+
+              {plan.correctiveAction && (
+                <div className="text-sm text-gray-300 pt-3 border-t border-gray-700">
+                  <span className="text-gray-400">Corrective Action:</span> {plan.correctiveAction}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1248,11 +1569,19 @@ function AuditSection({
 function ReportsSection({
   dashboard,
   alerts,
-  subTab
+  subTab,
+  statutorySummary,
+  statutoryLoading,
+  statutoryError,
+  onReloadStatutory,
 }: {
   dashboard: ComplianceDashboard | null;
   alerts: ComplianceAlert[];
   subTab: ReportsSubTab;
+  statutorySummary: StatutoryReportSummary | null;
+  statutoryLoading: boolean;
+  statutoryError: string | null;
+  onReloadStatutory: () => void;
 }) {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -1347,20 +1676,85 @@ function ReportsSection({
     );
   }
 
-  // Statutory Reports
+  // Statutory Reports — aggregated from real PF/ESI/PT statutory filings.
+  const categoryLabel = (c: string) =>
+    c.replace(/-/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">Statutory Reports</h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-          <Plus className="h-4 w-4" />
-          Generate Report
+        <button
+          onClick={onReloadStatutory}
+          className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
         </button>
       </div>
 
-      <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
-        Statutory reports generation coming soon
-      </div>
+      {statutoryLoading ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+          Generating report...
+        </div>
+      ) : statutoryError ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-red-800 text-center text-red-400">
+          {statutoryError}
+          <div className="mt-3">
+            <button onClick={onReloadStatutory} className="text-blue-400 hover:text-blue-300 text-sm">Retry</button>
+          </div>
+        </div>
+      ) : !statutorySummary || statutorySummary.totalFilings === 0 ? (
+        <div className="bg-gray-800 rounded-lg p-8 border border-gray-700 text-center text-gray-500">
+          No statutory filing data available to report.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-sm text-gray-400 mb-1">Total Filings</p>
+              <p className="text-2xl font-bold text-white">{statutorySummary.totalFilings}</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-sm text-gray-400 mb-1">Total Amount</p>
+              <p className="text-2xl font-bold text-white">₹{statutorySummary.totalAmount.toLocaleString()}</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-sm text-gray-400 mb-1">Categories</p>
+              <p className="text-2xl font-bold text-white">{statutorySummary.byCategory.length}</p>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-900">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Filings</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Pending</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Filed</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Paid</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {statutorySummary.byCategory.map((row) => (
+                  <tr key={row.category} className="hover:bg-gray-750">
+                    <td className="px-4 py-3 text-white">{categoryLabel(row.category)}</td>
+                    <td className="px-4 py-3 text-gray-300">{row.count}</td>
+                    <td className="px-4 py-3 text-gray-300">₹{row.totalAmount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-yellow-400">{row.pending}</td>
+                    <td className="px-4 py-3 text-blue-400">{row.filed}</td>
+                    <td className="px-4 py-3 text-green-400">{row.paid}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-500">
+            Generated {new Date(statutorySummary.generatedAt).toLocaleString()}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1392,6 +1786,106 @@ export default function HRCompliancePage() {
   const [audits, setAudits] = useState<ComplianceAudit[]>([]);
   const [auditFindings, setAuditFindings] = useState<AuditFinding[]>([]);
   const [alerts, setAlerts] = useState<ComplianceAlert[]>([]);
+
+  // Real-backend sections (compliance certificates, policy acknowledgments,
+  // POSH complaints, remediation plans, statutory reports).
+  const [certificates, setCertificates] = useState<ComplianceCertificateRecord[]>([]);
+  const [certLoading, setCertLoading] = useState(true);
+  const [certError, setCertError] = useState<string | null>(null);
+
+  const [acknowledgments, setAcknowledgments] = useState<PolicyAcknowledgmentRecord[]>([]);
+  const [ackLoading, setAckLoading] = useState(true);
+  const [ackError, setAckError] = useState<string | null>(null);
+
+  const [poshComplaints, setPoshComplaints] = useState<PoshComplaintRecord[]>([]);
+  const [poshLoading, setPoshLoading] = useState(true);
+  const [poshError, setPoshError] = useState<string | null>(null);
+
+  const [remediationPlans, setRemediationPlans] = useState<RemediationPlanRecord[]>([]);
+  const [remediationLoading, setRemediationLoading] = useState(true);
+  const [remediationError, setRemediationError] = useState<string | null>(null);
+
+  const [statutorySummary, setStatutorySummary] = useState<StatutoryReportSummary | null>(null);
+  const [statutoryLoading, setStatutoryLoading] = useState(true);
+  const [statutoryError, setStatutoryError] = useState<string | null>(null);
+
+  const loadCertificates = async () => {
+    setCertLoading(true);
+    setCertError(null);
+    try {
+      const data = await HRComplianceService.getComplianceCertificates();
+      setCertificates(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setCertError('Failed to load compliance certificates.');
+      console.error('Error loading compliance certificates:', error);
+    } finally {
+      setCertLoading(false);
+    }
+  };
+
+  const loadAcknowledgments = async () => {
+    setAckLoading(true);
+    setAckError(null);
+    try {
+      const data = await HRComplianceService.getPolicyAcknowledgments();
+      setAcknowledgments(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setAckError('Failed to load policy acknowledgments.');
+      console.error('Error loading policy acknowledgments:', error);
+    } finally {
+      setAckLoading(false);
+    }
+  };
+
+  const loadPoshComplaints = async () => {
+    setPoshLoading(true);
+    setPoshError(null);
+    try {
+      const data = await HRComplianceService.getPoshComplaints();
+      setPoshComplaints(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setPoshError('Failed to load POSH complaints.');
+      console.error('Error loading POSH complaints:', error);
+    } finally {
+      setPoshLoading(false);
+    }
+  };
+
+  const loadRemediationPlans = async () => {
+    setRemediationLoading(true);
+    setRemediationError(null);
+    try {
+      const data = await HRComplianceService.getRemediationPlans();
+      setRemediationPlans(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setRemediationError('Failed to load remediation plans.');
+      console.error('Error loading remediation plans:', error);
+    } finally {
+      setRemediationLoading(false);
+    }
+  };
+
+  const loadStatutorySummary = async () => {
+    setStatutoryLoading(true);
+    setStatutoryError(null);
+    try {
+      const data = await HRComplianceService.getStatutoryReportSummary();
+      setStatutorySummary(data ?? null);
+    } catch (error) {
+      setStatutoryError('Failed to load statutory reports.');
+      console.error('Error loading statutory reports:', error);
+    } finally {
+      setStatutoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCertificates();
+    loadAcknowledgments();
+    loadPoshComplaints();
+    loadRemediationPlans();
+    loadStatutorySummary();
+  }, []);
 
   useEffect(() => {
     loadDashboard();
@@ -1626,15 +2120,64 @@ export default function HRCompliancePage() {
       case 'statutory_returns':
         return <StatutoryReturnsSection returns={statutoryReturns} subTab={statutoryReturnsSubTab} />;
       case 'licenses':
-        return <LicensesSection licenses={licenses} subTab={licensesSubTab} />;
+        return (
+          <LicensesSection
+            licenses={licenses}
+            subTab={licensesSubTab}
+            certificates={certificates}
+            certLoading={certLoading}
+            certError={certError}
+            onReloadCertificates={loadCertificates}
+          />
+        );
       case 'policy':
-        return <PolicyComplianceSection violations={policyViolations} disciplinaryActions={disciplinaryActions} subTab={policySubTab} />;
+        return (
+          <PolicyComplianceSection
+            violations={policyViolations}
+            disciplinaryActions={disciplinaryActions}
+            subTab={policySubTab}
+            acknowledgments={acknowledgments}
+            ackLoading={ackLoading}
+            ackError={ackError}
+            onReloadAcknowledgments={loadAcknowledgments}
+          />
+        );
       case 'equal_opportunity':
-        return <EqualOpportunitySection diversityMetrics={diversityMetrics} grievances={grievances} subTab={equalOpportunitySubTab} />;
+        return (
+          <EqualOpportunitySection
+            diversityMetrics={diversityMetrics}
+            grievances={grievances}
+            subTab={equalOpportunitySubTab}
+            poshComplaints={poshComplaints}
+            poshLoading={poshLoading}
+            poshError={poshError}
+            onReloadPosh={loadPoshComplaints}
+          />
+        );
       case 'audit':
-        return <AuditSection audits={audits} findings={auditFindings} subTab={auditSubTab} />;
+        return (
+          <AuditSection
+            audits={audits}
+            findings={auditFindings}
+            subTab={auditSubTab}
+            remediationPlans={remediationPlans}
+            remediationLoading={remediationLoading}
+            remediationError={remediationError}
+            onReloadRemediation={loadRemediationPlans}
+          />
+        );
       case 'reports':
-        return <ReportsSection dashboard={dashboard} alerts={alerts} subTab={reportsSubTab} />;
+        return (
+          <ReportsSection
+            dashboard={dashboard}
+            alerts={alerts}
+            subTab={reportsSubTab}
+            statutorySummary={statutorySummary}
+            statutoryLoading={statutoryLoading}
+            statutoryError={statutoryError}
+            onReloadStatutory={loadStatutorySummary}
+          />
+        );
       default:
         return null;
     }

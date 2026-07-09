@@ -126,6 +126,40 @@ const ProductionSchedulingPage = () => {
   const completed = schedules.filter(s => s.status === 'completed').length
   const delayed = schedules.filter(s => s.status === 'delayed').length
 
+  const [publishing, setPublishing] = useState(false)
+  const [optimizing, setOptimizing] = useState(false)
+
+  // Publish every scheduled line via POST /production/schedule-lines/publish.
+  const handlePublish = async () => {
+    try {
+      setPublishing(true)
+      setActionMessage(null)
+      const res = await ProductionOrphanService.publishScheduleLines()
+      setActionMessage({ type: 'success', text: `Published ${res?.published ?? 0} schedule line(s).` })
+      await load()
+    } catch (e: any) {
+      setActionMessage({ type: 'error', text: e?.message || 'Failed to publish schedule.' })
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  // Level-load / optimize the schedule via POST /production/schedule-lines/optimize.
+  const handleOptimize = async () => {
+    try {
+      setOptimizing(true)
+      setActionMessage(null)
+      const workCenter = workCenterFilter !== 'all' ? workCenterFilter : undefined
+      const res = await ProductionOrphanService.optimizeScheduleLines(workCenter)
+      setActionMessage({ type: 'success', text: `Optimized ${res?.optimized ?? 0} schedule line(s).` })
+      await load()
+    } catch (e: any) {
+      setActionMessage({ type: 'error', text: e?.message || 'Failed to optimize schedule.' })
+    } finally {
+      setOptimizing(false)
+    }
+  }
+
   const handleExport = () => {
     exportToCsv('production-schedule', filteredSchedules as unknown as Record<string, unknown>[])
   }
@@ -276,13 +310,31 @@ const ProductionSchedulingPage = () => {
               </div>
             </div>
 
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Download className="w-5 h-5" />
-              Export Report
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOptimize}
+                disabled={optimizing}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Clock className="w-5 h-5" />
+                {optimizing ? 'Optimizing…' : 'Optimize'}
+              </button>
+              <button
+                onClick={handlePublish}
+                disabled={publishing}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle className="w-5 h-5" />
+                {publishing ? 'Publishing…' : 'Publish'}
+              </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                Export Report
+              </button>
+            </div>
           </div>
         </div>
 

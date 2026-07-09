@@ -8,7 +8,11 @@ import {
   TrendingUp, Calendar, DollarSign, ShoppingCart, Package,
   Briefcase, Activity, MessageSquare, ThumbsUp, ThumbsDown, Flag
 } from 'lucide-react';
-import { approvalService } from '@/services/ApprovalService';
+import {
+  approvalService,
+  type ApprovalAttachment,
+  type ApprovalComment,
+} from '@/services/ApprovalService';
 
 interface ApprovalRequest {
   id: string;
@@ -189,6 +193,66 @@ export default function ApprovalsPage() {
 
   // Expanded card state
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
+
+  // Document-view state (attachments + comments) for the expanded approval.
+  const [docViewApprovalId, setDocViewApprovalId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<ApprovalAttachment[]>([]);
+  const [comments, setComments] = useState<ApprovalComment[]>([]);
+  const [isDocViewLoading, setIsDocViewLoading] = useState(false);
+  const [docViewError, setDocViewError] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+
+  const loadDocView = useCallback(async (approvalId: string) => {
+    setIsDocViewLoading(true);
+    setDocViewError(null);
+    try {
+      const [atts, cmts] = await Promise.all([
+        approvalService.getAttachments(approvalId),
+        approvalService.getComments(approvalId),
+      ]);
+      setAttachments(atts);
+      setComments(cmts);
+    } catch (err) {
+      setAttachments([]);
+      setComments([]);
+      setDocViewError(
+        err instanceof Error ? err.message : 'Failed to load attachments and comments.',
+      );
+    } finally {
+      setIsDocViewLoading(false);
+    }
+  }, []);
+
+  // Fetch attachments/comments whenever a card is expanded.
+  useEffect(() => {
+    if (expandedCard) {
+      setDocViewApprovalId(expandedCard);
+      setNewComment('');
+      loadDocView(expandedCard);
+    } else {
+      setDocViewApprovalId(null);
+      setAttachments([]);
+      setComments([]);
+      setDocViewError(null);
+    }
+  }, [expandedCard, loadDocView]);
+
+  const handlePostComment = async () => {
+    if (!docViewApprovalId || !newComment.trim() || isPostingComment) return;
+    setIsPostingComment(true);
+    try {
+      await approvalService.addComment(docViewApprovalId, newComment.trim(), 'current-user-id');
+      setNewComment('');
+      await loadDocView(docViewApprovalId);
+    } catch (err) {
+      setDocViewError(
+        err instanceof Error ? `Failed to post comment: ${err.message}` : 'Failed to post comment.',
+      );
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
 
   // Delegation modal state
   const [showDelegationModal, setShowDelegationModal] = useState(false);
@@ -741,26 +805,102 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
 
-                {/* Attachment / comment counts are provided by the approval
-                    record; the individual file and comment payloads are not yet
-                    exposed by the workflow backend, so we show the counts only
-                    rather than fabricated rows. */}
-                {(approval.attachments > 0 || approval.comments > 0) && (
-                  <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    {approval.attachments > 0 && (
-                      <span className="flex items-center space-x-1">
-                        <Package className="h-4 w-4" />
-                        <span>{approval.attachments} attachment(s)</span>
-                      </span>
-                    )}
-                    {approval.comments > 0 && (
-                      <span className="flex items-center space-x-1">
-                        <MessageSquare className="h-4 w-4" />
-                        <span>{approval.comments} comment(s)</span>
-                      </span>
-                    )}
+                {/* Attachments + comments (document view) — fetched live from
+                    the workflow backend for the expanded approval. */}
+                {docViewError && (
+                  <div className="flex items-center space-x-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{docViewError}</span>
                   </div>
                 )}
+
+                {/* Attachments */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center space-x-2">
+                    <Package className="h-4 w-4" />
+                    <span>Attachments</span>
+                  </h4>
+                  {isDocViewLoading ? (
+                    <p className="text-sm text-gray-500">Loading attachments…</p>
+                  ) : attachments.length === 0 ? (
+                    <p className="text-sm text-gray-500">No attachments.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {attachments.map((att) => (
+                        <div
+                          key={att.id}
+                          className="flex items-center justify-between rounded border border-gray-200 bg-white p-2"
+                        >
+                          <div className="flex items-center space-x-2 min-w-0">
+                            <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span className="text-sm text-gray-800 truncate">{att.fileName}</span>
+                            {att.version && (
+                              <span className="text-xs text-gray-400">v{att.version}</span>
+                            )}
+                          </div>
+                          {att.fileUrl && (
+                            <a
+                              href={att.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-medium text-blue-600 hover:underline flex-shrink-0"
+                            >
+                              Open
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Comments */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center space-x-2">
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Comments</span>
+                  </h4>
+                  {isDocViewLoading ? (
+                    <p className="text-sm text-gray-500">Loading comments…</p>
+                  ) : comments.length === 0 ? (
+                    <p className="text-sm text-gray-500">No comments yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {comments.map((c) => (
+                        <div key={c.id} className="rounded border border-gray-200 bg-white p-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-900">
+                              {c.authorName || c.authorId || 'Unknown'}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{c.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add comment */}
+                  <div className="mt-2 flex items-start space-x-2">
+                    <textarea
+                      value={docViewApprovalId === approval.id ? newComment : ''}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a comment…"
+                      rows={2}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      disabled={isPostingComment}
+                    />
+                    <button
+                      onClick={handlePostComment}
+                      disabled={isPostingComment || !newComment.trim()}
+                      className="px-3 py-2 rounded-lg text-white text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                    >
+                      {isPostingComment ? 'Posting…' : 'Post'}
+                    </button>
+                  </div>
+                </div>
 
                 {/* Approval History */}
                 <div>

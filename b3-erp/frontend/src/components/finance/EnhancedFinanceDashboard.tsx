@@ -291,7 +291,7 @@ export default function EnhancedFinanceDashboard() {
   ];
 
   const quickActions = [
-    { icon: FileText, label: 'Journal Entry', href: '/finance/accounting/journal-entries/add', color: 'blue', description: 'Create accounting entries' },
+    { icon: FileText, label: 'Journal Entry', href: '/finance/accounting/journal-entries', color: 'blue', description: 'Create accounting entries' },
     { icon: Receipt, label: 'Record Payment', href: '/finance/payments/add', color: 'green', description: 'Process receipts' },
     { icon: Banknote, label: 'Create Invoice', href: '/finance/invoices/add', color: 'purple', description: 'Generate customer invoices' },
     { icon: Calculator, label: 'Reconciliation', href: '/finance/bank-reconciliation', color: 'orange', description: 'Match bank statements' },

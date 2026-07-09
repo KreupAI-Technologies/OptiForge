@@ -1,4 +1,31 @@
 import { apiClient } from './api/client';
+import { config } from '@/lib/config';
+
+// Base API URL for raw (blob) downloads that bypass the JSON apiClient.
+const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL ?? config.apiUrl ?? 'http://localhost:3001/api/v1';
+
+export interface BarcodeImportRow {
+    serialNumber?: string;
+    barcode?: string;
+    barcodeType?: string;
+    itemId?: string;
+    itemCode?: string;
+    itemName?: string;
+    warehouseId?: string;
+    warehouseName?: string;
+    locationId?: string;
+    locationName?: string;
+    batchNumber?: string;
+}
+
+export interface BarcodeImportResult {
+    total: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: { row: number; reason: string }[];
+}
 
 export interface StockBalance {
     id: string;
@@ -217,6 +244,11 @@ class InventoryService {
         return (response as any)?.data ?? response;
     }
 
+    async updateWarehouse(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/warehouses/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
     async getWarehouseLocations(id: string): Promise<any[]> {
         const response = await apiClient.get<any[]>(`/inventory/warehouses/${id}/locations`);
         return this.unwrapArray(response);
@@ -309,6 +341,36 @@ class InventoryService {
 
     async getCycleCount(id: string): Promise<any> {
         const response = await apiClient.get<any>(`/inventory/cycle-counts/${id}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async createCycleCount(body: {
+        title: string;
+        scheduledDate: string;
+        warehouseId: string;
+        warehouseName?: string;
+        locationId?: string;
+        abcClass?: string;
+        itemGroups?: string[];
+        assignedTo?: string;
+        remarks?: string;
+    }): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/cycle-counts`, body);
+        return (response as any)?.data ?? response;
+    }
+
+    async startCycleCount(id: string): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/cycle-counts/${id}/start`, {});
+        return (response as any)?.data ?? response;
+    }
+
+    async saveCycleCountItems(id: string, results: { itemId: string; actualQty: number }[]): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/cycle-counts/${id}/items`, { results });
+        return (response as any)?.data ?? response;
+    }
+
+    async completeCycleCount(id: string, results?: { itemId: string; actualQty: number }[]): Promise<any> {
+        const response = await apiClient.post<any>(`/inventory/cycle-counts/${id}/complete`, { results: results ?? [] });
         return (response as any)?.data ?? response;
     }
 
@@ -415,6 +477,57 @@ class InventoryService {
 
     async getReorderReport(): Promise<any> {
         const response = await apiClient.get<any>('/inventory/reorder/report');
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Auto-replenishment configs ----
+    async getReplenishmentConfigs(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/replenishment/configs');
+        return this.unwrapArray(response);
+    }
+
+    async createReplenishmentConfig(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/replenishment/configs', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateReplenishmentConfig(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/replenishment/configs/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async toggleReplenishmentConfig(id: string, enabled: boolean): Promise<any> {
+        const response = await apiClient.patch<any>(`/inventory/replenishment/configs/${id}/toggle`, { enabled });
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteReplenishmentConfig(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/replenishment/configs/${id}`);
+    }
+
+    // ---- Reorder rules ----
+    async getReorderRules(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/replenishment/rules');
+        return this.unwrapArray(response);
+    }
+
+    async createReorderRule(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/replenishment/rules', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteReorderRule(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/replenishment/rules/${id}`);
+    }
+
+    // ---- Replenishment requests ----
+    async getReplenishmentRequests(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/replenishment/requests');
+        return this.unwrapArray(response);
+    }
+
+    async createReplenishmentRequest(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/replenishment/requests', data);
         return (response as any)?.data ?? response;
     }
 
@@ -526,6 +639,38 @@ class InventoryService {
         if (filters?.toDate) params.append('toDate', filters.toDate);
         const response = await apiClient.get<any[]>(`/inventory/stock-entries/stock-ledger?${params.toString()}`);
         return this.unwrapArray(response);
+    }
+
+    // ---- Barcodes ----
+    /** Bulk-import parsed barcode rows and attach them to serial-number records. */
+    async bulkImportBarcodes(rows: BarcodeImportRow[]): Promise<BarcodeImportResult> {
+        const response = await apiClient.post<BarcodeImportResult>('/inventory/barcodes/bulk-import', rows);
+        return ((response as any)?.data ?? response) as BarcodeImportResult;
+    }
+
+    /**
+     * Download a printable PDF label sheet for the given barcode ids. Returns a
+     * Blob; the caller is responsible for triggering the browser download.
+     */
+    async downloadBarcodeLabels(ids: string[], format: 'pdf' = 'pdf'): Promise<Blob> {
+        const params = new URLSearchParams();
+        params.append('ids', ids.join(','));
+        params.append('format', format);
+        const res = await fetch(`${API_BASE_URL}/inventory/barcodes/labels?${params.toString()}`, {
+            method: 'GET',
+            credentials: 'include',
+        });
+        if (!res.ok) {
+            let message = res.statusText || `HTTP ${res.status}`;
+            try {
+                const body = await res.json();
+                if (body?.message) message = Array.isArray(body.message) ? body.message.join('; ') : body.message;
+            } catch {
+                // keep statusText fallback
+            }
+            throw new Error(message);
+        }
+        return res.blob();
     }
 }
 

@@ -335,6 +335,50 @@ export const ProductionOrphanService = {
 
   // ---- Spare parts write ----
   updateSparePart: (id: string, body: any) => put<any>(`/production/spare-parts/${id}`, body),
+  // POST production/spare-parts/:id/create-po — raises a procurement PR (PO source)
+  createSparePartPurchaseOrder: (id: string, body: any = {}) =>
+    post<any>(`/production/spare-parts/${id}/create-po`, body),
+
+  // ---- BOM explosion / import / item resolution / quality specs ----
+  // GET production/bom/:ref/explosion — multi-level component requirements by id or code
+  getBomExplosion: (ref: string, quantity?: number) =>
+    request<any>(
+      `/production/bom/${encodeURIComponent(ref)}/explosion${
+        quantity ? `?quantity=${quantity}` : ''
+      }`,
+    ),
+  // GET production/bom/resolve-items?codes=a,b — itemCode -> {itemId,itemName}
+  resolveItems: (codes: string[]) =>
+    request<any[]>(
+      `/production/bom/resolve-items?codes=${encodeURIComponent(codes.join(','))}`,
+    ),
+  // POST production/bom/import — create a BOM from parsed component rows (JSON)
+  importBom: (body: any) => post<any>('/production/bom/import', body),
+
+  // ---- BOM / assembly templates ----
+  getBomTemplates: () => request<any[]>('/production/bom-templates'),
+  getBomTemplate: (id: string) => request<any>(`/production/bom-templates/${id}`),
+  createBomTemplate: (body: any) => post<any>('/production/bom-templates', body),
+
+  // ---- Quality specs (product / work-order) ----
+  getQualitySpecs: (params: { productCode?: string; workOrderId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params.productCode) qs.set('productCode', params.productCode);
+    if (params.workOrderId) qs.set('workOrderId', params.workOrderId);
+    return request<any>(`/production/quality-specs?${qs.toString()}`);
+  },
+
+  // ---- Shop-floor material pull requests ----
+  getShopFloorMaterialRequests: () =>
+    request<any[]>('/production/shopfloor/material-requests'),
+  createShopFloorMaterialRequest: (body: any) =>
+    post<any>('/production/shopfloor/material-requests', body),
+
+  // ---- Shop-floor attendance / shift ----
+  startShopFloorShift: (body: any) =>
+    post<any>('/production/shopfloor/attendance/start-shift', body),
+  endShopFloorShift: (body: any) =>
+    post<any>('/production/shopfloor/attendance/end-shift', body),
 
   // ---- Schedule lines write (backs /production/scheduling) ----
   updateScheduleLine: (id: string, body: any) => put<any>(`/production/schedule-lines/${id}`, body),
@@ -354,4 +398,25 @@ export const ProductionOrphanService = {
   createMasterSchedule: (body: any) => post<any>('/production/master-schedules', body),
   updateMasterSchedule: (id: string, body: any) => put<any>(`/production/master-schedules/${id}`, body),
   freezeMasterSchedule: (id: string, body: any = {}) => post<any>(`/production/master-schedules/${id}/freeze`, body),
+
+  // ---- Production-planning [BE] action endpoints ----
+
+  // POST production/mrp/bulk-requisitions (backs /production/mrp bulk PR)
+  createBulkRequisitions: (body: any) => post<any[]>('/production/mrp/bulk-requisitions', body),
+
+  // POST production/planning/generate-work-orders (backs /production/planning)
+  generateWorkOrdersFromPlan: (body: any) =>
+    post<{ plan?: any; workOrders: any[] }>('/production/planning/generate-work-orders', body),
+
+  // POST production/schedule-lines/publish + /optimize (backs /production/scheduling)
+  publishScheduleLines: (ids?: string[]) =>
+    post<{ published: number; lines: any[] }>('/production/schedule-lines/publish', { ids }),
+  optimizeScheduleLines: (workCenter?: string) =>
+    post<{ optimized: number; lines: any[] }>('/production/schedule-lines/optimize', { workCenter }),
+
+  // POST production/capacity-plans/:id/optimize + /plan-overtime (backs /production/capacity-planning)
+  optimizeCapacityPlan: (id: string, body: any = {}) =>
+    post<any>(`/production/capacity-plans/${id}/optimize`, body),
+  planCapacityOvertime: (id: string, body: any = {}) =>
+    post<any>(`/production/capacity-plans/${id}/plan-overtime`, body),
 };

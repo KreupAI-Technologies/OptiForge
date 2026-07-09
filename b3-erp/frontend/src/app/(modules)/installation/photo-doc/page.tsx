@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { AttachmentsService, Attachment } from '@/services/attachments.service';
 import {
     ArrowLeft,
     ArrowRight,
@@ -20,18 +21,14 @@ import {
     Building2
 } from 'lucide-react';
 
+// Owning-record type used to key installation photos in the attachments store.
+const PHOTO_ENTITY_TYPE = 'installation-photo';
+
 interface ProjectInfo {
     id: string;
     name: string;
     clientName: string;
     status: string;
-}
-
-interface Photo {
-    id: string;
-    category: 'Overall' | 'Detail' | 'Defect';
-    url: string;
-    description: string;
 }
 
 function PhotoDocPageContent() {
@@ -44,12 +41,39 @@ function PhotoDocPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [photos, setPhotos] = useState<Photo[]>([]);
+    const [photos, setPhotos] = useState<Attachment[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+    const [photoError, setPhotoError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) {
+            loadPhotos(selectedProject.id);
+        } else {
+            setPhotos([]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProject?.id]);
+
+    const loadPhotos = async (projectId: string) => {
+        setIsLoadingPhotos(true);
+        setPhotoError(null);
+        try {
+            const rows = await AttachmentsService.list(PHOTO_ENTITY_TYPE, projectId);
+            setPhotos(rows);
+        } catch (error) {
+            setPhotoError(error instanceof Error ? error.message : 'Failed to load photos');
+            setPhotos([]);
+        } finally {
+            setIsLoadingPhotos(false);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -86,22 +110,49 @@ function PhotoDocPageContent() {
         p.clientName.toLowerCase().includes(projectSearch.toLowerCase())
     );
 
-    const handleUpload = () => {
-        const newPhoto: Photo = {
-            id: Date.now().toString(),
-            category: 'Overall',
-            url: '/placeholder-kitchen.jpg',
-            description: 'Kitchen View ' + (photos.length + 1)
-        };
-        setPhotos([...photos, newPhoto]);
-        toast({
-            title: 'Photo Uploaded',
-            description: 'Image added to project documentation',
-        });
+    const handleSelectFilesClick = () => {
+        fileInputRef.current?.click();
     };
 
-    const handleDelete = (id: string) => {
-        setPhotos(photos.filter(p => p.id !== id));
+    const handleFilesChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!selectedProject) return;
+        const files = Array.from(e.target.files ?? []);
+        // Reset the input so choosing the same file again re-triggers change.
+        e.target.value = '';
+        if (files.length === 0) return;
+
+        setIsUploading(true);
+        setPhotoError(null);
+        try {
+            await Promise.all(
+                files.map((file) =>
+                    AttachmentsService.upload(file, PHOTO_ENTITY_TYPE, selectedProject.id),
+                ),
+            );
+            await loadPhotos(selectedProject.id);
+            toast({
+                title: 'Upload Complete',
+                description: `${files.length} photo(s) added to project documentation.`,
+            });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Upload failed';
+            setPhotoError(msg);
+            toast({ variant: 'destructive', title: 'Upload Failed', description: msg });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        setPhotoError(null);
+        try {
+            await AttachmentsService.remove(id);
+            setPhotos((prev) => prev.filter((p) => p.id !== id));
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Delete failed';
+            setPhotoError(msg);
+            toast({ variant: 'destructive', title: 'Delete Failed', description: msg });
+        }
     };
 
     const handleComplete = async () => {
@@ -110,8 +161,8 @@ function PhotoDocPageContent() {
         try {
             await projectManagementService.createInstallDailyReport({
                 projectId: selectedProject.id,
-                workDone: `Photo documentation captured: ${photos.length} photo(s) (${Array.from(new Set(photos.map(p => p.category))).join(', ') || 'general'}).`,
-                progressPhotos: photos.map(p => p.url),
+                workDone: `Photo documentation captured: ${photos.length} photo(s).`,
+                progressPhotos: photos.map((p) => AttachmentsService.downloadUrl(p.id)),
                 overallProgress: 92,
             });
             toast({
@@ -226,40 +277,74 @@ function PhotoDocPageContent() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Card className="md:col-span-3">
                     <CardContent className="pt-6">
-                        <div className="border-2 border-dashed rounded-lg p-12 text-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={handleUpload}>
-                            <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2">
-                                <Upload className="h-6 w-6" />
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleFilesChosen}
+                        />
+                        <div
+                            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${isUploading ? 'opacity-60 cursor-wait' : 'hover:bg-muted/50 cursor-pointer'}`}
+                            onClick={isUploading ? undefined : handleSelectFilesClick}
+                        >
+                            <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2 mx-auto">
+                                {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
                             </div>
                             <h3 className="font-semibold text-lg mb-1">Upload Project Photos</h3>
                             <p className="text-sm text-muted-foreground mb-2">
-                                Drag and drop or click to upload images
+                                Click to select one or more images
                             </p>
-                            <Button>Select Files</Button>
+                            <Button disabled={isUploading} onClick={(e) => { e.stopPropagation(); handleSelectFilesClick(); }}>
+                                {isUploading ? 'Uploading…' : 'Select Files'}
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
 
-                {photos.length > 0 ? (
-                    photos.map((photo) => (
-                        <Card key={photo.id} className="overflow-hidden group">
-                            <div className="aspect-video bg-gray-100 relative flex items-center justify-center">
-                                <ImageIcon className="h-12 w-12 text-gray-300" />
-                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Button
-                                        variant="destructive"
-                                        size="icon"
-                                        onClick={() => handleDelete(photo.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                {photoError && (
+                    <div className="md:col-span-3 bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
+                        {photoError}
+                    </div>
+                )}
+
+                {isLoadingPhotos ? (
+                    <div className="md:col-span-3 flex items-center justify-center py-12 text-muted-foreground">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading photos…
+                    </div>
+                ) : photos.length > 0 ? (
+                    photos.map((photo) => {
+                        const isImage = photo.mimeType?.startsWith('image/');
+                        const src = AttachmentsService.downloadUrl(photo.id);
+                        return (
+                            <Card key={photo.id} className="overflow-hidden group">
+                                <div className="aspect-video bg-gray-100 relative flex items-center justify-center">
+                                    {isImage ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={src} alt={photo.fileName} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <ImageIcon className="h-12 w-12 text-gray-300" />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            onClick={() => handleDelete(photo.id)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
-                            <CardContent className="p-3">
-                                <div className="font-medium text-sm">{photo.description}</div>
-                                <div className="text-xs text-muted-foreground">{photo.category}</div>
-                            </CardContent>
-                        </Card>
-                    ))
+                                <CardContent className="p-3">
+                                    <div className="font-medium text-sm truncate">{photo.fileName}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {(photo.size / 1024).toFixed(0)} KB
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })
                 ) : (
                     <div className="md:col-span-3 text-center py-12 text-muted-foreground">
                         No photos uploaded yet. Please add documentation photos.

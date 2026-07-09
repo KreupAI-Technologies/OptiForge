@@ -63,4 +63,29 @@ export class AutomationRuleService {
     const rule = await this.findOne(companyId, id);
     await this.automationRuleRepository.remove(rule);
   }
+
+  /**
+   * Execute a rule "now". There is no separate action-execution engine, so
+   * this records a manual run: it bumps the execution counter, stamps lastRun,
+   * and returns a run summary. Persisting the run keeps the displayed stats
+   * authoritative (vs. an optimistic client-side bump).
+   */
+  async run(
+    companyId: string,
+    id: string,
+  ): Promise<{ rule: AutomationRule; run: { status: string; executedAt: string; executionCount: number } }> {
+    const rule = await this.findOne(companyId, id);
+    const executedAt = new Date().toISOString();
+    rule.lastRun = executedAt;
+    rule.executionCount = (rule.executionCount ?? 0) + 1;
+    const saved = await this.automationRuleRepository.save(rule);
+    return {
+      rule: saved,
+      run: {
+        status: 'completed',
+        executedAt,
+        executionCount: saved.executionCount,
+      },
+    };
+  }
 }

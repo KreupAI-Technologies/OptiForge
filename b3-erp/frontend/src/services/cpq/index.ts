@@ -11,3 +11,4 @@ export * from './cpq-analytics.service';
 export * from './cpq-analytics-live.service';
 export * from './cpq-settings.service';
 export * from './cpq-approval.service';
+export * from './cpq-advanced.service';

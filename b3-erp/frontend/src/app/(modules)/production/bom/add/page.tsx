@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { bomService } from '@/services/bom.service';
 import { commonMastersService } from '@/services/common-masters.service';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
   ArrowLeft,
@@ -167,6 +168,17 @@ export default function BOMAddPage() {
   const [existingBOMs, setExistingBOMs] = useState<ExistingBOMOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Assembly / BOM templates
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // JSON import (parsed component rows — not a file upload)
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
     // Auto-generate BOM number
@@ -568,10 +580,96 @@ export default function BOMAddPage() {
     }
   };
 
-  // NEEDS BACKEND: no Excel-parse endpoint. File is captured client-side; parsing
-  // into BOM rows requires a backend import endpoint (TODO).
-  const handleImportFromExcel = () => {
-    document.getElementById('bom-excel-import-input')?.click();
+  // Import BOM components from a pasted JSON array of parsed rows (NOT a file
+  // upload). Each row is mapped into the component grid; the user then saves
+  // via the normal Save action (which POSTs to the BOM create endpoint).
+  const openImportModal = () => {
+    setImportText('');
+    setImportError(null);
+    setShowImportModal(true);
+  };
+
+  const handleImportRows = () => {
+    setImportError(null);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(importText);
+    } catch {
+      setImportError('Invalid JSON. Paste an array of component rows.');
+      return;
+    }
+    const rows = Array.isArray(parsed) ? parsed : parsed?.components;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      setImportError('Expected a non-empty JSON array of component rows.');
+      return;
+    }
+    const mapped: BOMComponent[] = rows.map((r: any) => {
+      const quantity = Number(r?.quantity) || 0;
+      const costPerUnit = Number(r?.unitCost ?? r?.costPerUnit) || 0;
+      return {
+        id: `import-${Date.now()}-${Math.random()}`,
+        level: Number(r?.level) || 0,
+        itemCode: String(r?.itemCode ?? ''),
+        itemName: String(r?.itemName ?? ''),
+        description: String(r?.description ?? ''),
+        quantity,
+        uom: String(r?.uom ?? 'PCS'),
+        itemType: mapItemType(r?.itemType) as BOMComponent['itemType'],
+        stockAvailable: 0,
+        costPerUnit,
+        extendedCost: calculateExtendedCost(quantity, costPerUnit),
+        makeOrBuy: (r?.makeOrBuy === 'make' ? 'make' : 'buy') as 'make' | 'buy',
+        scrapPercent: Number(r?.scrapPercentage ?? r?.scrapPercent) || 0,
+        isRequired: true,
+        isPhantom: !!r?.isPhantom,
+      };
+    });
+    setComponents(mapped);
+    setShowImportModal(false);
+  };
+
+  const loadTemplates = async () => {
+    setLoadingTemplates(true);
+    setSaveError(null);
+    try {
+      const res = await ProductionOrphanService.getBomTemplates();
+      setTemplates(Array.isArray(res) ? res : []);
+      setShowTemplateModal(true);
+    } catch (err: any) {
+      setSaveError(err?.message ?? 'Failed to load assembly templates.');
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleApplyTemplate = () => {
+    if (!selectedTemplateId) return;
+    const tpl = templates.find((t) => String(t.id) === String(selectedTemplateId));
+    const rows = Array.isArray(tpl?.components) ? tpl.components : [];
+    const mapped: BOMComponent[] = rows.map((r: any) => {
+      const quantity = Number(r?.quantity) || 0;
+      const costPerUnit = Number(r?.unitCost ?? r?.costPerUnit) || 0;
+      return {
+        id: `tpl-${Date.now()}-${Math.random()}`,
+        level: Number(r?.level) || 0,
+        itemCode: String(r?.itemCode ?? ''),
+        itemName: String(r?.itemName ?? ''),
+        description: String(r?.description ?? ''),
+        quantity,
+        uom: String(r?.uom ?? 'PCS'),
+        itemType: mapItemType(r?.itemType) as BOMComponent['itemType'],
+        stockAvailable: 0,
+        costPerUnit,
+        extendedCost: calculateExtendedCost(quantity, costPerUnit),
+        makeOrBuy: (r?.makeOrBuy === 'make' ? 'make' : 'buy') as 'make' | 'buy',
+        scrapPercent: Number(r?.scrapPercentage ?? r?.scrapPercent) || 0,
+        isRequired: true,
+        isPhantom: !!r?.isPhantom,
+      };
+    });
+    setComponents(mapped);
+    if (tpl?.bomType) setBom((prev) => ({ ...prev, bomType: tpl.bomType }));
+    setShowTemplateModal(false);
   };
 
   const renderComponentRow = (component: BOMComponent, parentId?: string): JSX.Element[] => {
@@ -907,17 +1005,6 @@ export default function BOMAddPage() {
         </div>
       )}
 
-      {/* Hidden Excel import input (NEEDS BACKEND: no parse endpoint yet) */}
-      <input
-        id="bom-excel-import-input"
-        type="file"
-        accept=".xlsx,.xls,.csv"
-        className="hidden"
-        onChange={() => {
-          setSaveError('Excel import is not available yet (no backend parse endpoint). Please enter components manually.');
-        }}
-      />
-
       {/* BOM Details Form */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 mb-3">
         <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center space-x-2">
@@ -1103,7 +1190,7 @@ export default function BOMAddPage() {
           <button
             onClick={() => {
               setEntryMethod('import');
-              handleImportFromExcel();
+              openImportModal();
             }}
             className={`p-4 border-2 rounded-lg text-left transition-all ${entryMethod === 'import'
                 ? 'border-purple-500 bg-purple-50'
@@ -1111,25 +1198,26 @@ export default function BOMAddPage() {
               }`}
           >
             <Upload className="h-6 w-6 text-purple-600 mb-2" />
-            <div className="font-semibold text-gray-900">Import from Excel</div>
-            <div className="text-xs text-gray-600 mt-1">Bulk upload BOM structure</div>
+            <div className="font-semibold text-gray-900">Import Components (JSON)</div>
+            <div className="text-xs text-gray-600 mt-1">Paste parsed component rows</div>
           </button>
 
           <button
             onClick={() => {
-              // NEEDS BACKEND: no assembly-template endpoint yet. TODO: load
-              // templates once /production/bom-templates exists.
               setEntryMethod('template');
-              setSaveError('Assembly templates are not available yet (no backend endpoint).');
+              loadTemplates();
             }}
-            className={`p-4 border-2 rounded-lg text-left transition-all ${entryMethod === 'template'
+            disabled={loadingTemplates}
+            className={`p-4 border-2 rounded-lg text-left transition-all disabled:opacity-60 ${entryMethod === 'template'
                 ? 'border-orange-500 bg-orange-50'
                 : 'border-gray-300 hover:border-orange-300 hover:bg-gray-50'
               }`}
           >
             <BookTemplate className="h-6 w-6 text-orange-600 mb-2" />
             <div className="font-semibold text-gray-900">Use Template</div>
-            <div className="text-xs text-gray-600 mt-1">Common assembly templates</div>
+            <div className="text-xs text-gray-600 mt-1">
+              {loadingTemplates ? 'Loading templates…' : 'Common assembly templates'}
+            </div>
           </button>
         </div>
       </div>
@@ -1341,6 +1429,119 @@ export default function BOMAddPage() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Copy BOM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Components (JSON) Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Import Components (JSON)</h3>
+              <button onClick={() => setShowImportModal(false)}>
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-sm text-gray-600">
+                Paste a JSON array of parsed component rows. Recognised fields:
+                <code className="mx-1 text-xs bg-gray-100 px-1 rounded">
+                  itemCode, itemName, quantity, uom, itemType, unitCost, scrapPercentage, makeOrBuy, level
+                </code>
+              </p>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                rows={10}
+                placeholder='[{"itemCode":"RM-001","itemName":"Steel Sheet","quantity":2,"uom":"KG","unitCost":85}]'
+                className="w-full border border-gray-300 rounded-lg p-3 font-mono text-xs"
+              />
+              {importError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {importError}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImportRows}
+                disabled={!importText.trim()}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Import Rows
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assembly Template Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Use Assembly Template</h3>
+              <button onClick={() => setShowTemplateModal(false)}>
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 max-h-96 overflow-y-auto">
+              {templates.length === 0 ? (
+                <div className="text-sm text-gray-500 text-center py-8">
+                  No assembly templates available.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {templates.map((t: any) => (
+                    <label
+                      key={t.id}
+                      className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer ${
+                        String(selectedTemplateId) === String(t.id)
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="bom-template"
+                        checked={String(selectedTemplateId) === String(t.id)}
+                        onChange={() => setSelectedTemplateId(String(t.id))}
+                        className="mt-1"
+                      />
+                      <div>
+                        <div className="font-semibold text-gray-900">{t.name}</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {t.code} • {t.componentCount ?? (t.components?.length ?? 0)} components
+                          {t.category ? ` • ${t.category}` : ''}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyTemplate}
+                disabled={!selectedTemplateId}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Apply Template
               </button>
             </div>
           </div>

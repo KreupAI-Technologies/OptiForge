@@ -47,6 +47,18 @@ export class BOMController {
     return this.bomService.findAll({ itemId, status, isActive });
   }
 
+  @Get('resolve-items')
+  @ApiOperation({ summary: 'Resolve item codes to master item ids/names' })
+  @ApiQuery({ name: 'codes', description: 'Comma-separated item codes' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Resolved items' })
+  async resolveItems(@Query('codes') codes?: string): Promise<any[]> {
+    const list = (codes || '')
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+    return this.bomService.resolveItems(list);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get BOM by ID' })
   @ApiParam({ name: 'id', description: 'BOM ID' })
@@ -117,5 +129,31 @@ export class BOMController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Where-used list' })
   async whereUsed(@Param('itemId') itemId: string): Promise<any[]> {
     return this.bomService.whereUsed(itemId);
+  }
+
+  @Post('import')
+  @ApiOperation({
+    summary: 'Import a BOM from parsed component rows (JSON, not file upload)',
+  })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'BOM imported', type: BOMResponseDto })
+  async import(@Body() payload: any): Promise<BOMResponseDto> {
+    return this.bomService.importBOM(payload);
+  }
+
+  @Get(':ref/explosion')
+  @ApiOperation({
+    summary: 'BOM explosion by BOM id or code (multi-level component requirements)',
+  })
+  @ApiParam({ name: 'ref', description: 'BOM id (uuid) or bomCode' })
+  @ApiQuery({ name: 'quantity', required: false, description: 'Build quantity to scale to' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Exploded BOM' })
+  async explosion(
+    @Param('ref') ref: string,
+    @Query('quantity') quantity?: string,
+  ): Promise<any> {
+    return this.bomService.explodeByRef(
+      ref,
+      quantity !== undefined ? Number(quantity) : undefined,
+    );
   }
 }

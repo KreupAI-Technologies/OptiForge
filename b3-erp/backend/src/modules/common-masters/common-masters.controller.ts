@@ -424,6 +424,29 @@ export class CommonMastersController {
     }
 
     // ===========================
+    // UOM CONVERSION CRUD
+    // ===========================
+    @Get('uom-conversions')
+    findAllUomConversions(@Query('companyId') companyId: string) {
+        return this.commonMastersService.findAllUomConversions(companyId);
+    }
+
+    @Post('uom-conversions')
+    createUomConversion(@Body() data: { fromUomId: string; toUomId: string; factor: number; companyId: string }) {
+        return this.commonMastersService.createUomConversion(data);
+    }
+
+    @Put('uom-conversions/:id')
+    updateUomConversion(@Param('id') id: string, @Body() data: { factor?: number }) {
+        return this.commonMastersService.updateUomConversion(id, data);
+    }
+
+    @Delete('uom-conversions/:id')
+    deleteUomConversion(@Param('id') id: string) {
+        return this.commonMastersService.deleteUomConversion(id);
+    }
+
+    // ===========================
     // ITEM CATEGORY CRUD
     // ===========================
     @Post('item-categories')

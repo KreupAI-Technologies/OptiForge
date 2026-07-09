@@ -140,6 +140,17 @@ export default function TransporterNotificationPage() {
             const coordination = await resolveCoordination(selectedProject, {
                 transporter,
             });
+            const selectedRecipients = recipients.filter(r => r.selected);
+            await LogisticsService.notify({
+                audience: 'transporter',
+                channel: 'email',
+                projectId: selectedProject.id,
+                woNumber: selectedProject.projectCode || selectedProject.id,
+                coordinationId: coordination.id,
+                subject: `Pickup Request - ${selectedProject.name}`,
+                message: `Please arrange pickup for ${selectedProject.name} (${selectedProject.clientName}). Please confirm receipt and provide driver details.`,
+                recipients: selectedRecipients.map(r => ({ name: r.name, role: r.role, phone: r.phone, email: r.email })),
+            });
             await LogisticsService.updateDeliveryCoordination(coordination.id, {
                 transporterNotified: true,
                 ...(transporter ? { transporter } : {}),

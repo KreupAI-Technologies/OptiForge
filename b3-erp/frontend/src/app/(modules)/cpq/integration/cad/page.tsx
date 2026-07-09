@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { cpqIntegrationEndpointService } from '@/services/cpq/cpq-orphans.service';
 import {
   Box,
@@ -54,6 +55,7 @@ interface TechnicalSpec {
 }
 
 export default function CPQIntegrationCADPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSystem, setSelectedSystem] = useState<string>('all');
@@ -365,8 +367,11 @@ export default function CPQIntegrationCADPage() {
                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{file.cadSystem}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <button
-                    onClick={() => alert(`View quote ${file.quoteId} - Feature coming soon`)}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium underline"
+                    onClick={() =>
+                      router.push(`/cpq/quotes/view/${encodeURIComponent(file.quoteId)}`)
+                    }
+                    className="text-sm text-blue-600 font-medium hover:underline"
+                    title="View quote detail"
                   >
                     {file.quoteId}
                   </button>

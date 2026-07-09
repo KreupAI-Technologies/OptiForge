@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Download, ClipboardCheck, CheckCircle, AlertTriangle, TrendingUp } from 'lucide-react';
 import ClickableKPICard from '@/components/reports/ClickableKPICard';
 import { fetchReportDataset } from '@/services/reports-management.service';
+import { exportToCsv } from '@/lib/export';
 
 interface QualityDashboardData {
     totalInspections: number;
@@ -106,7 +107,13 @@ export default function QualityDashboardReport() {
                         <option value="this-quarter">This Quarter</option>
                         <option value="this-year">This Year</option>
                     </select>
-                    <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => exportToCsv('quality-dashboard-inspections-by-type', data.byInspectionType)}
+                        disabled={data.byInspectionType.length === 0}
+                    >
+                        <Download className="mr-2 h-4 w-4" />Export
+                    </Button>
                 </div>
             </div>
 
@@ -150,7 +157,6 @@ export default function QualityDashboardReport() {
                     color="orange"
                     trend="-5%"
                     trendUp={true}
-                    onClick={() => console.log('Navigate to Cost of Quality')}
                 />
             </div>
 

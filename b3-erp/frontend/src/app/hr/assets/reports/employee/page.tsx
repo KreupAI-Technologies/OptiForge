@@ -22,7 +22,7 @@ interface EmployeeAsset {
 export default function Page() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [mockData, setMockData] = useState<EmployeeAsset[]>([]);
+  const [reportData, setReportData] = useState<EmployeeAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -47,11 +47,11 @@ export default function Page() {
           totalValue: Number(r.totalValue),
           location: r.location,
         }));
-        if (!cancelled) setMockData(mapped);
+        if (!cancelled) setReportData(mapped);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load employee assets report');
-          setMockData([]);
+          setReportData([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -63,17 +63,17 @@ export default function Page() {
     };
   }, []);
 
-  const filteredData = mockData.filter(emp => {
+  const filteredData = reportData.filter(emp => {
     if (selectedDepartment !== 'all' && emp.department !== selectedDepartment) return false;
     if (searchQuery && !emp.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) && !emp.employeeCode.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
   const stats = {
-    totalEmployees: mockData.length,
-    totalAssets: mockData.reduce((sum, emp) => sum + emp.totalAssets, 0),
-    totalValue: mockData.reduce((sum, emp) => sum + emp.totalValue, 0),
-    avgAssetsPerEmployee: (mockData.reduce((sum, emp) => sum + emp.totalAssets, 0) / mockData.length).toFixed(1)
+    totalEmployees: reportData.length,
+    totalAssets: reportData.reduce((sum, emp) => sum + emp.totalAssets, 0),
+    totalValue: reportData.reduce((sum, emp) => sum + emp.totalValue, 0),
+    avgAssetsPerEmployee: (reportData.reduce((sum, emp) => sum + emp.totalAssets, 0) / reportData.length).toFixed(1)
   };
 
   return (

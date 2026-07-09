@@ -350,6 +350,23 @@ export class LogisticsService {
     return request<any[]>(`/logistics/dock-doors${qs ? `?${qs}` : ''}`);
   }
 
+  static async createDockDoor(data: Partial<DockDoorDto>): Promise<DockDoorDto> {
+    return request<DockDoorDto>(`/logistics/dock-doors`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateDockDoor(
+    id: string,
+    data: Partial<DockDoorDto>,
+  ): Promise<DockDoorDto> {
+    return request<DockDoorDto>(`/logistics/dock-doors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   static async getYardVehicles(filters?: {
     status?: string;
     vehicleType?: string;
@@ -543,6 +560,77 @@ export class LogisticsService {
     ).toString();
     return request<any>(`/logistics/management/freight-spend${q ? `?${q}` : ''}`);
   }
+
+  // ==========================================================================
+  // Notifications — records a notification event (no external provider).
+  // ==========================================================================
+
+  static async notify(data: LogisticsNotifyDto): Promise<NotificationLogDto> {
+    return request<NotificationLogDto>(`/logistics/notifications/notify`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==========================================================================
+  // Delivery confirmation — resolve the shipment linked to a project/work
+  // order and mark it delivered.
+  // ==========================================================================
+
+  static async deliverByProject(data: {
+    shipmentId?: string;
+    woNumber?: string;
+    deliveryDetails?: Record<string, unknown>;
+  }): Promise<any> {
+    return request<any>(`/logistics/shipments/deliver-by-project`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+}
+
+export interface DockDoorDto {
+  id?: string;
+  doorNo?: string;
+  doorName?: string;
+  type?: string;
+  status?: string;
+  currentVehicle?: string;
+  carrier?: string;
+  waitTime?: number;
+  assignedTo?: string;
+  location?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LogisticsNotifyDto {
+  audience: 'site' | 'transporter' | 'customer' | 'other';
+  channel?: 'sms' | 'email' | 'whatsapp' | 'push' | 'in_app';
+  projectId?: string;
+  woNumber?: string;
+  coordinationId?: string;
+  subject?: string;
+  message?: string;
+  recipients?: unknown[];
+  createdBy?: string;
+}
+
+export interface NotificationLogDto {
+  id: string;
+  audience: string;
+  channel: string;
+  projectId?: string;
+  woNumber?: string;
+  coordinationId?: string;
+  subject?: string;
+  message?: string;
+  recipients?: string;
+  recipientCount: number;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PortDto {

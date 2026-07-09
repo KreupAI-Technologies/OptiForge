@@ -83,7 +83,7 @@ function WarrantyProductContent() {
                             {filteredClaims.map((claim) => (
                                 <ClickableTableRow
                                     key={claim.id}
-                                    onClick={() => router.push(`/after-sales/warranty-claims/${claim.id}`)}
+                                    onClick={() => router.push(`/after-sales-service/warranties`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{claim.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">

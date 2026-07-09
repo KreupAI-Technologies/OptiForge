@@ -81,33 +81,35 @@ function InstallationProgressPageContent() {
         setIsLoadingProgress(true);
         setProgressError(null);
         try {
-            const reports: any[] = await projectManagementService.getInstallDailyReports(project.id);
-            if (!reports || reports.length === 0) {
+            const summary: any = await projectManagementService.getInstallationProgressSummary(project.id);
+            if (!summary || (summary.dailyReviews === 0 && (summary.tasks?.total ?? 0) === 0)) {
                 setProgressData([]);
                 return;
             }
-            const latest = reports[0];
-            const overall = Number(latest?.overallProgress ?? 0);
-            const photos = reports.reduce((sum, r) => sum + (Array.isArray(r?.progressPhotos) ? r.progressPhotos.length : 0), 0);
-            const cleaned = reports.some((r) => r?.isSiteCleaned);
+            const overall = Number(summary.overallProgress ?? 0);
+            const statusMap: Record<string, InstallationProgress['status']> = {
+                complete: 'Complete',
+                in_progress: 'In Progress',
+                review_pending: 'Review Pending',
+            };
             setProgressData([
                 {
                     id: project.id,
                     woNumber: project.id,
                     projectName: project.name,
-                    installationTeam: latest?.reportedBy || `${latest?.manpowerCount ?? 0} crew`,
-                    startDate: (reports[reports.length - 1]?.reportDate || latest?.reportDate || '').toString().slice(0, 10),
-                    status: overall >= 100 ? 'Complete' : overall > 0 ? 'In Progress' : 'Review Pending',
+                    installationTeam: summary.latestReportedBy || `${summary.manpowerCount ?? 0} crew`,
+                    startDate: (summary.latestReportDate || '').toString().slice(0, 10),
+                    status: statusMap[summary.status] ?? 'Review Pending',
                     progress: {
                         cabinetAlignment: overall >= 60,
                         trialCompleted: overall >= 50,
-                        buffingDone: cleaned,
+                        buffingDone: !!summary.siteCleaned,
                         accessoriesFixed: overall >= 85,
                         doorsAligned: overall >= 90,
                     },
-                    dailyReviews: reports.length,
-                    photosUploaded: photos,
-                    issues: reports.filter((r) => r?.issuesEncountered).length,
+                    dailyReviews: Number(summary.dailyReviews ?? 0),
+                    photosUploaded: Number(summary.photosUploaded ?? 0),
+                    issues: Number(summary.issuesLogged ?? 0),
                 },
             ]);
         } catch (error) {

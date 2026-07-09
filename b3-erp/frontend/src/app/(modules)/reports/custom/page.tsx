@@ -6,6 +6,10 @@ import {
   createSavedReportItem,
   updateSavedReportItem,
   deleteSavedReportItem,
+  runSavedReportItem,
+  exportSavedReportItem,
+  type RunReportResult,
+  type ReportExportFormat,
 } from '@/services/reports-management.service';
 import {
   Plus,
@@ -13,7 +17,6 @@ import {
   Download,
   Upload,
   Eye,
-  Edit,
   Trash2,
   Copy,
   Play,
@@ -119,6 +122,9 @@ export default function CustomReportsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<RunReportResult | null>(null);
 
   const categories = [
     'All Reports',
@@ -347,16 +353,42 @@ export default function CustomReportsPage() {
     }
   };
 
-  // NOTE: report rendering/execution has no backend endpoint yet — this records
-  // the last-run timestamp via the saved-item update endpoint. See NEEDS BACKEND.
+  // Executes the saved report against the reports backend and returns its
+  // computed rows + summary, then refreshes the run counters in the list.
   const handleRunReport = async (report: CustomReport) => {
     setActionError(null);
+    setRunResult(null);
+    setRunningId(report.id);
     try {
-      await updateSavedReportItem(report.id, { lastRunAt: new Date().toISOString() });
+      const result = await runSavedReportItem(report.id);
+      setRunResult(result);
       loadReports();
-      setNotice(`Marked "${report.name}" as run. (Rendering not yet available.)`);
+      setNotice(
+        `Ran "${result.reportName}" — ${result.rowCount} row(s) returned.`,
+      );
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to run report');
+    } finally {
+      setRunningId(null);
+    }
+  };
+
+  // Downloads the report as a rendered file (PDF / Excel).
+  const handleExportReport = async (
+    report: CustomReport,
+    format: ReportExportFormat,
+  ) => {
+    setActionError(null);
+    setExportingId(report.id);
+    try {
+      await exportSavedReportItem(report.id, format);
+      loadReports();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to export report',
+      );
+    } finally {
+      setExportingId(null);
     }
   };
 
@@ -724,6 +756,51 @@ export default function CustomReportsPage() {
             </button>
           </div>
         )}
+        {runResult && (
+          <div className="rounded-lg border border-blue-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+              <div className="text-sm font-semibold text-gray-900">
+                {runResult.reportName} — {runResult.rowCount} row(s)
+              </div>
+              <button
+                onClick={() => setRunResult(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {runResult.rows.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      {runResult.columns.map((c) => (
+                        <th key={c.key} className="px-3 py-2 text-left font-medium">
+                          {c.header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {runResult.rows.slice(0, 50).map((row, i) => (
+                      <tr key={i} className="border-t border-gray-100">
+                        {runResult.columns.map((c) => (
+                          <td key={c.key} className="px-3 py-2 text-gray-700">
+                            {String(row[c.key] ?? '')}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-gray-500">
+                No data returned for this report.
+              </div>
+            )}
+          </div>
+        )}
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-3">
           <div className="flex justify-end items-start gap-2 mb-2">
@@ -847,14 +924,28 @@ export default function CustomReportsPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleRunReport(report)}
-                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1"
+                      disabled={runningId === report.id}
+                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 disabled:opacity-60"
                     >
                       <Play className="w-4 h-4" />
-                      Run
+                      {runningId === report.id ? 'Running…' : 'Run'}
                     </button>
-                    <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                      <Edit className="w-4 h-4 text-gray-600" />
-                      <span className="text-gray-700">Edit</span>
+                    <button
+                      onClick={() => handleExportReport(report, 'pdf')}
+                      disabled={exportingId === report.id}
+                      title="Download PDF"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-60"
+                    >
+                      <Download className="w-4 h-4 text-gray-600" />
+                      <span className="text-gray-700">PDF</span>
+                    </button>
+                    <button
+                      onClick={() => handleExportReport(report, 'excel')}
+                      disabled={exportingId === report.id}
+                      title="Download Excel"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-60"
+                    >
+                      <span className="text-gray-700">Excel</span>
                     </button>
                     <button
                       onClick={() => handleDuplicateReport(report)}
@@ -903,13 +994,27 @@ export default function CustomReportsPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleRunReport(report)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      disabled={runningId === report.id}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
                     >
-                      Run
+                      {runningId === report.id ? 'Running…' : 'Run'}
                     </button>
-                    <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                      <Edit className="w-4 h-4 text-gray-600" />
-                      <span className="text-gray-700">Edit</span>
+                    <button
+                      onClick={() => handleExportReport(report, 'pdf')}
+                      disabled={exportingId === report.id}
+                      title="Download PDF"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-60"
+                    >
+                      <Download className="w-4 h-4 text-gray-600" />
+                      <span className="text-gray-700">PDF</span>
+                    </button>
+                    <button
+                      onClick={() => handleExportReport(report, 'excel')}
+                      disabled={exportingId === report.id}
+                      title="Download Excel"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-60"
+                    >
+                      <span className="text-gray-700">Excel</span>
                     </button>
                     <button
                       onClick={() => handleDuplicateReport(report)}

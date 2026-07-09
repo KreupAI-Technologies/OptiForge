@@ -64,7 +64,7 @@ function CostCenterDetailsContent() {
                             {expenses.map((exp) => (
                                 <ClickableTableRow
                                     key={exp.id}
-                                    onClick={() => router.push(`/accounts/expenses/${exp.id}`)}
+                                    onClick={() => router.push(`/finance/expense-claims`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{exp.date}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{exp.id}</td>

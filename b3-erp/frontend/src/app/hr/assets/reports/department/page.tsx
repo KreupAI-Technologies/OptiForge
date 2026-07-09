@@ -18,7 +18,7 @@ interface DepartmentAssets {
 
 export default function Page() {
   const [sortBy, setSortBy] = useState('department');
-  const [mockData, setMockData] = useState<DepartmentAssets[]>([]);
+  const [reportData, setReportData] = useState<DepartmentAssets[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -40,11 +40,11 @@ export default function Page() {
           totalValue: Number(r.totalValue),
           assetsPerEmployee: Number(r.assetsPerEmployee),
         }));
-        if (!cancelled) setMockData(mapped);
+        if (!cancelled) setReportData(mapped);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load department assets report');
-          setMockData([]);
+          setReportData([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -57,7 +57,7 @@ export default function Page() {
   }, []);
 
   const stats = useMemo(() => {
-    const totals = mockData.reduce((acc, dept) => ({
+    const totals = reportData.reduce((acc, dept) => ({
       employees: acc.employees + dept.employees,
       laptops: acc.laptops + dept.laptops,
       desktops: acc.desktops + dept.desktops,
@@ -69,10 +69,10 @@ export default function Page() {
 
     return {
       ...totals,
-      departments: mockData.length,
+      departments: reportData.length,
       avgAssetsPerEmployee: (totals.laptops + totals.desktops + totals.mobiles + totals.monitors + totals.furniture) / totals.employees
     };
-  }, [mockData]);
+  }, [reportData]);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -140,7 +140,7 @@ export default function Page() {
       </div>
 
       <div className="space-y-2">
-        {mockData.map((dept, index) => (
+        {reportData.map((dept, index) => (
           <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">

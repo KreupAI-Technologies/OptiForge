@@ -27,7 +27,7 @@ const normalizeType = (t: string): TimelineActivity['type'] => {
   return 'note';
 };
 
-const mapActivity = (a: any): TimelineActivity => ({
+const mapActivity = (a: any, likes: string[] = []): TimelineActivity => ({
   id: String(a?.id ?? ''),
   type: normalizeType(a?.type),
   title: a?.subject ?? '',
@@ -37,7 +37,10 @@ const mapActivity = (a: any): TimelineActivity => ({
     id: String(a?.assignedToId ?? ''),
     name: a?.assignedToName ?? '',
   },
+  likes,
 });
+
+const CURRENT_USER = { id: '2', name: 'Mike Chen' };
 
 export default function ActivityTimelinePage() {
   const router = useRouter();
@@ -53,7 +56,19 @@ export default function ActivityTimelinePage() {
     try {
       const raw = (await crmService.activityRecords.getAll()) as any[];
       const list = Array.isArray(raw) ? raw : [];
-      setTimelineActivities(list.map(mapActivity));
+      // Fetch the set of likers for each activity so the like state renders
+      // accurately on load. Failures per-activity degrade to an empty set.
+      const likesPerActivity = await Promise.all(
+        list.map(async (a) => {
+          try {
+            const likers = await crmService.activityRecords.getLikes(String(a?.id ?? ''));
+            return Array.isArray(likers) ? likers : [];
+          } catch {
+            return [];
+          }
+        }),
+      );
+      setTimelineActivities(list.map((a, i) => mapActivity(a, likesPerActivity[i])));
     } catch (err) {
       setLoadError('Failed to load activity timeline. Please try again.');
     } finally {
@@ -105,9 +120,20 @@ export default function ActivityTimelinePage() {
     }
   };
 
-  // Likes have no backend field/endpoint yet — see NEEDS BACKEND.
-  const handleLikeActivity = (activityId: string) => {
-    setActionError('Liking activities is not yet supported by the backend.');
+  // Toggle the current user's like on an activity and reflect the returned
+  // liker set in local state.
+  const handleLikeActivity = async (activityId: string) => {
+    setActionError(null);
+    try {
+      const res = await crmService.activityRecords.toggleLike(activityId, CURRENT_USER.id);
+      setTimelineActivities((prev) =>
+        prev.map((a) =>
+          a.id === activityId ? { ...a, likes: res?.likes ?? a.likes ?? [] } : a,
+        ),
+      );
+    } catch (err) {
+      setActionError('Failed to update like. Please try again.');
+    }
   };
 
   const handleEditActivity = (activityId: string) => {
@@ -174,7 +200,7 @@ export default function ActivityTimelinePage() {
           </p>
           <CollaborativeTimeline
             activities={timelineActivities}
-            currentUser={{ id: '2', name: 'Mike Chen' }}
+            currentUser={CURRENT_USER}
             teamMembers={[
               { id: '1', name: 'Sarah Johnson', role: 'Account Executive' },
               { id: '2', name: 'Mike Chen', role: 'Sales Manager' },

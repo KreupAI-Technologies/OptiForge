@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogisticsService } from '@/services/logistics.service';
-import { ArrowLeft, Search, Truck, Package, Clock, CheckCircle, AlertTriangle, TrendingUp, Filter, Edit } from 'lucide-react';
+import { ArrowLeft, Search, Truck, Package, Clock, CheckCircle, AlertTriangle, TrendingUp, Filter, Edit, X, Loader2 } from 'lucide-react';
 
 interface DockDoor {
   id: string;
@@ -32,46 +32,72 @@ export default function DockManagementPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  // NOTE: The dock-doors API is read-only (GET /logistics/dock-doors); there is no
-  // create/update endpoint yet. The Edit action is disabled until the backend exposes
-  // a write endpoint for dock assignments. See report: NEEDS BACKEND.
-
   const [dockDoors, setDockDoors] = useState<DockDoor[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Edit modal state — dock assignments are now writable via PUT /logistics/dock-doors/:id.
+  const [editing, setEditing] = useState<DockDoor | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const mapRow = (r: any, i: number): DockDoor => ({
+    id: String(r.id ?? i),
+    dockNo: r.dockNo ?? r.doorNo ?? '',
+    type: (r.type ?? 'inbound') as DockDoor['type'],
+    status: (r.status ?? 'available') as DockDoor['status'],
+    vehicleNo: r.vehicleNo ?? r.currentVehicle ?? '',
+    carrierName: r.carrierName ?? r.carrier ?? '',
+    appointmentNo: r.appointmentNo ?? '',
+    scheduledTime: r.scheduledTime ?? '',
+    actualArrival: r.actualArrival ?? '',
+    expectedDeparture: r.expectedDeparture ?? '',
+    orderNo: r.orderNo ?? '',
+    itemsCount: Number(r.itemsCount ?? 0),
+    palletCount: Number(r.palletCount ?? 0),
+    currentProgress: Number(r.currentProgress ?? 0),
+    workerAssigned: r.workerAssigned ?? r.assignedTo ?? '',
+    priority: (r.priority ?? 'medium') as DockDoor['priority'],
+    waitTime: Number(r.waitTime ?? 0),
+    notes: r.notes ?? '',
+  });
+
+  const loadDocks = async () => {
+    try {
+      setLoadError(null);
+      const res = await LogisticsService.getDockDoors();
+      const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+      setDockDoors((list as any[]).map(mapRow));
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load dock doors');
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await LogisticsService.getDockDoors();
-        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
-        if (cancelled) return;
-        setDockDoors((list as any[]).map((r, i) => ({
-          id: String(r.id ?? i),
-          dockNo: r.dockNo ?? r.doorNo ?? '',
-          type: (r.type ?? 'inbound') as DockDoor['type'],
-          status: (r.status ?? 'available') as DockDoor['status'],
-          vehicleNo: r.vehicleNo ?? r.currentVehicle ?? '',
-          carrierName: r.carrierName ?? r.carrier ?? '',
-          appointmentNo: r.appointmentNo ?? '',
-          scheduledTime: r.scheduledTime ?? '',
-          actualArrival: r.actualArrival ?? '',
-          expectedDeparture: r.expectedDeparture ?? '',
-          orderNo: r.orderNo ?? '',
-          itemsCount: Number(r.itemsCount ?? 0),
-          palletCount: Number(r.palletCount ?? 0),
-          currentProgress: Number(r.currentProgress ?? 0),
-          workerAssigned: r.workerAssigned ?? r.assignedTo ?? '',
-          priority: (r.priority ?? 'medium') as DockDoor['priority'],
-          waitTime: Number(r.waitTime ?? 0),
-          notes: r.notes ?? '',
-        })));
-      } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load dock doors');
-      }
-    })();
-    return () => { cancelled = true; };
+    void loadDocks();
   }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editing || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await LogisticsService.updateDockDoor(editing.id, {
+        status: editing.status,
+        type: editing.type,
+        currentVehicle: editing.vehicleNo,
+        carrier: editing.carrierName,
+        assignedTo: editing.workerAssigned,
+        waitTime: editing.waitTime,
+        notes: editing.notes,
+      });
+      setEditing(null);
+      await loadDocks();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to update dock door');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const dockStats = {
     total: dockDoors.length,
@@ -277,17 +303,15 @@ export default function DockManagementPage() {
                 )}
               </div>
 
-              {dock.status !== 'available' && dock.status !== 'maintenance' && (
-                <button
-                  type="button"
-                  disabled
-                  title="Editing dock assignments is not yet available — the dock-doors API is currently read-only."
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm opacity-50 cursor-not-allowed"
-                >
-                  <Edit className="w-4 h-4 text-gray-600" />
-                  <span className="text-gray-700">Edit</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => { setSaveError(null); setEditing(dock); }}
+                title="Edit dock assignment"
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              >
+                <Edit className="w-4 h-4 text-gray-600" />
+                <span className="text-gray-700">Edit</span>
+              </button>
             </div>
 
             {dock.status === 'available' ? (
@@ -408,6 +432,114 @@ export default function DockManagementPage() {
           <div><span className="font-medium">Maintenance:</span> Dock under repair or maintenance</div>
         </div>
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Edit Dock {editing.dockNo}</h2>
+              <button onClick={() => setEditing(null)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {saveError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                  {saveError}
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                <select
+                  value={editing.status}
+                  onChange={(e) => setEditing({ ...editing, status: e.target.value as DockDoor['status'] })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="available">Available</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="loading">Loading</option>
+                  <option value="unloading">Unloading</option>
+                  <option value="reserved">Reserved</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                <select
+                  value={editing.type}
+                  onChange={(e) => setEditing({ ...editing, type: e.target.value as DockDoor['type'] })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="inbound">Inbound</option>
+                  <option value="outbound">Outbound</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Vehicle No</label>
+                <input
+                  type="text"
+                  value={editing.vehicleNo}
+                  onChange={(e) => setEditing({ ...editing, vehicleNo: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Carrier</label>
+                <input
+                  type="text"
+                  value={editing.carrierName}
+                  onChange={(e) => setEditing({ ...editing, carrierName: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Assigned To</label>
+                <input
+                  type="text"
+                  value={editing.workerAssigned}
+                  onChange={(e) => setEditing({ ...editing, workerAssigned: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Wait Time (mins)</label>
+                <input
+                  type="number"
+                  value={editing.waitTime}
+                  onChange={(e) => setEditing({ ...editing, waitTime: Number(e.target.value) })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+                <textarea
+                  value={editing.notes}
+                  onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3">
+              <button
+                onClick={() => setEditing(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

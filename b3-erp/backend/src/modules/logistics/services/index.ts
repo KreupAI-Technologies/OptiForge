@@ -11,3 +11,4 @@ export * from './transport-company-seeder.service';
 export * from './vehicle-type-seeder.service';
 export * from './delivery-coordination.service';
 export * from './fuel-record.service';
+export * from './notification-log.service';

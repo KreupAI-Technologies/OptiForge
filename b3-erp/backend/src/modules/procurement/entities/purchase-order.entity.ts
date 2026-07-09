@@ -226,6 +226,32 @@ export class PurchaseOrder {
   @Column({ type: 'text', nullable: true })
   rejectionReason: string;
 
+  // Approval Delegation
+  @Column({ nullable: true, length: 100 })
+  delegatedTo: string;
+
+  @Column({ nullable: true, length: 100 })
+  delegatedBy: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  delegatedAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  delegationNotes: string;
+
+  // Approval Info Request
+  @Column({ default: false })
+  infoRequested: boolean;
+
+  @Column({ nullable: true, length: 100 })
+  infoRequestedBy: string;
+
+  @Column({ type: 'text', nullable: true })
+  infoRequestMessage: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  infoRequestedAt: Date;
+
   // Amendment History
   @Column({ type: 'int', default: 0 })
   amendmentNumber: number;

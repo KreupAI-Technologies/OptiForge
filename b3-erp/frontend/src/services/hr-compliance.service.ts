@@ -4,6 +4,161 @@
 const USE_MOCK_DATA = false;
 
 // ============================================
+// Real domain-backend API (NestJS, port 3001, /api/v1)
+// Backs the HR Compliance sections wired to real endpoints.
+// ============================================
+
+const COMPLIANCE_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_DOMAIN_API_URL ||
+  'http://localhost:3001/api/v1';
+
+function getComplianceCompanyId(): string {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        if (u?.companyId) return String(u.companyId);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID || 'test';
+}
+
+async function complianceRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const companyId = getComplianceCompanyId();
+  const sep = path.includes('?') ? '&' : '?';
+  const url = `${COMPLIANCE_API_BASE_URL}${path}${sep}companyId=${encodeURIComponent(companyId)}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-company-id': companyId,
+      ...options?.headers,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`HR Compliance API error ${response.status}: ${response.statusText}`);
+  }
+  const text = await response.text();
+  return (text ? JSON.parse(text) : []) as T;
+}
+
+// ---- Record types for the newly-wired sections -----------------------------
+
+export interface ComplianceCertificateRecord {
+  id: string;
+  companyId: string;
+  certificateCode?: string;
+  certificateName?: string;
+  certificateType?: string;
+  issuingAuthority?: string;
+  certificateNumber?: string;
+  issueDate?: string;
+  validFrom?: string;
+  validTo?: string;
+  scope?: string;
+  documentUrl?: string;
+  description?: string;
+  remarks?: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PolicyAcknowledgmentRecord {
+  id: string;
+  companyId: string;
+  employeeId?: string;
+  employeeName?: string;
+  department?: string;
+  designation?: string;
+  policyName?: string;
+  policyVersion?: string;
+  policyCategory?: string;
+  assignedDate?: string;
+  dueDate?: string;
+  acknowledgmentDate?: string;
+  acknowledgedVia?: string;
+  remindersSent?: number;
+  lastReminderDate?: string;
+  remarks?: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PoshComplaintRecord {
+  id: string;
+  companyId: string;
+  complaintCode?: string;
+  subject?: string;
+  description?: string;
+  isAnonymous?: boolean;
+  complainantName?: string;
+  complainantEmployeeId?: string;
+  complainantDepartment?: string;
+  respondentName?: string;
+  respondentEmployeeId?: string;
+  respondentDepartment?: string;
+  incidentDate?: string;
+  filingDate?: string;
+  severity?: string;
+  assignedToName?: string;
+  icMembersInvolved?: string;
+  inquiryStartDate?: string;
+  inquiryCompletionDate?: string;
+  findings?: string;
+  actionTaken?: string;
+  remarks?: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RemediationPlanRecord {
+  id: string;
+  companyId: string;
+  planCode?: string;
+  planTitle?: string;
+  description?: string;
+  findingId?: string;
+  findingCode?: string;
+  auditName?: string;
+  priority?: string;
+  correctiveAction?: string;
+  rootCause?: string;
+  responsiblePersonName?: string;
+  startDate?: string;
+  targetCompletionDate?: string;
+  actualCompletionDate?: string;
+  progressPercent?: number;
+  verificationNotes?: string;
+  remarks?: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StatutoryReportSummary {
+  companyId: string;
+  totalFilings: number;
+  totalAmount: number;
+  byCategory: Array<{
+    category: string;
+    count: number;
+    totalAmount: number;
+    pending: number;
+    filed: number;
+    paid: number;
+  }>;
+  generatedAt: string;
+}
+
+// ============================================
 // ENUMS
 // ============================================
 
@@ -1519,6 +1674,107 @@ export class HRComplianceService {
       return false;
     }
     throw new Error('API not implemented');
+  }
+
+  // ==========================================================================
+  // Real domain-backend endpoints (NestJS) for HR Compliance sections
+  // ==========================================================================
+
+  // ---- Compliance Certificates (hr/compliance-certificates) ----------------
+  static getComplianceCertificates(status?: string): Promise<ComplianceCertificateRecord[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return complianceRequest<ComplianceCertificateRecord[]>(`/hr/compliance-certificates${q}`);
+  }
+
+  static createComplianceCertificate(
+    payload: Partial<ComplianceCertificateRecord>,
+  ): Promise<ComplianceCertificateRecord> {
+    return complianceRequest<ComplianceCertificateRecord>('/hr/compliance-certificates', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static updateComplianceCertificateStatus(
+    id: string,
+    status: string,
+  ): Promise<ComplianceCertificateRecord> {
+    return complianceRequest<ComplianceCertificateRecord>(`/hr/compliance-certificates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // ---- Policy Acknowledgments (hr/policy-acknowledgments) -------------------
+  static getPolicyAcknowledgments(status?: string): Promise<PolicyAcknowledgmentRecord[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return complianceRequest<PolicyAcknowledgmentRecord[]>(`/hr/policy-acknowledgments${q}`);
+  }
+
+  static createPolicyAcknowledgment(
+    payload: Partial<PolicyAcknowledgmentRecord>,
+  ): Promise<PolicyAcknowledgmentRecord> {
+    return complianceRequest<PolicyAcknowledgmentRecord>('/hr/policy-acknowledgments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static updatePolicyAcknowledgmentStatus(
+    id: string,
+    status: string,
+  ): Promise<PolicyAcknowledgmentRecord> {
+    return complianceRequest<PolicyAcknowledgmentRecord>(`/hr/policy-acknowledgments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // ---- POSH Complaints (hr/posh-complaints) --------------------------------
+  static getPoshComplaints(status?: string): Promise<PoshComplaintRecord[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return complianceRequest<PoshComplaintRecord[]>(`/hr/posh-complaints${q}`);
+  }
+
+  static createPoshComplaint(payload: Partial<PoshComplaintRecord>): Promise<PoshComplaintRecord> {
+    return complianceRequest<PoshComplaintRecord>('/hr/posh-complaints', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static updatePoshComplaintStatus(id: string, status: string): Promise<PoshComplaintRecord> {
+    return complianceRequest<PoshComplaintRecord>(`/hr/posh-complaints/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // ---- Remediation Plans (hr/remediation-plans) ----------------------------
+  static getRemediationPlans(status?: string): Promise<RemediationPlanRecord[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return complianceRequest<RemediationPlanRecord[]>(`/hr/remediation-plans${q}`);
+  }
+
+  static createRemediationPlan(
+    payload: Partial<RemediationPlanRecord>,
+  ): Promise<RemediationPlanRecord> {
+    return complianceRequest<RemediationPlanRecord>('/hr/remediation-plans', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static updateRemediationPlanStatus(id: string, status: string): Promise<RemediationPlanRecord> {
+    return complianceRequest<RemediationPlanRecord>(`/hr/remediation-plans/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // ---- Statutory Reports aggregate (hr/statutory-filings/summary) -----------
+  static getStatutoryReportSummary(): Promise<StatutoryReportSummary> {
+    return complianceRequest<StatutoryReportSummary>('/hr/statutory-filings/summary');
   }
 }
 

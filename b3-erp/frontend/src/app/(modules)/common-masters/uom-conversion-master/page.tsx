@@ -4,13 +4,20 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, ArrowRightLeft, Calculator, Scale, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { UOMConversion, getUOMConversionStats, getCategoryDisplayName } from '@/data/common-masters/uom-conversions';
+import { UOMConversion, getCategoryDisplayName } from '@/data/common-masters/uom-conversions';
 import { commonMastersService } from '@/services/common-masters.service';
 
 const DEFAULT_COMPANY_ID = '1';
 
+interface UomOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
 export default function UomconversionmasterPage() {
   const [conversions, setConversions] = useState<UOMConversion[]>([]);
+  const [uoms, setUoms] = useState<UomOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,36 +26,50 @@ export default function UomconversionmasterPage() {
   const [selectedConversion, setSelectedConversion] = useState<UOMConversion | null>(null);
   const [calcFromValue, setCalcFromValue] = useState<number>(1);
   const [calcToValue, setCalcToValue] = useState<number>(0);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [savingRow, setSavingRow] = useState(false);
+  const [form, setForm] = useState<{ fromUomId: string; toUomId: string; conversionFactor: string }>({
+    fromUomId: '',
+    toUomId: '',
+    conversionFactor: '',
+  });
 
-  // Fetch UOM conversions from the live backend, mapping the raw API shape into the page's model.
+  const mapConversion = (u: any): UOMConversion => {
+    const fromUOM = u.fromUom?.code ?? u.fromUom?.name ?? u.fromUOM ?? '';
+    const toUOM = u.toUom?.code ?? u.toUom?.name ?? u.toUOM ?? '';
+    const factor = Number(u.factor ?? u.conversionFactor ?? 0);
+    return {
+      id: String(u.id ?? ''),
+      conversionCode: u.conversionCode ?? (fromUOM && toUOM ? `${fromUOM}-${toUOM}` : ''),
+      fromUOM,
+      toUOM,
+      conversionFactor: factor,
+      category: (u.category ?? 'quantity') as UOMConversion['category'],
+      isReversible: u.isReversible ?? true,
+      formula: u.formula ?? (fromUOM && toUOM ? `1 ${fromUOM} = ${factor} ${toUOM}` : ''),
+      description: u.description ?? '',
+      examples: u.examples ?? '',
+      isActive: u.isActive ?? true,
+      lastUpdated: u.lastUpdated ?? u.updatedAt ?? '',
+      usageCount: Number(u.usageCount ?? 0),
+    };
+  };
+
+  // Fetch UOM conversions (and UOMs for the add form) from the live backend.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const raw = (await commonMastersService.getAllUomConversions(DEFAULT_COMPANY_ID)) as any[];
-        const mapped: UOMConversion[] = raw.map((u) => {
-          const fromUOM = u.fromUom?.code ?? u.fromUom?.name ?? u.fromUOM ?? '';
-          const toUOM = u.toUom?.code ?? u.toUom?.name ?? u.toUOM ?? '';
-          const factor = Number(u.conversionFactor ?? 0);
-          return {
-            id: String(u.id ?? ''),
-            conversionCode: u.conversionCode ?? (fromUOM && toUOM ? `${fromUOM}-${toUOM}` : ''),
-            fromUOM,
-            toUOM,
-            conversionFactor: factor,
-            category: (u.category ?? 'quantity') as UOMConversion['category'],
-            isReversible: u.isReversible ?? true,
-            formula: u.formula ?? (fromUOM && toUOM ? `1 ${fromUOM} = ${factor} ${toUOM}` : ''),
-            description: u.description ?? '',
-            examples: u.examples ?? '',
-            isActive: u.isActive ?? true,
-            lastUpdated: u.lastUpdated ?? u.updatedAt ?? '',
-            usageCount: Number(u.usageCount ?? 0),
-          };
-        });
-        if (!cancelled) setConversions(mapped);
+        const [raw, rawUoms] = await Promise.all([
+          commonMastersService.getAllUomConversions(DEFAULT_COMPANY_ID) as Promise<any[]>,
+          commonMastersService.getAllUoms(DEFAULT_COMPANY_ID) as Promise<any[]>,
+        ]);
+        if (cancelled) return;
+        setConversions((raw ?? []).map(mapConversion));
+        setUoms((rawUoms ?? []).map((u) => ({ id: String(u.id ?? ''), code: u.code ?? '', name: u.name ?? '' })));
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load UOM conversions');
@@ -63,6 +84,51 @@ export default function UomconversionmasterPage() {
       cancelled = true;
     };
   }, []);
+
+  const reload = async () => {
+    try {
+      const raw = (await commonMastersService.getAllUomConversions(DEFAULT_COMPANY_ID)) as any[];
+      setConversions((raw ?? []).map(mapConversion));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to reload UOM conversions');
+    }
+  };
+
+  const handleDelete = async (row: UOMConversion) => {
+    if (!confirm(`Delete conversion ${row.fromUOM} to ${row.toUOM}?`)) return;
+    setActionError(null);
+    try {
+      await commonMastersService.deleteUomConversion(row.id);
+      setConversions((prev) => prev.filter((c) => c.id !== row.id));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete conversion');
+    }
+  };
+
+  const handleAdd = async () => {
+    setActionError(null);
+    const factor = parseFloat(form.conversionFactor);
+    if (!form.fromUomId || !form.toUomId || !Number.isFinite(factor)) {
+      setActionError('Select both UOMs and enter a valid factor.');
+      return;
+    }
+    setSavingRow(true);
+    try {
+      await commonMastersService.createUomConversion({
+        fromUomId: form.fromUomId,
+        toUomId: form.toUomId,
+        conversionFactor: factor,
+        companyId: DEFAULT_COMPANY_ID,
+      });
+      setForm({ fromUomId: '', toUomId: '', conversionFactor: '' });
+      setShowAddForm(false);
+      await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create conversion');
+    } finally {
+      setSavingRow(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return conversions.filter(conversion => {
@@ -194,9 +260,7 @@ export default function UomconversionmasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete conversion ${row.fromUOM} to ${row.toUOM}?`)) {
-                setConversions(prev => prev.filter(c => c.id !== row.id));
-              }
+              handleDelete(row);
             }}
           >
             Delete
@@ -206,7 +270,17 @@ export default function UomconversionmasterPage() {
     }
   ];
 
-  const stats = useMemo(() => getUOMConversionStats(), [conversions]);
+  const stats = useMemo(() => ({
+    total: conversions.length,
+    weight: conversions.filter((c) => c.category === 'weight').length,
+    length: conversions.filter((c) => c.category === 'length').length,
+    volume: conversions.filter((c) => c.category === 'volume').length,
+    area: conversions.filter((c) => c.category === 'area').length,
+    quantity: conversions.filter((c) => c.category === 'quantity').length,
+    reversible: conversions.filter((c) => c.isReversible).length,
+    active: conversions.filter((c) => c.isActive).length,
+    totalUsage: conversions.reduce((sum, c) => sum + c.usageCount, 0),
+  }), [conversions]);
 
   return (
     <div className="p-6 space-y-3">
@@ -223,12 +297,85 @@ export default function UomconversionmasterPage() {
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button
+            onClick={() => { setShowAddForm((v) => !v); setActionError(null); }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
             <Plus className="w-4 h-4" />
             <span>Add Conversion</span>
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
+
+      {showAddForm && (
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
+          <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+            <Plus className="w-5 h-5 text-blue-600" />
+            Add UOM Conversion
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From UOM</label>
+              <select
+                value={form.fromUomId}
+                onChange={(e) => setForm((f) => ({ ...f, fromUomId: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select…</option>
+                {uoms.map((u) => (
+                  <option key={u.id} value={u.id}>{u.code} — {u.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To UOM</label>
+              <select
+                value={form.toUomId}
+                onChange={(e) => setForm((f) => ({ ...f, toUomId: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select…</option>
+                {uoms.map((u) => (
+                  <option key={u.id} value={u.id}>{u.code} — {u.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Factor</label>
+              <input
+                type="number"
+                step="any"
+                value={form.conversionFactor}
+                onChange={(e) => setForm((f) => ({ ...f, conversionFactor: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono"
+                placeholder="e.g. 1000"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleAdd}
+                disabled={savingRow}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              >
+                {savingRow ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setShowAddForm(false); setActionError(null); }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
         <div className="bg-white rounded-lg border border-gray-200 p-3">

@@ -649,6 +649,9 @@ export const crmService = {
 
     create: (data: any) =>
       request<any>('/crm/territories', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/territories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
 
   // ===========================
@@ -882,6 +885,49 @@ export const crmService = {
       request<any>(`/crm/activity-records/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
     delete: (id: string) => request<void>(`/crm/activity-records/${id}`, { method: 'DELETE' }),
+
+    // User IDs that liked an activity.
+    getLikes: (id: string) => request<string[]>(`/crm/activity-records/${id}/likes`),
+
+    // Toggle the current user's like on an activity. Returns { liked, likeCount, likes }.
+    toggleLike: (id: string, userId: string) =>
+      request<{ liked: boolean; likeCount: number; likes: string[] }>(
+        `/crm/activity-records/${id}/like`,
+        { method: 'POST', body: JSON.stringify({ userId }) },
+      ),
+  },
+
+  // ===========================
+  // ACCOUNT RELATIONSHIPS (advanced-features/account-hierarchy)
+  // Typed (non-hierarchy) relationships such as partner / competitor.
+  // ===========================
+  accountRelationships: {
+    getAll: (filters?: { companyId?: string; accountId?: string; relationshipType?: string }) =>
+      request<any[]>(`/crm/account-relationships${buildQueryParams(filters || {})}`),
+
+    getById: (id: string) => request<any>(`/crm/account-relationships/${id}`),
+
+    create: (data: {
+      companyId?: string;
+      sourceAccountId: string;
+      targetAccountId: string;
+      targetAccountName?: string;
+      relationshipType: string;
+      bidirectional?: boolean;
+    }) =>
+      request<any>('/crm/account-relationships', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/account-relationships/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id: string) =>
+      request<void>(`/crm/account-relationships/${id}`, { method: 'DELETE' }),
   },
 
   // ===========================

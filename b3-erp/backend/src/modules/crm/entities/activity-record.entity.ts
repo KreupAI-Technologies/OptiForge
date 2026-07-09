@@ -69,6 +69,9 @@ export class ActivityRecord {
   @Column({ type: 'simple-array', nullable: true })
   tags: string[];
 
+  @Column({ name: 'like_count', type: 'int', default: 0 })
+  likeCount: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

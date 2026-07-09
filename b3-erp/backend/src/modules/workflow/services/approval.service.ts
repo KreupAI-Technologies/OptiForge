@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { WorkflowApproval } from '../entities/workflow-approval.entity';
 import { ApprovalStep } from '../entities/approval-step.entity';
+import { ApprovalComment } from '../entities/approval-comment.entity';
+import { WorkflowDocument } from '../entities/workflow-document.entity';
 import { EventBusService } from './event-bus.service';
 import { WorkflowEventType, ApprovalEventPayload } from '../events/event-types';
 
@@ -16,6 +18,10 @@ export class ApprovalService {
         private approvalRepository: Repository<WorkflowApproval>,
         @InjectRepository(ApprovalStep)
         private stepRepository: Repository<ApprovalStep>,
+        @InjectRepository(ApprovalComment)
+        private commentRepository: Repository<ApprovalComment>,
+        @InjectRepository(WorkflowDocument)
+        private documentRepository: Repository<WorkflowDocument>,
         private readonly eventBusService: EventBusService,
         private readonly dataSource: DataSource,
     ) { }
@@ -224,5 +230,56 @@ export class ApprovalService {
             relations: ['steps'],
             order: { createdAt: 'DESC' },
         });
+    }
+
+    /**
+     * List attachments for an approval's underlying document.
+     * The approval's referenceId points at the WorkflowDocument being approved;
+     * we return matching document records (the "attachments" the reviewer sees).
+     * No file storage is implemented here — this only reads existing records.
+     */
+    async getAttachments(approvalId: string): Promise<WorkflowDocument[]> {
+        const approval = await this.getApproval(approvalId);
+        if (!approval.referenceId) {
+            return [];
+        }
+        return this.documentRepository.find({
+            where: { id: approval.referenceId },
+            order: { uploadedAt: 'DESC' },
+        });
+    }
+
+    /**
+     * List comments for an approval, newest first.
+     */
+    async getComments(approvalId: string): Promise<ApprovalComment[]> {
+        // Validate the approval exists so callers get a 404 for bad ids.
+        await this.getApproval(approvalId);
+        return this.commentRepository.find({
+            where: { approvalId },
+            order: { createdAt: 'ASC' },
+        });
+    }
+
+    /**
+     * Add a comment to an approval.
+     */
+    async addComment(
+        approvalId: string,
+        body: string,
+        authorId?: string,
+        authorName?: string,
+    ): Promise<ApprovalComment> {
+        if (!body || !body.trim()) {
+            throw new BadRequestException('Comment body is required');
+        }
+        await this.getApproval(approvalId);
+        const comment = this.commentRepository.create({
+            approvalId,
+            body: body.trim(),
+            authorId: authorId ?? undefined,
+            authorName: authorName ?? undefined,
+        });
+        return this.commentRepository.save(comment);
     }
 }

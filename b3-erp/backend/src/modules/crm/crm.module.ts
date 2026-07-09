@@ -103,6 +103,11 @@ import { CrmSavedReportController } from './crm-saved-report.controller';
 import { CrmPricingRule } from './entities/crm-pricing-rule.entity';
 import { CrmPricingRuleService } from './services/crm-pricing-rule.service';
 import { CrmPricingRuleController } from './crm-pricing-rule.controller';
+// Advanced-features wiring: typed account relationships + activity likes
+import { CrmAccountRelationship } from './entities/crm-account-relationship.entity';
+import { CrmActivityLike } from './entities/crm-activity-like.entity';
+import { CrmAccountRelationshipService } from './services/crm-account-relationship.service';
+import { CrmAccountRelationshipController } from './crm-account-relationship.controller';
 
 @Module({
   imports: [
@@ -139,6 +144,8 @@ import { CrmPricingRuleController } from './crm-pricing-rule.controller';
       CrmSocialAccount,
       CrmSavedReport,
       CrmPricingRule,
+      CrmAccountRelationship,
+      CrmActivityLike,
     ]),
   ],
   controllers: [
@@ -175,6 +182,7 @@ import { CrmPricingRuleController } from './crm-pricing-rule.controller';
     CrmSocialAccountController,
     CrmSavedReportController,
     CrmPricingRuleController,
+    CrmAccountRelationshipController,
   ],
   providers: [
     InteractionsService,
@@ -212,6 +220,7 @@ import { CrmPricingRuleController } from './crm-pricing-rule.controller';
     CrmSocialAccountService,
     CrmSavedReportService,
     CrmPricingRuleService,
+    CrmAccountRelationshipService,
   ],
   exports: [
     InteractionsService,

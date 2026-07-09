@@ -80,7 +80,7 @@ function ServiceCallStatusContent() {
                             {filteredCalls.map((call) => (
                                 <ClickableTableRow
                                     key={call.id}
-                                    onClick={() => router.push(`/after-sales/service-calls/${call.id}`)}
+                                    onClick={() => router.push(`/after-sales-service/service-requests`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{call.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{call.customer}</td>

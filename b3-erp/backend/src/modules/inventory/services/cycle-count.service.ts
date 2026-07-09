@@ -163,6 +163,36 @@ export class CycleCountService {
     }
 
     /**
+     * Persist recorded physical counts without completing/reconciling the plan.
+     * Marks counted items and keeps the plan In Progress so counting can resume.
+     */
+    async saveCounts(id: string, results: { itemId: string, actualQty: number }[]): Promise<CycleCountPlan> {
+        return await this.dataSource.transaction(async (manager) => {
+            const plan = await manager.findOne(CycleCountPlan, {
+                where: { id },
+                relations: ['items'],
+            });
+            if (!plan) throw new NotFoundException('Plan not found');
+
+            for (const item of plan.items) {
+                const result = results.find(r => r.itemId === item.itemId);
+                if (result) {
+                    item.actualQuantity = result.actualQty;
+                    item.isCounted = true;
+                    item.countedAt = new Date();
+                }
+            }
+            await manager.save(CycleCountItem, plan.items);
+
+            if (plan.status === CycleCountStatus.SCHEDULED) {
+                plan.status = CycleCountStatus.IN_PROGRESS;
+                await manager.save(CycleCountPlan, plan);
+            }
+            return plan;
+        });
+    }
+
+    /**
      * Record count results and reconcile.
      */
     async completeAndReconcile(id: string, results: { itemId: string, actualQty: number }[]): Promise<CycleCountPlan> {

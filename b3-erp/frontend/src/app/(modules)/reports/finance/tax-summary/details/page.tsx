@@ -66,7 +66,7 @@ function TaxDetailsContent() {
                             {transactions.map((txn) => (
                                 <ClickableTableRow
                                     key={txn.id}
-                                    onClick={() => router.push(`/accounts/transactions/${txn.id}`)}
+                                    onClick={() => router.push(`/finance/general-ledger`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{txn.date}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{txn.id}</td>

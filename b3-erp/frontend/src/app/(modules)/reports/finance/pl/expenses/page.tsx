@@ -31,7 +31,7 @@ export default function PLExpensesDetail() {
     }, []);
 
     const handleExpenseClick = (expenseId: string) => {
-        router.push(`/accounts/expense-claims/${expenseId}`);
+        router.push(`/finance/expense-claims/${expenseId}`);
     };
 
     return (

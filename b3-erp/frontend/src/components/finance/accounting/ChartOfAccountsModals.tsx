@@ -597,12 +597,51 @@ export function ToggleAccountStatusModal({ isOpen, onClose, onConfirm, account, 
 // Continue with more modals in next response due to length...
 
 // 5. Bulk Import Accounts Modal (Cyan)
-export function BulkImportAccountsModal({ isOpen, onClose, onImport }: any) {
-  const [file, setFile] = useState<File | null>(null);
-  const [importMode, setImportMode] = useState('create');
+const BULK_IMPORT_TEMPLATE = JSON.stringify(
+  [
+    { code: '1000', name: 'Current Assets', type: 'Assets' },
+    { code: '1100', name: 'Cash', type: 'Assets', parentCode: '1000', openingBalance: 0 },
+    { code: '4000', name: 'Sales Revenue', type: 'Income' },
+  ],
+  null,
+  2,
+);
+
+export function BulkImportAccountsModal({ isOpen, onClose, onImport, isSubmitting }: any) {
+  const [jsonText, setJsonText] = useState('');
   const [validateOnly, setValidateOnly] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setJsonText(text);
+      setParseError(null);
+    } catch {
+      setParseError('Unable to read file.');
+    }
+  };
+
+  const submit = () => {
+    setParseError(null);
+    let accounts: any[];
+    try {
+      accounts = JSON.parse(jsonText);
+      if (!Array.isArray(accounts)) throw new Error('Expected a JSON array of account rows.');
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : 'Invalid JSON.');
+      return;
+    }
+    if (accounts.length === 0) {
+      setParseError('No rows to import.');
+      return;
+    }
+    onImport({ accounts, validateOnly });
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
@@ -611,18 +650,45 @@ export function BulkImportAccountsModal({ isOpen, onClose, onImport }: any) {
           <button onClick={onClose} className="text-white hover:text-gray-200"><X className="h-5 w-5" /></button>
         </div>
         <div className="p-6">
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {parseError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {parseError}
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Import Mode</label>
-              <select
-                value={importMode}
-                onChange={(e) => setImportMode(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500"
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Account rows (JSON array)
+              </label>
+              <textarea
+                value={jsonText}
+                onChange={(e) => setJsonText(e.target.value)}
+                placeholder={BULK_IMPORT_TEMPLATE}
+                rows={10}
+                className="w-full px-3 py-2 border rounded-lg font-mono text-xs focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 cursor-pointer text-sm">
+                <Upload className="h-4 w-4" />
+                Load JSON file
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={(e) => handleFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-700 font-medium"
+                onClick={() => setJsonText(BULK_IMPORT_TEMPLATE)}
               >
-                <option value="create">Create New Accounts Only</option>
-                <option value="update">Update Existing Accounts Only</option>
-                <option value="upsert">Create or Update (Upsert)</option>
-              </select>
+                <Download className="h-4 w-4" />
+                Use sample template
+              </button>
             </div>
 
             <div>
@@ -633,62 +699,33 @@ export function BulkImportAccountsModal({ isOpen, onClose, onImport }: any) {
                   onChange={(e) => setValidateOnly(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <span className="text-sm font-medium text-gray-900">Validate Only (Don't Import)</span>
+                <span className="text-sm font-medium text-gray-900">Validate Only (Don&apos;t Import)</span>
               </label>
-              <p className="text-xs text-gray-500 ml-6 mt-1">Check for errors without importing data</p>
-            </div>
-
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <Upload className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-sm font-medium text-gray-900 mb-1">Drop your Excel or CSV file here</p>
-              <p className="text-xs text-gray-500 mb-3">or</p>
-              <label className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 cursor-pointer">
-                <Upload className="h-4 w-4" />
-                Choose File
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                />
-              </label>
-              {file && (
-                <p className="text-sm text-green-600 mt-3 font-medium">
-                  Selected: {file.name}
-                </p>
-              )}
+              <p className="text-xs text-gray-500 ml-6 mt-1">Check for errors without creating accounts</p>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-blue-900 mb-2">Required Columns:</p>
+              <p className="text-sm font-medium text-blue-900 mb-2">Row fields:</p>
               <ul className="text-xs text-blue-700 space-y-1">
                 <li>• <strong>code</strong> - Account code (required, unique)</li>
                 <li>• <strong>name</strong> - Account name (required)</li>
                 <li>• <strong>type</strong> - Assets, Liabilities, Equity, Income, or Expenses (required)</li>
-                <li>• <strong>parent_code</strong> - Parent account code (optional)</li>
-                <li>• <strong>opening_balance</strong> - Opening balance amount (optional)</li>
+                <li>• <strong>parentCode</strong> - Parent account code (optional)</li>
+                <li>• <strong>openingBalance</strong> - Opening balance amount (optional)</li>
                 <li>• <strong>description</strong> - Account description (optional)</li>
               </ul>
             </div>
-
-            <button
-              className="inline-flex items-center gap-2 text-sm text-cyan-600 hover:text-cyan-700 font-medium"
-              onClick={() => console.log('Download template')}
-            >
-              <Download className="h-4 w-4" />
-              Download Excel Template
-            </button>
           </div>
         </div>
         <div className="bg-gray-50 px-3 py-2 flex justify-end space-x-3 border-t">
           <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">Cancel</button>
           <button
-            onClick={() => { console.log('Import Accounts:', { file, importMode, validateOnly }); onImport({ file, importMode, validateOnly }); }}
-            disabled={!file}
+            onClick={submit}
+            disabled={!jsonText.trim() || isSubmitting}
             className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
           >
             <Upload className="h-4 w-4" />
-            {validateOnly ? 'Validate File' : 'Import Accounts'}
+            {isSubmitting ? 'Working…' : validateOnly ? 'Validate' : 'Import Accounts'}
           </button>
         </div>
       </div>

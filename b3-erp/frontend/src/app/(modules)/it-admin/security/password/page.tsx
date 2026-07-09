@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Shield, Lock, Clock, AlertTriangle, CheckCircle2, Settings, Save, RotateCcw, Eye, EyeOff, Info } from 'lucide-react';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, UserPasswordStatusDto } from '@/services/it-admin.service';
 
 interface PasswordPolicy {
   id: string;
@@ -144,120 +144,42 @@ const PasswordPolicyPage = () => {
     };
   }, []);
 
-  const [userStatuses] = useState<UserPasswordStatus[]>([
-    {
-      id: '1',
-      userId: 'USR001',
-      userName: 'Rajesh Kumar',
-      email: 'rajesh.kumar@company.com',
-      department: 'IT',
-      lastChanged: '2025-09-15',
-      daysOld: 36,
-      status: 'Active',
-      strength: 'Strong',
-      expiresIn: 54,
-      failedAttempts: 0,
-      locked: false,
-    },
-    {
-      id: '2',
-      userId: 'USR002',
-      userName: 'Priya Sharma',
-      email: 'priya.sharma@company.com',
-      department: 'HR',
-      lastChanged: '2025-08-10',
-      daysOld: 72,
-      status: 'Expiring Soon',
-      strength: 'Strong',
-      expiresIn: 18,
-      failedAttempts: 0,
-      locked: false,
-    },
-    {
-      id: '3',
-      userId: 'USR003',
-      userName: 'Amit Patel',
-      email: 'amit.patel@company.com',
-      department: 'Finance',
-      lastChanged: '2025-07-01',
-      daysOld: 112,
-      status: 'Expired',
-      strength: 'Medium',
-      expiresIn: -22,
-      failedAttempts: 2,
-      locked: false,
-    },
-    {
-      id: '4',
-      userId: 'USR004',
-      userName: 'Sneha Reddy',
-      email: 'sneha.reddy@company.com',
-      department: 'Sales',
-      lastChanged: '2025-09-28',
-      daysOld: 23,
-      status: 'Active',
-      strength: 'Weak',
-      expiresIn: 67,
-      failedAttempts: 0,
-      locked: false,
-    },
-    {
-      id: '5',
-      userId: 'USR005',
-      userName: 'Vikram Singh',
-      email: 'vikram.singh@company.com',
-      department: 'Operations',
-      lastChanged: '2025-06-15',
-      daysOld: 128,
-      status: 'Locked',
-      strength: 'Strong',
-      expiresIn: -38,
-      failedAttempts: 5,
-      locked: true,
-    },
-    {
-      id: '6',
-      userId: 'USR006',
-      userName: 'Anjali Desai',
-      email: 'anjali.desai@company.com',
-      department: 'Marketing',
-      lastChanged: '2025-09-01',
-      daysOld: 50,
-      status: 'Active',
-      strength: 'Strong',
-      expiresIn: 40,
-      failedAttempts: 1,
-      locked: false,
-    },
-    {
-      id: '7',
-      userId: 'USR007',
-      userName: 'Rahul Mehta',
-      email: 'rahul.mehta@company.com',
-      department: 'IT',
-      lastChanged: '2025-08-20',
-      daysOld: 62,
-      status: 'Active',
-      strength: 'Medium',
-      expiresIn: 28,
-      failedAttempts: 0,
-      locked: false,
-    },
-    {
-      id: '8',
-      userId: 'USR008',
-      userName: 'Deepika Rao',
-      email: 'deepika.rao@company.com',
-      department: 'Production',
-      lastChanged: '2025-07-25',
-      daysOld: 88,
-      status: 'Expiring Soon',
-      strength: 'Weak',
-      expiresIn: 2,
-      failedAttempts: 3,
-      locked: false,
-    },
-  ]);
+  const [userStatuses, setUserStatuses] = useState<UserPasswordStatus[]>([]);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  const mapStatus = (s: UserPasswordStatusDto): UserPasswordStatus => ({
+    id: s.id,
+    userId: s.userId,
+    userName: s.userName,
+    email: s.email,
+    department: s.department ?? '',
+    lastChanged: s.lastChanged ?? '—',
+    daysOld: s.daysOld ?? 0,
+    status: s.status,
+    strength: s.strength,
+    expiresIn: s.expiresIn ?? 0,
+    failedAttempts: s.failedAttempts,
+    locked: s.locked,
+  });
+
+  const loadStatuses = useCallback(async () => {
+    setStatusLoading(true);
+    setStatusError(null);
+    try {
+      const data = await ItAdminService.getPasswordStatuses();
+      setUserStatuses((data ?? []).map(mapStatus));
+    } catch (e) {
+      setStatusError(e instanceof Error ? e.message : 'Failed to load user password status');
+      setUserStatuses([]);
+    } finally {
+      setStatusLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStatuses();
+  }, [loadStatuses]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -396,6 +318,7 @@ const PasswordPolicyPage = () => {
     try {
       await ItAdminService.unlockUser(userId);
       setPolicyBanner({ type: 'success', text: `User ${userId} unlocked.` });
+      await loadStatuses();
     } catch (e) {
       setPolicyBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to unlock user.' });
     }
@@ -894,6 +817,15 @@ const PasswordPolicyPage = () => {
         {/* User Password Status Tab */}
         {activeTab === 'users' && (
           <div className="p-6">
+            {statusLoading && (
+              <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading user password status...</div>
+            )}
+            {statusError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{statusError}</div>
+            )}
+            {!statusLoading && !statusError && userStatuses.length === 0 && (
+              <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600">No users found.</div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>

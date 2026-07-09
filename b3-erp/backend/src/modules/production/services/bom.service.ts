@@ -5,8 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BOM, BOMStatus } from '../entities/bom.entity';
-import { BOMItem } from '../entities/bom-item.entity';
+import { BOM, BOMStatus, BOMType } from '../entities/bom.entity';
+import { BOMItem, BOMItemType, SupplyType } from '../entities/bom-item.entity';
+import { QualityPlan } from '../entities/quality-plan.entity';
+import { WorkOrder } from '../entities/work-order.entity';
+import { Item } from '../../core/entities/item.entity';
 import { CreateBOMDto, UpdateBOMDto, BOMResponseDto } from '../dto';
 
 @Injectable()
@@ -16,6 +19,12 @@ export class BOMService {
     private readonly bomRepository: Repository<BOM>,
     @InjectRepository(BOMItem)
     private readonly bomItemRepository: Repository<BOMItem>,
+    @InjectRepository(Item)
+    private readonly itemRepository: Repository<Item>,
+    @InjectRepository(QualityPlan)
+    private readonly qualityPlanRepository: Repository<QualityPlan>,
+    @InjectRepository(WorkOrder)
+    private readonly workOrderRepository: Repository<WorkOrder>,
   ) {}
 
   async create(createDto: CreateBOMDto): Promise<BOMResponseDto> {
@@ -272,6 +281,298 @@ export class BOMService {
       quantity: bomItem.quantity,
       status: bomItem.bom.status,
       isActive: bomItem.bom.isActive,
+    }));
+  }
+
+  /**
+   * Resolve a BOM by either its UUID id or its human bomCode, then run the
+   * multi-level explosion. Backs GET production/bom/:ref/explosion.
+   * `quantity` optionally scales all component quantities to a build size.
+   */
+  async explodeByRef(ref: string, quantity?: number): Promise<any> {
+    const bom = await this.findBomByRef(ref);
+    const exploded = await this.explodeBOM(bom.id);
+
+    if (quantity && quantity > 0 && bom.quantity > 0) {
+      const factor = quantity / Number(bom.quantity);
+      exploded.explodedItems = exploded.explodedItems.map((it: any) => ({
+        ...it,
+        extendedQuantity: Number(it.quantity) * factor,
+        extendedNetQuantity: Number(it.netQuantity) * factor,
+        extendedCost: Number(it.totalCost) * factor,
+      }));
+      exploded.buildQuantity = quantity;
+    }
+
+    return exploded;
+  }
+
+  private async findBomByRef(ref: string): Promise<BOM> {
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let bom: BOM | null = null;
+    if (uuidRe.test(ref)) {
+      bom = await this.bomRepository.findOne({ where: { id: ref } });
+    }
+    if (!bom) {
+      bom = await this.bomRepository.findOne({ where: { bomCode: ref } });
+    }
+    if (!bom) {
+      throw new NotFoundException(`BOM ${ref} not found`);
+    }
+    return bom;
+  }
+
+  /**
+   * Resolve a list of item codes to their master item ids/names. Backs the
+   * PR-create flow on the work-order/add page, which collects itemCode but
+   * needs the itemId the procurement DTO requires.
+   */
+  async resolveItems(codes: string[]): Promise<
+    {
+      itemCode: string;
+      resolved: boolean;
+      itemId: string | null;
+      itemName: string | null;
+      uom: string | null;
+      standardCost: number | null;
+    }[]
+  > {
+    const unique = Array.from(
+      new Set((codes || []).map((c) => (c || '').trim()).filter(Boolean)),
+    );
+    if (unique.length === 0) return [];
+
+    const items = await this.itemRepository
+      .createQueryBuilder('i')
+      .where('i.itemCode IN (:...codes)', { codes: unique })
+      .getMany();
+
+    const byCode = new Map(items.map((i) => [i.itemCode, i]));
+    return unique.map((code) => {
+      const item = byCode.get(code);
+      return {
+        itemCode: code,
+        resolved: !!item,
+        itemId: item?.id ?? null,
+        itemName: item?.itemName ?? null,
+        uom: (item as any)?.baseUom ?? null,
+        standardCost: (item as any)?.standardCost ?? null,
+      };
+    });
+  }
+
+  /**
+   * Create a BOM from a JSON array of parsed component rows (NOT a file
+   * upload). Backs the import / assembly-template flows on /production/bom/add.
+   */
+  async importBOM(payload: {
+    bomCode: string;
+    bomName: string;
+    itemId?: string;
+    itemCode: string;
+    itemName: string;
+    bomType?: string;
+    uom?: string;
+    quantity?: number;
+    description?: string;
+    createdBy?: string;
+    components: {
+      itemId?: string;
+      itemCode: string;
+      itemName: string;
+      description?: string;
+      quantity: number;
+      uom?: string;
+      itemType?: string;
+      supplyType?: string;
+      scrapPercentage?: number;
+      unitCost?: number;
+      level?: number;
+      sequenceNumber?: number;
+      makeOrBuy?: string;
+    }[];
+  }): Promise<BOMResponseDto> {
+    if (!payload.components || payload.components.length === 0) {
+      throw new BadRequestException('At least one component is required for import');
+    }
+
+    const existing = await this.bomRepository.findOne({
+      where: { bomCode: payload.bomCode },
+    });
+    if (existing) {
+      throw new BadRequestException(`BOM code ${payload.bomCode} already exists`);
+    }
+
+    // Resolve missing item ids for header + components from the item master.
+    const codesToResolve = [
+      ...(payload.itemId ? [] : [payload.itemCode]),
+      ...payload.components.filter((c) => !c.itemId).map((c) => c.itemCode),
+    ];
+    const resolved = await this.resolveItems(codesToResolve);
+    const resolvedByCode = new Map(resolved.map((r) => [r.itemCode, r]));
+
+    let materialCost = 0;
+    const items = payload.components.map((c, index) => {
+      const scrap = c.scrapPercentage ?? 0;
+      const qty = Number(c.quantity) || 0;
+      const netQuantity = qty * (1 + scrap / 100);
+      const unitCost = c.unitCost ?? 0;
+      const totalCost = netQuantity * unitCost;
+      materialCost += totalCost;
+
+      const supply =
+        c.supplyType ||
+        (c.makeOrBuy === 'make' ? SupplyType.MANUFACTURE : SupplyType.PURCHASE);
+
+      return this.bomItemRepository.create({
+        itemId: c.itemId || resolvedByCode.get(c.itemCode)?.itemId || c.itemCode,
+        itemCode: c.itemCode,
+        itemName: c.itemName,
+        description: c.description ?? undefined,
+        itemType: (c.itemType as BOMItemType) ?? BOMItemType.COMPONENT,
+        supplyType: supply as SupplyType,
+        sequenceNumber: c.sequenceNumber ?? index + 1,
+        level: c.level ?? 1,
+        quantity: qty,
+        uom: c.uom ?? 'PCS',
+        scrapPercentage: scrap,
+        netQuantity,
+        unitCost,
+        totalCost,
+        createdBy: payload.createdBy ?? undefined,
+      }) as BOMItem;
+    });
+
+    const headerItemId =
+      payload.itemId || resolvedByCode.get(payload.itemCode)?.itemId || payload.itemCode;
+
+    const bom = this.bomRepository.create({
+      bomCode: payload.bomCode,
+      bomName: payload.bomName,
+      description: payload.description ?? undefined,
+      itemId: headerItemId,
+      itemCode: payload.itemCode,
+      itemName: payload.itemName,
+      bomType: (payload.bomType as BOMType) ?? BOMType.MANUFACTURE,
+      status: BOMStatus.DRAFT,
+      uom: payload.uom ?? 'PCS',
+      quantity: payload.quantity ?? 1,
+      materialCost,
+      totalCost: materialCost,
+      costPerUnit: (payload.quantity ?? 1) > 0 ? materialCost / (payload.quantity ?? 1) : materialCost,
+      createdBy: payload.createdBy ?? undefined,
+      items,
+    }) as BOM;
+
+    const saved = await this.bomRepository.save(bom);
+    const full = await this.bomRepository.findOne({
+      where: { id: saved.id },
+      relations: ['items'],
+    });
+    return this.mapToResponseDto(full ?? saved);
+  }
+
+  /**
+   * Quality specifications (test parameters / acceptance criteria) for a
+   * product or a work order. Backs GET production/quality-specs used by the
+   * /production/quality/add "Load specs from product master" action.
+   *
+   * Resolution order:
+   *  1. If workOrderId is supplied, resolve its itemCode.
+   *  2. Look up an active QualityPlan for the product code and surface its
+   *     inspection points / acceptance criteria as test parameters.
+   */
+  async getQualitySpecs(params: {
+    productCode?: string;
+    workOrderId?: string;
+  }): Promise<{
+    productCode: string | null;
+    productName: string | null;
+    workOrderId: string | null;
+    workOrderNumber: string | null;
+    planNumber: string | null;
+    planName: string | null;
+    qualityStandard: string | null;
+    samplingSize: number | null;
+    testingFrequency: string | null;
+    parameters: {
+      parameterName: string;
+      type: string;
+      specification: string;
+      nominalValue: number | null;
+      upperTolerance: number | null;
+      lowerTolerance: number | null;
+      unit: string | null;
+      testMethod: string | null;
+      acceptanceCriteria: string | null;
+    }[];
+  }> {
+    let productCode = params.productCode ?? null;
+    let productName: string | null = null;
+    let workOrderNumber: string | null = null;
+
+    if (params.workOrderId) {
+      const wo = await this.workOrderRepository.findOne({
+        where: { id: params.workOrderId },
+      });
+      if (wo) {
+        productCode = productCode || wo.itemCode;
+        productName = wo.itemName;
+        workOrderNumber = wo.workOrderNumber;
+      }
+    }
+
+    if (!productCode) {
+      throw new BadRequestException(
+        'A productCode or a workOrderId (resolving to a product) is required',
+      );
+    }
+
+    const plan = await this.qualityPlanRepository
+      .createQueryBuilder('q')
+      .where('q.product_code = :code', { code: productCode })
+      .orderBy('q.updated_at', 'DESC')
+      .getOne();
+
+    const parameters = this.mapInspectionPoints(plan?.inspectionPoints ?? null);
+
+    return {
+      productCode,
+      productName: productName ?? plan?.productName ?? null,
+      workOrderId: params.workOrderId ?? null,
+      workOrderNumber,
+      planNumber: plan?.planNumber ?? null,
+      planName: plan?.planName ?? null,
+      qualityStandard: plan?.qualityStandard ?? null,
+      samplingSize: plan?.samplingSize ?? null,
+      testingFrequency: plan?.testingFrequency ?? null,
+      parameters,
+    };
+  }
+
+  private mapInspectionPoints(points: any[] | null): {
+    parameterName: string;
+    type: string;
+    specification: string;
+    nominalValue: number | null;
+    upperTolerance: number | null;
+    lowerTolerance: number | null;
+    unit: string | null;
+    testMethod: string | null;
+    acceptanceCriteria: string | null;
+  }[] {
+    if (!Array.isArray(points)) return [];
+    return points.map((p: any) => ({
+      parameterName: p?.parameterName ?? p?.name ?? p?.parameter ?? '',
+      type: p?.type ?? p?.parameterType ?? 'Dimensional',
+      specification: p?.specification ?? p?.spec ?? '',
+      nominalValue: p?.nominalValue ?? p?.nominal ?? null,
+      upperTolerance: p?.upperTolerance ?? p?.upperTol ?? null,
+      lowerTolerance: p?.lowerTolerance ?? p?.lowerTol ?? null,
+      unit: p?.unit ?? null,
+      testMethod: p?.testMethod ?? p?.method ?? null,
+      acceptanceCriteria: p?.acceptanceCriteria ?? p?.criteria ?? null,
     }));
   }
 

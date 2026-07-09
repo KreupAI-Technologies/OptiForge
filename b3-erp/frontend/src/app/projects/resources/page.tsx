@@ -223,53 +223,152 @@ export default function ResourceAllocationPage() {
     }
   };
 
-  // NOTE: The following actions have no dedicated backend endpoint yet
-  // (transfer, workload-balancing, request-approval, skills, time-logging via
-  // this modal). They close the modal and inform the user rather than
-  // pretending to persist. Reported as NEEDS BACKEND.
-  const handleTransferResource = (_data: any) => {
-    setIsTransferResourceModalOpen(false);
-    toast?.({
-      title: "Transfer unavailable",
-      description: "Resource transfer is not yet supported by the backend.",
-      variant: "destructive",
-    });
+  // Transfer a resource allocation → POST /project-resources/transfer.
+  const handleTransferResource = async (data: any) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await projectManagementService.transferResource({
+        resourceId: selectedResource?.id,
+        userId: selectedResource?.id,
+        role: selectedResource?.role,
+        fromProject: data.fromProject,
+        toProject: data.toProject,
+        transferDate: data.transferDate || undefined,
+        reason: data.reason || undefined,
+      });
+      setIsTransferResourceModalOpen(false);
+      toast?.({ title: "Resource transferred", description: "Resource transferred successfully" });
+      await loadResources();
+    } catch (err) {
+      toast?.({
+        title: "Transfer failed",
+        description: err instanceof Error ? err.message : "Could not transfer resource.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleWorkloadBalancing = (_data: any) => {
-    setIsWorkloadBalancingModalOpen(false);
-    toast?.({
-      title: "Balancing unavailable",
-      description: "Automated workload balancing is not yet supported by the backend.",
-      variant: "destructive",
-    });
+  // Workload balancing → POST /project-resources/balance-workload (returns
+  // recommendations computed from current allocations).
+  const handleWorkloadBalancing = async (data: any) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const result = await projectManagementService.balanceWorkload({
+        department: data?.department,
+        method: data?.method,
+      });
+      const count = Array.isArray(result?.recommendations) ? result.recommendations.length : 0;
+      setIsWorkloadBalancingModalOpen(false);
+      toast?.({
+        title: "Workload analysed",
+        description: `${count} balancing recommendation${count === 1 ? "" : "s"} generated.`,
+      });
+      await loadResources();
+    } catch (err) {
+      toast?.({
+        title: "Balancing failed",
+        description: err instanceof Error ? err.message : "Could not compute workload balancing.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleRequestResource = (_data: any) => {
-    setIsRequestResourceModalOpen(false);
-    toast?.({
-      title: "Requests unavailable",
-      description: "Resource requests are not yet supported by the backend.",
-      variant: "destructive",
-    });
+  // Resource request → POST /project-resource-requests.
+  const handleRequestResource = async (data: any) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await projectManagementService.createResourceRequest({
+        projectId: data.projectId || undefined,
+        resourceType: data.resourceType || undefined,
+        skillsRequired: data.skillsRequired || undefined,
+        quantity: data.quantity != null ? Number(data.quantity) : undefined,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined,
+        allocationPercentage: data.allocation != null ? Number(data.allocation) : undefined,
+        priority: data.priority || undefined,
+        justification: data.justification || undefined,
+      });
+      setIsRequestResourceModalOpen(false);
+      toast?.({ title: "Request submitted", description: "Resource request submitted successfully" });
+    } catch (err) {
+      toast?.({
+        title: "Request failed",
+        description: err instanceof Error ? err.message : "Could not submit resource request.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSaveSkills = (_data: any) => {
-    setIsResourceSkillsModalOpen(false);
-    toast?.({
-      title: "Skills unavailable",
-      description: "Saving resource skills is not yet supported by the backend.",
-      variant: "destructive",
-    });
+  // Save resource skills → POST /project-resource-skills (upsert per resource).
+  const handleSaveSkills = async (data: any) => {
+    const resourceId = selectedResource?.id;
+    if (!resourceId) {
+      toast?.({ title: "Cannot save skills", description: "No resource selected.", variant: "destructive" });
+      return;
+    }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await projectManagementService.saveResourceSkills({
+        resourceId,
+        resourceName: selectedResource?.name,
+        skills: Array.isArray(data?.skills) ? data.skills : [],
+      });
+      setIsResourceSkillsModalOpen(false);
+      toast?.({ title: "Skills saved", description: "Resource skills saved successfully" });
+    } catch (err) {
+      toast?.({
+        title: "Save failed",
+        description: err instanceof Error ? err.message : "Could not save resource skills.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleLogTime = (_data: any) => {
-    setIsTimeTrackingModalOpen(false);
-    toast?.({
-      title: "Time logging unavailable",
-      description: "Logging time from this view is not yet supported by the backend.",
-      variant: "destructive",
-    });
+  // Log time → POST /time-logs.
+  const handleLogTime = async (data: any) => {
+    const userId = selectedResource?.id;
+    if (!userId) {
+      toast?.({ title: "Cannot log time", description: "No resource selected.", variant: "destructive" });
+      return;
+    }
+    if (!data?.project) {
+      toast?.({ title: "Cannot log time", description: "A project is required.", variant: "destructive" });
+      return;
+    }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await projectManagementService.createTimeLog({
+        projectId: data.project,
+        userId,
+        date: data.date,
+        hours: data.hours != null ? Number(data.hours) : 0,
+        description: data.description || data.activity || undefined,
+        billable: data.billable !== false,
+      });
+      setIsTimeTrackingModalOpen(false);
+      toast?.({ title: "Time logged", description: "Time entry recorded successfully" });
+    } catch (err) {
+      toast?.({
+        title: "Time logging failed",
+        description: err instanceof Error ? err.message : "Could not log time.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

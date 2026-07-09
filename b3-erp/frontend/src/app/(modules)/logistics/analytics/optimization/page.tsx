@@ -439,11 +439,37 @@ export default function OptimizationAnalyticsPage() {
     return colors[status] || 'text-gray-600 bg-gray-50 border-gray-200';
   };
 
-  const handleOptimize = () => {
+  const handleOptimize = async () => {
     setIsOptimizing(true);
-    setTimeout(() => {
+    try {
+      const result = await routeService.optimizeAllRoutes();
+      // Mark the routes the backend actually re-sequenced as implemented.
+      const optimizedIds = new Set(
+        result.routes.filter((r) => r.reordered).map((r) => r.id),
+      );
+      setRouteOptimizations((prev) =>
+        prev.map((r) =>
+          optimizedIds.has(r.routeId)
+            ? { ...r, status: 'implemented' as const }
+            : r,
+        ),
+      );
+      toast({
+        title: 'Optimization complete',
+        description:
+          `${result.routesOptimized} of ${result.routesConsidered} active route(s) re-sequenced ` +
+          `(${result.stopsReordered} stop(s) reordered).`,
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: 'Optimization failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
       setIsOptimizing(false);
-    }, 2000);
+    }
   };
 
   const totalRouteSavings = routeOptimizations.reduce((sum, r) => sum + r.costSaving, 0);

@@ -9,3 +9,4 @@ export * from './freight-charge.controller';
 export * from './transport-company.controller';
 export * from './delivery-coordination.controller';
 export * from './fuel-record.controller';
+export * from './notification-log.controller';

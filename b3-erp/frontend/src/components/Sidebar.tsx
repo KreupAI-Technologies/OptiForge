@@ -471,14 +471,14 @@ const menuItems: MenuItem[] = [
         href: '#',
         description: 'Shipping & Handover',
         subItems: [
-          { id: 'delivery-note', name: 'Delivery Notes', href: '/sales/delivery', description: 'Manage deliveries' },
+          { id: 'delivery-note', name: 'Delivery Notes', href: '/sales/delivery/notes', description: 'Manage deliveries' },
           { id: 'handover', name: 'Handover Process', href: '/sales/handover', description: 'Order handover' },
         ],
       },
-      { id: 'sales-pricing', name: 'Pricing & Discounts', href: '/sales/pricing', description: 'Price lists' },
+      { id: 'sales-pricing', name: 'Pricing & Discounts', href: '/sales/pricing/lists', description: 'Price lists' },
       { id: 'sales-returns', name: 'Sales Returns', href: '/sales/returns', description: 'Manage returns' },
       { id: 'sales-analytics', name: 'Sales Analytics', href: '/sales/analytics', description: 'Performance metrics' },
-      { id: 'sales-settings', name: 'Sales Settings', href: '/sales/settings', description: 'Configuration' },
+      { id: 'sales-settings', name: 'Sales Settings', href: '/settings', description: 'Configuration' },
     ],
   },
   {
@@ -617,7 +617,7 @@ const menuItems: MenuItem[] = [
         subItems: [
           { id: 'currency-setup', name: 'Currency Setup', href: '/finance/currency/management', description: 'Currency master' },
           { id: 'exchange-rates', name: 'Exchange Rates', href: '/finance/currency/exchange-rates', description: 'Rate management' },
-          { id: 'gain-loss', name: 'Forex Gain/Loss', href: '/finance/currency/gain-loss', description: 'Currency adjustments' },
+          { id: 'gain-loss', name: 'Forex Gain/Loss', href: '/finance/currency', description: 'Currency adjustments' },
         ],
       },
       {
@@ -1088,7 +1088,7 @@ const menuItems: MenuItem[] = [
           { id: 'floor-operations', name: 'Floor Operations', href: '/production/floor', description: 'Track operations' },
           { id: 'job-tracking', name: 'Job Tracking', href: '/production/shopfloor/tracking', description: 'Real-time tracking' },
           { id: 'operator-dashboard', name: 'Operator Dashboard', href: '/production/shopfloor/operator', description: 'Operator view' },
-          { id: 'production-logs', name: 'Production Logs', href: '/production/shopfloor/logs', description: 'Activity logs' },
+          { id: 'production-logs', name: 'Production Logs', href: '/production/shopfloor/tracking', description: 'Activity logs' },
         ],
       },
       {
@@ -3481,12 +3481,12 @@ const menuItems: MenuItem[] = [
     hoverColor: 'hover:bg-white/5',
     subItems: [
       { id: 'reports-dashboard', name: 'Reports Overview', href: '/reports', description: 'Reporting dashboard' },
-      { id: 'finance-reports-central', name: 'Finance Reports', href: '/reports/finance', description: 'Financial reporting' },
+      { id: 'finance-reports-central', name: 'Finance Reports', href: '/reports/financial', description: 'Financial reporting' },
       { id: 'sales-reports-central', name: 'Sales Reports', href: '/reports/sales', description: 'Sales performance reports' },
       { id: 'inventory-reports-central', name: 'Inventory Reports', href: '/reports/inventory', description: 'Stock & warehouse reports' },
       { id: 'hr-reports-central', name: 'HR Reports', href: '/reports/hr', description: 'Personnel reports' },
       { id: 'production-reports-central', name: 'Production Reports', href: '/reports/production', description: 'Manufacturing reports' },
-      { id: 'quality-reports-central', name: 'Quality Reports', href: '/reports/quality', description: 'Quality & compliance reports' },
+      { id: 'quality-reports-central', name: 'Quality Reports', href: '/quality', description: 'Quality & compliance reports' },
     ],
   },
   {
@@ -3584,7 +3584,7 @@ const menuItems: MenuItem[] = [
         subItems: [
           { id: 'system-health', name: 'System Health', href: '/it-admin/monitoring/health', description: 'Health dashboard' },
           { id: 'performance-metrics', name: 'Performance Metrics', href: '/it-admin/monitoring/performance', description: 'Performance stats' },
-          { id: 'server-logs', name: 'Server Logs', href: '/it-admin/monitoring/logs', description: 'Server logs' },
+          { id: 'server-logs', name: 'Server Logs', href: '/it-admin/monitoring/errors', description: 'Server logs' },
           { id: 'error-tracking', name: 'Error Tracking', href: '/it-admin/monitoring/errors', description: 'Error logs' },
         ],
       },

@@ -54,9 +54,9 @@ export default function CPQQuotesTemplatesPage() {
     setIsLoading(true)
     setLoadError(null)
     try {
-      // Backend returns the QuoteTemplate ORM shape (templateName/description/
-      // category/isActive/createdAt); map it to this page's template model.
-      // sections and isFavorite are presentation-only and default to 0/false.
+      // Backend returns the QuoteTemplate ORM shape (name/description/category/
+      // isActive/isFavorite/usageCount/createdAt); map it to this page's model.
+      // sections is presentation-only and defaults to 0.
       const raw = (await cpqQuoteService.findAllTemplates()) as any[]
       const toDate = (v: unknown): string =>
         v ? new Date(v as string).toISOString().split('T')[0] : ''
@@ -173,12 +173,29 @@ export default function CPQQuotesTemplatesPage() {
     }
   }
 
-  // Favorite is a presentation-only flag (no backend column), so it is kept in
-  // local UI state only.
-  const handleToggleFavorite = (template: QuoteTemplate) => {
-    setTemplates(templates.map(t =>
-      t.id === template.id ? { ...t, isFavorite: !t.isFavorite } : t
-    ))
+  // isFavorite is persisted via the toggle-favorite endpoint. Optimistically
+  // flip the local flag, then reconcile with the server response.
+  const handleToggleFavorite = async (template: QuoteTemplate) => {
+    if (!template.id) return
+    const next = !template.isFavorite
+    setTemplates(prev =>
+      prev.map(t => (t.id === template.id ? { ...t, isFavorite: next } : t))
+    )
+    setActionError(null)
+    try {
+      const updated = await cpqQuoteService.toggleTemplateFavorite(template.id)
+      setTemplates(prev =>
+        prev.map(t =>
+          t.id === template.id ? { ...t, isFavorite: Boolean(updated?.isFavorite ?? next) } : t
+        )
+      )
+    } catch (err) {
+      // Revert on failure.
+      setTemplates(prev =>
+        prev.map(t => (t.id === template.id ? { ...t, isFavorite: !next } : t))
+      )
+      setActionError(err instanceof Error ? err.message : 'Failed to update favorite')
+    }
   }
 
   const handleExport = () => {
@@ -237,7 +254,7 @@ export default function CPQQuotesTemplatesPage() {
       setIsUseModalOpen(false)
       // Navigate to the newly created quote when we have an id.
       if (created?.id) {
-        router.push(`/cpq/quotes/builder?id=${created.id}`)
+        router.push(`/cpq/quotes/create?id=${created.id}`)
       } else {
         await loadTemplates()
       }

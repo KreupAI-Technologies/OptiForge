@@ -30,6 +30,7 @@ Estimation Team`)
   const [includePaymentSchedule, setIncludePaymentSchedule] = useState(true)
   const [validityDays, setValidityDays] = useState('30')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const [draftData, setDraftData] = useState({
     estimateNumber: '',
@@ -70,14 +71,26 @@ Estimation Team`)
   const handleSend = async () => {
     if (sending) return
     setSending(true)
+    setSendError(null)
     try {
-      // The draftId is a cost-estimate id; "sending" a draft submits it into
-      // the approval workflow (there is no cost-estimate send-to-customer endpoint).
-      await costEstimateService.submitForApproval(companyId, draftId, 'Current User')
+      // Persist a customer-delivery record for this estimate. The backend
+      // records recipient/channel/sentAt (no real email provider is integrated).
+      await costEstimateService.sendToCustomer(companyId, draftId, {
+        channel: sendMethod,
+        recipient: sendMethod === 'email' ? recipientEmail : recipientPhone,
+        subject: sendMethod === 'email' ? subject : undefined,
+        message,
+        includeTerms,
+        includePaymentSchedule,
+        validityDays: Number(validityDays) || undefined,
+        sentBy: 'Current User',
+      })
       router.push('/estimation/workflow/pending')
     } catch (err) {
       console.error('Failed to send estimate:', err)
-      alert('Failed to send estimate. Please try again.')
+      setSendError(
+        err instanceof Error ? err.message : 'Failed to send estimate. Please try again.'
+      )
     } finally {
       setSending(false)
     }
@@ -116,6 +129,12 @@ Estimation Team`)
       </div>
 
       <div className="flex-1 overflow-auto p-3">
+        {sendError && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4" />
+            {sendError}
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-3">
           {/* Main Content */}
           <div className="col-span-2 space-y-3">

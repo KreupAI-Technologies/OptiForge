@@ -56,4 +56,21 @@ export class CapacityPlanController {
   async calculateUtilization(@Param('id') id: string): Promise<any> {
     return this.capacityPlanService.calculateUtilization(id);
   }
+
+  @Post(':id/optimize')
+  @ApiOperation({ summary: 'Run deterministic level-load / optimization pass' })
+  @ApiParam({ name: 'id' })
+  async optimize(@Param('id') id: string): Promise<CapacityPlan> {
+    return this.capacityPlanService.optimize(id);
+  }
+
+  @Post(':id/plan-overtime')
+  @ApiOperation({ summary: 'Plan and persist overtime allocation to cover a capacity shortfall' })
+  @ApiParam({ name: 'id' })
+  async planOvertime(
+    @Param('id') id: string,
+    @Body() body: { overtimeRate?: number; maxOvertimeHours?: number; plannedFor?: string },
+  ): Promise<CapacityPlan> {
+    return this.capacityPlanService.planOvertime(id, body);
+  }
 }

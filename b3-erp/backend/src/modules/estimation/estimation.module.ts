@@ -4,6 +4,7 @@ import {
   BOQController,
   CostEstimateController,
   EstimateAnalyticsController,
+  EstimationReportController,
   EstimateTemplateController,
   EstimationCategoryController,
   LaborCostRateController,
@@ -18,6 +19,7 @@ import {
   EstimateCommentController,
   WhatIfScenarioController,
   BomImportSessionController,
+  EstimateSendRecordController,
 } from './controllers';
 import {
   BOQ,
@@ -52,11 +54,13 @@ import {
   EstimateComment,
   EstimationWhatIfScenario,
   EstimationBomImportSession,
+  EstimateSendRecord,
 } from './entities';
 import {
   BOQService,
   CostEstimateService,
   EstimateAnalyticsService,
+  EstimationReportService,
   EstimateTemplateService,
   EstimationCategoryService,
   LaborCostRateService,
@@ -71,6 +75,7 @@ import {
   EstimateCommentService,
   WhatIfScenarioService,
   BomImportSessionService,
+  EstimateSendRecordService,
 } from './services';
 
 @Module({
@@ -118,12 +123,15 @@ import {
       // What-if simulation & BOM import (net-new capabilities)
       EstimationWhatIfScenario,
       EstimationBomImportSession,
+      // Customer-delivery send records (estimation/workflow/send)
+      EstimateSendRecord,
     ]),
   ],
   controllers: [
     BOQController,
     CostEstimateController,
     EstimateAnalyticsController,
+    EstimationReportController,
     EstimateTemplateController,
     EstimationCategoryController,
     LaborCostRateController,
@@ -138,11 +146,13 @@ import {
     EstimateCommentController,
     WhatIfScenarioController,
     BomImportSessionController,
+    EstimateSendRecordController,
   ],
   providers: [
     BOQService,
     CostEstimateService,
     EstimateAnalyticsService,
+    EstimationReportService,
     EstimateTemplateService,
     EstimationCategoryService,
     LaborCostRateService,
@@ -157,6 +167,7 @@ import {
     EstimateCommentService,
     WhatIfScenarioService,
     BomImportSessionService,
+    EstimateSendRecordService,
   ],
   exports: [
     BOQService,

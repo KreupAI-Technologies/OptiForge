@@ -352,12 +352,36 @@ const ProductionPlanningPage = () => {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  // Generate Production Orders
-  // NEEDS BACKEND: no bulk "work-orders-from-plan" endpoint reachable here.
-  const generateProductionOrders = () => {
-    setActionMessage(
-      'Generating production orders from the plan is not available yet (no backend endpoint).',
-    );
+  // Generate Production Orders — creates real work orders from the current
+  // master-schedule rows via POST /production/planning/generate-work-orders.
+  const generateProductionOrders = async () => {
+    const lines = filteredProducts
+      .filter((p) => (p.totalPlanned ?? 0) > 0)
+      .map((p) => ({
+        itemCode: p.productCode,
+        itemName: p.productName,
+        uom: p.uom,
+        quantity: p.totalPlanned,
+      }));
+    if (lines.length === 0) {
+      setActionMessage('No planned quantities available to generate work orders.');
+      return;
+    }
+    setActionBusy(true);
+    setActionMessage(null);
+    try {
+      const res = await ProductionOrphanService.generateWorkOrdersFromPlan({ lines });
+      const count = res?.workOrders?.length ?? 0;
+      setActionMessage(
+        `Generated ${count} work order${count === 1 ? '' : 's'} from the plan.`,
+      );
+    } catch (err) {
+      setActionMessage(
+        err instanceof Error ? err.message : 'Failed to generate production orders.',
+      );
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   // Run MRP
@@ -1170,11 +1194,11 @@ const ProductionPlanningPage = () => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={generateProductionOrders}
-                  disabled={planFrozen}
+                  disabled={planFrozen || actionBusy}
                   className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Play className="h-5 w-5" />
-                  Generate Production Orders
+                  {actionBusy ? 'Generating…' : 'Generate Production Orders'}
                 </button>
                 <button
                   onClick={runMRP}

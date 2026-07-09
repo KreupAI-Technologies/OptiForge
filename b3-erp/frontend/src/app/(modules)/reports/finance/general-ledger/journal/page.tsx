@@ -66,7 +66,7 @@ function JournalEntryContent() {
                             {entryLines.map((line) => (
                                 <ClickableTableRow
                                     key={line.id}
-                                    onClick={() => router.push(`/accounts/ledger/${line.accountCode}`)}
+                                    onClick={() => router.push(`/finance/ledger/${line.accountCode}`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{line.accountCode}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{line.accountName}</td>

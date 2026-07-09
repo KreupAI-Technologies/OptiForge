@@ -184,6 +184,73 @@ class CostEstimateService {
   async delete(companyId: string, id: string): Promise<void> {
     await apiClient.delete(`${this.baseUrl}/${id}`);
   }
+
+  /**
+   * Download an estimate as a rendered file (PDF by default). Returns the
+   * binary Blob + a suggested filename derived from the Content-Disposition
+   * header so the caller can trigger a browser download.
+   */
+  async downloadExport(
+    companyId: string,
+    id: string,
+    format: 'pdf' | 'excel' | 'csv' = 'pdf'
+  ): Promise<{ blob: Blob; filename: string }> {
+    const base =
+      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const res = await fetch(
+      `${base}${this.baseUrl}/${id}/export?format=${encodeURIComponent(format)}`,
+      { method: 'GET', credentials: 'include' }
+    );
+    if (!res.ok) {
+      throw new Error(`Export failed: ${res.status} ${res.statusText}`);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const ext = format === 'excel' ? 'xlsx' : format;
+    const filename = match?.[1] || `estimate-${id}.${ext}`;
+    return { blob, filename };
+  }
+
+  // Record that an estimate was sent to a customer (email/whatsapp). Persists a
+  // delivery record on the backend; no real email provider is integrated.
+  async sendToCustomer(
+    companyId: string,
+    estimateId: string,
+    data: {
+      channel: 'email' | 'whatsapp';
+      recipient?: string;
+      subject?: string;
+      message?: string;
+      includeTerms?: boolean;
+      includePaymentSchedule?: boolean;
+      validityDays?: number;
+      sentBy?: string;
+    }
+  ): Promise<EstimateSendRecord> {
+    const response = await apiClient.post<EstimateSendRecord>(
+      `/estimation/workflow/send/${estimateId}`,
+      data
+    );
+    return response.data;
+  }
+}
+
+export interface EstimateSendRecord {
+  id: string;
+  companyId: string;
+  estimateId: string;
+  channel: string;
+  recipient?: string;
+  subject?: string;
+  message?: string;
+  includeTerms: boolean;
+  includePaymentSchedule: boolean;
+  validityDays?: number;
+  status: string;
+  sentAt?: string;
+  sentBy?: string;
+  createdAt: string;
 }
 
 export const costEstimateService = new CostEstimateService();

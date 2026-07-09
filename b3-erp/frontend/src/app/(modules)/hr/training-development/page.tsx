@@ -26,6 +26,51 @@ import {
   type TrainingDashboard,
   type SkillMatrix,
 } from '@/services/training-development.service';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+// ============================================================================
+// Backend-derived aggregate types (NestJS HR domain backend)
+// ============================================================================
+
+interface SkillMatrixRow {
+  employee: string;
+  skills: Record<string, number>;
+}
+
+interface SkillGapRow {
+  id: string;
+  code?: string;
+  name: string;
+  priority?: string;
+  requiredProficiencyLevel?: number;
+  currentAverageProficiency?: number;
+  gapPercentage?: number;
+  recommendation?: string;
+  skill?: { name?: string };
+}
+
+interface TrainingEnrollmentRow {
+  id: string;
+  employeeName?: string;
+  programTitle?: string;
+  category?: string;
+  progress?: number;
+  attendance?: number;
+  certification?: boolean;
+  status?: string;
+  duration?: number;
+}
+
+interface TrainingProgramRow {
+  id: string;
+  title?: string;
+  category?: string;
+  cost?: number;
+  enrolled?: number;
+  capacity?: number;
+  duration?: number;
+  status?: string;
+}
 
 // ============================================================================
 // Types
@@ -526,49 +571,8 @@ function SkillsSection({ certifications, subTab }: { certifications: Certificati
     }
   };
 
-  if (subTab === 'matrix') {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Skill Matrix</h3>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-            <Target className="h-4 w-4" />
-            Update Skills
-          </button>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="text-center py-8 text-gray-400">
-            <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Skill Matrix visualization coming soon</p>
-            <p className="text-sm mt-2">Track employee skills and proficiency levels</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (subTab === 'gap_analysis') {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Skill Gap Analysis</h3>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-            <BarChart3 className="h-4 w-4" />
-            Run Analysis
-          </button>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="text-center py-8 text-gray-400">
-            <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Skill Gap Analysis coming soon</p>
-            <p className="text-sm mt-2">Identify skill gaps and recommended trainings</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Skill Matrix and Gap Analysis are rendered by dedicated backend-wired
+  // sections (SkillMatrixSection / SkillGapSection) from renderContent().
 
   if (subTab === 'certifications') {
     return (
@@ -818,6 +822,505 @@ function BudgetSection({ budgets, subTab }: { budgets: TrainingBudget[]; subTab:
 }
 
 // ============================================================================
+// Shared status helpers for backend-derived sections
+// ============================================================================
+
+function LoadingBanner({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-gray-400 py-8 justify-center">
+      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+      {label}
+    </div>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="bg-gray-800 rounded-lg p-4 border border-red-900 text-red-300 text-sm text-center py-6">
+      {message}
+    </div>
+  );
+}
+
+function EmptyBanner({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle?: string }) {
+  return (
+    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+      <div className="text-center py-8 text-gray-400">
+        <Icon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+        <p>{title}</p>
+        {subtitle && <p className="text-sm mt-2">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Skill Matrix (real — /hr/user-skills/matrix)
+// ============================================================================
+
+function SkillMatrixSection({
+  rows,
+  loading,
+  error,
+}: {
+  rows: SkillMatrixRow[];
+  loading: boolean;
+  error: string | null;
+}) {
+  const skillNames = Array.from(
+    new Set(rows.flatMap((r) => Object.keys(r.skills || {}))),
+  ).sort();
+
+  const levelColor = (lvl: number) => {
+    if (lvl >= 4) return 'bg-green-900 text-green-300';
+    if (lvl === 3) return 'bg-blue-900 text-blue-300';
+    if (lvl === 2) return 'bg-yellow-900 text-yellow-300';
+    if (lvl >= 1) return 'bg-orange-900 text-orange-300';
+    return 'bg-gray-700 text-gray-400';
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">Skill Matrix</h3>
+      </div>
+      {loading && <LoadingBanner label="Loading skill matrix…" />}
+      {error && !loading && <ErrorBanner message={error} />}
+      {!loading && !error && rows.length === 0 && (
+        <EmptyBanner
+          icon={Target}
+          title="No skill data yet"
+          subtitle="Assign skills to employees to populate the matrix."
+        />
+      )}
+      {!loading && !error && rows.length > 0 && (
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-900">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase sticky left-0 bg-gray-900">
+                  Employee
+                </th>
+                {skillNames.map((s) => (
+                  <th key={s} className="px-3 py-3 text-center text-xs font-medium text-gray-400 uppercase whitespace-nowrap">
+                    {s}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {rows.map((row) => (
+                <tr key={row.employee} className="hover:bg-gray-750">
+                  <td className="px-4 py-3 text-white font-medium sticky left-0 bg-gray-800 whitespace-nowrap">
+                    {row.employee}
+                  </td>
+                  {skillNames.map((s) => {
+                    const lvl = row.skills?.[s];
+                    return (
+                      <td key={s} className="px-3 py-3 text-center">
+                        {lvl != null ? (
+                          <span className={`inline-block px-2 py-1 rounded text-xs ${levelColor(lvl)}`}>
+                            {lvl}
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">–</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Skill Gap Analysis (real — /hr/skill-gaps)
+// ============================================================================
+
+function SkillGapSection({
+  gaps,
+  loading,
+  error,
+}: {
+  gaps: SkillGapRow[];
+  loading: boolean;
+  error: string | null;
+}) {
+  const priorityColor = (p?: string) => {
+    switch ((p || '').toLowerCase()) {
+      case 'critical': return 'bg-red-900 text-red-300';
+      case 'high': return 'bg-orange-900 text-orange-300';
+      case 'medium': return 'bg-yellow-900 text-yellow-300';
+      case 'low': return 'bg-blue-900 text-blue-300';
+      default: return 'bg-gray-700 text-gray-300';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">Skill Gap Analysis</h3>
+      </div>
+      {loading && <LoadingBanner label="Loading skill gaps…" />}
+      {error && !loading && <ErrorBanner message={error} />}
+      {!loading && !error && gaps.length === 0 && (
+        <EmptyBanner
+          icon={TrendingUp}
+          title="No skill gaps identified"
+          subtitle="Recorded skill gaps and recommendations will appear here."
+        />
+      )}
+      {!loading && !error && gaps.length > 0 && (
+        <div className="space-y-3">
+          {gaps.map((g) => (
+            <div key={g.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <h4 className="text-white font-medium">{g.skill?.name || g.name}</h4>
+                  {g.code && <p className="text-xs text-gray-500">{g.code}</p>}
+                </div>
+                <span className={`px-2 py-1 rounded text-xs ${priorityColor(g.priority)}`}>
+                  {g.priority || 'Medium'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-sm mb-2">
+                <div>
+                  <p className="text-xs text-gray-400">Required Level</p>
+                  <p className="text-white">{g.requiredProficiencyLevel ?? '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Current Avg</p>
+                  <p className="text-white">{g.currentAverageProficiency ?? '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Gap</p>
+                  <p className="text-yellow-400">{Number(g.gapPercentage ?? 0).toFixed(1)}%</p>
+                </div>
+              </div>
+              {g.gapPercentage != null && (
+                <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-yellow-500 rounded-full"
+                    style={{ width: `${Math.min(100, Number(g.gapPercentage))}%` }}
+                  />
+                </div>
+              )}
+              {g.recommendation && (
+                <p className="text-sm text-gray-400 mt-2">{g.recommendation}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Training Effectiveness (real aggregate — /hr/training-enrollments)
+// ============================================================================
+
+function EffectivenessSection({
+  enrollments,
+  loading,
+  error,
+}: {
+  enrollments: TrainingEnrollmentRow[];
+  loading: boolean;
+  error: string | null;
+}) {
+  const total = enrollments.length;
+  const completed = enrollments.filter((e) => (e.status || '').toLowerCase() === 'completed').length;
+  const certified = enrollments.filter((e) => e.certification).length;
+  const avgProgress = total ? enrollments.reduce((s, e) => s + Number(e.progress || 0), 0) / total : 0;
+  const avgAttendance = total ? enrollments.reduce((s, e) => s + Number(e.attendance || 0), 0) / total : 0;
+  const completionRate = total ? (completed / total) * 100 : 0;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white">Training Effectiveness</h3>
+      {loading && <LoadingBanner label="Loading effectiveness metrics…" />}
+      {error && !loading && <ErrorBanner message={error} />}
+      {!loading && !error && total === 0 && (
+        <EmptyBanner
+          icon={Zap}
+          title="No enrollment data yet"
+          subtitle="Effectiveness metrics are derived from training enrollments."
+        />
+      )}
+      {!loading && !error && total > 0 && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{completionRate.toFixed(0)}%</p>
+              <p className="text-sm text-gray-400">Completion Rate</p>
+              <p className="text-xs text-gray-500 mt-1">{completed}/{total} completed</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{avgProgress.toFixed(0)}%</p>
+              <p className="text-sm text-gray-400">Avg. Progress</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{avgAttendance.toFixed(0)}%</p>
+              <p className="text-sm text-gray-400">Avg. Attendance</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{certified}</p>
+              <p className="text-sm text-gray-400">Certifications Earned</p>
+            </div>
+          </div>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-900">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Employee</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Program</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Progress</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Attendance</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {enrollments.map((e) => (
+                  <tr key={e.id} className="hover:bg-gray-750">
+                    <td className="px-4 py-3 text-white">{e.employeeName || '-'}</td>
+                    <td className="px-4 py-3 text-gray-300">{e.programTitle || '-'}</td>
+                    <td className="px-4 py-3 text-gray-300">{Number(e.progress || 0)}%</td>
+                    <td className="px-4 py-3 text-gray-300">{Number(e.attendance || 0)}%</td>
+                    <td className="px-4 py-3 text-gray-300 capitalize">{e.status || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Training Budget tracking/costs (real aggregate — /hr/training-programs)
+// ============================================================================
+
+function ProgramCostSection({
+  programs,
+  loading,
+  error,
+  subTab,
+}: {
+  programs: TrainingProgramRow[];
+  loading: boolean;
+  error: string | null;
+  subTab: 'tracking' | 'costs';
+}) {
+  const totalCost = programs.reduce((s, p) => s + Number(p.cost || 0), 0);
+  const byCategory: Record<string, number> = {};
+  programs.forEach((p) => {
+    const c = p.category || 'Uncategorised';
+    byCategory[c] = (byCategory[c] || 0) + Number(p.cost || 0);
+  });
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white">
+        {subTab === 'tracking' ? 'Budget Tracking' : 'Training Costs'}
+      </h3>
+      {loading && <LoadingBanner label="Loading training cost data…" />}
+      {error && !loading && <ErrorBanner message={error} />}
+      {!loading && !error && programs.length === 0 && (
+        <EmptyBanner
+          icon={DollarSign}
+          title="No training cost data yet"
+          subtitle="Costs are derived from training program records."
+        />
+      )}
+      {!loading && !error && programs.length > 0 && subTab === 'tracking' && (
+        <>
+          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <p className="text-sm text-gray-400">Total Programme Cost</p>
+            <p className="text-2xl font-bold text-white">₹{(totalCost / 100000).toFixed(2)}L</p>
+          </div>
+          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <p className="text-sm text-gray-400 mb-3">By Category</p>
+            <div className="space-y-3">
+              {Object.entries(byCategory).map(([cat, amt]) => (
+                <div key={cat}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-300">{cat}</span>
+                    <span className="text-white">₹{(amt / 100000).toFixed(2)}L</span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 rounded-full"
+                      style={{ width: `${totalCost ? (amt / totalCost) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      {!loading && !error && programs.length > 0 && subTab === 'costs' && (
+        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-900">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Program</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Category</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Enrolled</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {programs.map((p) => (
+                <tr key={p.id} className="hover:bg-gray-750">
+                  <td className="px-4 py-3 text-white">{p.title || '-'}</td>
+                  <td className="px-4 py-3 text-gray-300">{p.category || '-'}</td>
+                  <td className="px-4 py-3 text-gray-300">{p.enrolled ?? 0}{p.capacity ? `/${p.capacity}` : ''}</td>
+                  <td className="px-4 py-3 text-gray-300">₹{Number(p.cost || 0).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Training Reports (real aggregate — enrollments + programs)
+// ============================================================================
+
+function ReportsSection({
+  enrollments,
+  programs,
+  loading,
+  error,
+  subTab,
+}: {
+  enrollments: TrainingEnrollmentRow[];
+  programs: TrainingProgramRow[];
+  loading: boolean;
+  error: string | null;
+  subTab: string;
+}) {
+  const total = enrollments.length;
+  const completed = enrollments.filter((e) => (e.status || '').toLowerCase() === 'completed').length;
+  const totalHours = enrollments.reduce((s, e) => s + Number(e.duration || 0), 0);
+
+  // group by employee
+  const byEmployee: Record<string, { trainings: number; hours: number; completed: number }> = {};
+  enrollments.forEach((e) => {
+    const k = e.employeeName || 'Unknown';
+    byEmployee[k] = byEmployee[k] || { trainings: 0, hours: 0, completed: 0 };
+    byEmployee[k].trainings += 1;
+    byEmployee[k].hours += Number(e.duration || 0);
+    if ((e.status || '').toLowerCase() === 'completed') byEmployee[k].completed += 1;
+  });
+
+  // group by category
+  const byCategory: Record<string, number> = {};
+  enrollments.forEach((e) => {
+    const c = e.category || 'Uncategorised';
+    byCategory[c] = (byCategory[c] || 0) + 1;
+  });
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white capitalize">
+        {subTab === 'summary' ? 'Training Summary' : subTab === 'employee' ? 'Employee Training' : subTab === 'hours' ? 'Training Hours' : 'Department Training'}
+      </h3>
+      {loading && <LoadingBanner label="Loading training reports…" />}
+      {error && !loading && <ErrorBanner message={error} />}
+      {!loading && !error && total === 0 && (
+        <EmptyBanner
+          icon={BarChart3}
+          title="No training report data yet"
+          subtitle="Reports aggregate over training enrollment records."
+        />
+      )}
+      {!loading && !error && total > 0 && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{programs.length}</p>
+              <p className="text-sm text-gray-400">Programs</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{total}</p>
+              <p className="text-sm text-gray-400">Enrollments</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{total ? ((completed / total) * 100).toFixed(0) : 0}%</p>
+              <p className="text-sm text-gray-400">Completion Rate</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-2xl font-bold text-white">{totalHours.toFixed(0)}h</p>
+              <p className="text-sm text-gray-400">Total Hours</p>
+            </div>
+          </div>
+
+          {(subTab === 'summary' || subTab === 'department') && (
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <p className="text-sm text-gray-400 mb-3">Enrollments by Category</p>
+              <div className="space-y-3">
+                {Object.entries(byCategory).map(([cat, count]) => (
+                  <div key={cat}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-300">{cat}</span>
+                      <span className="text-white">{count}</span>
+                    </div>
+                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-green-500 rounded-full"
+                        style={{ width: `${total ? (count / total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(subTab === 'employee' || subTab === 'hours') && (
+            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-900">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Employee</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Trainings</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Completed</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Hours</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {Object.entries(byEmployee).map(([emp, v]) => (
+                    <tr key={emp} className="hover:bg-gray-750">
+                      <td className="px-4 py-3 text-white">{emp}</td>
+                      <td className="px-4 py-3 text-gray-300">{v.trainings}</td>
+                      <td className="px-4 py-3 text-gray-300">{v.completed}</td>
+                      <td className="px-4 py-3 text-gray-300">{v.hours.toFixed(0)}h</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -839,6 +1342,23 @@ export default function TrainingDevelopmentPage() {
   const [certifications, setCertifications] = useState<CertificationTracking[]>([]);
   const [budgets, setBudgets] = useState<TrainingBudget[]>([]);
 
+  // Backend-derived aggregate data (NestJS HR domain backend)
+  const [skillMatrixRows, setSkillMatrixRows] = useState<SkillMatrixRow[]>([]);
+  const [skillMatrixLoading, setSkillMatrixLoading] = useState(false);
+  const [skillMatrixError, setSkillMatrixError] = useState<string | null>(null);
+
+  const [skillGaps, setSkillGaps] = useState<SkillGapRow[]>([]);
+  const [skillGapsLoading, setSkillGapsLoading] = useState(false);
+  const [skillGapsError, setSkillGapsError] = useState<string | null>(null);
+
+  const [domainEnrollments, setDomainEnrollments] = useState<TrainingEnrollmentRow[]>([]);
+  const [domainEnrollmentsLoading, setDomainEnrollmentsLoading] = useState(false);
+  const [domainEnrollmentsError, setDomainEnrollmentsError] = useState<string | null>(null);
+
+  const [domainPrograms, setDomainPrograms] = useState<TrainingProgramRow[]>([]);
+  const [domainProgramsLoading, setDomainProgramsLoading] = useState(false);
+  const [domainProgramsError, setDomainProgramsError] = useState<string | null>(null);
+
   useEffect(() => {
     loadDashboard();
     loadPrograms();
@@ -847,7 +1367,63 @@ export default function TrainingDevelopmentPage() {
     loadCourses();
     loadCertifications();
     loadBudgets();
+    loadSkillMatrix();
+    loadSkillGaps();
+    loadDomainEnrollments();
+    loadDomainPrograms();
   }, []);
+
+  const loadSkillMatrix = async () => {
+    setSkillMatrixLoading(true);
+    setSkillMatrixError(null);
+    try {
+      const rows = await HrPagesService.get<SkillMatrixRow[]>('/hr/user-skills/matrix');
+      setSkillMatrixRows(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setSkillMatrixError(err instanceof Error ? err.message : 'Failed to load skill matrix');
+    } finally {
+      setSkillMatrixLoading(false);
+    }
+  };
+
+  const loadSkillGaps = async () => {
+    setSkillGapsLoading(true);
+    setSkillGapsError(null);
+    try {
+      const rows = await HrPagesService.get<SkillGapRow[]>('/hr/skill-gaps');
+      setSkillGaps(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setSkillGapsError(err instanceof Error ? err.message : 'Failed to load skill gaps');
+    } finally {
+      setSkillGapsLoading(false);
+    }
+  };
+
+  const loadDomainEnrollments = async () => {
+    setDomainEnrollmentsLoading(true);
+    setDomainEnrollmentsError(null);
+    try {
+      const rows = await HrPagesService.trainingEnrollments<TrainingEnrollmentRow[]>();
+      setDomainEnrollments(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setDomainEnrollmentsError(err instanceof Error ? err.message : 'Failed to load enrollments');
+    } finally {
+      setDomainEnrollmentsLoading(false);
+    }
+  };
+
+  const loadDomainPrograms = async () => {
+    setDomainProgramsLoading(true);
+    setDomainProgramsError(null);
+    try {
+      const rows = await HrPagesService.trainingPrograms<TrainingProgramRow[]>();
+      setDomainPrograms(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setDomainProgramsError(err instanceof Error ? err.message : 'Failed to load programs');
+    } finally {
+      setDomainProgramsLoading(false);
+    }
+  };
 
   const loadDashboard = async () => {
     try {
@@ -1014,15 +1590,57 @@ export default function TrainingDevelopmentPage() {
       case 'enrollment':
         return <EnrollmentSection enrollments={enrollments} subTab={enrollmentSubTab} />;
       case 'skills':
+        if (skillsSubTab === 'matrix') {
+          return (
+            <SkillMatrixSection
+              rows={skillMatrixRows}
+              loading={skillMatrixLoading}
+              error={skillMatrixError}
+            />
+          );
+        }
+        if (skillsSubTab === 'gap_analysis') {
+          return (
+            <SkillGapSection
+              gaps={skillGaps}
+              loading={skillGapsLoading}
+              error={skillGapsError}
+            />
+          );
+        }
         return <SkillsSection certifications={certifications} subTab={skillsSubTab} />;
       case 'effectiveness':
-        return <div className="text-gray-400 text-center py-8">Training Effectiveness: {effectivenessSubTab} coming soon</div>;
+        return (
+          <EffectivenessSection
+            enrollments={domainEnrollments}
+            loading={domainEnrollmentsLoading}
+            error={domainEnrollmentsError}
+          />
+        );
       case 'elearning':
         return <ELearningSection courses={courses} subTab={elearningSubTab} />;
       case 'budget':
+        if (budgetSubTab === 'tracking' || budgetSubTab === 'costs') {
+          return (
+            <ProgramCostSection
+              programs={domainPrograms}
+              loading={domainProgramsLoading}
+              error={domainProgramsError}
+              subTab={budgetSubTab}
+            />
+          );
+        }
         return <BudgetSection budgets={budgets} subTab={budgetSubTab} />;
       case 'reports':
-        return <div className="text-gray-400 text-center py-8">Reports: {reportsSubTab} coming soon</div>;
+        return (
+          <ReportsSection
+            enrollments={domainEnrollments}
+            programs={domainPrograms}
+            loading={domainEnrollmentsLoading || domainProgramsLoading}
+            error={domainEnrollmentsError || domainProgramsError}
+            subTab={reportsSubTab}
+          />
+        );
       default:
         return null;
     }

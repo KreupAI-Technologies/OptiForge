@@ -2,11 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
 import { POApprovalWorkflowUI } from '@/components/procurement/POApprovalWorkflowUI';
 import { purchaseOrderService } from '@/services/purchase-order.service';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 
 export default function POApprovalWorkflowPage() {
   const router = useRouter();
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -30,26 +34,64 @@ export default function POApprovalWorkflowPage() {
 
       {/* PO Approval Workflow Component */}
       <div className="p-6">
+        {actionError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {actionError}
+          </div>
+        )}
+        {actionMessage && (
+          <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {actionMessage}
+          </div>
+        )}
         <POApprovalWorkflowUI
           onApprove={async (poId) => {
+            setActionError(null);
+            setActionMessage(null);
             try {
               await purchaseOrderService.approvePurchaseOrder(poId);
+              setActionMessage('Purchase order approved.');
             } catch (err) {
-              alert(err instanceof Error ? err.message : 'Failed to approve purchase order.');
+              setActionError(err instanceof Error ? err.message : 'Failed to approve purchase order.');
             }
           }}
           onReject={async (poId, _stepId, reason) => {
+            setActionError(null);
+            setActionMessage(null);
             try {
               await purchaseOrderService.rejectPurchaseOrder(poId, reason);
+              setActionMessage('Purchase order rejected.');
             } catch (err) {
-              alert(err instanceof Error ? err.message : 'Failed to reject purchase order.');
+              setActionError(err instanceof Error ? err.message : 'Failed to reject purchase order.');
             }
           }}
-          onDelegate={(poId, stepId, delegateToId) => {
-            console.log('Delegated:', poId, stepId, delegateToId);
+          onDelegate={async (poId, _stepId, delegateToId) => {
+            setActionError(null);
+            setActionMessage(null);
+            if (!delegateToId) {
+              setActionError('A delegate must be specified.');
+              return;
+            }
+            try {
+              await procurementPagesService.delegatePurchaseOrder(poId, { delegatedTo: delegateToId });
+              setActionMessage(`Approval delegated to ${delegateToId}.`);
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : 'Failed to delegate approval.');
+            }
           }}
-          onRequestInfo={(poId, message) => {
-            console.log('Info requested:', poId, message);
+          onRequestInfo={async (poId, message) => {
+            setActionError(null);
+            setActionMessage(null);
+            if (!message) {
+              setActionError('An information-request message is required.');
+              return;
+            }
+            try {
+              await procurementPagesService.requestInfoPurchaseOrder(poId, { message });
+              setActionMessage('Information request sent.');
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : 'Failed to request information.');
+            }
           }}
         />
       </div>

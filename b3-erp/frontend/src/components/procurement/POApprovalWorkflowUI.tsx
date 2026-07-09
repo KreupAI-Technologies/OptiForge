@@ -484,13 +484,26 @@ export function POApprovalWorkflowUI({
                         Reject
                       </button>
                       <button
-                        onClick={() => onRequestInfo?.(purchaseOrder.id, '')}
+                        onClick={() => {
+                          const message = window.prompt('What information do you need from the requester?');
+                          if (message && message.trim()) {
+                            onRequestInfo?.(purchaseOrder.id, message.trim());
+                          }
+                        }}
                         className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       >
                         <MessageSquare className="h-4 w-4" />
                         Request Info
                       </button>
-                      <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <button
+                        onClick={() => {
+                          const delegateTo = window.prompt('Delegate this approval to (user id / name):');
+                          if (delegateTo && delegateTo.trim() && currentStep) {
+                            onDelegate?.(purchaseOrder.id, currentStep.id, delegateTo.trim());
+                          }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
                         <RotateCcw className="h-4 w-4" />
                         Delegate
                       </button>

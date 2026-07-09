@@ -74,7 +74,7 @@ function ShippingCarrierContent() {
                             {shipments.map((shipment) => (
                                 <ClickableTableRow
                                     key={shipment.id}
-                                    onClick={() => router.push(`/logistics/shipments/${shipment.id}`)}
+                                    onClick={() => router.push(`/logistics/tracking`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{shipment.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{shipment.date}</td>

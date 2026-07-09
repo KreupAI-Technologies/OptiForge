@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Network, Users, Calendar, MessageCircle, Heart, Share2, Eye, TrendingUp, Award, Briefcase, MapPin, X, UserPlus, AlertCircle } from 'lucide-react';
+import { Network, Users, Calendar, MessageCircle, Heart, Share2, Eye, TrendingUp, Award, Briefcase, MapPin, X, UserPlus, AlertCircle, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { HrSelfServiceService, type AlumniComment } from '@/services/hr-self-service.service';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 interface AlumniEvent {
@@ -54,6 +54,14 @@ export default function Page() {
   const [eventRows, setEventRows] = useState<AlumniEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Comments (real, backed by /hr/alumni-comments)
+  const [openComments, setOpenComments] = useState<string | null>(null);
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, AlumniComment[]>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentsLoading, setCommentsLoading] = useState<Record<string, boolean>>({});
+  const [commentsError, setCommentsError] = useState<Record<string, string | null>>({});
+  const [commentSubmitting, setCommentSubmitting] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -207,11 +215,61 @@ export default function Page() {
     });
   };
 
+  const loadComments = async (postId: string) => {
+    setCommentsLoading((s) => ({ ...s, [postId]: true }));
+    setCommentsError((s) => ({ ...s, [postId]: null }));
+    try {
+      const rows = await HrSelfServiceService.getAlumniComments({ postId });
+      setCommentsByPost((s) => ({ ...s, [postId]: rows }));
+    } catch (err) {
+      setCommentsError((s) => ({
+        ...s,
+        [postId]: err instanceof Error ? err.message : 'Failed to load comments',
+      }));
+    } finally {
+      setCommentsLoading((s) => ({ ...s, [postId]: false }));
+    }
+  };
+
   const handleCommentPost = (postId: string) => {
-    toast({
-      title: "Comments",
-      description: "Comment feature coming soon! You can view and add comments here."
-    });
+    if (openComments === postId) {
+      setOpenComments(null);
+      return;
+    }
+    setOpenComments(postId);
+    if (commentsByPost[postId] === undefined) {
+      void loadComments(postId);
+    }
+  };
+
+  const handleSubmitComment = async (postId: string) => {
+    const body = (commentDrafts[postId] || '').trim();
+    if (!body) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a comment',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setCommentSubmitting((s) => ({ ...s, [postId]: true }));
+    try {
+      const created = await HrSelfServiceService.createAlumniComment({ postId, body });
+      setCommentsByPost((s) => ({
+        ...s,
+        [postId]: [...(s[postId] || []), created],
+      }));
+      setCommentDrafts((s) => ({ ...s, [postId]: '' }));
+      toast({ title: 'Comment posted' });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to post comment',
+        variant: 'destructive',
+      });
+    } finally {
+      setCommentSubmitting((s) => ({ ...s, [postId]: false }));
+    }
   };
 
   const handleSharePost = (postId: string) => {
@@ -395,10 +453,16 @@ export default function Page() {
                 </button>
                 <button
                   onClick={() => handleCommentPost(post.id)}
-                  className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+                  className={`flex items-center gap-2 transition-colors ${
+                    openComments === post.id ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
+                  }`}
                 >
                   <MessageCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">{post.comments}</span>
+                  <span className="text-sm font-medium">
+                    {commentsByPost[post.id] !== undefined
+                      ? commentsByPost[post.id].length
+                      : post.comments}
+                  </span>
                 </button>
                 <button
                   onClick={() => handleSharePost(post.id)}
@@ -408,6 +472,70 @@ export default function Page() {
                   <span className="text-sm font-medium">{post.shares}</span>
                 </button>
               </div>
+
+              {/* Comments section (real, backed by /hr/alumni-comments) */}
+              {openComments === post.id && (
+                <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                  {commentsLoading[post.id] && (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+                      Loading comments…
+                    </div>
+                  )}
+                  {commentsError[post.id] && !commentsLoading[post.id] && (
+                    <div className="flex items-center gap-2 text-sm text-red-600">
+                      <AlertCircle className="h-4 w-4" />
+                      {commentsError[post.id]}
+                    </div>
+                  )}
+                  {!commentsLoading[post.id] &&
+                    !commentsError[post.id] &&
+                    (commentsByPost[post.id]?.length ?? 0) === 0 && (
+                      <p className="text-sm text-gray-500">No comments yet. Be the first to comment.</p>
+                    )}
+                  {(commentsByPost[post.id] || []).map((c) => (
+                    <div key={c.id} className="flex items-start gap-3">
+                      <div className="h-8 w-8 flex-shrink-0 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        {(c.authorName || 'A').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {c.authorName || 'Alumnus'}
+                          </span>
+                          {c.createdAt && (
+                            <span className="text-xs text-gray-400">
+                              {new Date(c.createdAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-800 mt-1 whitespace-pre-wrap">{c.body}</p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add comment */}
+                  <div className="flex items-start gap-2">
+                    <textarea
+                      value={commentDrafts[post.id] || ''}
+                      onChange={(e) =>
+                        setCommentDrafts((s) => ({ ...s, [post.id]: e.target.value }))
+                      }
+                      placeholder="Write a comment…"
+                      rows={2}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                    <button
+                      onClick={() => handleSubmitComment(post.id)}
+                      disabled={commentSubmitting[post.id]}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1 text-sm"
+                    >
+                      <Send className="h-4 w-4" />
+                      {commentSubmitting[post.id] ? 'Posting…' : 'Post'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

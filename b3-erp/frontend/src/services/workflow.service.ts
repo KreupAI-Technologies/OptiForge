@@ -884,6 +884,21 @@ export class WorkflowService {
   }
 
   /**
+   * Import a workflow template from a parsed JSON definition.
+   * Persists via the backend import endpoint (POST /api/workflow/templates/import),
+   * which strips any incoming id/timestamps and creates a fresh record.
+   */
+  static async importTemplate(definition: Record<string, any>): Promise<WorkflowTemplate> {
+    if (USE_MOCK_DATA) {
+      return this.createTemplate(definition as CreateTemplateDto);
+    }
+    return this.request<WorkflowTemplate>('/api/workflow/templates/import', {
+      method: 'POST',
+      body: JSON.stringify(definition),
+    });
+  }
+
+  /**
    * Update a workflow template (alias for updateTemplate)
    */
   static async updateWorkflowTemplate(id: string, data: Partial<CreateTemplateDto>): Promise<WorkflowTemplate> {

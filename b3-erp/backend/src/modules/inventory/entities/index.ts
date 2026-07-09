@@ -8,3 +8,4 @@ export * from './serial-number.entity';
 export * from './batch-number.entity';
 export * from './adjustment-reason.entity';
 export * from './cycle-count-plan.entity';
+export * from './replenishment.entity';

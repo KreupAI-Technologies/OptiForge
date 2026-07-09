@@ -186,13 +186,44 @@ export default function FinancialPeriodsPage() {
   };
 
   const [checklistStatus, setChecklistStatus] = useState({
-    inventoryValuation: 'pending' as 'completed' | 'pending' | 'in-progress',
-    accrualsProvisions: 'not-started' as 'completed' | 'pending' | 'not-started',
-    managementReview: 'pending' as 'completed' | 'pending' | 'in-progress',
+    inventoryValuation: 'pending' as string,
+    accrualsProvisions: 'not-started' as string,
+    managementReview: 'pending' as string,
   });
+  const [checklistPeriodId, setChecklistPeriodId] = useState<string | null>(null);
 
   const currentYear = financialYears.find((y) => y.yearCode === selectedYear);
   const yearPeriods = periods.filter((p) => p.yearCode === selectedYear);
+
+  // The period whose close-checklist we manage: the current period of the
+  // selected year, else its first period.
+  const checklistPeriod =
+    yearPeriods.find((p) => p.isCurrent) ?? yearPeriods[0] ?? null;
+
+  // Load the backend period-close checklist for the active period and map the
+  // three interactive steps into local status.
+  const loadChecklist = React.useCallback(async (periodId: string): Promise<void> => {
+    try {
+      const res = await FinanceService.getPeriodCloseChecklist(periodId);
+      const steps: any[] = Array.isArray(res?.steps) ? res.steps : [];
+      const byKey = new Map(steps.map((s) => [s.stepKey, s.status]));
+      setChecklistStatus({
+        inventoryValuation: byKey.get('inventory_valuation') ?? 'pending',
+        accrualsProvisions: byKey.get('accruals_provisions') ?? 'not-started',
+        managementReview: byKey.get('management_review') ?? 'pending',
+      });
+      setChecklistPeriodId(periodId);
+    } catch {
+      // Non-fatal: keep default local status if the checklist can't be loaded.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (checklistPeriod?.id) {
+      void loadChecklist(checklistPeriod.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checklistPeriod?.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -220,26 +251,36 @@ export default function FinancialPeriodsPage() {
     }
   };
 
-  const handleInventoryValuation = () => {
-    // Simulate processing
-    setChecklistStatus((prev) => ({ ...prev, inventoryValuation: 'completed' }));
-    setShowInventoryModal(false);
-    alert('Inventory valuation completed successfully!');
+  // Mark a checklist step completed on the backend, then refresh + close modal.
+  const completeChecklistStep = async (
+    stepKey: string,
+    closeModal: () => void,
+    successText: string,
+  ): Promise<void> => {
+    if (!checklistPeriodId) {
+      setActionMessage({ type: 'error', text: 'No financial period selected for the checklist.' });
+      return;
+    }
+    try {
+      await FinanceService.updatePeriodCloseStep(checklistPeriodId, stepKey, {
+        status: 'completed',
+      });
+      await loadChecklist(checklistPeriodId);
+      closeModal();
+      setActionMessage({ type: 'success', text: successText });
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to update checklist step.' });
+    }
   };
 
-  const handleAccrualsProvisions = () => {
-    // Simulate processing
-    setChecklistStatus((prev) => ({ ...prev, accrualsProvisions: 'completed' }));
-    setShowAccrualsModal(false);
-    alert('Accruals and provisions processed successfully!');
-  };
+  const handleInventoryValuation = () =>
+    completeChecklistStep('inventory_valuation', () => setShowInventoryModal(false), 'Inventory valuation marked complete.');
 
-  const handleManagementReview = () => {
-    // Simulate processing
-    setChecklistStatus((prev) => ({ ...prev, managementReview: 'completed' }));
-    setShowReviewModal(false);
-    alert('Management review submitted successfully!');
-  };
+  const handleAccrualsProvisions = () =>
+    completeChecklistStep('accruals_provisions', () => setShowAccrualsModal(false), 'Accruals and provisions marked complete.');
+
+  const handleManagementReview = () =>
+    completeChecklistStep('management_review', () => setShowReviewModal(false), 'Management review marked complete.');
 
   // Close/open a period. No dedicated close endpoint exists, so we PATCH the
   // status via updateFinancialPeriod (status enum: Open | Closed | Locked).

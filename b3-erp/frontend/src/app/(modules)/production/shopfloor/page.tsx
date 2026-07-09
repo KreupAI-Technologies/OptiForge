@@ -132,6 +132,8 @@ export default function ShopfloorTerminalPage() {
 
   // Loading state
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [isEndingShift, setIsEndingShift] = useState(false);
 
   // Work Centers from service
   const [workCenterOptions, setWorkCenterOptions] = useState<string[]>([]);
@@ -168,16 +170,8 @@ export default function ShopfloorTerminalPage() {
         setWorkCenterOptions(data.map((wc: ServiceWorkCenter) => wc.workCenterName));
       } catch (err) {
         console.error('Error fetching work centers:', err);
-        // Fallback to static list if service fails
-        setWorkCenterOptions([
-          'Assembly Line 1',
-          'Assembly Line 2',
-          'Machining Center 1',
-          'Welding Station 1',
-          'Paint Shop 1',
-          'CNC Machine 1',
-          'QC Station 1',
-        ]);
+        // Do not seed fake data; leave the list empty so the dropdown is honest.
+        setWorkCenterOptions([]);
       } finally {
         setLoadingWorkCenters(false);
       }
@@ -185,16 +179,9 @@ export default function ShopfloorTerminalPage() {
     fetchWorkCenters();
   }, []);
 
-  // Fallback work centers (used if loading)
-  const workCenters = workCenterOptions.length > 0 ? workCenterOptions : [
-    'Assembly Line 1',
-    'Assembly Line 2',
-    'Machining Center 1',
-    'Welding Station 1',
-    'Paint Shop 1',
-    'CNC Machine 1',
-    'QC Station 1',
-  ];
+  // Work centers loaded from the service; empty until loaded (login button is
+  // disabled while loadingWorkCenters is true).
+  const workCenters = workCenterOptions;
 
   const shifts = ['Shift 1 (06:00-14:00)', 'Shift 2 (14:00-22:00)', 'Shift 3 (22:00-06:00)'];
 
@@ -501,18 +488,37 @@ export default function ShopfloorTerminalPage() {
     setScreen('materialRequest');
   };
 
-  // Submit Material Request
-  // NEEDS BACKEND: there is no material-request-from-floor endpoint on the allowed
-  // orphan service (createMaterialRequirement is an MRP planning concept, not a
-  // floor-triggered pull request). TODO wire once a shop-floor material-request API exists.
-  const handleSubmitMaterialRequest = () => {
+  // Submit Material Request — raise a shop-floor material pull request.
+  const handleSubmitMaterialRequest = async () => {
     if (!requestedMaterial || requestQuantity <= 0) {
       alert('Please select material and enter quantity');
       return;
     }
 
-    alert('Material request could not be submitted: no shop-floor material-request endpoint is available yet.');
-    setScreen('activeJob');
+    setIsSubmittingRequest(true);
+    try {
+      await ProductionOrphanService.createShopFloorMaterialRequest({
+        workOrderId: activeJob?.id || null,
+        workOrderNumber: activeJob?.woNumber || null,
+        workCenterId: selectedWorkCenter || null,
+        workCenterName: selectedWorkCenter || null,
+        operatorId: operator?.employeeId || null,
+        operatorName: operator?.name || null,
+        itemName: requestedMaterial,
+        itemCode: requestedMaterial,
+        quantity: requestQuantity,
+        urgency: requestUrgency,
+        requestedAt: new Date().toISOString(),
+      });
+      playAudioFeedback('success');
+      alert('Material request submitted.');
+      setScreen('activeJob');
+    } catch (err) {
+      console.error('Error submitting material request:', err);
+      alert('Failed to submit material request. Please try again.');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
   };
 
   // End Shift
@@ -520,11 +526,31 @@ export default function ShopfloorTerminalPage() {
     setScreen('endShift');
   };
 
-  // Confirm End Shift
-  // NEEDS BACKEND: no shift-end / attendance endpoint on the allowed orphan service.
-  // For now this just closes the operator session locally. TODO wire to a shift API.
-  const handleConfirmEndShift = () => {
-    handleLogout();
+  // Confirm End Shift — record an attendance/shift close with the production summary.
+  const handleConfirmEndShift = async () => {
+    setIsEndingShift(true);
+    try {
+      await ProductionOrphanService.endShopFloorShift({
+        operatorId: operator?.employeeId || null,
+        operatorName: operator?.name || null,
+        employeeCode: operator?.employeeId || null,
+        workCenterId: selectedWorkCenter || null,
+        workCenterName: selectedWorkCenter || null,
+        shift: selectedShift || null,
+        totalProduced,
+        totalRejected: totalRejections,
+        totalRework: reworkCount,
+        downtimeMinutes: Math.round(totalDowntime),
+        clockOut: new Date().toISOString(),
+      });
+      playAudioFeedback('logout');
+    } catch (err) {
+      // Record the shift server-side best-effort; still log the operator out.
+      console.error('Error recording end-of-shift:', err);
+    } finally {
+      setIsEndingShift(false);
+      handleLogout();
+    }
   };
 
   // Audio Feedback
@@ -1188,10 +1214,11 @@ export default function ShopfloorTerminalPage() {
         {/* Submit */}
         <button
           onClick={handleSubmitMaterialRequest}
-          className="w-full flex items-center justify-center space-x-4 px-12 py-10 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-3xl font-bold shadow-2xl"
+          disabled={isSubmittingRequest}
+          className="w-full flex items-center justify-center space-x-4 px-12 py-10 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-3xl font-bold shadow-2xl disabled:opacity-60"
         >
           <CheckCircle2 className="w-12 h-12" />
-          <span>Submit Material Request</span>
+          <span>{isSubmittingRequest ? 'Submitting…' : 'Submit Material Request'}</span>
         </button>
       </div>
     );
@@ -1270,9 +1297,10 @@ export default function ShopfloorTerminalPage() {
             </button>
             <button
               onClick={handleConfirmEndShift}
-              className="px-8 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors text-2xl font-semibold shadow-lg"
+              disabled={isEndingShift}
+              className="px-8 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors text-2xl font-semibold shadow-lg disabled:opacity-60"
             >
-              Confirm & Logout
+              {isEndingShift ? 'Ending Shift…' : 'Confirm & Logout'}
             </button>
           </div>
         </div>

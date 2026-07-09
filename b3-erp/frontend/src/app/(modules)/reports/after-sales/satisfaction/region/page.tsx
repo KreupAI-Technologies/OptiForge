@@ -91,7 +91,7 @@ function SatisfactionRegionContent() {
                             {filteredFeedback.map((item) => (
                                 <ClickableTableRow
                                     key={item.id}
-                                    onClick={() => router.push(`/after-sales/feedback/${item.id}`)}
+                                    onClick={() => router.push(`/after-sales-service`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{item.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{item.customer}</td>

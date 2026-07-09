@@ -79,7 +79,7 @@ function ReconciliationStatusContent() {
                             {filteredTransactions.map((txn) => (
                                 <ClickableTableRow
                                     key={txn.id}
-                                    onClick={() => router.push(`/accounts/transactions/${txn.id}`)}
+                                    onClick={() => router.push(`/finance/general-ledger`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{new Date(txn.date).toLocaleDateString()}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{txn.description}</td>

@@ -59,7 +59,7 @@ function AssetsDetailContent() {
                             {assets.map((asset) => (
                                 <ClickableTableRow
                                     key={asset.id}
-                                    onClick={() => router.push(`/accounts/ledger/${asset.id}`)}
+                                    onClick={() => router.push(`/finance/ledger/${asset.id}`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{asset.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{asset.name}</td>

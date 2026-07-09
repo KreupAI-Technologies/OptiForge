@@ -1,6 +1,7 @@
 export * from './boq.controller';
 export * from './cost-estimate.controller';
 export * from './estimate-analytics.controller';
+export * from './estimation-report.controller';
 export * from './estimation-category.controller';
 export * from './labor-cost-rate.controller';
 export * from './material-cost-rate.controller';
@@ -15,3 +16,4 @@ export * from './report-schedule.controller';
 export * from './estimate-comment.controller';
 export * from './whatif-scenario.controller';
 export * from './bom-import-session.controller';
+export * from './estimate-send-record.controller';

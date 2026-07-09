@@ -167,6 +167,7 @@ const CapacityPlanningPage = () => {
   const [workCenters, setWorkCenters] = useState<WorkCenterCapacity[]>([]);
   const [capacityLoadError, setCapacityLoadError] = useState<string | null>(null);
   const [capacityActionMessage, setCapacityActionMessage] = useState<string | null>(null);
+  const [capacityActionBusy, setCapacityActionBusy] = useState(false);
 
 
   // Mock Data - Capacity vs Load by Period
@@ -598,16 +599,50 @@ const CapacityPlanningPage = () => {
     return 'text-red-600';
   };
 
-  // Optimize Schedule
-  // NEEDS BACKEND: capacity-plan controller has no optimize route. Surface a note.
-  const optimizeSchedule = () => {
-    setCapacityActionMessage('Schedule optimization is not available yet (no backend endpoint).');
+  // Optimize Schedule — runs the deterministic level-load pass for every loaded
+  // capacity plan via POST /production/capacity-plans/:id/optimize.
+  const optimizeSchedule = async () => {
+    const ids = workCenters.map((wc) => wc.id).filter(Boolean);
+    if (ids.length === 0) {
+      setCapacityActionMessage('No capacity plans available to optimize.');
+      return;
+    }
+    setCapacityActionBusy(true);
+    setCapacityActionMessage(null);
+    try {
+      await Promise.all(ids.map((id) => ProductionOrphanService.optimizeCapacityPlan(id)));
+      setCapacityActionMessage(`Optimized ${ids.length} capacity plan(s).`);
+      await loadCapacity();
+    } catch (err) {
+      setCapacityActionMessage(
+        err instanceof Error ? err.message : 'Failed to optimize schedule.',
+      );
+    } finally {
+      setCapacityActionBusy(false);
+    }
   };
 
-  // Plan Overtime
-  // NEEDS BACKEND: no overtime-planning endpoint reachable from this page.
-  const planOvertime = () => {
-    setCapacityActionMessage('Overtime planning is not available yet (no backend endpoint).');
+  // Plan Overtime — persists overtime allocations covering the shortfall for each
+  // loaded capacity plan via POST /production/capacity-plans/:id/plan-overtime.
+  const planOvertime = async () => {
+    const ids = workCenters.map((wc) => wc.id).filter(Boolean);
+    if (ids.length === 0) {
+      setCapacityActionMessage('No capacity plans available for overtime planning.');
+      return;
+    }
+    setCapacityActionBusy(true);
+    setCapacityActionMessage(null);
+    try {
+      await Promise.all(ids.map((id) => ProductionOrphanService.planCapacityOvertime(id)));
+      setCapacityActionMessage(`Overtime planned for ${ids.length} capacity plan(s).`);
+      await loadCapacity();
+    } catch (err) {
+      setCapacityActionMessage(
+        err instanceof Error ? err.message : 'Failed to plan overtime.',
+      );
+    } finally {
+      setCapacityActionBusy(false);
+    }
   };
 
   // Export Report
@@ -677,6 +712,22 @@ const CapacityPlanningPage = () => {
             >
               {editMode ? <Eye className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
               {editMode ? 'View Mode' : 'Edit Mode'}
+            </button>
+            <button
+              onClick={optimizeSchedule}
+              disabled={capacityActionBusy}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Settings className="h-4 w-4" />
+              {capacityActionBusy ? 'Working…' : 'Optimize Schedule'}
+            </button>
+            <button
+              onClick={planOvertime}
+              disabled={capacityActionBusy}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Clock className="h-4 w-4" />
+              {capacityActionBusy ? 'Working…' : 'Plan Overtime'}
             </button>
             <button
               onClick={() => setShowSettings(true)}

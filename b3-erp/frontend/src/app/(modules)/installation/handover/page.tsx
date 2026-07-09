@@ -30,25 +30,13 @@ interface ProjectInfo {
     status: string;
 }
 
-interface ClientHandover {
+interface HandoverStep {
     id: string;
-    woNumber: string;
-    projectName: string;
-    client: string;
-    status: 'Preparing' | 'Client Review' | 'Final Approval' | 'Handover Complete' | 'Closed';
-    handover: {
-        workPhotosUploaded: boolean;
-        clientDailyReviews: number;
-        finalApproval: boolean;
-        cleaningComplete: boolean;
-        toolsReturned: boolean;
-        handoverCeremonyDone: boolean;
-        clientSigned: boolean;
-        projectClosed: boolean;
-    };
-    completionDate?: string;
-    signatureDate?: string;
-    closureDate?: string;
+    stepNo: number;
+    title: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    notes?: string | null;
+    completedAt?: string | null;
 }
 
 function ClientHandoverPageContent() {
@@ -62,10 +50,11 @@ function ClientHandoverPageContent() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    const [handovers, setHandovers] = useState<ClientHandover[]>([]);
+    const [steps, setSteps] = useState<HandoverStep[]>([]);
     const [isLoadingClosure, setIsLoadingClosure] = useState(false);
     const [closureError, setClosureError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [updatingStepId, setUpdatingStepId] = useState<string | null>(null);
 
     useEffect(() => {
         loadProjects();
@@ -73,47 +62,65 @@ function ClientHandoverPageContent() {
 
     useEffect(() => {
         if (selectedProject) {
-            loadClosureStatus(selectedProject);
+            loadChecklist(selectedProject);
         } else {
-            setHandovers([]);
+            setSteps([]);
             setClosureError(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProject]);
 
-    const loadClosureStatus = async (project: ProjectInfo) => {
+    const loadChecklist = async (project: ProjectInfo) => {
         setIsLoadingClosure(true);
         setClosureError(null);
         try {
-            const status: any = await projectManagementService.getProjectClosureStatus(project.id);
-            const snag = !!status?.snagClearance;
-            const billing = !!status?.billingCleared;
-            const ready = !!status?.handoverReady;
-            setHandovers([
-                {
-                    id: project.id,
-                    woNumber: project.id,
-                    projectName: project.name,
-                    client: project.clientName,
-                    status: ready ? 'Final Approval' : 'Preparing',
-                    handover: {
-                        workPhotosUploaded: snag,
-                        clientDailyReviews: 0,
-                        finalApproval: ready,
-                        cleaningComplete: snag,
-                        toolsReturned: snag,
-                        handoverCeremonyDone: false,
-                        clientSigned: false,
-                        projectClosed: false,
-                    },
-                },
-            ]);
+            const data = await projectManagementService.getHandoverChecklist(project.id);
+            const list: HandoverStep[] = (Array.isArray(data) ? data : [])
+                .map((s: any) => ({
+                    id: String(s.id),
+                    stepNo: Number(s.stepNo),
+                    title: String(s.title),
+                    status: s.status,
+                    notes: s.notes ?? null,
+                    completedAt: s.completedAt ?? null,
+                }))
+                .sort((a, b) => a.stepNo - b.stepNo);
+            setSteps(list);
         } catch (error) {
-            console.error('Error loading closure status:', error);
-            setClosureError('Could not load handover status for this project.');
-            setHandovers([]);
+            console.error('Error loading handover checklist:', error);
+            setClosureError('Could not load handover checklist for this project.');
+            setSteps([]);
         } finally {
             setIsLoadingClosure(false);
+        }
+    };
+
+    const handleToggleStep = async (step: HandoverStep) => {
+        if (!selectedProject) return;
+        const nextStatus = step.status === 'completed' ? 'pending' : 'completed';
+        setUpdatingStepId(step.id);
+        try {
+            const updated = await projectManagementService.updateHandoverStep(step.id, { status: nextStatus });
+            setSteps(prev =>
+                prev.map(s =>
+                    s.id === step.id
+                        ? {
+                            ...s,
+                            status: (updated?.status ?? nextStatus) as HandoverStep['status'],
+                            completedAt: updated?.completedAt ?? (nextStatus === 'completed' ? new Date().toISOString() : null),
+                        }
+                        : s,
+                ),
+            );
+        } catch (error) {
+            console.error('Error updating handover step:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Update Failed',
+                description: 'Could not update this handover step. Please try again.',
+            });
+        } finally {
+            setUpdatingStepId(null);
         }
     };
 
@@ -174,31 +181,18 @@ function ClientHandoverPageContent() {
         p.clientName.toLowerCase().includes(projectSearch.toLowerCase())
     );
 
-    const filteredHandovers = handovers.filter(
-        (h) => filterStatus === 'all' || h.status === filterStatus
+    const filteredSteps = steps.filter(
+        (s) => filterStatus === 'all' || s.status === filterStatus
     );
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'Closed':
-                return 'bg-green-100 text-green-800 border-green-300';
-            case 'Handover Complete':
-                return 'bg-blue-100 text-blue-800 border-blue-300';
-            case 'Final Approval':
-                return 'bg-purple-100 text-purple-800 border-purple-300';
-            case 'Client Review':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-            case 'Preparing':
-                return 'bg-gray-100 text-gray-800 border-gray-300';
-            default:
-                return 'bg-gray-100 text-gray-800 border-gray-300';
-        }
-    };
+    const completedSteps = steps.filter((s) => s.status === 'completed').length;
+    const totalSteps = steps.length;
+    const percentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
 
     const stats = {
-        total: handovers.length,
-        closed: handovers.filter((h) => h.status === 'Closed').length,
-        pending: handovers.filter((h) => h.status !== 'Closed').length,
+        total: totalSteps,
+        closed: completedSteps,
+        pending: totalSteps - completedSteps,
     };
 
     if (!selectedProject) {
@@ -331,146 +325,82 @@ function ClientHandoverPageContent() {
                         onChange={(e) => setFilterStatus(e.target.value)}
                         className="px-4 py-2 border rounded-lg"
                     >
-                        <option value="all">All Status</option>
-                        <option value="Preparing">Preparing</option>
-                        <option value="Client Review">Client Review</option>
-                        <option value="Final Approval">Final Approval</option>
-                        <option value="Handover Complete">Handover Complete</option>
-                        <option value="Closed">Closed</option>
+                        <option value="all">All Steps</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
                     </select>
                 </div>
 
-                {/* Handovers List */}
+                {/* Handover Checklist (8.13-8.20) */}
                 {isLoadingClosure ? (
                     <div className="flex items-center justify-center py-12 bg-white rounded-lg border">
                         <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
-                        <span className="ml-2 text-gray-600">Loading handover status...</span>
+                        <span className="ml-2 text-gray-600">Loading handover checklist...</span>
                     </div>
                 ) : closureError ? (
                     <div className="bg-white rounded-lg border p-6 text-center text-red-600">{closureError}</div>
-                ) : filteredHandovers.length === 0 ? (
+                ) : steps.length === 0 ? (
                     <div className="bg-white rounded-lg border p-6 text-center text-gray-500">
-                        No handover records for this project yet.
+                        No handover checklist for this project yet.
                     </div>
                 ) : (
-                <div className="grid gap-2">
-                    {filteredHandovers.map((handover) => {
-                        const handoverArray = Object.values(handover.handover).filter(v => typeof v === 'boolean');
-                        const completedSteps = handoverArray.filter(Boolean).length;
-                        const totalSteps = handoverArray.length;
-                        const percentage = (completedSteps / totalSteps) * 100;
-
-                        return (
-                            <div key={handover.id} className="bg-white rounded-lg border p-3 hover:shadow-lg transition">
-                                <div className="flex items-start gap-2">
-                                    <div className={`w-16 h-16 rounded-lg ${handover.status === 'Closed' ? 'bg-green-500' : 'bg-blue-500'} flex items-center justify-center`}>
-                                        {handover.status === 'Closed' ? (
-                                            <Award className="w-8 h-8 text-white" />
-                                        ) : (
-                                            <FileText className="w-8 h-8 text-white" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div>
-                                                <h3 className="text-xl font-bold">{handover.projectName}</h3>
-                                                <p className="text-sm text-gray-600">{handover.woNumber} - {handover.client}</p>
-                                            </div>
-                                            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(handover.status)}`}>
-                                                {handover.status}
-                                            </span>
-                                        </div>
-
-                                        {/* Progress */}
-                                        <div className="mb-3">
-                                            <div className="flex items-center justify-between text-xs mb-1">
-                                                <span className="font-semibold text-gray-700">
-                                                    Handover Progress: {completedSteps}/{totalSteps} steps ({percentage.toFixed(0)}%)
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                                                <div
-                                                    className={`h-2.5 rounded-full ${handover.status === 'Closed' ? 'bg-green-500' : 'bg-blue-500'}`}
-                                                    style={{ width: `${percentage}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        {/* Handover Checklist */}
-                                        <div className="bg-gray-50 border border-gray-200 rounded p-3 mb-2">
-                                            <p className="text-xs font-semibold text-gray-700 mb-2">Handover Checklist (8.13-8.20):</p>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div className={`flex items-center gap-2 text-xs ${handover.handover.workPhotosUploaded ? 'text-green-600' : 'text-gray-500'}`}>
-                                                    {handover.handover.workPhotosUploaded ? <CheckCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-                                                    <span>8.13 - Work Photos Uploaded</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs text-blue-600">
-                                                    <User className="w-4 h-4" />
-                                                    <span>8.14 - {handover.handover.clientDailyReviews} Client Reviews</span>
-                                                </div>
-                                                <div className={`flex items-center gap-2 text-xs ${handover.handover.finalApproval ? 'text-green-600' : 'text-gray-500'}`}>
-                                                    {handover.handover.finalApproval ? <CheckCircle className="w-4 h-4" /> : <Award className="w-4 h-4" />}
-                                                    <span>8.15 - Final Approval</span>
-                                                </div>
-                                                <div className={`flex items-center gap-2 text-xs ${handover.handover.cleaningComplete ? 'text-green-600' : 'text-gray-500'}`}>
-                                                    {handover.handover.cleaningComplete ? <CheckCircle className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                                                    <span>8.16 - Cleaning Complete</span>
-                                                </div>
-                                                <div className={`flex items-center gap-2 text-xs ${handover.handover.toolsReturned ? 'text-green-600' : 'text-gray-500'}`}>
-                                                    {handover.handover.toolsReturned ? <CheckCircle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                                                    <span>8.17 - Tools Returned</span>
-                                                </div>
-                                                <div className={`flex items-center gap-2 text-xs ${handover.handover.handoverCeremonyDone ? 'text-green-600' : 'text-gray-500'}`}>
-                                                    {handover.handover.handoverCeremonyDone ? <CheckCircle className="w-4 h-4" /> : <Award className="w-4 h-4" />}
-                                                    <span>8.18 - Handover Ceremony</span>
-                                                </div>
-                                                <div className={`flex items-center gap-2 text-xs ${handover.handover.clientSigned ? 'text-green-600' : 'text-gray-500'}`}>
-                                                    {handover.handover.clientSigned ? <CheckCircle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                                                    <span>8.19 - Client Signature</span>
-                                                </div>
-                                                <div className={`flex items-center gap-2 text-xs ${handover.handover.projectClosed ? 'text-green-600' : 'text-gray-500'}`}>
-                                                    {handover.handover.projectClosed ? <CheckCircle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                                                    <span>8.20 - Project Closed</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Dates */}
-                                        <div className="grid grid-cols-3 gap-2 text-sm">
-                                            {handover.completionDate && (
-                                                <div className="bg-blue-50 border border-blue-200 rounded p-2">
-                                                    <p className="text-xs text-blue-600">Completion</p>
-                                                    <p className="font-medium text-blue-800 flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {handover.completionDate}
-                                                    </p>
-                                                </div>
-                                            )}
-                                            {handover.signatureDate && (
-                                                <div className="bg-green-50 border border-green-200 rounded p-2">
-                                                    <p className="text-xs text-green-600">Signature</p>
-                                                    <p className="font-medium text-green-800 flex items-center gap-1">
-                                                        <FileText className="w-3 h-3" />
-                                                        {handover.signatureDate}
-                                                    </p>
-                                                </div>
-                                            )}
-                                            {handover.closureDate && (
-                                                <div className="bg-purple-50 border border-purple-200 rounded p-2">
-                                                    <p className="text-xs text-purple-600">Closure</p>
-                                                    <p className="font-medium text-purple-800 flex items-center gap-1">
-                                                        <Award className="w-3 h-3" />
-                                                        {handover.closureDate}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                    <div className="bg-white rounded-lg border p-3 space-y-3">
+                        {/* Overall progress */}
+                        <div>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                                <span className="font-semibold text-gray-700">
+                                    Handover Progress: {completedSteps}/{totalSteps} steps ({percentage.toFixed(0)}%)
+                                </span>
                             </div>
-                        );
-                    })}
-                </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                    className={`h-2.5 rounded-full ${percentage >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                                    style={{ width: `${percentage}%` }}
+                                ></div>
+                            </div>
+                        </div>
+
+                        <p className="text-xs font-semibold text-gray-700">Handover Checklist (8.13-8.20)</p>
+                        <div className="grid gap-2">
+                            {filteredSteps.map((step) => {
+                                const done = step.status === 'completed';
+                                return (
+                                    <button
+                                        key={step.id}
+                                        type="button"
+                                        onClick={() => handleToggleStep(step)}
+                                        disabled={updatingStepId === step.id}
+                                        className={`w-full text-left flex items-center justify-between gap-3 rounded-lg border p-3 transition hover:bg-gray-50 ${done ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {updatingStepId === step.id ? (
+                                                <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+                                            ) : done ? (
+                                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                            ) : (
+                                                <FileText className="w-5 h-5 text-gray-400" />
+                                            )}
+                                            <div>
+                                                <p className={`text-sm font-medium ${done ? 'text-green-800' : 'text-gray-800'}`}>
+                                                    8.{12 + step.stepNo} - {step.title}
+                                                </p>
+                                                {step.completedAt && done && (
+                                                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                                        <Calendar className="w-3 h-3" />
+                                                        {String(step.completedAt).slice(0, 10)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span className={`px-2 py-0.5 text-xs rounded-full border ${done ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-600 border-gray-300'}`}>
+                                            {done ? 'Completed' : step.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

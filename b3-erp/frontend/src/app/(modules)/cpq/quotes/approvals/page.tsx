@@ -611,7 +611,7 @@ export default function CPQQuotesApprovalsPage() {
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  router.push(`/cpq/quotes/builder?id=${approval.quoteNumber}`)
+                  router.push(`/cpq/quotes/create?id=${approval.quoteNumber}`)
                 }}
                 className="flex-1 px-4 py-2 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-2 transition-colors"
               >

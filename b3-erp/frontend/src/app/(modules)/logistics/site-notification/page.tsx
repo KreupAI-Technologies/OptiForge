@@ -136,6 +136,17 @@ export default function SiteNotificationPage() {
         setSubmitting(true);
         try {
             const coordination = await resolveCoordination(selectedProject);
+            const notifiedMembers = teamMembers.filter(m => selectedTeam.includes(m.id));
+            await LogisticsService.notify({
+                audience: 'site',
+                channel: 'in_app',
+                projectId: selectedProject.id,
+                woNumber: selectedProject.projectCode || selectedProject.id,
+                coordinationId: coordination.id,
+                subject: `Installation Required - ${selectedProject.name} Delivered`,
+                message: `Materials for ${selectedProject.name} (${selectedProject.clientName}) have been delivered to site. Please coordinate installation scheduling.`,
+                recipients: notifiedMembers.map(m => ({ name: m.name, role: m.role, phone: m.phone })),
+            });
             await LogisticsService.updateDeliveryCoordination(coordination.id, {
                 siteContactNotified: true,
                 status: 'Site Informed',

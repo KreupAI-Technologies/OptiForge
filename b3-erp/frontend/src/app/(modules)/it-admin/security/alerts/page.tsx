@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bell, AlertTriangle, Shield, Lock, Users, Activity, XCircle, CheckCircle2, Clock, Settings, Mail, Smartphone, Download, Eye, Trash2 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
-import { ItAdminService, SecurityAlertDto } from '@/services/it-admin.service';
+import { ItAdminService, SecurityAlertDto, AlertRuleDto } from '@/services/it-admin.service';
 
 interface SecurityAlert {
   id: string;
@@ -81,80 +81,40 @@ const SecurityAlertsPage = () => {
     loadAlerts();
   }, [loadAlerts]);
 
-  const [alertRules] = useState<AlertRule[]>([
-    {
-      id: '1',
-      name: 'Multiple Failed Login Attempts',
-      description: 'Alert when user has 3+ failed login attempts in 10 minutes',
-      category: 'Authentication',
-      severity: 'High',
-      enabled: true,
-      conditions: ['Failed login count >= 3', 'Time window = 10 minutes'],
-      actions: ['Lock account for 30 minutes', 'Send alert to security team'],
-      notifyVia: ['Email', 'SMS'],
-      recipients: ['security@company.com', 'IT Admin'],
-    },
-    {
-      id: '2',
-      name: 'Access from New Location',
-      description: 'Alert when user logs in from a new country or city',
-      category: 'Behavior',
-      severity: 'Medium',
-      enabled: true,
-      conditions: ['Location not in user profile', 'First access from location'],
-      actions: ['Require additional verification', 'Log event'],
-      notifyVia: ['Email'],
-      recipients: ['User', 'security@company.com'],
-    },
-    {
-      id: '3',
-      name: 'Privilege Escalation Attempt',
-      description: 'Alert when user attempts to access resources above their permission level',
-      category: 'Access Control',
-      severity: 'Critical',
-      enabled: true,
-      conditions: ['Access denied due to insufficient permissions', 'Admin panel access attempt'],
-      actions: ['Block access', 'Create incident', 'Alert security team'],
-      notifyVia: ['Email', 'SMS', 'Push'],
-      recipients: ['Security Admin', 'IT Manager'],
-    },
-    {
-      id: '4',
-      name: 'Weak Password Usage',
-      description: 'Alert when user sets a password that doesn\'t meet security requirements',
-      category: 'Password',
-      severity: 'Medium',
-      enabled: true,
-      conditions: ['Password strength score < 3', 'Common password detected'],
-      actions: ['Reject password', 'Force password change', 'Send security tips'],
-      notifyVia: ['Email'],
-      recipients: ['User'],
-    },
-    {
-      id: '5',
-      name: 'Unusual Data Access Pattern',
-      description: 'Alert when user accesses unusually large amount of data',
-      category: 'Data Access',
-      severity: 'High',
-      enabled: true,
-      conditions: ['Record access > 500 in 1 hour', 'Bulk download initiated'],
-      actions: ['Log activity', 'Alert supervisor', 'Require justification'],
-      notifyVia: ['Email'],
-      recipients: ['User Manager', 'DLP Admin'],
-    },
-    {
-      id: '6',
-      name: 'Session Timeout Warning',
-      description: 'Alert user before session expires due to inactivity',
-      category: 'Session',
-      severity: 'Low',
-      enabled: true,
-      conditions: ['Idle time > 25 minutes', 'Session timeout = 30 minutes'],
-      actions: ['Display warning popup', 'Extend session if user responds'],
-      notifyVia: ['In-App'],
-      recipients: ['User'],
-    },
-  ]);
+  const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [rulesError, setRulesError] = useState<string | null>(null);
+
+  const mapRule = (r: AlertRuleDto): AlertRule => ({
+    id: r.id,
+    name: r.name,
+    description: r.description ?? '',
+    category: r.category,
+    severity: r.severity,
+    enabled: r.enabled,
+    conditions: r.conditions ?? [],
+    actions: r.actions ?? [],
+    notifyVia: r.notifyVia ?? [],
+    recipients: r.recipients ?? [],
+  });
+
+  const loadRules = useCallback(async () => {
+    setRulesLoading(true);
+    setRulesError(null);
+    try {
+      const data = await ItAdminService.getAlertRules();
+      setAlertRules((data ?? []).map(mapRule));
+    } catch (e) {
+      setRulesError(e instanceof Error ? e.message : 'Failed to load alert rules');
+      setAlertRules([]);
+    } finally {
+      setRulesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRules();
+  }, [loadRules]);
 
   const stats = {
     totalAlerts: alerts.length,
@@ -282,8 +242,25 @@ const SecurityAlertsPage = () => {
     exportToCsv('security-alerts', filteredAlerts as unknown as Record<string, unknown>[]);
   };
 
-  const handleToggleRule = (ruleId: string) => {
-    alert(`Alert rule ${ruleId} toggled`);
+  const handleToggleRule = async (ruleId: string) => {
+    const current = alertRules.find((r) => r.id === ruleId);
+    if (!current) return;
+    const nextEnabled = !current.enabled;
+    // Optimistic update, reverting on failure.
+    setAlertRules((prev) =>
+      prev.map((r) => (r.id === ruleId ? { ...r, enabled: nextEnabled } : r)),
+    );
+    setBanner(null);
+    try {
+      const updated = await ItAdminService.updateAlertRule(ruleId, { enabled: nextEnabled });
+      setAlertRules((prev) => prev.map((r) => (r.id === ruleId ? mapRule(updated) : r)));
+      setBanner({ type: 'success', text: `Rule ${nextEnabled ? 'enabled' : 'disabled'}.` });
+    } catch (e) {
+      setAlertRules((prev) =>
+        prev.map((r) => (r.id === ruleId ? { ...r, enabled: current.enabled } : r)),
+      );
+      setBanner({ type: 'error', text: e instanceof Error ? e.message : 'Failed to update rule' });
+    }
   };
 
   return (
@@ -567,6 +544,18 @@ const SecurityAlertsPage = () => {
         {/* Alert Rules Tab */}
         {activeTab === 'rules' && (
           <div className="p-6">
+            {rulesLoading && (
+              <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading alert rules...</div>
+            )}
+            {rulesError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{rulesError}</div>
+            )}
+            {!rulesLoading && !rulesError && alertRules.length === 0 && (
+              <div className="text-center py-12">
+                <Settings className="w-12 h-12 text-gray-400 mb-3 mx-auto" />
+                <p className="text-gray-600">No alert rules configured</p>
+              </div>
+            )}
             <div className="space-y-2">
               {alertRules.map((rule) => (
                 <div key={rule.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">

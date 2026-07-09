@@ -751,7 +751,11 @@ export default function ContractsPage() {
                         <FilePlus className="h-4 w-4" />
                         Add Amendment
                       </button>
-                      <button className="px-3 py-1.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-1">
+                      <button
+                        disabled
+                        title="Contract history is not yet available"
+                        className="px-3 py-1.5 text-gray-400 bg-white border border-gray-200 rounded-lg text-sm flex items-center gap-1 cursor-not-allowed"
+                      >
                         <History className="h-4 w-4" />
                         View History
                       </button>
@@ -824,7 +828,11 @@ export default function ContractsPage() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button
+                disabled
+                title="Document upload is not yet available"
+                className="px-4 py-2 bg-blue-300 text-white rounded-lg cursor-not-allowed"
+              >
                 Upload Documents
               </button>
             </div>

@@ -59,7 +59,7 @@ function LiabilitiesDetailContent() {
                             {liabilities.map((liability) => (
                                 <ClickableTableRow
                                     key={liability.id}
-                                    onClick={() => router.push(`/accounts/ledger/${liability.id}`)}
+                                    onClick={() => router.push(`/finance/ledger/${liability.id}`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{liability.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{liability.name}</td>

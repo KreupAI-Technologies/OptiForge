@@ -23,6 +23,21 @@ import {
   type StockAudit,
   type AssetDashboardStats,
 } from '@/services/asset-management.service';
+import {
+  HrAssetsService,
+  type AssetTransfer as HrAssetTransfer,
+  type AssetReturn as HrAssetReturn,
+  type AssetMaintenance as HrAssetMaintenance,
+  type PreventiveMaintenance as HrPreventiveMaintenance,
+  type AssetInventory as HrAssetInventory,
+  type AssetRequest as HrStockRequest,
+  type AssetAllocation as HrAssetAllocation,
+  type AssetRegisterReport,
+  type EmployeeAssetReport,
+  type DepartmentAssetReport,
+  type CostSummaryReport,
+  type AllocationSummaryReport,
+} from '@/services/hr-assets.service';
 
 // ============================================================================
 // Types
@@ -488,6 +503,530 @@ function StockAuditSection({ audits }: { audits: StockAudit[] }) {
 }
 
 // ============================================================================
+// Shared async-section helpers (loading / error / empty)
+// ============================================================================
+
+interface AsyncState<T> {
+  data: T;
+  loading: boolean;
+  error: string | null;
+}
+
+function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-semibold text-white">{title}</h3>
+      {action}
+    </div>
+  );
+}
+
+function AsyncTable<T>({
+  title,
+  state,
+  columns,
+  emptyText,
+  colSpan,
+  onRetry,
+  children,
+}: {
+  title: string;
+  state: AsyncState<T[]>;
+  columns: string[];
+  emptyText: string;
+  colSpan: number;
+  onRetry: () => void;
+  children: (rows: T[]) => React.ReactNode;
+}) {
+  return (
+    <div className="space-y-4">
+      <SectionHeader title={title} />
+      <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-900">
+            <tr>
+              {columns.map((c) => (
+                <th key={c} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700">
+            {state.loading ? (
+              <tr>
+                <td colSpan={colSpan} className="px-4 py-8 text-center text-gray-500">
+                  Loading...
+                </td>
+              </tr>
+            ) : state.error ? (
+              <tr>
+                <td colSpan={colSpan} className="px-4 py-8 text-center">
+                  <div className="flex flex-col items-center gap-2 text-red-400">
+                    <AlertCircle className="h-5 w-5" />
+                    <span className="text-sm">{state.error}</span>
+                    <button onClick={onRetry} className="text-blue-400 hover:text-blue-300 text-sm underline">
+                      Retry
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ) : state.data.length === 0 ? (
+              <tr>
+                <td colSpan={colSpan} className="px-4 py-8 text-center text-gray-500">
+                  {emptyText}
+                </td>
+              </tr>
+            ) : (
+              children(state.data)
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const money = (v: number | string | undefined | null): string => {
+  const n = Number(v);
+  return Number.isFinite(n) ? `₹${n.toLocaleString()}` : '-';
+};
+
+const statusPill = (status?: string) => (
+  <span className="px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 capitalize">
+    {(status || '-').replace(/_/g, ' ')}
+  </span>
+);
+
+// ============================================================================
+// Asset Transfer Section
+// ============================================================================
+
+function TransferSection({ state, onRetry }: { state: AsyncState<HrAssetTransfer[]>; onRetry: () => void }) {
+  return (
+    <AsyncTable
+      title="Asset Transfers"
+      state={state}
+      onRetry={onRetry}
+      colSpan={7}
+      emptyText="No asset transfers recorded"
+      columns={['Transfer #', 'Asset', 'From', 'To', 'Date', 'Reason', 'Status']}
+    >
+      {(rows) =>
+        rows.map((t) => (
+          <tr key={t.id} className="hover:bg-gray-750">
+            <td className="px-4 py-3">
+              <span className="text-blue-400 font-mono text-sm">{t.transferId || t.id.slice(0, 8)}</span>
+            </td>
+            <td className="px-4 py-3">
+              <p className="text-white">{t.assetTag || '-'}</p>
+              <p className="text-xs text-gray-500">{t.assetCategory || t.assetType || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">
+              <p>{t.fromEmployee || '-'}</p>
+              <p className="text-xs text-gray-500">{t.fromDepartment || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">
+              <p>{t.toEmployee || '-'}</p>
+              <p className="text-xs text-gray-500">{t.toDepartment || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">{t.initiatedDate || '-'}</td>
+            <td className="px-4 py-3 text-gray-300 text-sm truncate max-w-xs">{t.transferReason || '-'}</td>
+            <td className="px-4 py-3">{statusPill(t.status)}</td>
+          </tr>
+        ))
+      }
+    </AsyncTable>
+  );
+}
+
+// ============================================================================
+// Asset Return Section
+// ============================================================================
+
+function ReturnSection({ state, onRetry }: { state: AsyncState<HrAssetReturn[]>; onRetry: () => void }) {
+  return (
+    <AsyncTable
+      title="Asset Returns"
+      state={state}
+      onRetry={onRetry}
+      colSpan={7}
+      emptyText="No asset returns recorded"
+      columns={['Return #', 'Asset', 'Returned By', 'Return Date', 'Condition', 'Damage Charges', 'Status']}
+    >
+      {(rows) =>
+        rows.map((r) => (
+          <tr key={r.id} className="hover:bg-gray-750">
+            <td className="px-4 py-3">
+              <span className="text-blue-400 font-mono text-sm">{r.returnId || r.id.slice(0, 8)}</span>
+            </td>
+            <td className="px-4 py-3">
+              <p className="text-white">{r.assetTag || '-'}</p>
+              <p className="text-xs text-gray-500">{r.assetCategory || r.assetType || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">
+              <p>{r.returnedBy || '-'}</p>
+              <p className="text-xs text-gray-500">{r.department || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">{r.returnDate || '-'}</td>
+            <td className="px-4 py-3 text-gray-300 capitalize">{r.condition || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.damageCharges)}</td>
+            <td className="px-4 py-3">{statusPill(r.status)}</td>
+          </tr>
+        ))
+      }
+    </AsyncTable>
+  );
+}
+
+// ============================================================================
+// Preventive Maintenance Section
+// ============================================================================
+
+function PreventiveSection({ state, onRetry }: { state: AsyncState<HrPreventiveMaintenance[]>; onRetry: () => void }) {
+  return (
+    <AsyncTable
+      title="Preventive Maintenance Schedules"
+      state={state}
+      onRetry={onRetry}
+      colSpan={7}
+      emptyText="No preventive maintenance schedules"
+      columns={['Schedule #', 'Asset', 'Type', 'Frequency', 'Last', 'Next', 'Status']}
+    >
+      {(rows) =>
+        rows.map((p) => (
+          <tr key={p.id} className="hover:bg-gray-750">
+            <td className="px-4 py-3">
+              <span className="text-blue-400 font-mono text-sm">{p.scheduleId || p.id.slice(0, 8)}</span>
+            </td>
+            <td className="px-4 py-3">
+              <p className="text-white">{p.assetName || p.assetTag || '-'}</p>
+              <p className="text-xs text-gray-500">{p.assetCategory || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300 capitalize">{(p.maintenanceType || '-').replace(/_/g, ' ')}</td>
+            <td className="px-4 py-3 text-gray-300 capitalize">{p.frequency || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{p.lastMaintenanceDate || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{p.nextMaintenanceDate || '-'}</td>
+            <td className="px-4 py-3">{statusPill(p.status)}</td>
+          </tr>
+        ))
+      }
+    </AsyncTable>
+  );
+}
+
+// ============================================================================
+// Repair History Section
+// ============================================================================
+
+function RepairHistorySection({ state, onRetry }: { state: AsyncState<HrAssetMaintenance[]>; onRetry: () => void }) {
+  return (
+    <AsyncTable
+      title="Repair History"
+      state={state}
+      onRetry={onRetry}
+      colSpan={7}
+      emptyText="No repair history records"
+      columns={['Ticket #', 'Asset', 'Issue', 'Completed', 'Vendor', 'Cost', 'Status']}
+    >
+      {(rows) =>
+        rows.map((m) => (
+          <tr key={m.id} className="hover:bg-gray-750">
+            <td className="px-4 py-3">
+              <span className="text-blue-400 font-mono text-sm">{m.ticketId || m.requestId || m.id.slice(0, 8)}</span>
+            </td>
+            <td className="px-4 py-3">
+              <p className="text-white">{m.assetName || m.assetTag || '-'}</p>
+              <p className="text-xs text-gray-500">{m.assetCategory || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300 text-sm truncate max-w-xs">
+              {m.issueDescription || m.issueType || '-'}
+            </td>
+            <td className="px-4 py-3 text-gray-300">{m.completionDate || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{m.vendor || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{money(m.cost)}</td>
+            <td className="px-4 py-3">{statusPill(m.status)}</td>
+          </tr>
+        ))
+      }
+    </AsyncTable>
+  );
+}
+
+// ============================================================================
+// Stock Management Section
+// ============================================================================
+
+function StockManagementSection({ state, onRetry }: { state: AsyncState<HrAssetInventory[]>; onRetry: () => void }) {
+  return (
+    <AsyncTable
+      title="Stock Management"
+      state={state}
+      onRetry={onRetry}
+      colSpan={8}
+      emptyText="No stock records"
+      columns={['Code', 'Asset', 'Category', 'Total', 'Allocated', 'Available', 'Value', 'Status']}
+    >
+      {(rows) =>
+        rows.map((s) => (
+          <tr key={s.id} className="hover:bg-gray-750">
+            <td className="px-4 py-3">
+              <span className="text-blue-400 font-mono text-sm">{s.assetCode || s.id.slice(0, 8)}</span>
+            </td>
+            <td className="px-4 py-3 text-white">{s.assetName || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{s.category || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{s.totalQuantity ?? 0}</td>
+            <td className="px-4 py-3 text-gray-300">{s.allocated ?? 0}</td>
+            <td className="px-4 py-3 text-gray-300">{s.available ?? 0}</td>
+            <td className="px-4 py-3 text-gray-300">{money(s.totalValue)}</td>
+            <td className="px-4 py-3">{statusPill(s.status)}</td>
+          </tr>
+        ))
+      }
+    </AsyncTable>
+  );
+}
+
+// ============================================================================
+// Stock Requests Section
+// ============================================================================
+
+function StockRequestsSection({ state, onRetry }: { state: AsyncState<HrStockRequest[]>; onRetry: () => void }) {
+  return (
+    <AsyncTable
+      title="Stock Requests"
+      state={state}
+      onRetry={onRetry}
+      colSpan={7}
+      emptyText="No stock requests"
+      columns={['Request #', 'Requester', 'Asset', 'Qty', 'Priority', 'Date', 'Status']}
+    >
+      {(rows) =>
+        rows.map((r) => (
+          <tr key={r.id} className="hover:bg-gray-750">
+            <td className="px-4 py-3">
+              <span className="text-blue-400 font-mono text-sm">{r.requestId || r.id.slice(0, 8)}</span>
+            </td>
+            <td className="px-4 py-3">
+              <p className="text-white">{r.requester || '-'}</p>
+              <p className="text-xs text-gray-500">{r.department || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">
+              <p>{r.assetName || '-'}</p>
+              <p className="text-xs text-gray-500">{r.assetCategory || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">{r.quantity ?? 1}</td>
+            <td className="px-4 py-3 text-gray-300 capitalize">{r.priority || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{r.requestDate || '-'}</td>
+            <td className="px-4 py-3">{statusPill(r.status)}</td>
+          </tr>
+        ))
+      }
+    </AsyncTable>
+  );
+}
+
+// ============================================================================
+// Stock Allocation Section
+// ============================================================================
+
+function StockAllocationSection({ state, onRetry }: { state: AsyncState<HrAssetAllocation[]>; onRetry: () => void }) {
+  return (
+    <AsyncTable
+      title="Stock Allocation"
+      state={state}
+      onRetry={onRetry}
+      colSpan={7}
+      emptyText="No allocations recorded"
+      columns={['Allocation #', 'Asset', 'Employee', 'Category', 'Allocated', 'Condition', 'Status']}
+    >
+      {(rows) =>
+        rows.map((a) => (
+          <tr key={a.id} className="hover:bg-gray-750">
+            <td className="px-4 py-3">
+              <span className="text-blue-400 font-mono text-sm">{a.allocationId || a.id.slice(0, 8)}</span>
+            </td>
+            <td className="px-4 py-3">
+              <p className="text-white">{a.assetName || a.assetTag || '-'}</p>
+              <p className="text-xs text-gray-500">{a.assetTag || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">
+              <p>{a.employeeName || '-'}</p>
+              <p className="text-xs text-gray-500">{a.department || ''}</p>
+            </td>
+            <td className="px-4 py-3 text-gray-300">{a.category || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{a.allocationDate || '-'}</td>
+            <td className="px-4 py-3 text-gray-300 capitalize">{a.condition || '-'}</td>
+            <td className="px-4 py-3">{statusPill(a.status)}</td>
+          </tr>
+        ))
+      }
+    </AsyncTable>
+  );
+}
+
+// ============================================================================
+// Reports Section (5 report views over real aggregates)
+// ============================================================================
+
+interface ReportsData {
+  register: AssetRegisterReport[];
+  allocation: AllocationSummaryReport[];
+  employee: EmployeeAssetReport[];
+  department: DepartmentAssetReport[];
+  costs: CostSummaryReport[];
+}
+
+function ReportsSection({
+  subTab,
+  state,
+  onRetry,
+}: {
+  subTab: ReportsSubTab;
+  state: AsyncState<ReportsData | null>;
+  onRetry: () => void;
+}) {
+  if (state.loading) {
+    return <div className="text-center py-8 text-gray-500">Loading report...</div>;
+  }
+  if (state.error) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-8 text-red-400">
+        <AlertCircle className="h-5 w-5" />
+        <span className="text-sm">{state.error}</span>
+        <button onClick={onRetry} className="text-blue-400 hover:text-blue-300 text-sm underline">
+          Retry
+        </button>
+      </div>
+    );
+  }
+  const d = state.data;
+  if (!d) return null;
+
+  const wrap = (title: string, columns: string[], colSpan: number, body: React.ReactNode, empty: boolean) => (
+    <div className="space-y-4">
+      <SectionHeader title={title} />
+      <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-900">
+            <tr>
+              {columns.map((c) => (
+                <th key={c} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700">
+            {empty ? (
+              <tr>
+                <td colSpan={colSpan} className="px-4 py-8 text-center text-gray-500">
+                  No data available
+                </td>
+              </tr>
+            ) : (
+              body
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  switch (subTab) {
+    case 'register':
+      return wrap(
+        'Asset Register',
+        ['Asset Tag', 'Name', 'Category', 'Serial', 'Purchase Date', 'Cost', 'Status'],
+        7,
+        d.register.map((r, i) => (
+          <tr key={`${r.assetTag}-${i}`} className="hover:bg-gray-750">
+            <td className="px-4 py-3 text-blue-400 font-mono text-sm">{r.assetTag}</td>
+            <td className="px-4 py-3 text-white">{r.assetName}</td>
+            <td className="px-4 py-3 text-gray-300">{r.category}</td>
+            <td className="px-4 py-3 text-gray-300">{r.serialNumber || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{r.purchaseDate || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.purchaseCost)}</td>
+            <td className="px-4 py-3">{statusPill(r.status)}</td>
+          </tr>
+        )),
+        d.register.length === 0,
+      );
+    case 'allocation_report':
+      return wrap(
+        'Allocation Report',
+        ['Category', 'Total', 'Allocated', 'Available', 'Maintenance', 'Utilization'],
+        6,
+        d.allocation.map((r, i) => (
+          <tr key={`${r.category}-${i}`} className="hover:bg-gray-750">
+            <td className="px-4 py-3 text-white">{r.category}</td>
+            <td className="px-4 py-3 text-gray-300">{r.total}</td>
+            <td className="px-4 py-3 text-gray-300">{r.allocated}</td>
+            <td className="px-4 py-3 text-gray-300">{r.available}</td>
+            <td className="px-4 py-3 text-gray-300">{r.maintenance}</td>
+            <td className="px-4 py-3 text-gray-300">{r.utilization}%</td>
+          </tr>
+        )),
+        d.allocation.length === 0,
+      );
+    case 'employee_assets':
+      return wrap(
+        'Employee Assets',
+        ['Employee', 'Code', 'Department', 'Total Assets', 'Total Value', 'Location'],
+        6,
+        d.employee.map((r, i) => (
+          <tr key={`${r.employeeCode}-${i}`} className="hover:bg-gray-750">
+            <td className="px-4 py-3 text-white">{r.employeeName}</td>
+            <td className="px-4 py-3 text-gray-300">{r.employeeCode || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{r.department || '-'}</td>
+            <td className="px-4 py-3 text-gray-300">{r.totalAssets}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.totalValue)}</td>
+            <td className="px-4 py-3 text-gray-300">{r.location || '-'}</td>
+          </tr>
+        )),
+        d.employee.length === 0,
+      );
+    case 'department_assets':
+      return wrap(
+        'Department Assets',
+        ['Department', 'Employees', 'Laptops', 'Desktops', 'Mobiles', 'Value', 'Per Employee'],
+        7,
+        d.department.map((r, i) => (
+          <tr key={`${r.department}-${i}`} className="hover:bg-gray-750">
+            <td className="px-4 py-3 text-white">{r.department}</td>
+            <td className="px-4 py-3 text-gray-300">{r.employees}</td>
+            <td className="px-4 py-3 text-gray-300">{r.laptops}</td>
+            <td className="px-4 py-3 text-gray-300">{r.desktops}</td>
+            <td className="px-4 py-3 text-gray-300">{r.mobiles}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.totalValue)}</td>
+            <td className="px-4 py-3 text-gray-300">{r.assetsPerEmployee}</td>
+          </tr>
+        )),
+        d.department.length === 0,
+      );
+    case 'maintenance_costs':
+      return wrap(
+        'Maintenance Costs',
+        ['Category', 'Purchase Cost', 'Maintenance Cost', 'Total Cost', 'Monthly Avg', 'Trend'],
+        6,
+        d.costs.map((r, i) => (
+          <tr key={`${r.category}-${i}`} className="hover:bg-gray-750">
+            <td className="px-4 py-3 text-white">{r.category}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.purchaseCost)}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.maintenanceCost)}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.totalCost)}</td>
+            <td className="px-4 py-3 text-gray-300">{money(r.monthlyAvg)}</td>
+            <td className="px-4 py-3 text-gray-300 capitalize">{r.trend}</td>
+          </tr>
+        )),
+        d.costs.length === 0,
+      );
+    default:
+      return null;
+  }
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -505,6 +1044,102 @@ export default function AssetManagementPage() {
   const [amcContracts, setAMCContracts] = useState<AMCContract[]>([]);
   const [stockAudits, setStockAudits] = useState<StockAudit[]>([]);
 
+  // Real HR-backend-wired sections (HrAssetsService / NestJS domain backend)
+  const [transferState, setTransferState] = useState<AsyncState<HrAssetTransfer[]>>({ data: [], loading: true, error: null });
+  const [returnState, setReturnState] = useState<AsyncState<HrAssetReturn[]>>({ data: [], loading: true, error: null });
+  const [preventiveState, setPreventiveState] = useState<AsyncState<HrPreventiveMaintenance[]>>({ data: [], loading: true, error: null });
+  const [repairState, setRepairState] = useState<AsyncState<HrAssetMaintenance[]>>({ data: [], loading: true, error: null });
+  const [stockState, setStockState] = useState<AsyncState<HrAssetInventory[]>>({ data: [], loading: true, error: null });
+  const [stockReqState, setStockReqState] = useState<AsyncState<HrStockRequest[]>>({ data: [], loading: true, error: null });
+  const [stockAllocState, setStockAllocState] = useState<AsyncState<HrAssetAllocation[]>>({ data: [], loading: true, error: null });
+  const [reportsState, setReportsState] = useState<AsyncState<ReportsData | null>>({ data: null, loading: true, error: null });
+
+  const loadTransfers = async () => {
+    setTransferState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const data = await HrAssetsService.getAssetTransfers();
+      setTransferState({ data, loading: false, error: null });
+    } catch {
+      setTransferState({ data: [], loading: false, error: 'Failed to load asset transfers' });
+    }
+  };
+
+  const loadReturns = async () => {
+    setReturnState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const data = await HrAssetsService.getAssetReturns();
+      setReturnState({ data, loading: false, error: null });
+    } catch {
+      setReturnState({ data: [], loading: false, error: 'Failed to load asset returns' });
+    }
+  };
+
+  const loadPreventive = async () => {
+    setPreventiveState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const data = await HrAssetsService.getPreventiveMaintenance();
+      setPreventiveState({ data, loading: false, error: null });
+    } catch {
+      setPreventiveState({ data: [], loading: false, error: 'Failed to load preventive maintenance' });
+    }
+  };
+
+  const loadRepairHistory = async () => {
+    setRepairState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const data = await HrAssetsService.getAssetMaintenance('history');
+      setRepairState({ data, loading: false, error: null });
+    } catch {
+      setRepairState({ data: [], loading: false, error: 'Failed to load repair history' });
+    }
+  };
+
+  const loadStock = async () => {
+    setStockState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const data = await HrAssetsService.getAssetInventory();
+      setStockState({ data, loading: false, error: null });
+    } catch {
+      setStockState({ data: [], loading: false, error: 'Failed to load stock' });
+    }
+  };
+
+  const loadStockRequests = async () => {
+    setStockReqState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const data = await HrAssetsService.getAssetRequests();
+      setStockReqState({ data, loading: false, error: null });
+    } catch {
+      setStockReqState({ data: [], loading: false, error: 'Failed to load stock requests' });
+    }
+  };
+
+  const loadStockAllocations = async () => {
+    setStockAllocState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const data = await HrAssetsService.getAssetAllocations();
+      setStockAllocState({ data, loading: false, error: null });
+    } catch {
+      setStockAllocState({ data: [], loading: false, error: 'Failed to load allocations' });
+    }
+  };
+
+  const loadReports = async () => {
+    setReportsState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const [register, allocation, employee, department, costs] = await Promise.all([
+        HrAssetsService.getReportRegister(),
+        HrAssetsService.getReportAllocation(),
+        HrAssetsService.getReportEmployee(),
+        HrAssetsService.getReportDepartment(),
+        HrAssetsService.getReportCosts(),
+      ]);
+      setReportsState({ data: { register, allocation, employee, department, costs }, loading: false, error: null });
+    } catch {
+      setReportsState({ data: null, loading: false, error: 'Failed to load reports' });
+    }
+  };
+
   useEffect(() => {
     loadDashboard();
     loadAssets();
@@ -512,6 +1147,14 @@ export default function AssetManagementPage() {
     loadMaintenanceRequests();
     loadAMCContracts();
     loadStockAudits();
+    loadTransfers();
+    loadReturns();
+    loadPreventive();
+    loadRepairHistory();
+    loadStock();
+    loadStockRequests();
+    loadStockAllocations();
+    loadReports();
   }, []);
 
   const loadDashboard = async () => {
@@ -617,9 +1260,9 @@ export default function AssetManagementPage() {
       case 'requests':
         return <AssetRequests requests={assetRequests} />;
       case 'transfer':
-        return <div className="text-gray-400 text-center py-8">Asset Transfer section coming soon</div>;
+        return <TransferSection state={transferState} onRetry={loadTransfers} />;
       case 'return':
-        return <div className="text-gray-400 text-center py-8">Asset Return section coming soon</div>;
+        return <ReturnSection state={returnState} onRetry={loadReturns} />;
       default:
         return null;
     }
@@ -630,11 +1273,11 @@ export default function AssetManagementPage() {
       case 'service_requests':
         return <MaintenanceSection requests={maintenanceRequests} />;
       case 'preventive':
-        return <div className="text-gray-400 text-center py-8">Preventive Maintenance section coming soon</div>;
+        return <PreventiveSection state={preventiveState} onRetry={loadPreventive} />;
       case 'amc':
         return <AMCContractsSection contracts={amcContracts} />;
       case 'history':
-        return <div className="text-gray-400 text-center py-8">Repair History section coming soon</div>;
+        return <RepairHistorySection state={repairState} onRetry={loadRepairHistory} />;
       default:
         return null;
     }
@@ -643,11 +1286,11 @@ export default function AssetManagementPage() {
   const renderInventoryContent = () => {
     switch (inventorySubTab) {
       case 'stock':
-        return <div className="text-gray-400 text-center py-8">Stock Management section coming soon</div>;
+        return <StockManagementSection state={stockState} onRetry={loadStock} />;
       case 'requests':
-        return <div className="text-gray-400 text-center py-8">Stock Requests section coming soon</div>;
+        return <StockRequestsSection state={stockReqState} onRetry={loadStockRequests} />;
       case 'allocation':
-        return <div className="text-gray-400 text-center py-8">Stock Allocation section coming soon</div>;
+        return <StockAllocationSection state={stockAllocState} onRetry={loadStockAllocations} />;
       case 'audit':
         return <StockAuditSection audits={stockAudits} />;
       default:
@@ -656,7 +1299,7 @@ export default function AssetManagementPage() {
   };
 
   const renderReportsContent = () => {
-    return <div className="text-gray-400 text-center py-8">Reports section: {reportsSubTab.replace('_', ' ')} coming soon</div>;
+    return <ReportsSection subTab={reportsSubTab} state={reportsState} onRetry={loadReports} />;
   };
 
   const getCurrentSubTabs = () => {

@@ -35,6 +35,31 @@ export class WorkflowTemplateController {
         };
     }
 
+    /**
+     * Import a template from a JSON definition.
+     * Accepts either a single template object or { template: {...} } wrapper,
+     * strips any incoming id/timestamps so a fresh record is created, and
+     * persists via the existing createTemplate logic.
+     */
+    @Post('import')
+    importTemplate(@Body() body: any) {
+        const raw = body?.template ?? body ?? {};
+        if (!raw.name) {
+            return {
+                success: false,
+                message: 'Imported template must include a "name".',
+            };
+        }
+        const { id, createdAt, updatedAt, ...definition } = raw;
+        return {
+            success: true,
+            data: this.templateService.createTemplate({
+                ...definition,
+                isActive: definition.isActive ?? true,
+            } as any),
+        };
+    }
+
     @Put(':id')
     updateTemplate(@Param('id') id: string, @Body() updates: Partial<WorkflowTemplate>) {
         return {

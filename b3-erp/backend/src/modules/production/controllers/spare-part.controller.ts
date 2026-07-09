@@ -49,4 +49,17 @@ export class SparePartController {
   async remove(@Param('id') id: string): Promise<void> {
     return this.service.remove(id);
   }
+
+  @Post(':id/create-po')
+  @ApiOperation({
+    summary: 'Create a procurement Purchase Requisition (PO source) for a spare part',
+  })
+  @ApiParam({ name: 'id' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Purchase requisition created' })
+  async createPurchaseRequisition(
+    @Param('id') id: string,
+    @Body() body?: any,
+  ): Promise<any> {
+    return this.service.createPurchaseRequisition(id, body);
+  }
 }

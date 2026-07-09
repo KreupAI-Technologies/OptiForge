@@ -1833,6 +1833,43 @@ class ProjectManagementService {
         await apiClient.delete(`/project-resources/${id}`);
     }
 
+    // Transfer a resource allocation from one project to another.
+    async transferResource(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resources/transfer', data);
+        return response.data;
+    }
+
+    // Compute workload-balancing recommendations across current allocations.
+    async balanceWorkload(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resources/balance-workload', data);
+        return response.data;
+    }
+
+    // Create a pending resource request (approved later into an allocation).
+    async createResourceRequest(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resource-requests', data);
+        return response.data;
+    }
+
+    async getResourceRequests(projectId?: string): Promise<any[]> {
+        const url = projectId
+            ? `/project-resource-requests?projectId=${encodeURIComponent(projectId)}`
+            : '/project-resource-requests';
+        const res = await apiClient.get<any[]>(url);
+        return ProjectManagementService.unwrapArray(res);
+    }
+
+    // Upsert the recorded skills for a resource.
+    async saveResourceSkills(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resource-skills', data);
+        return response.data;
+    }
+
+    async getResourceSkills(resourceId: string): Promise<any> {
+        const response = await apiClient.get<any>(`/project-resource-skills/${encodeURIComponent(resourceId)}`);
+        return response.data;
+    }
+
     // --- Raw list endpoints (no projectId filter) ---
     // These hit the NestJS list controllers that return a bare array (not the
     // { success, data } envelope). apiClient.get() JSON-parses the body and
@@ -2326,6 +2363,20 @@ class ProjectManagementService {
             return (await res.json()) as PmSettings;
         } catch (error) {
             console.error('Error saving PM settings:', error);
+            return null;
+        }
+    }
+
+    async resetPmSettings(companyId = 'default'): Promise<PmSettings | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/settings/reset?companyId=${encodeURIComponent(companyId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) throw new Error(`Reset settings failed: ${res.status}`);
+            return (await res.json()) as PmSettings;
+        } catch (error) {
+            console.error('Error resetting PM settings:', error);
             return null;
         }
     }
@@ -3166,6 +3217,84 @@ class ProjectManagementService {
     signProjectClosure(id: string, data: { signatory: string; title: string }): Promise<any> {
         return this.pmModulePatch<any>(`/api/project-closure/sign/${id}`, data);
     }
+
+    // ---------------------------------------------------------------------
+    // INSTALLATION — team assignment, handover checklist, and read-only
+    // progress/management aggregates (NestJS logistics-installation).
+    // Backs the (modules)/installation/{team-assignment,handover,progress,
+    // management} pages.
+    // ---------------------------------------------------------------------
+
+    /** Fetch the active installation crew for a project (empty-safe). */
+    async getInstallationTeam(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/api/logistics-installation/team/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /** Assign (replace) the installation crew for a project. */
+    assignInstallationTeam(
+        projectId: string,
+        data: {
+            members: Array<{ installerId?: string; installerName: string; role?: string; skills?: string[] }>;
+            assignedBy?: string;
+        },
+    ): Promise<any> {
+        return this.pmModulePost<any>(`/api/logistics-installation/assign-team/${projectId}`, data);
+    }
+
+    /** Fetch the 8-step handover checklist for a project (seeds on first read). */
+    async getHandoverChecklist(projectId: string): Promise<any[]> {
+        try {
+            return await this.pmModuleGet<any>(`/api/logistics-installation/handover-checklist/${projectId}`);
+        } catch {
+            return [];
+        }
+    }
+
+    /** Update a single handover-checklist step's status and/or notes. */
+    updateHandoverStep(id: string, data: { status?: string; notes?: string }): Promise<any> {
+        return this.pmModulePatch<any>(`/api/logistics-installation/handover-checklist/step/${id}`, data);
+    }
+
+    /** Read-only installation progress summary for a project. */
+    getInstallationProgressSummary(projectId: string): Promise<any | null> {
+        return this.pmModuleGetObject<any>(`/api/logistics-installation/progress-summary/${projectId}`);
+    }
+
+    /** Read-only installation management summary for a project. */
+    getInstallationManagementSummary(projectId: string): Promise<any | null> {
+        return this.pmModuleGetObject<any>(`/api/logistics-installation/management-summary/${projectId}`);
+    }
+
+    // ---------------------------------------------------------------------
+    // Single-record fetch/update for detail (view/edit) pages.
+    // Mirrors the pmList/pmUpdate style: GET/PUT
+    // /project-management/<feature>/:id on the NestJS domain backend.
+    // ---------------------------------------------------------------------
+    private async pmGet<T>(feature: string, id: string): Promise<T | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/${feature}/${encodeURIComponent(id)}`);
+            if (!res.ok) throw new Error(`GET ${feature}/${id} failed: ${res.status}`);
+            const data = await res.json();
+            return data && typeof data === 'object' ? (data as T) : null;
+        } catch (error) {
+            console.error(`Error fetching ${feature}/${id}:`, error);
+            throw error;
+        }
+    }
+
+    // Project plans — single record
+    getProjectPlan(id: string) { return this.pmGet<PmProjectPlan>('project-plans', id); }
+
+    // Commissioning — single record + update
+    getCommissioning(id: string) { return this.pmGet<PmCommissioningRecord>('commissioning', id); }
+    updateCommissioning(id: string, data: Partial<PmCommissioningRecord>) { return this.pmUpdate<PmCommissioningRecord>('commissioning', id, data); }
+
+    // Deliverables — single record
+    getDeliverable(id: string) { return this.pmGet<PmDeliverable>('deliverables', id); }
 }
 
 export const projectManagementService = new ProjectManagementService();

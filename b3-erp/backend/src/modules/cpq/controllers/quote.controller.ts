@@ -250,4 +250,12 @@ export class QuoteController {
   ): Promise<void> {
     return this.quoteService.deleteTemplate(companyId, id);
   }
+
+  @Patch('templates/:id/toggle-favorite')
+  toggleTemplateFavorite(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+  ): Promise<QuoteTemplate> {
+    return this.quoteService.toggleTemplateFavorite(companyId, id);
+  }
 }

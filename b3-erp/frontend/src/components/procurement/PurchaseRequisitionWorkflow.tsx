@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { purchaseRequisitionService } from '@/services/purchase-requisition.service'
+import { procurementPagesService } from '@/services/procurement-pages.service'
 import {
   FileText,
   Plus,
@@ -108,6 +109,8 @@ export default function PurchaseRequisitionWorkflow() {
   const [isConvertToPOModalOpen, setIsConvertToPOModalOpen] = useState(false)
   const [isTrackStatusModalOpen, setIsTrackStatusModalOpen] = useState(false)
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | 'request_info'>('approve')
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   // Advanced features state
   const [showRealTimeMonitoring, setShowRealTimeMonitoring] = useState(true)
@@ -230,6 +233,16 @@ export default function PurchaseRequisitionWorkflow() {
 
   return (
     <div className="p-6 space-y-3 bg-gray-50 min-h-screen">
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+      {actionMessage && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {actionMessage}
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-200">
         <div className="flex items-center justify-between mb-3">
@@ -1105,9 +1118,32 @@ export default function PurchaseRequisitionWorkflow() {
         onClose={() => setIsApproveRejectModalOpen(false)}
         requisition={selectedRequisition}
         action={approvalAction}
-        onSubmit={(data) => {
-          console.log('Approval action:', data)
-          setIsApproveRejectModalOpen(false)
+        onSubmit={async (data) => {
+          const prId = data?.requisitionId ?? selectedRequisition?.id
+          if (!prId) {
+            setActionError('No requisition selected.')
+            return
+          }
+          setActionError(null)
+          setActionMessage(null)
+          try {
+            if (data.action === 'approve') {
+              await purchaseRequisitionService.approveRequisition(prId)
+              setActionMessage('Requisition approved.')
+            } else if (data.action === 'reject') {
+              await purchaseRequisitionService.rejectRequisition(prId, data.comments || 'Rejected')
+              setActionMessage('Requisition rejected.')
+            } else {
+              const infoBits = Array.isArray(data.requestedInfo) ? data.requestedInfo : []
+              const message = [data.comments, infoBits.join(', ')].filter(Boolean).join(' — ') || 'Additional information requested.'
+              await procurementPagesService.requestInfoPurchaseRequisition(prId, { message })
+              setActionMessage('Information request sent to requester.')
+            }
+            setIsApproveRejectModalOpen(false)
+            await loadRequisitions()
+          } catch (err) {
+            setActionError(err instanceof Error ? err.message : 'Action failed.')
+          }
         }}
       />
 

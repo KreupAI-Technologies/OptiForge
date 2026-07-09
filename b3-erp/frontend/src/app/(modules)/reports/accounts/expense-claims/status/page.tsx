@@ -23,7 +23,7 @@ function ExpenseClaimsStatusContent() {
             setIsLoading(true);
             setLoadError(null);
             try {
-                const raw = await fetchDomainList<any>('api/accounts/expense-claims');
+                const raw = await fetchDomainList<any>('api/finance/expense-claims');
                 const mapped = raw.map((r: any) => ({
                     id: r.claimNumber ?? r.id,
                     employee: r.employeeName ?? '',
@@ -87,7 +87,7 @@ function ExpenseClaimsStatusContent() {
                             {filteredClaims.map((claim) => (
                                 <ClickableTableRow
                                     key={claim.id}
-                                    onClick={() => router.push(`/accounts/expenses/${claim.id}`)}
+                                    onClick={() => router.push(`/finance/expense-claims`)}
                                 >
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600">{claim.id}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{claim.employee}</td>

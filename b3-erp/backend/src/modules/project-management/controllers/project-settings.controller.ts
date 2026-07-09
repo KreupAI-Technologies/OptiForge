@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, Query } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, Query } from '@nestjs/common';
 import { ProjectSettingsService } from '../services/project-settings.service';
 import { ProjectSettingsEntity } from '../entities/project-settings.entity';
 
@@ -17,5 +17,10 @@ export class ProjectSettingsController {
     @Query('companyId') companyId?: string,
   ) {
     return this.settingsService.upsert(companyId || body.companyId || 'default', body);
+  }
+
+  @Post('reset')
+  reset(@Query('companyId') companyId?: string) {
+    return this.settingsService.reset(companyId || 'default');
   }
 }

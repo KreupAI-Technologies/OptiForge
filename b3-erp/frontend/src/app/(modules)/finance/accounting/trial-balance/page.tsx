@@ -62,29 +62,24 @@ export default function TrialBalancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await FinanceService.getTrialBalanceReport()) as any[];
-        const mapped = raw.map(mapTrialBalanceRow);
-        if (!cancelled) setTrialBalance(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load trial balance');
-          setTrialBalance([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const load = React.useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await FinanceService.getTrialBalanceReport()) as any[];
+      const mapped = raw.map(mapTrialBalanceRow);
+      setTrialBalance(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load trial balance');
+      setTrialBalance([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
   const [dateFrom, setDateFrom] = useState('2025-01-01');
   const [dateTo, setDateTo] = useState('2025-10-31');
   const [groupByType, setGroupByType] = useState(true);
@@ -467,11 +462,12 @@ export default function TrialBalancePage() {
 
             <div className="flex items-center space-x-2 mt-4">
               <button
-                onClick={() => alert('Refresh data')}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => void load()}
+                disabled={isLoading}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <RefreshCw className="h-4 w-4" />
-                <span>Refresh Data</span>
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>{isLoading ? 'Refreshing…' : 'Refresh Data'}</span>
               </button>
             </div>
           </div>

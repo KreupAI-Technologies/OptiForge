@@ -90,6 +90,8 @@ export default function ViewPendingEstimatePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!estimateId) return
@@ -158,6 +160,27 @@ export default function ViewPendingEstimatePage() {
     }
   }
 
+  const handleExportPdf = async () => {
+    if (exporting || !estimateId) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      const { blob, filename } = await costEstimateService.downloadExport(COMPANY_ID, estimateId, 'pdf')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Failed to export PDF.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const handleViewComments = () => {
     router.push(`/estimation/workflow/pending/comments/${estimateId}`)
   }
@@ -207,6 +230,14 @@ export default function ViewPendingEstimatePage() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={handleExportPdf}
+              disabled={exporting || loading || !!error}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2 disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+            <button
               onClick={handleViewComments}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2 relative"
             >
@@ -237,6 +268,12 @@ export default function ViewPendingEstimatePage() {
           </div>
         </div>
       </div>
+
+      {exportError && (
+        <div className="flex-none bg-red-50 border-b border-red-200 px-3 py-2 text-sm text-red-700">
+          {exportError}
+        </div>
+      )}
 
       {loading && (
         <div className="flex-1 flex items-center justify-center text-sm text-gray-500">Loading estimate...</div>

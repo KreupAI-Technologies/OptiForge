@@ -2,12 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ActivityRecord } from '../entities/activity-record.entity';
+import { CrmActivityLike } from '../entities/crm-activity-like.entity';
 
 @Injectable()
 export class ActivityRecordService {
   constructor(
     @InjectRepository(ActivityRecord)
     private readonly repo: Repository<ActivityRecord>,
+    @InjectRepository(CrmActivityLike)
+    private readonly likeRepo: Repository<CrmActivityLike>,
   ) {}
 
   async findAll(filters?: {
@@ -40,6 +43,39 @@ export class ActivityRecordService {
 
   async remove(id: string): Promise<void> {
     const row = await this.findOne(id);
+    await this.likeRepo.delete({ activityId: id });
     await this.repo.remove(row);
+  }
+
+  /** User IDs that have liked a given activity. */
+  async getLikers(id: string): Promise<string[]> {
+    const likes = await this.likeRepo.find({ where: { activityId: id } });
+    return likes.map((l) => l.userId);
+  }
+
+  /**
+   * Toggle a like for a user on an activity. Inserts the like if absent,
+   * removes it if present, then re-syncs the cached `likeCount`.
+   */
+  async toggleLike(
+    id: string,
+    userId: string,
+  ): Promise<{ liked: boolean; likeCount: number; likes: string[] }> {
+    const activity = await this.findOne(id);
+    const existing = await this.likeRepo.findOne({
+      where: { activityId: id, userId },
+    });
+    let liked: boolean;
+    if (existing) {
+      await this.likeRepo.remove(existing);
+      liked = false;
+    } else {
+      await this.likeRepo.save(this.likeRepo.create({ activityId: id, userId }));
+      liked = true;
+    }
+    const likes = await this.getLikers(id);
+    activity.likeCount = likes.length;
+    await this.repo.save(activity);
+    return { liked, likeCount: likes.length, likes };
   }
 }
