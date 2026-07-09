@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { X, Save, Eye, Edit3, Plus, Calendar, TrendingUp, TrendingDown, Minus, FileText, CheckCircle, Clock, User, AlertCircle, Copy } from 'lucide-react';
 
-// TODO: Replace with actual BOM Version type from API
 export interface BOMVersion {
   id: string;
   versionNumber: string;
@@ -56,7 +55,6 @@ export const ViewVersionDetailsModal: React.FC<ViewVersionDetailsModalProps> = (
     }
   };
 
-  // TODO: Calculate cost change percentage from API data
   const costChange = version.previousCost
     ? ((version.totalCost - version.previousCost) / version.previousCost) * 100
     : 0;
@@ -304,7 +302,6 @@ export const EditVersionModal: React.FC<EditVersionModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // TODO: Reset form when modal opens with new version
   React.useEffect(() => {
     if (version) {
       setFormData({
@@ -330,8 +327,7 @@ export const EditVersionModal: React.FC<EditVersionModalProps> = ({
       }
     }
 
-    // TODO: Add validation for status transitions based on business rules
-    // Example: Cannot change from 'obsolete' to 'current' directly
+    // Status transition rule: cannot change from 'obsolete' to 'current' directly
     if (version?.status === 'obsolete' && formData.status === 'current') {
       newErrors.status = 'Cannot change obsolete version to current directly';
     }
@@ -352,7 +348,6 @@ export const EditVersionModal: React.FC<EditVersionModalProps> = ({
       return;
     }
 
-    // TODO: Send update to API
     onSave({
       ...formData,
       id: version?.id,
@@ -527,7 +522,6 @@ export const CreateVersionModal: React.FC<CreateVersionModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // TODO: Auto-increment version number based on source version
   React.useEffect(() => {
     if (sourceVersion && isOpen) {
       const currentVersion = parseFloat(sourceVersion.versionNumber);
@@ -562,7 +556,7 @@ export const CreateVersionModal: React.FC<CreateVersionModalProps> = ({
       newErrors.effectiveFrom = 'Effective from date is required';
     }
 
-    // TODO: Validate version number format and uniqueness via API
+    // Validate version number format (uniqueness is enforced server-side on create)
     const versionRegex = /^\d+\.\d+$/;
     if (formData.versionNumber && !versionRegex.test(formData.versionNumber)) {
       newErrors.versionNumber = 'Version number must be in format X.X (e.g., 2.0, 2.1)';
@@ -579,13 +573,12 @@ export const CreateVersionModal: React.FC<CreateVersionModalProps> = ({
       return;
     }
 
-    // TODO: Send create request to API with copy options
+    // The creating user is stamped server-side from the authenticated request.
     onCreate({
       ...formData,
       status: 'current',
       productId: sourceVersion?.productId,
       productName: sourceVersion?.productName,
-      changedBy: 'Current User', // TODO: Get from auth context
       changedDate: new Date().toISOString().split('T')[0],
     });
     onClose();

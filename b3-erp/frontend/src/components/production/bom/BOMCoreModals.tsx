@@ -139,8 +139,6 @@ export function CreateBOMModal({ isOpen, onClose, onCreate }: CreateBOMModalProp
 
   const handleSubmit = () => {
     if (validateForm()) {
-      // TODO: API call to create BOM
-      console.log('Creating BOM:', formData)
       onCreate(formData)
       onClose()
       resetForm()
@@ -159,11 +157,6 @@ export function CreateBOMModal({ isOpen, onClose, onCreate }: CreateBOMModalProp
       notes: ''
     })
     setErrors({})
-  }
-
-  const handleAddComponents = () => {
-    // TODO: Open component search/selection modal
-    console.log('Opening component selection modal...')
   }
 
   if (!isOpen) return null
@@ -315,20 +308,16 @@ export function CreateBOMModal({ isOpen, onClose, onCreate }: CreateBOMModalProp
             />
           </div>
 
-          {/* Add Components Button */}
+          {/* Components Info */}
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start gap-2">
+              <Plus className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-green-900">Components</p>
-                <p className="text-sm text-green-700">Add materials and sub-assemblies to this BOM</p>
+                <p className="text-sm text-green-700">
+                  After creating this BOM you can add materials and sub-assemblies by opening it in the editor.
+                </p>
               </div>
-              <button
-                onClick={handleAddComponents}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Components
-              </button>
             </div>
           </div>
         </div>
@@ -395,16 +384,9 @@ export function EditBOMModal({ isOpen, onClose, onUpdate, currentBOM }: EditBOMM
 
   const handleSubmit = () => {
     if (validateForm()) {
-      // TODO: API call to update BOM
-      console.log('Updating BOM:', formData)
       onUpdate(formData)
       onClose()
     }
-  }
-
-  const handleManageComponents = () => {
-    // TODO: Open component management modal
-    console.log('Opening component management modal...')
   }
 
   if (!isOpen || !currentBOM) return null
@@ -556,13 +538,6 @@ export function EditBOMModal({ isOpen, onClose, onUpdate, currentBOM }: EditBOMM
           <div className="mb-3">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-gray-900">Components</h3>
-              <button
-                onClick={handleManageComponents}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <Edit className="h-4 w-4" />
-                Manage Components
-              </button>
             </div>
 
             {currentBOM.components && currentBOM.components.length > 0 ? (
@@ -598,7 +573,7 @@ export function EditBOMModal({ isOpen, onClose, onUpdate, currentBOM }: EditBOMM
               <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
                 <Package className="h-12 w-12 text-gray-400 mb-3" />
                 <p className="text-gray-600">No components added yet</p>
-                <p className="text-sm text-gray-500 mt-1">Click "Manage Components" to add items</p>
+                <p className="text-sm text-gray-500 mt-1">Components can be added from the BOM editor</p>
               </div>
             )}
           </div>
@@ -654,8 +629,6 @@ export function CopyBOMModal({ isOpen, onClose, onCopy, sourceBOM }: CopyBOMModa
 
   const handleSubmit = () => {
     if (validateForm()) {
-      // TODO: API call to copy BOM
-      console.log('Copying BOM:', formData)
       onCopy(formData)
       onClose()
     }

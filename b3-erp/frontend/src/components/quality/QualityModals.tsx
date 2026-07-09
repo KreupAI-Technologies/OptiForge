@@ -407,9 +407,6 @@ export const EditInspectionModal: React.FC<EditInspectionModalProps> = ({ isOpen
       remarks: formData.remarks,
     };
 
-    // TODO: Replace with actual API call
-    // await fetch('/api/quality/inspections', { method: inspection ? 'PUT' : 'POST', body: JSON.stringify(inspectionData) });
-
     onSave(inspectionData);
     onClose();
   };
@@ -769,12 +766,6 @@ export const ApproveInspectionModal: React.FC<ApproveInspectionModalProps> = ({
       setError('Signature/authorization is required');
       return;
     }
-
-    // TODO: Replace with actual API call
-    // await fetch(`/api/quality/inspections/${inspection.id}/approve`, {
-    //   method: 'POST',
-    //   body: JSON.stringify({ decision, comments, signature })
-    // });
 
     onApprove(decision, comments, signature);
 

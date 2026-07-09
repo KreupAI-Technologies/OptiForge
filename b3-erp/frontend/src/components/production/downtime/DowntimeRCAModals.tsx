@@ -14,6 +14,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useAuth } from '@/context/AuthContext'
 import {
   X,
   AlertCircle,
@@ -246,7 +247,6 @@ export const CreateRCAModal: React.FC<CreateRCAModalProps> = ({
   const handleSubmit = (isDraft: boolean = false) => {
     if (!isDraft && !validate()) return
 
-    // TODO: API call to create RCA investigation
     onSubmit(formData, isDraft)
     handleClose()
   }
@@ -1116,7 +1116,6 @@ export const AddRootCauseModal: React.FC<AddRootCauseModalProps> = ({
       contribution
     }
 
-    // TODO: API call to add root cause
     onSubmit(data)
     handleClose()
   }
@@ -1439,7 +1438,6 @@ export const AddCorrectiveActionModal: React.FC<AddCorrectiveActionModalProps> =
   const handleSubmit = (addAnother: boolean = false) => {
     if (!validate()) return
 
-    // TODO: API call to add corrective action
     onSubmit(formData, addAnother)
 
     if (addAnother) {
@@ -1700,7 +1698,6 @@ export const AddPreventiveActionModal: React.FC<AddPreventiveActionModalProps> =
       frequency: formData.recurrenceType === 'recurring' ? formData.frequency : undefined
     }
 
-    // TODO: API call to add preventive action
     onSubmit(submitData, addAnother)
 
     if (addAnother) {
@@ -2035,7 +2032,6 @@ export const UpdateActionStatusModal: React.FC<UpdateActionStatusModalProps> = (
       submitData.completionDate = formData.completionDate
     }
 
-    // TODO: API call to update action status
     onSubmit(submitData)
     handleClose()
   }
@@ -2276,12 +2272,13 @@ export const VerifyRCAModal: React.FC<VerifyRCAModalProps> = ({
   onRequestRevisions,
   investigation
 }) => {
+  const { user } = useAuth()
   const [formData, setFormData] = useState<VerifyRCAData>({
     verificationNotes: '',
     actualTotalCost: 0,
     effectivenessRating: 3,
     lessonsLearned: '',
-    verifiedBy: 'Current User', // TODO: Get from auth context
+    verifiedBy: '',
     verificationDate: new Date().toISOString().split('T')[0]
   })
 
@@ -2312,7 +2309,6 @@ export const VerifyRCAModal: React.FC<VerifyRCAModalProps> = ({
   const handleSubmit = () => {
     if (!validate()) return
 
-    // TODO: API call to verify and close RCA
     onSubmit(formData)
     handleClose()
   }
@@ -2323,7 +2319,7 @@ export const VerifyRCAModal: React.FC<VerifyRCAModalProps> = ({
       actualTotalCost: 0,
       effectivenessRating: 3,
       lessonsLearned: '',
-      verifiedBy: 'Current User',
+      verifiedBy: user?.fullName ?? '',
       verificationDate: new Date().toISOString().split('T')[0]
     })
     setErrors({})
@@ -2339,10 +2335,11 @@ export const VerifyRCAModal: React.FC<VerifyRCAModalProps> = ({
 
       setFormData(prev => ({
         ...prev,
-        actualTotalCost: totalCost
+        actualTotalCost: totalCost,
+        verifiedBy: prev.verifiedBy || user?.fullName || ''
       }))
     }
-  }, [investigation, isOpen])
+  }, [investigation, isOpen, user])
 
   if (!isOpen || !investigation) return null
 

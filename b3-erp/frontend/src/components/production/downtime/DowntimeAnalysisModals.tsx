@@ -374,9 +374,6 @@ export function EquipmentAnalysisModal({
                   <div className="text-center">
                     <BarChart3 className="h-12 w-12 text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">Bar Chart Placeholder</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      TODO: Integrate Chart.js or Recharts
-                    </p>
                   </div>
                 </div>
               </div>
@@ -391,9 +388,6 @@ export function EquipmentAnalysisModal({
                   <div className="text-center">
                     <PieChart className="h-12 w-12 text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">Pie Chart Placeholder</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      TODO: Integrate Chart.js or Recharts
-                    </p>
                   </div>
                 </div>
               </div>
@@ -779,9 +773,6 @@ export function CategoryTrendModal({
                   <div className="text-center">
                     <BarChart3 className="h-12 w-12 text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">Line Chart: Count & Hours Over Time</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      TODO: Integrate Chart.js or Recharts for dual-axis line chart
-                    </p>
                   </div>
                 </div>
               </div>

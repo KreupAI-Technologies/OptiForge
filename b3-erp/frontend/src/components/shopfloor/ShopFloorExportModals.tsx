@@ -126,29 +126,11 @@ export function OperatorExportModal({
     setIsExporting(true)
 
     try {
-      // TODO: Implement actual API call to export operator data
-      // const response = await fetch('/api/shopfloor/operators/export', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData),
-      // })
-      // const blob = await response.blob()
-      // const url = window.URL.createObjectURL(blob)
-      // const a = document.createElement('a')
-      // a.href = url
-      // a.download = `operator_${operatorName}_${formData.dateFrom}_${formData.dateTo}.${formData.format}`
-      // document.body.appendChild(a)
-      // a.click()
-      // window.URL.revokeObjectURL(url)
-      // document.body.removeChild(a)
-
-      // Simulate export delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
+      // Delegate the actual export to the parent handler, which builds the
+      // download from in-scope operator data (see onExport prop).
       onExport(formData)
       handleClose()
     } catch (error) {
-      console.error('Export failed:', error)
       setErrors({ submit: 'Export failed. Please try again.' })
     } finally {
       setIsExporting(false)
@@ -558,29 +540,11 @@ export function LogExportModal({
     setIsExporting(true)
 
     try {
-      // TODO: Implement actual API call to export logs
-      // const response = await fetch('/api/shopfloor/logs/export', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData),
-      // })
-      // const blob = await response.blob()
-      // const url = window.URL.createObjectURL(blob)
-      // const a = document.createElement('a')
-      // a.href = url
-      // a.download = `shopfloor_logs_${formData.dateFrom}_${formData.dateTo}.${formData.format}`
-      // document.body.appendChild(a)
-      // a.click()
-      // window.URL.revokeObjectURL(url)
-      // document.body.removeChild(a)
-
-      // Simulate export delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
+      // Delegate the actual export to the parent handler, which builds the
+      // download from in-scope log data (see onExport prop).
       onExport(formData)
       handleClose()
     } catch (error) {
-      console.error('Export failed:', error)
       setErrors({ submit: 'Export failed. Please try again.' })
     } finally {
       setIsExporting(false)

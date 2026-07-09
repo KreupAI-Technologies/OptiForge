@@ -124,8 +124,8 @@ export function ExportDowntimeDataModal({
   const [isGenerating, setIsGenerating] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [notice, setNotice] = useState('')
 
-  // Mock data
   const equipmentList = [
     'CNC Mill 001',
     'Lathe 002',
@@ -270,8 +270,6 @@ export function ExportDowntimeDataModal({
 
     try {
       await onExport(config)
-      // TODO: Integrate with export API endpoint
-      // TODO: Handle download trigger
       onClose()
     } catch (error) {
       console.error('Export failed:', error)
@@ -281,8 +279,9 @@ export function ExportDowntimeDataModal({
   }
 
   const handleScheduleExport = () => {
-    // TODO: Open schedule configuration modal
-    console.log('Schedule export')
+    setNotice(
+      'Scheduled exports are not yet available. Use "Generate & Download" for an immediate export.'
+    )
   }
 
   const preview = calculatePreview()
@@ -721,6 +720,12 @@ export function ExportDowntimeDataModal({
 
         {/* Footer Actions */}
         <div className="border-t border-gray-200 p-3 bg-gray-50 rounded-b-lg">
+          {notice && (
+            <div className="mb-3 flex items-start space-x-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{notice}</span>
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <button
               onClick={onClose}
@@ -784,8 +789,8 @@ export function ExportRCAReportModal({
   const [includeAttachments, setIncludeAttachments] = useState(true)
   const [combineFiles, setCombineFiles] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [notice, setNotice] = useState('')
 
-  // Mock RCA data
   const rcaInvestigations = [
     {
       id: 'RCA-001',
@@ -910,8 +915,6 @@ export function ExportRCAReportModal({
 
     try {
       await onExport(config)
-      // TODO: Integrate with RCA export API endpoint
-      // TODO: Handle download trigger
       onClose()
     } catch (error) {
       console.error('Export failed:', error)
@@ -921,8 +924,9 @@ export function ExportRCAReportModal({
   }
 
   const handlePreview = () => {
-    // TODO: Generate preview
-    console.log('Generate preview')
+    setNotice(
+      'A separate preview is not yet available. Use "Generate Report" to produce the export.'
+    )
   }
 
   const preview = calculatePreview()
@@ -1191,6 +1195,12 @@ export function ExportRCAReportModal({
 
         {/* Footer Actions */}
         <div className="border-t border-gray-200 p-3 bg-gray-50 rounded-b-lg">
+          {notice && (
+            <div className="mb-3 flex items-start space-x-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-800">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{notice}</span>
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <button
               onClick={onClose}
@@ -1266,6 +1276,7 @@ export function ExportAnalysisReportModal({
   })
   const [isGenerating, setIsGenerating] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [notice, setNotice] = useState('')
 
   const sections = [
     { name: 'Overview', description: 'Summary statistics, key metrics, availability' },
@@ -1375,8 +1386,6 @@ export function ExportAnalysisReportModal({
 
     try {
       await onExport(config)
-      // TODO: Integrate with analysis report API endpoint
-      // TODO: Handle download trigger
       onClose()
     } catch (error) {
       console.error('Export failed:', error)
@@ -1386,13 +1395,13 @@ export function ExportAnalysisReportModal({
   }
 
   const handleSaveConfiguration = () => {
-    // TODO: Save configuration for future use
-    console.log('Save configuration')
+    setNotice('Saving report configurations is not yet available.')
   }
 
   const handleScheduleRecurring = () => {
-    // TODO: Open recurring schedule modal
-    console.log('Schedule recurring')
+    setNotice(
+      'Recurring scheduled reports are not yet available. Use "Generate Report" for an immediate export.'
+    )
   }
 
   const preview = calculatePreview()
@@ -1852,6 +1861,12 @@ export function ExportAnalysisReportModal({
 
         {/* Footer Actions */}
         <div className="border-t border-gray-200 p-3 bg-gray-50 rounded-b-lg">
+          {notice && (
+            <div className="mb-3 flex items-start space-x-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{notice}</span>
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <button
               onClick={onClose}

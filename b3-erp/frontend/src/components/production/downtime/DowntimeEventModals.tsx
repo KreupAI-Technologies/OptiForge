@@ -997,7 +997,6 @@ export const EditDowntimeEventModal: React.FC<EditDowntimeEventModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
-      // TODO: API call to update downtime event
       onSubmit(formData)
       onClose()
     }
@@ -1306,7 +1305,6 @@ export const ResolveDowntimeModal: React.FC<ResolveDowntimeModalProps> = ({
   const handleSubmit = (createRCA: boolean) => (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
-      // TODO: API call to resolve downtime event
       if (createRCA || formData.requireRCA) {
         onSubmitWithRCA(formData)
       } else {
@@ -1618,7 +1616,6 @@ export const DeleteDowntimeModal: React.FC<DeleteDowntimeModalProps> = ({
       setError('Deletion reason must be at least 10 characters')
       return
     }
-    // TODO: API call to delete/archive downtime event
     onConfirm(reason)
     onClose()
   }

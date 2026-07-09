@@ -118,7 +118,6 @@ export function QualityAlertModal({ isOpen, onClose, onSubmit, context }: Qualit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
-      // TODO: API integration - POST /api/shopfloor/quality-alerts
       onSubmit(formData)
       handleClose()
     }
@@ -545,7 +544,6 @@ export function SupervisorCallModal({ isOpen, onClose, onSubmit, context }: Supe
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
-      // TODO: API integration - POST /api/shopfloor/supervisor-requests
       onSubmit(formData)
       handleClose()
     }
@@ -945,7 +943,6 @@ export function QuickDowntimeModal({ isOpen, onClose, onSubmit, context }: Quick
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
-      // TODO: API integration - POST /api/shopfloor/downtime
       onSubmit(formData)
       handleClose()
     }
