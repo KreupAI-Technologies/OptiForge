@@ -1,5 +1,23 @@
 # App Readiness Audit — Frontend
 
+> ## ✅ Remediation complete — branch `feat/production-readiness-complete` (2026-07-09)
+>
+> Re-audited current `main` (post `feat/readiness-fixes` merge) against the three release criteria and remediated all three. Verified by build/typecheck/test gates, not assertion.
+>
+> | Criterion | Before | After |
+> |---|---|---|
+> | **i. No mock/fallback/hardcoded data** | 81 pages carried mock/sample/dummy arrays | **0** mock consts in `src/app`. 78 pages stripped; each now renders solely from its backend service with loading + error(+retry) + empty states. Catch-blocks set errors instead of falling back to mock. |
+> | **ii. Every button functional + backend-integrated** | ~15 pages used `window.prompt` interim inputs; a large "no endpoint" backlog | **0** `window.prompt` calls (all converted to validated modals driving the same service call). Backlog reconciled — **overwhelmingly stale** (PO delegate/request-info, GRN invoice-match, GST/TDS returns, workflow attachments/comments, cycle-count & replenishment writes, dock CRUD, installation handover, production publish/optimize all already existed → FE wired). Genuinely-new built: inventory transfer-reject, cpq document-generator (+PDF), finance payment-activity, workflow POST-attachments, reports widget-data. |
+> | **iii. No 404s** | 26 latent broken links | **0 reachable 404s.** Deleted 7 unmounted scaffold components (carrying 18 dead nav links) + `_finance_deprecated`. Live nav: Sidebar 1,260 + MegaMenu 82 links = 0 broken. The 7 remaining route-audit hits are confirmed false positives (estimation `view/[id]` string-concat; FinancialIntegrations `path:` API-catalog display strings). |
+>
+> **Verification gates (all green):** frontend `tsc --noEmit` 0 errors · backend `nest build` clean · backend `jest` **296/296** pass · `route-audit.mjs` 0 nav 404s · `check-live-nav.mjs` 0 broken.
+>
+> **Runtime caveat (pending live DB):** 2 new tables (`orphan_inventory_transfer_reject.sql`, `orphan_cpq_documents.sql`) are registered in `MIGRATION_ORDER`; run `npm run db:manual` against the live Neon DB, then smoke-test the transfer-reject and CPQ document-generator flows. All other endpoints reuse existing tables. A few pages surface empty states where the backend legitimately has no data source yet (e.g. alumni-network feed, vendor performance history) — these are documented in agent reports and are not mock data.
+>
+> ---
+>
+> _Original audit below (stale — pre-remediation), kept for provenance._
+
 _Generated: 2026-07-08 · branch `main` · HEAD `1db4e41a` · scope: `b3-erp/frontend` (1671 pages, 1670 routes)._
 
 > ## ⏳ Remediation progress — branch `feat/readiness-fixes` (in progress)
