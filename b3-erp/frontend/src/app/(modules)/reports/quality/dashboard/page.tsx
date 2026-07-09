@@ -23,43 +23,24 @@ interface QualityDashboardData {
     defectTrend: { month: string; defects: number }[];
 }
 
-const DEFAULT_DATA: QualityDashboardData = {
-    totalInspections: 186,
-    passRate: 94.5,
-    openNCRs: 8,
-    activeCAPAs: 5,
-    qualityCost: 45000,
-    defectRate: 1.8,
-    byInspectionType: [
-        { type: 'Incoming', count: 54, passed: 51, failed: 3 },
-        { type: 'In-Process', count: 76, passed: 73, failed: 3 },
-        { type: 'Final', count: 42, passed: 39, failed: 3 },
-        { type: 'Audit', count: 14, passed: 13, failed: 1 },
-    ],
-    ncrBySeverity: [
-        { severity: 'Critical', count: 2 },
-        { severity: 'Major', count: 3 },
-        { severity: 'Minor', count: 3 },
-    ],
-    capas: [
-        { number: 'CAPA-2025-005', issue: 'Dimensional variance in frames', status: 'In Progress', progress: 75 },
-        { number: 'CAPA-2025-004', issue: 'Coating thickness issue', status: 'In Progress', progress: 60 },
-        { number: 'CAPA-2025-003', issue: 'Welding defects', status: 'Verification', progress: 90 },
-    ],
-    defectTrend: [
-        { month: 'Jan', defects: 12 },
-        { month: 'Feb', defects: 10 },
-        { month: 'Mar', defects: 8 },
-        { month: 'Apr', defects: 7 },
-        { month: 'May', defects: 6 },
-    ],
+const EMPTY_DATA: QualityDashboardData = {
+    totalInspections: 0,
+    passRate: 0,
+    openNCRs: 0,
+    activeCAPAs: 0,
+    qualityCost: 0,
+    defectRate: 0,
+    byInspectionType: [],
+    ncrBySeverity: [],
+    capas: [],
+    defectTrend: [],
 };
 
 export default function QualityDashboardReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('this-month');
 
-    const [data, setData] = useState<QualityDashboardData>(DEFAULT_DATA);
+    const [data, setData] = useState<QualityDashboardData>(EMPTY_DATA);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -73,16 +54,16 @@ export default function QualityDashboardReport() {
                 if (cancelled) return;
                 if (payload) {
                     setData({
-                        totalInspections: Number(payload.totalInspections ?? DEFAULT_DATA.totalInspections),
-                        passRate: Number(payload.passRate ?? DEFAULT_DATA.passRate),
-                        openNCRs: Number(payload.openNCRs ?? DEFAULT_DATA.openNCRs),
-                        activeCAPAs: Number(payload.activeCAPAs ?? DEFAULT_DATA.activeCAPAs),
-                        qualityCost: Number(payload.qualityCost ?? DEFAULT_DATA.qualityCost),
-                        defectRate: Number(payload.defectRate ?? DEFAULT_DATA.defectRate),
-                        byInspectionType: Array.isArray(payload.byInspectionType) ? payload.byInspectionType : DEFAULT_DATA.byInspectionType,
-                        ncrBySeverity: Array.isArray(payload.ncrBySeverity) ? payload.ncrBySeverity : DEFAULT_DATA.ncrBySeverity,
-                        capas: Array.isArray(payload.capas) ? payload.capas : DEFAULT_DATA.capas,
-                        defectTrend: Array.isArray(payload.defectTrend) ? payload.defectTrend : DEFAULT_DATA.defectTrend,
+                        totalInspections: Number(payload.totalInspections ?? 0),
+                        passRate: Number(payload.passRate ?? 0),
+                        openNCRs: Number(payload.openNCRs ?? 0),
+                        activeCAPAs: Number(payload.activeCAPAs ?? 0),
+                        qualityCost: Number(payload.qualityCost ?? 0),
+                        defectRate: Number(payload.defectRate ?? 0),
+                        byInspectionType: Array.isArray(payload.byInspectionType) ? payload.byInspectionType : [],
+                        ncrBySeverity: Array.isArray(payload.ncrBySeverity) ? payload.ncrBySeverity : [],
+                        capas: Array.isArray(payload.capas) ? payload.capas : [],
+                        defectTrend: Array.isArray(payload.defectTrend) ? payload.defectTrend : [],
                     });
                 }
             } catch (e) {
@@ -118,7 +99,7 @@ export default function QualityDashboardReport() {
             </div>
 
             {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
-            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
+            {loadError && <p className="text-xs text-red-600 mb-2">Failed to load report — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard
@@ -127,8 +108,6 @@ export default function QualityDashboardReport() {
                     subtext={`${data.totalInspections} inspections`}
                     icon={CheckCircle}
                     color="green"
-                    trend="+1.2%"
-                    trendUp={true}
                     onClick={() => router.push('/reports/quality/inspections')}
                 />
                 <ClickableKPICard
@@ -137,8 +116,6 @@ export default function QualityDashboardReport() {
                     subtext="Non-conformances"
                     icon={AlertTriangle}
                     color="red"
-                    trend="-2"
-                    trendUp={true}
                     onClick={() => router.push('/reports/quality/ncr-capa?status=Open')}
                 />
                 <ClickableKPICard
@@ -155,8 +132,6 @@ export default function QualityDashboardReport() {
                     subtext="Rework + scrap"
                     icon={TrendingUp}
                     color="orange"
-                    trend="-5%"
-                    trendUp={true}
                 />
             </div>
 
@@ -165,6 +140,9 @@ export default function QualityDashboardReport() {
                     <CardHeader><CardTitle>Inspections by Type</CardTitle></CardHeader>
                     <CardContent>
                         <div className="space-y-2">
+                            {!isLoading && data.byInspectionType.length === 0 && (
+                                <p className="text-sm text-gray-400 text-center py-6">No inspection data available</p>
+                            )}
                             {data.byInspectionType.map((item, idx) => {
                                 const passRate = (item.passed / item.count) * 100;
                                 return (
@@ -198,6 +176,9 @@ export default function QualityDashboardReport() {
                     <CardHeader><CardTitle>NCRs by Severity</CardTitle></CardHeader>
                     <CardContent>
                         <div className="space-y-2">
+                            {!isLoading && data.ncrBySeverity.length === 0 && (
+                                <p className="text-sm text-gray-400 text-center py-6">No NCR data available</p>
+                            )}
                             {data.ncrBySeverity.map((item, idx) => (
                                 <div
                                     key={idx}
@@ -225,6 +206,9 @@ export default function QualityDashboardReport() {
                 <CardHeader><CardTitle>Active CAPAs Progress</CardTitle></CardHeader>
                 <CardContent>
                     <div className="space-y-2">
+                        {!isLoading && data.capas.length === 0 && (
+                            <p className="text-sm text-gray-400 text-center py-6">No active CAPAs</p>
+                        )}
                         {data.capas.map((capa, idx) => (
                             <div
                                 key={idx}
@@ -251,26 +235,43 @@ export default function QualityDashboardReport() {
             </Card>
 
             <Card>
-                <CardHeader><CardTitle>Defect Trend (Last 5 Months)</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Defect Trend</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="flex items-end justify-between gap-2 h-48">
-                        {data.defectTrend.map((item, idx) => (
-                            <div key={idx} className="flex-1 flex flex-col items-center">
-                                <div className="w-full flex flex-col items-center justify-end flex-1">
-                                    <span className="text-xs font-semibold mb-1">{item.defects}</span>
-                                    <div
-                                        className="w-full bg-gradient-to-t from-red-600 to-red-400 rounded-t"
-                                        style={{ height: `${(item.defects / 12) * 100}%` }}
-                                    />
-                                </div>
-                                <span className="text-xs text-gray-600 mt-2">{item.month}</span>
+                    {data.defectTrend.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-8">No defect trend data available</p>
+                    ) : (
+                        <>
+                            <div className="flex items-end justify-between gap-2 h-48">
+                                {(() => {
+                                    const maxDefects = Math.max(...data.defectTrend.map((d) => d.defects), 1);
+                                    return data.defectTrend.map((item, idx) => (
+                                        <div key={idx} className="flex-1 flex flex-col items-center">
+                                            <div className="w-full flex flex-col items-center justify-end flex-1">
+                                                <span className="text-xs font-semibold mb-1">{item.defects}</span>
+                                                <div
+                                                    className="w-full bg-gradient-to-t from-red-600 to-red-400 rounded-t"
+                                                    style={{ height: `${(item.defects / maxDefects) * 100}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs text-gray-600 mt-2">{item.month}</span>
+                                        </div>
+                                    ));
+                                })()}
                             </div>
-                        ))}
-                    </div>
-                    <div className="flex items-center justify-center gap-2 mt-4 text-green-600">
-                        <TrendingUp className="h-4 w-4" />
-                        <span className="text-sm font-medium">50% reduction in defects over 5 months</span>
-                    </div>
+                            {(() => {
+                                const first = data.defectTrend[0]?.defects ?? 0;
+                                const last = data.defectTrend[data.defectTrend.length - 1]?.defects ?? 0;
+                                if (first <= 0 || last >= first) return null;
+                                const reduction = Math.round(((first - last) / first) * 100);
+                                return (
+                                    <div className="flex items-center justify-center gap-2 mt-4 text-green-600">
+                                        <TrendingUp className="h-4 w-4" />
+                                        <span className="text-sm font-medium">{reduction}% reduction in defects over the period</span>
+                                    </div>
+                                );
+                            })()}
+                        </>
+                    )}
                 </CardContent>
             </Card>
         </div>

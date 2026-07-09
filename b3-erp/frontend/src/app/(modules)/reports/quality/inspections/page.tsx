@@ -18,21 +18,16 @@ interface InspectionResultsData {
     byType: { type: string; total: number; passed: number; failed: number; rate: number }[];
 }
 
-const DEFAULT_DATA: InspectionResultsData = {
-    totalInspections: 186,
-    passed: 176,
-    failed: 10,
-    passRate: 94.6,
-    byType: [
-        { type: 'Incoming', total: 54, passed: 51, failed: 3, rate: 94.4 },
-        { type: 'In-Process', total: 76, passed: 73, failed: 3, rate: 96.1 },
-        { type: 'Final', total: 42, passed: 39, failed: 3, rate: 92.9 },
-        { type: 'Audit', total: 14, passed: 13, failed: 1, rate: 92.9 },
-    ],
+const EMPTY_DATA: InspectionResultsData = {
+    totalInspections: 0,
+    passed: 0,
+    failed: 0,
+    passRate: 0,
+    byType: [],
 };
 
 export default function InspectionResultsReport() {
-    const [data, setData] = useState<InspectionResultsData>(DEFAULT_DATA);
+    const [data, setData] = useState<InspectionResultsData>(EMPTY_DATA);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -46,11 +41,11 @@ export default function InspectionResultsReport() {
                 if (cancelled) return;
                 if (payload) {
                     setData({
-                        totalInspections: Number(payload.totalInspections ?? DEFAULT_DATA.totalInspections),
-                        passed: Number(payload.passed ?? DEFAULT_DATA.passed),
-                        failed: Number(payload.failed ?? DEFAULT_DATA.failed),
-                        passRate: Number(payload.passRate ?? DEFAULT_DATA.passRate),
-                        byType: Array.isArray(payload.byType) ? payload.byType : DEFAULT_DATA.byType,
+                        totalInspections: Number(payload.totalInspections ?? 0),
+                        passed: Number(payload.passed ?? 0),
+                        failed: Number(payload.failed ?? 0),
+                        passRate: Number(payload.passRate ?? 0),
+                        byType: Array.isArray(payload.byType) ? payload.byType : [],
                     });
                 }
             } catch (e) {
@@ -79,7 +74,7 @@ export default function InspectionResultsReport() {
             </div>
 
             {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
-            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
+            {loadError && <p className="text-xs text-red-600 mb-2">Failed to load report — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard
@@ -124,6 +119,9 @@ export default function InspectionResultsReport() {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
+                            {!isLoading && data.byType.length === 0 && (
+                                <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">No inspection data available</td></tr>
+                            )}
                             {data.byType.map((type, idx) => (
                                 <ClickableTableRow
                                     key={idx}
