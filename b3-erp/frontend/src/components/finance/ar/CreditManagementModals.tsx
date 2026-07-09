@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, AlertTriangle, Lock, Unlock, TrendingUp, FileText, CheckCircle } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 // ==================== CREDIT HOLD MODAL ====================
 interface CreditHoldModalProps {
@@ -17,20 +18,36 @@ export const CreditHoldModal: React.FC<CreditHoldModalProps> = ({ isOpen, onClos
   const [blockShipments, setBlockShipments] = useState(true);
   const [notifyCustomer, setNotifyCustomer] = useState(true);
   const [notifySales, setNotifySales] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Placing credit hold:', {
-      reason,
-      holdType,
-      blockNewOrders,
-      blockShipments,
-      notifyCustomer,
-      notifySales
-    });
-    onClose();
+    if (!customer?.id) {
+      onClose();
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await FinanceService.updateCreditLimit(String(customer.id), {
+        onHold: true,
+        status: 'blocked',
+        holdType,
+        holdReason: reason,
+        blockNewOrders,
+        blockShipments,
+        notifyCustomer,
+        notifySales,
+      });
+      onClose();
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to place credit hold');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -162,6 +179,10 @@ export const CreditHoldModal: React.FC<CreditHoldModalProps> = ({ isOpen, onClos
             </label>
           </div>
 
+          {saveError && (
+            <p className="text-sm text-red-600 mb-2">{saveError}</p>
+          )}
+
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
@@ -173,9 +194,10 @@ export const CreditHoldModal: React.FC<CreditHoldModalProps> = ({ isOpen, onClos
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-700 hover:to-orange-700 transition-colors font-medium"
+              disabled={saving}
+              className="px-6 py-2 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-700 hover:to-orange-700 transition-colors font-medium disabled:opacity-50"
             >
-              Place Hold
+              {saving ? 'Placing…' : 'Place Hold'}
             </button>
           </div>
         </form>
@@ -197,19 +219,35 @@ export const ReleaseCreditHoldModal: React.FC<ReleaseCreditHoldModalProps> = ({ 
   const [notifyCustomer, setNotifyCustomer] = useState(true);
   const [notifySales, setNotifySales] = useState(true);
   const [restoreFullCredit, setRestoreFullCredit] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Releasing credit hold:', {
-      releaseReason,
-      releaseConditions,
-      notifyCustomer,
-      notifySales,
-      restoreFullCredit
-    });
-    onClose();
+    if (!customer?.id) {
+      onClose();
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await FinanceService.updateCreditLimit(String(customer.id), {
+        onHold: false,
+        status: 'active',
+        releaseReason,
+        releaseConditions,
+        restoreFullCredit,
+        notifyCustomer,
+        notifySales,
+      });
+      onClose();
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to release credit hold');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -326,6 +364,10 @@ export const ReleaseCreditHoldModal: React.FC<ReleaseCreditHoldModalProps> = ({ 
             </label>
           </div>
 
+          {saveError && (
+            <p className="text-sm text-red-600 mb-2">{saveError}</p>
+          )}
+
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
@@ -337,9 +379,10 @@ export const ReleaseCreditHoldModal: React.FC<ReleaseCreditHoldModalProps> = ({ 
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-medium"
+              disabled={saving}
+              className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-medium disabled:opacity-50"
             >
-              Release Hold
+              {saving ? 'Releasing…' : 'Release Hold'}
             </button>
           </div>
         </form>
@@ -360,18 +403,41 @@ export const CreditReviewModal: React.FC<CreditReviewModalProps> = ({ isOpen, on
   const [reviewNotes, setReviewNotes] = useState('');
   const [recommendedLimit, setRecommendedLimit] = useState('600000');
   const [paymentScore, setPaymentScore] = useState(85);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submitting credit review:', {
-      reviewDecision,
-      reviewNotes,
-      recommendedLimit,
-      paymentScore
-    });
-    onClose();
+    if (!customer?.id) {
+      onClose();
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const payload: Record<string, any> = {
+        reviewDecision,
+        reviewNotes,
+        paymentScore,
+        lastReviewDate: new Date().toISOString(),
+      };
+      // Only push a new credit limit when the reviewer changed it.
+      if (reviewDecision === 'increase' || reviewDecision === 'decrease') {
+        payload.creditLimit = Number(recommendedLimit) || 0;
+      }
+      if (reviewDecision === 'hold' || reviewDecision === 'reject') {
+        payload.onHold = true;
+        payload.status = 'blocked';
+      }
+      await FinanceService.updateCreditLimit(String(customer.id), payload);
+      onClose();
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to submit credit review');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -528,6 +594,10 @@ export const CreditReviewModal: React.FC<CreditReviewModalProps> = ({ isOpen, on
               />
             </div>
 
+            {saveError && (
+              <p className="text-sm text-red-600 mb-2">{saveError}</p>
+            )}
+
             {/* Footer */}
             <div className="flex justify-end gap-3 pt-4 border-t">
               <button
@@ -539,9 +609,10 @@ export const CreditReviewModal: React.FC<CreditReviewModalProps> = ({ isOpen, on
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-colors font-medium"
+                disabled={saving}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-colors font-medium disabled:opacity-50"
               >
-                Submit Review
+                {saving ? 'Submitting…' : 'Submit Review'}
               </button>
             </div>
           </form>
@@ -568,17 +639,11 @@ export const AgingAlertSettingsModal: React.FC<AgingAlertSettingsModalProps> = (
 
   if (!isOpen) return null;
 
+  // NOTE: no aging-alert-settings persistence endpoint exists on the finance
+  // backend yet, so this dialog collects settings and closes without a fake
+  // save. Wire to a real endpoint once it is available (see NEEDS BACKEND).
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Saving aging alert settings:', {
-      enable30DayAlert,
-      enable60DayAlert,
-      enable90DayAlert,
-      criticalAmount,
-      autoHoldThreshold,
-      notifyEmails,
-      dailyDigest
-    });
     onClose();
   };
 
@@ -764,19 +829,36 @@ export const CreditApprovalRequestModal: React.FC<CreditApprovalRequestModalProp
   const [justification, setJustification] = useState('');
   const [urgency, setUrgency] = useState('normal');
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submitting credit approval request:', {
-      requestType,
-      requestedAmount,
-      justification,
-      urgency,
-      attachments
-    });
-    onClose();
+    if (!customer?.id) {
+      onClose();
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await FinanceService.updateCreditLimit(String(customer.id), {
+        pendingRequest: {
+          requestType,
+          requestedAmount: Number(requestedAmount) || 0,
+          justification,
+          urgency,
+          attachments,
+          requestedAt: new Date().toISOString(),
+        },
+      });
+      onClose();
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to submit credit approval request');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -916,6 +998,10 @@ export const CreditApprovalRequestModal: React.FC<CreditApprovalRequestModalProp
             </div>
           </div>
 
+          {saveError && (
+            <p className="text-sm text-red-600 mb-2">{saveError}</p>
+          )}
+
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
@@ -927,9 +1013,10 @@ export const CreditApprovalRequestModal: React.FC<CreditApprovalRequestModalProp
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors font-medium"
+              disabled={saving}
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors font-medium disabled:opacity-50"
             >
-              Submit for Approval
+              {saving ? 'Submitting…' : 'Submit for Approval'}
             </button>
           </div>
         </form>
@@ -950,18 +1037,39 @@ export const ApproveRejectCreditModal: React.FC<ApproveRejectCreditModalProps> =
   const [approvalNotes, setApprovalNotes] = useState('');
   const [conditions, setConditions] = useState('');
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const targetId = request?.creditLimitId ?? request?.customerId ?? request?.id;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Credit decision:', {
-      decision,
-      approvalNotes,
-      conditions,
-      effectiveDate
-    });
-    onClose();
+    if (!targetId) {
+      onClose();
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const approved = decision.startsWith('approve');
+      const payload: Record<string, any> = {
+        requestDecision: decision,
+        approvalNotes,
+        conditions,
+        effectiveDate,
+      };
+      if (approved && request?.requestedAmount) {
+        payload.creditLimit = Number(request.requestedAmount) || undefined;
+      }
+      await FinanceService.updateCreditLimit(String(targetId), payload);
+      onClose();
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to record credit decision');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1084,6 +1192,10 @@ export const ApproveRejectCreditModal: React.FC<ApproveRejectCreditModalProps> =
               />
             </div>
 
+            {saveError && (
+              <p className="text-sm text-red-600 mb-2">{saveError}</p>
+            )}
+
             {/* Footer */}
             <div className="flex justify-end gap-3 pt-4 border-t">
               <button
@@ -1095,13 +1207,14 @@ export const ApproveRejectCreditModal: React.FC<ApproveRejectCreditModalProps> =
               </button>
               <button
                 type="submit"
-                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                disabled={saving}
+                className={`px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
                   decision === 'reject'
                     ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
                     : 'bg-gradient-to-r from-teal-600 to-green-600 hover:from-teal-700 hover:to-green-700'
                 } text-white`}
               >
-                {decision === 'reject' ? 'Reject Request' : 'Approve Request'}
+                {saving ? 'Saving…' : decision === 'reject' ? 'Reject Request' : 'Approve Request'}
               </button>
             </div>
           </form>

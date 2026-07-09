@@ -739,7 +739,7 @@ const FinancialPeriodManagement = () => {
                       <input
                         type="checkbox"
                         checked={item.isCompleted}
-                        onChange={() => {}}
+                        readOnly
                         className="mt-1 mr-3"
                       />
                       <div className="flex-1">

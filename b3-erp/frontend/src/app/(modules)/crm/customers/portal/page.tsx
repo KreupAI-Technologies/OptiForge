@@ -222,15 +222,19 @@ export default function CustomerPortalPage() {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    if (selectedUser) {
+  const confirmDelete = async () => {
+    if (!selectedUser) return;
+    try {
+      await crmService.portalUsers.delete(selectedUser.id);
       setUsers(users.filter(u => u.id !== selectedUser.id));
       setToastMessage(`User "${selectedUser.name}" deleted successfully`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-      setShowDeleteModal(false);
-      setSelectedUser(null);
+    } catch {
+      setToastMessage(`Failed to delete user "${selectedUser.name}"`);
     }
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+    setShowDeleteModal(false);
+    setSelectedUser(null);
   };
 
   const handleExport = () => {
@@ -533,7 +537,7 @@ export default function CustomerPortalPage() {
                     <input
                       type="checkbox"
                       checked={feature.enabled}
-                      onChange={() => {}}
+                      readOnly
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -545,9 +549,6 @@ export default function CustomerPortalPage() {
                     <span className={`font-medium ${feature.enabled ? 'text-green-600' : 'text-gray-500'}`}>
                       {feature.enabled ? 'Enabled for all users' : 'Currently disabled'}
                     </span>
-                    <button className="text-blue-600 hover:text-blue-700 font-medium">
-                      Configure
-                    </button>
                   </div>
                 </div>
               </div>

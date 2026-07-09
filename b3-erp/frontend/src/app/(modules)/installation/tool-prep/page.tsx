@@ -47,13 +47,9 @@ function ToolPrepPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [tools, setTools] = useState<Tool[]>([
-        { id: 'T-001', name: 'Cordless Drill Set', category: 'Power Tool', status: 'Available', condition: 'Good', lastChecked: '2024-12-01' },
-        { id: 'T-002', name: 'Laser Level', category: 'Measuring', status: 'Available', condition: 'Good', lastChecked: '2024-12-01' },
-        { id: 'T-003', name: 'Safety Helmet', category: 'Safety Gear', status: 'Available', condition: 'Good', lastChecked: '2024-11-28' },
-        { id: 'T-004', name: 'Installation Hammer', category: 'Hand Tool', status: 'Available', condition: 'Fair', lastChecked: '2024-11-15' },
-        { id: 'T-005', name: 'Jigsaw', category: 'Power Tool', status: 'Maintenance', condition: 'Poor', lastChecked: '2024-12-02' },
-    ]);
+    const [tools, setTools] = useState<Tool[]>([]);
+    const [isLoadingTools, setIsLoadingTools] = useState(false);
+    const [toolsError, setToolsError] = useState<string | null>(null);
 
     const [selectedTools, setSelectedTools] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,6 +57,43 @@ function ToolPrepPageContent() {
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (!selectedProject) {
+            setTools([]);
+            setSelectedTools([]);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            setIsLoadingTools(true);
+            setToolsError(null);
+            try {
+                const raw = await projectManagementService.getDeployedTools(selectedProject.id);
+                if (cancelled) return;
+                const mapped: Tool[] = (Array.isArray(raw) ? raw : []).map((t: any) => ({
+                    id: String(t.id ?? t.toolId ?? ''),
+                    name: String(t.name ?? t.toolName ?? 'Unnamed Tool'),
+                    category: (t.category ?? 'Hand Tool') as Tool['category'],
+                    status: (t.status ?? 'Available') as Tool['status'],
+                    condition: (t.condition ?? 'Good') as Tool['condition'],
+                    lastChecked: String(t.lastChecked ?? t.lastCheckedDate ?? ''),
+                }));
+                setTools(mapped);
+                setSelectedTools([]);
+            } catch (error) {
+                if (!cancelled) {
+                    setTools([]);
+                    setToolsError('Failed to load tools for this project.');
+                }
+            } finally {
+                if (!cancelled) setIsLoadingTools(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedProject]);
 
     const loadProjects = async () => {
         try {
@@ -291,7 +324,28 @@ function ToolPrepPageContent() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {tools.map((tool) => (
+                                {isLoadingTools && (
+                                    <tr>
+                                        <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                                            Loading tools…
+                                        </td>
+                                    </tr>
+                                )}
+                                {!isLoadingTools && toolsError && (
+                                    <tr>
+                                        <td colSpan={6} className="p-6 text-center text-red-600">
+                                            {toolsError}
+                                        </td>
+                                    </tr>
+                                )}
+                                {!isLoadingTools && !toolsError && tools.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                                            No tools available for this project.
+                                        </td>
+                                    </tr>
+                                )}
+                                {!isLoadingTools && !toolsError && tools.map((tool) => (
                                     <tr
                                         key={tool.id}
                                         className={`border-t hover:bg-muted/50 cursor-pointer ${selectedTools.includes(tool.id) ? 'bg-blue-50' : ''}`}
@@ -301,7 +355,7 @@ function ToolPrepPageContent() {
                                             <input
                                                 type="checkbox"
                                                 checked={selectedTools.includes(tool.id)}
-                                                onChange={() => { }}
+                                                readOnly
                                                 disabled={tool.status !== 'Available'}
                                                 className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                             />
