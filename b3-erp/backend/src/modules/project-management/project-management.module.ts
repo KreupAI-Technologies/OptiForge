@@ -9,6 +9,8 @@ import { EmergencySparesController } from './controllers/emergency-spares.contro
 import { Project } from '../project/entities/project.entity';
 import { ProjectTask } from './entities/project-task.entity';
 import { ProjectResource } from './entities/project-resource.entity';
+import { PmResourceRequest } from './entities/pm-resource-request.entity';
+import { PmResourceSkill } from './entities/pm-resource-skill.entity';
 import { ProjectBudget } from './entities/project-budget.entity';
 import { ProjectMilestone } from './entities/project-milestone.entity';
 import { ResourceCapacity } from './entities/resource-capacity.entity';
@@ -84,6 +86,8 @@ import { GeneralLedger } from '../finance/entities/general-ledger.entity';
 
 import { ProjectTasksService } from './services/project-tasks.service';
 import { ProjectResourcesService } from './services/project-resources.service';
+import { PmResourceRequestsService } from './services/pm-resource-requests.service';
+import { PmResourceSkillsService } from './services/pm-resource-skills.service';
 import { ProjectBudgetsService } from './services/project-budgets.service';
 import { ProjectMilestonesService } from './services/project-milestones.service';
 import { TimeLogsService } from './services/time-logs.service';
@@ -164,6 +168,8 @@ import { ProjectFinanceSeederService } from './services/project-finance-seeder.s
 
 import { ProjectTasksController } from './controllers/project-tasks.controller';
 import { ProjectResourcesController } from './controllers/project-resources.controller';
+import { PmResourceRequestsController } from './controllers/pm-resource-requests.controller';
+import { PmResourceSkillsController } from './controllers/pm-resource-skills.controller';
 import { ProjectBudgetsController } from './controllers/project-budgets.controller';
 import { ProjectMilestonesController } from './controllers/project-milestones.controller';
 import { TimeLogsController } from './controllers/time-logs.controller';
@@ -221,6 +227,8 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         Project,
         ProjectTask,
         ProjectResource,
+        PmResourceRequest,
+        PmResourceSkill,
         ProjectBudget,
         ProjectMilestone,
         ResourceCapacity,
@@ -306,6 +314,8 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         EmergencySparesController,
         ProjectTasksController,
         ProjectResourcesController,
+        PmResourceRequestsController,
+        PmResourceSkillsController,
         ProjectBudgetsController,
         ProjectMilestonesController,
         TimeLogsController,
@@ -369,6 +379,8 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         EmergencySpareService,
         ProjectTasksService,
         ProjectResourcesService,
+        PmResourceRequestsService,
+        PmResourceSkillsService,
         ProjectBudgetsService,
         ProjectMilestonesService,
         TimeLogsService,

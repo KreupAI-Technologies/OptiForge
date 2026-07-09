@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, QrCode, Scan, Package, MapPin, Calendar, Download, Upload, Printer, CheckCircle } from 'lucide-react';
 import { inventoryService } from '@/services/InventoryService';
@@ -33,6 +33,12 @@ export default function BarcodeTrackingPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<
     { status: 'found'; item: any } | { status: 'not-found'; code: string } | null
+  >(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [actionMsg, setActionMsg] = useState<
+    { type: 'success' | 'error'; text: string } | null
   >(null);
 
   useEffect(() => {
@@ -114,6 +120,108 @@ export default function BarcodeTrackingPage() {
     setScanInput('');
   };
 
+  // Parse an uploaded CSV or JSON file into barcode import rows.
+  const parseImportFile = async (file: File): Promise<any[]> => {
+    const text = await file.text();
+    const trimmed = text.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      const json = JSON.parse(trimmed);
+      const arr = Array.isArray(json) ? json : json.rows ?? [];
+      return Array.isArray(arr) ? arr : [];
+    }
+    // CSV: first line is the header.
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim() !== '');
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(',').map((h) => h.trim());
+    return lines.slice(1).map((line) => {
+      const cells = line.split(',');
+      const row: Record<string, string> = {};
+      headers.forEach((h, i) => {
+        row[h] = (cells[i] ?? '').trim();
+      });
+      return row;
+    });
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so the same file can be selected again later.
+    e.target.value = '';
+    if (!file) return;
+    setActionMsg(null);
+    setImporting(true);
+    try {
+      const rows = await parseImportFile(file);
+      if (rows.length === 0) {
+        setActionMsg({ type: 'error', text: 'No rows found in the selected file.' });
+        return;
+      }
+      const result = await inventoryService.bulkImportBarcodes(rows);
+      setActionMsg({
+        type: 'success',
+        text: `Imported ${result.total} row(s): ${result.created} created, ${result.updated} updated, ${result.skipped} skipped.`,
+      });
+      // Refresh the table from the backend.
+      const raw = await inventoryService.getSerialNumbers();
+      const mapped = raw.map((s: any, idx: number) => {
+        const location = s.locationName || s.warehouseName || s.locationId || s.warehouseId || '';
+        return {
+          id: s.id ?? String(idx),
+          itemCode: s.itemCode ?? '',
+          itemName: s.itemName ?? '',
+          barcode: s.barcode || s.serialNumber || '',
+          barcodeType: s.barcodeType ?? 'Code-128',
+          quantity: Number(s.quantity ?? 1),
+          uom: s.uom ?? 'Nos',
+          location,
+          batchNumber: s.batchNumber ?? '',
+          serialNumber: s.serialNumber ?? '',
+          lastScanned: s.lastMovementDate ?? s.updatedAt ?? s.createdAt ?? '',
+          scanCount: Number(s.serviceCount ?? 0),
+          status:
+            s.status === 'Scrapped' || s.status === 'Quarantine'
+              ? 'damaged'
+              : s.status === 'Available' || s.status === 'In Store' || s.status === 'Installed'
+              ? 'active'
+              : 'inactive',
+        };
+      });
+      setBarcodeItems(mapped);
+    } catch (err) {
+      setActionMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Bulk import failed',
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handlePrintLabels = async () => {
+    const ids = filteredItems.map((i) => i.id).filter(Boolean);
+    if (ids.length === 0) return;
+    setActionMsg(null);
+    setPrinting(true);
+    try {
+      const blob = await inventoryService.downloadBarcodeLabels(ids, 'pdf');
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'barcode-labels.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setActionMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Label generation failed',
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-700 border-green-200';
@@ -159,26 +267,53 @@ export default function BarcodeTrackingPage() {
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
-          {/* Bulk barcode import + label printing require dedicated backend
-              endpoints that do not yet exist — disabled until then. */}
+          {/* Bulk barcode import — parses the selected CSV/JSON file client-side
+              and POSTs the rows to /inventory/barcodes/bulk-import. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.json,application/json,text/csv"
+            className="hidden"
+            onChange={handleImportFile}
+          />
           <button
-            disabled
-            title="Bulk import requires a backend import endpoint (not yet available)"
-            className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 opacity-50 cursor-not-allowed"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            title="Import barcodes from a CSV or JSON file"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Upload className="w-4 h-4" />
-            <span>Import</span>
+            <span>{importing ? 'Importing…' : 'Import'}</span>
           </button>
           <button
-            disabled
-            title="Label printing requires a backend label-generation endpoint (not yet available)"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 opacity-50 cursor-not-allowed"
+            onClick={handlePrintLabels}
+            disabled={printing || filteredItems.length === 0}
+            title="Generate a printable PDF label sheet for the listed barcodes"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Printer className="w-4 h-4" />
-            <span>Print Labels</span>
+            <span>{printing ? 'Generating…' : 'Print Labels'}</span>
           </button>
         </div>
       </div>
+
+      {actionMsg && (
+        <div
+          className={`mb-3 flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${
+            actionMsg.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <span>{actionMsg.text}</span>
+          <button
+            onClick={() => setActionMsg(null)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 border border-blue-200">

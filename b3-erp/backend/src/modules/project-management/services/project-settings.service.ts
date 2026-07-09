@@ -33,4 +33,18 @@ export class ProjectSettingsService {
     }
     return this.settingsRepository.save(settings);
   }
+
+  /**
+   * Reset a company's project settings back to the entity-defined defaults.
+   * We delete the persisted row (if any) and recreate a bare row so TypeORM's
+   * column defaults are re-applied, keeping the same company scope.
+   */
+  async reset(companyId = 'default'): Promise<ProjectSettingsEntity> {
+    const existing = await this.settingsRepository.findOne({ where: { companyId } });
+    if (existing) {
+      await this.settingsRepository.remove(existing);
+    }
+    const fresh = this.settingsRepository.create({ companyId });
+    return this.settingsRepository.save(fresh);
+  }
 }

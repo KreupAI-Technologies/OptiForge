@@ -31,6 +31,17 @@ export class ActivityRecordController {
     return this.service.findOne(id);
   }
 
+  @Get(':id/likes')
+  getLikes(@Param('id') id: string) {
+    return this.service.getLikers(id);
+  }
+
+  @Post(':id/like')
+  @HttpCode(HttpStatus.OK)
+  toggleLike(@Param('id') id: string, @Body() body: { userId?: string }) {
+    return this.service.toggleLike(id, body?.userId ?? 'anonymous');
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() data: Partial<ActivityRecord>) {

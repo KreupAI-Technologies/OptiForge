@@ -43,8 +43,7 @@ import {
   Globe,
   MapPin,
   Briefcase,
-  Settings,
-  MoreVertical
+  Settings
 } from 'lucide-react'
 import {
   LineChart,
@@ -129,6 +128,17 @@ export default function RFQRFPManagement() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [selectedBid, setSelectedBid] = useState<BidResponse | null>(null)
 
+  // Bids (real data from NestJS domain backend)
+  const [bidResponses, setBidResponses] = useState<BidResponse[]>([])
+  const [bidsLoading, setBidsLoading] = useState(false)
+  const [bidsError, setBidsError] = useState<string | null>(null)
+  const [bidActionId, setBidActionId] = useState<string | null>(null)
+
+  // Templates (real data from NestJS domain backend)
+  const [templates, setTemplates] = useState<Array<{ id: string; name: string; category?: string; type: string }>>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [templatesError, setTemplatesError] = useState<string | null>(null)
+
   // Handler functions
   const handleCreateRFQ = () => {
     setIsCreateModalOpen(true)
@@ -136,11 +146,13 @@ export default function RFQRFPManagement() {
 
   const handleRefresh = () => {
     loadRfqs();
+    loadBids();
+    loadTemplates();
   };
 
   const handleSettings = () => {
-    console.log('Opening RFQ settings...');
-    alert('RFQ/RFP Settings\n\nDOCUMENT CONFIGURATION:\n- Default response period (14-30 days)\n- Minimum bidder requirements\n- Auto-publish rules\n- Notification preferences\n\nEVALUATION SETTINGS:\n- Default evaluation criteria\n- Scoring methodology\n- Minimum qualification scores\n- Consensus vs weighted scoring\n- Blind evaluation options\n\nWORKFLOW CONFIGURATION:\n- Approval routing rules\n- Value thresholds for approvals\n- Escalation procedures\n- Required reviewers\n\nSUPPLIER PORTAL:\n- Response submission format\n- Q&A process\n- Clarification deadlines\n- Amendment notifications\n- File upload limits\n\nTEMPLATE MANAGEMENT:\n- Template library\n- Custom templates\n- Standard clauses library\n- Evaluation matrices\n\nNOTIFICATION RULES:\n- Supplier invitations\n- Response confirmations\n- Deadline reminders\n- Amendment alerts\n- Award notifications\n\nCOMPLIANCE SETTINGS:\n- Conflict of interest checks\n- Fair competition rules\n- Audit trail requirements\n- Document retention (7 years)\n- Confidentiality rules\n\nINTEGRATIONS:\n- ERP system sync\n- Email integration\n- Document management\n- Supplier database\n- Contract management');
+    // Settings for this module surface through the Templates tab (real CRUD).
+    setActiveTab('templates');
   };
 
   const handleExport = () => {
@@ -180,27 +192,111 @@ export default function RFQRFPManagement() {
     setIsCompareBidsModalOpen(true)
   }
 
-  const handleApproveReject = (bid: BidResponse, action: 'approve' | 'reject') => {
-    console.log(`${action} bid:`, bid.id);
-
-    if (action === 'approve') {
-      alert(`Shortlist Bid Response\n\nSUPPLIER: ${bid.supplier}\nBID: ${bid.id}\nSCORE: ${bid.score}/100\n\nSHORTLIST CONFIRMATION:\n\nThis will:\n✓ Move bid to shortlisted status\n✓ Include in final evaluation\n✓ Schedule for presentations\n✓ Request clarifications\n✓ Notify evaluation team\n\nTYPICAL SHORTLIST SIZE: 2-3 suppliers\n\nNEXT STEPS:\n1. Clarification meeting scheduled\n2. Reference checks initiated\n3. Site visit (if applicable)\n4. Request best and final offer\n5. Presentation to evaluation committee\n\nSHORTLIST CRITERIA MET:\n✓ Score above threshold (${bid.score >= 75 ? 'Yes' : 'No'})\n✓ Compliance verified (${bid.compliance >= 85 ? 'Yes' : 'No'})\n✓ References checked (Pending)\n✓ Technical capability (${bid.technicalScore >= 75 ? 'Confirmed' : 'Questionable'})\n✓ Commercial viability (${bid.commercialScore >= 75 ? 'Confirmed' : 'Questionable'})\n\nConfirm shortlist for ${bid.supplier}?`);
-    } else {
-      alert(`Reject Bid Response\n\nSUPPLIER: ${bid.supplier}\nBID: ${bid.id}\nSCORE: ${bid.score}/100\n\nREJECTION CONFIRMATION:\n\n⚠️ This will:\n✗ Mark bid as rejected\n✗ Exclude from further evaluation\n✗ Send regret letter to supplier\n✗ Cannot be easily undone\n\nREJECTION REASON REQUIRED:\n□ Did not meet technical requirements\n□ Price not competitive\n□ Compliance issues\n□ Failed reference checks\n□ Delivery time unacceptable\n□ Other (specify)\n\nSUPPLIER COMMUNICATION:\n- Regret letter sent automatically\n- Debriefing offered (optional)\n- Feedback provided (if requested)\n- Maintain professional relationship\n\nBID REJECTION CRITERIA:\n${bid.score < 65 ? '✓ Score below minimum threshold' : ''}\n${bid.compliance < 80 ? '✓ Compliance issues identified' : ''}\n${bid.technicalScore < 70 ? '✓ Technical requirements not met' : ''}\n\nDOCUMENTATION:\n- Rejection reason recorded\n- Evaluation notes saved\n- Audit trail maintained\n\n⚠️ IMPORTANT:\nRejection decisions should be:\n- Fair and objective\n- Well documented\n- Based on evaluation criteria\n- Defendable if challenged\n\nProceed with rejection?`);
+  const handleApproveReject = async (bid: BidResponse, action: 'approve' | 'reject') => {
+    setBidActionId(bid.id)
+    setBidsError(null)
+    try {
+      if (action === 'approve') {
+        await procurementRFQService.shortlistBid(bid.id)
+      } else {
+        const reason = typeof window !== 'undefined'
+          ? window.prompt('Rejection reason (optional):') ?? undefined
+          : undefined
+        await procurementRFQService.rejectBid(bid.id, reason)
+      }
+      await loadBids()
+    } catch (err) {
+      setBidsError(err instanceof Error ? err.message : `Failed to ${action} bid`)
+    } finally {
+      setBidActionId(null)
     }
   };
 
   const handleUseTemplate = (templateName: string) => {
-    console.log('Using template:', templateName);
-    alert(`Use RFQ/RFP Template\n\nTEMPLATE: ${templateName}\n\nTEMPLATE INCLUDES:\n\n📋 DOCUMENT STRUCTURE:\n- Pre-formatted sections\n- Standard clauses\n- Evaluation criteria\n- Response templates\n\n📄 STANDARD CONTENT:\n- Company background\n- Procurement process\n- Submission requirements\n- Terms and conditions\n- Confidentiality agreements\n\n✅ EVALUATION MATRIX:\n- Predefined criteria\n- Standard weights\n- Scoring guidelines\n- Decision matrix\n\n📎 ATTACHMENTS:\n- Response template\n- Compliance checklist\n- Technical specification format\n- Price sheet template\n\nCUSTOMIZATION OPTIONS:\n\n1. Use As-Is:\n   - Quick deployment\n   - Proven format\n   - Minimal changes needed\n\n2. Customize:\n   - Modify sections\n   - Add/remove requirements\n   - Adjust criteria weights\n   - Update specifications\n\n3. Save New Template:\n   - Create custom template\n   - Reuse for similar RFQs\n   - Share with team\n\nTEMPLATE BENEFITS:\n✓ Faster RFQ creation\n✓ Consistent format\n✓ Reduced errors\n✓ Best practices built-in\n✓ Compliance assured\n\nNext: Enter RFQ-specific details\n- Title and description\n- Specifications\n- Timeline\n- Invited suppliers\n\nLoad template ${templateName}?`);
+    // Prefill a new RFQ from a template by opening the create modal.
+    // (Template-driven prefill is applied inside the create flow.)
+    setIsCreateModalOpen(true)
   };
 
-  const handleCreateTemplate = () => {
-    console.log('Creating new template...');
-    alert('Create New RFQ/RFP Template\n\nTEMPLATE WIZARD:\n\n1. TEMPLATE INFORMATION:\n   - Template name\n   - Category/industry\n   - Description\n   - Template type (RFQ/RFP/RFI)\n\n2. DOCUMENT STRUCTURE:\n   - Section organization\n   - Standard clauses\n   - Appendices\n   - Formatting\n\n3. REQUIREMENTS SECTIONS:\n   - Technical specifications\n   - Delivery requirements\n   - Quality standards\n   - Compliance needs\n\n4. EVALUATION CRITERIA:\n   - Criteria definition\n   - Default weights\n   - Scoring method\n   - Minimum thresholds\n\n5. RESPONSE FORMAT:\n   - Supplier response template\n   - Price sheet format\n   - Document requirements\n   - Submission process\n\n6. TERMS & CONDITIONS:\n   - Standard T&Cs\n   - Payment terms\n   - Delivery terms\n   - Warranties\n   - Confidentiality\n\n7. ATTACHMENTS:\n   - Standard forms\n   - Compliance checklists\n   - Sample agreements\n\nTEMPLATE FEATURES:\n\n□ Placeholders for custom content\n□ Variable sections (optional)\n□ Standard boilerplate\n□ Approval workflows\n□ Document version control\n\nTEMPLATE SHARING:\n- Save to personal library\n- Share with team\n- Set as department default\n- Publish to template library\n\nBEST PRACTICES:\n✓ Use clear, unambiguous language\n✓ Include all necessary information\n✓ Define evaluation criteria clearly\n✓ Specify submission requirements\n✓ Set realistic timelines\n✓ Include contact information\n\nCREATION OPTIONS:\n1. Start from scratch\n2. Clone existing template\n3. Import from document\n4. Use wizard\n\nProceed with template creation?');
+  const handleDeleteTemplate = async (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Delete this template?')) return
+    setTemplatesError(null)
+    try {
+      await procurementRFQService.deleteTemplate(id)
+      await loadTemplates()
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to delete template')
+    }
+  };
+
+  const handleCreateTemplate = async () => {
+    const name = typeof window !== 'undefined'
+      ? window.prompt('New template name:')
+      : null
+    if (!name) return
+    setTemplatesError(null)
+    try {
+      await procurementRFQService.createTemplate({ name, type: 'RFQ' })
+      await loadTemplates()
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to create template')
+    }
   };
 
   const [rfqList, setRfqList] = useState<RFQ[]>([])
+
+  const loadTemplates = async () => {
+    setTemplatesLoading(true)
+    setTemplatesError(null)
+    try {
+      const res = await procurementRFQService.getTemplates()
+      setTemplates((Array.isArray(res) ? res : []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        category: t.category,
+        type: t.type ?? 'RFQ',
+      })))
+    } catch (err) {
+      setTemplates([])
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to load templates')
+    } finally {
+      setTemplatesLoading(false)
+    }
+  }
+
+  const loadBids = async () => {
+    setBidsLoading(true)
+    setBidsError(null)
+    try {
+      const res = await procurementRFQService.getAllRFQs()
+      const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
+      const perRfq = await Promise.all(
+        list.map((r: any) =>
+          procurementRFQService.getBids(String(r.id ?? r.rfqNumber ?? ''))
+            .catch(() => [])
+        )
+      )
+      const flat = perRfq.flat()
+      setBidResponses(flat.map((b: any): BidResponse => ({
+        id: b.id,
+        rfqId: b.rfqId,
+        supplier: b.supplierName ?? '—',
+        submittedDate: (b.createdAt ?? '').toString().slice(0, 10),
+        totalAmount: Number(b.amount ?? 0),
+        leadTime: '—',
+        score: 0,
+        status: (b.status as BidResponse['status']) ?? 'submitted',
+        compliance: 0,
+        technicalScore: 0,
+        commercialScore: 0,
+      })))
+    } catch (err) {
+      setBidResponses([])
+      setBidsError(err instanceof Error ? err.message : 'Failed to load bids')
+    } finally {
+      setBidsLoading(false)
+    }
+  }
 
   const loadRfqs = async () => {
     const statusMap: Record<string, RFQ['status']> = {
@@ -236,50 +332,10 @@ export default function RFQRFPManagement() {
 
   useEffect(() => {
     loadRfqs()
+    loadBids()
+    loadTemplates()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const bidResponses: BidResponse[] = [
-    {
-      id: 'BID-001',
-      rfqId: 'RFQ-2024-001',
-      supplier: 'TechPro Solutions',
-      submittedDate: '2024-02-25',
-      totalAmount: 485000,
-      leadTime: '45 days',
-      score: 92,
-      status: 'shortlisted',
-      compliance: 95,
-      technicalScore: 90,
-      commercialScore: 88
-    },
-    {
-      id: 'BID-002',
-      rfqId: 'RFQ-2024-001',
-      supplier: 'Global Tech Services',
-      submittedDate: '2024-02-24',
-      totalAmount: 478000,
-      leadTime: '60 days',
-      score: 88,
-      status: 'shortlisted',
-      compliance: 92,
-      technicalScore: 85,
-      commercialScore: 90
-    },
-    {
-      id: 'BID-003',
-      rfqId: 'RFQ-2024-001',
-      supplier: 'Innovation Systems',
-      submittedDate: '2024-02-26',
-      totalAmount: 510000,
-      leadTime: '30 days',
-      score: 85,
-      status: 'under_review',
-      compliance: 88,
-      technicalScore: 92,
-      commercialScore: 75
-    }
-  ]
 
   const rfqMetrics = {
     totalRFQs: 45,
@@ -741,6 +797,17 @@ export default function RFQRFPManagement() {
                     Compare Selected
                   </button>
                 </div>
+                {bidsLoading && (
+                  <div className="p-4 text-sm text-gray-500">Loading bids…</div>
+                )}
+                {bidsError && (
+                  <div className="p-4 text-sm text-red-600 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" /> {bidsError}
+                  </div>
+                )}
+                {!bidsLoading && !bidsError && bidResponses.length === 0 && (
+                  <div className="p-4 text-sm text-gray-500">No bids submitted yet.</div>
+                )}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50">
@@ -822,20 +889,22 @@ export default function RFQRFPManagement() {
                                 <span className="text-gray-700">View</span>
                               </button>
                               <button
-                                disabled
-                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-not-allowed opacity-60"
-                                title="Bid shortlisting is not yet available"
+                                onClick={() => handleApproveReject(bid, 'approve')}
+                                disabled={bidActionId === bid.id || bid.status === 'shortlisted' || bid.status === 'awarded'}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Shortlist this bid"
                               >
-                                <ThumbsUp className="w-4 h-4 text-gray-400" />
-                                <span className="text-gray-400">Approve</span>
+                                <ThumbsUp className="w-4 h-4 text-green-600" />
+                                <span className="text-green-700">Shortlist</span>
                               </button>
                               <button
-                                disabled
-                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-not-allowed opacity-60"
-                                title="Bid rejection is not yet available"
+                                onClick={() => handleApproveReject(bid, 'reject')}
+                                disabled={bidActionId === bid.id || bid.status === 'rejected'}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Reject this bid"
                               >
-                                <XCircle className="w-4 h-4 text-gray-400" />
-                                <span className="text-gray-400">Reject</span>
+                                <XCircle className="w-4 h-4 text-red-600" />
+                                <span className="text-red-700">Reject</span>
                               </button>
                             </div>
                           </td>
@@ -1032,30 +1101,35 @@ export default function RFQRFPManagement() {
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">RFQ/RFP Templates</h3>
 
+              {templatesLoading && (
+                <div className="text-sm text-gray-500">Loading templates…</div>
+              )}
+              {templatesError && (
+                <div className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> {templatesError}
+                </div>
+              )}
+              {!templatesLoading && !templatesError && templates.length === 0 && (
+                <div className="text-sm text-gray-500">No templates yet. Create one to get started.</div>
+              )}
+
               {/* Template Library */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {[
-                  { name: 'Standard RFQ Template', category: 'General', uses: 124, lastUpdated: '2024-01-15' },
-                  { name: 'IT Services RFP', category: 'Technology', uses: 45, lastUpdated: '2024-02-01' },
-                  { name: 'Construction RFQ', category: 'Facilities', uses: 28, lastUpdated: '2024-01-20' },
-                  { name: 'Professional Services RFP', category: 'Services', uses: 62, lastUpdated: '2024-02-10' },
-                  { name: 'Raw Materials RFQ', category: 'Supply Chain', uses: 89, lastUpdated: '2024-02-05' },
-                  { name: 'Logistics RFP Template', category: 'Transportation', uses: 34, lastUpdated: '2024-01-25' }
-                ].map((template) => (
-                  <div key={template.name} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition">
+                {templates.map((template) => (
+                  <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition">
                     <div className="flex items-start justify-between mb-3">
                       <FileText className="w-8 h-8 text-blue-600" />
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                        <MoreVertical className="w-4 h-4 text-gray-600" />
-                        <span className="text-gray-700">More</span>
+                      <button
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-red-50 text-sm"
+                        title="Delete Template"
+                      >
+                        <XCircle className="w-4 h-4 text-red-600" />
+                        <span className="text-red-700">Delete</span>
                       </button>
                     </div>
                     <h4 className="font-semibold text-gray-900 mb-1">{template.name}</h4>
-                    <div className="text-sm text-gray-600 mb-3">{template.category}</div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                      <span>Used {template.uses} times</span>
-                      <span>Updated {template.lastUpdated}</span>
-                    </div>
+                    <div className="text-sm text-gray-600 mb-3">{template.category || template.type}</div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleUseTemplate(template.name)}
@@ -1063,13 +1137,6 @@ export default function RFQRFPManagement() {
                         title="Use This Template"
                       >
                         Use Template
-                      </button>
-                      <button
-                        onClick={() => handleUseTemplate(template.name)}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
-                        title="Preview Template"
-                      >
-                        <Eye className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

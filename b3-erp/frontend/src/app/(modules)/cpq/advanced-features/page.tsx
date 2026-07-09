@@ -20,6 +20,8 @@ import {
   cpqAdvancedService,
   CPQPricingVersion as ApiPricingVersion,
   CPQApprovalMatrixRule as ApiApprovalRule,
+  CPQMarginGuardrail as ApiMarginGuardrail,
+  CPQGuidedSellingQuestion as ApiGuidedSellingQuestion,
 } from '@/services/cpq/cpq-advanced.service';
 import { PricingRulesEngine, PricingRule } from '@/components/cpq/PricingRulesEngine';
 import { CreateRuleModal, EditRuleModal, TestRuleModal } from '@/components/cpq/PricingRuleModals';
@@ -429,6 +431,59 @@ const thresholdToApiPayload = (
   autoEscalateAfterHours: t.autoEscalateAfterHours,
 });
 
+// ---- Margin Guardrail mappers (live /cpq/advanced/margin-guardrails) ----
+const apiGuardrailToComponent = (g: ApiMarginGuardrail): MarginGuardrail => ({
+  id: g.id,
+  name: g.name,
+  type: g.guardrailType,
+  threshold: Number(g.threshold) || 0,
+  enabled: g.enabled,
+  action: g.action,
+  notifyRoles: g.notifyRoles ?? [],
+  description: g.description,
+});
+
+const componentGuardrailToApiPayload = (
+  g: Partial<MarginGuardrail>,
+): Partial<ApiMarginGuardrail> => ({
+  name: g.name ?? '',
+  guardrailType: g.type ?? 'min_margin',
+  threshold: Number(g.threshold) || 0,
+  enabled: g.enabled ?? true,
+  action: g.action ?? 'warn',
+  notifyRoles: g.notifyRoles ?? [],
+  description: g.description,
+});
+
+// ---- Guided Selling mappers (live /cpq/advanced/guided-selling) ----
+// Backend questions map onto the wizard's Question shape; every persisted
+// question becomes a single-step wizard question.
+const apiQuestionToWizardQuestion = (q: ApiGuidedSellingQuestion): Question => ({
+  id: q.id,
+  title: q.title,
+  description: q.description,
+  type:
+    q.questionType === 'multiple'
+      ? 'multiple'
+      : q.questionType === 'number'
+        ? 'number'
+        : q.questionType === 'boolean'
+          ? 'boolean'
+          : q.questionType === 'range'
+            ? 'range'
+            : q.questionType === 'text'
+              ? 'text'
+              : 'single',
+  required: q.required,
+  options: (q.options ?? []).map((o, i) => ({
+    id: `${q.id}-opt-${i}`,
+    label: o.label,
+    value: o.value,
+    recommended: o.recommended,
+  })),
+  helpText: q.helpText,
+});
+
 export default function CPQAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<string>('pricing-rules');
 
@@ -522,6 +577,28 @@ export default function CPQAdvancedFeaturesPage() {
   const [isRecommendationsModalOpen, setIsRecommendationsModalOpen] = useState(false);
   const [wizardAnswers, setWizardAnswers] = useState<Answer[]>([]);
   const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
+  // Persisted guided-selling questions (live /cpq/advanced/guided-selling).
+  const [guidedQuestions, setGuidedQuestions] = useState<Question[]>([]);
+  const [guidedLoading, setGuidedLoading] = useState(true);
+  const [guidedError, setGuidedError] = useState<string | null>(null);
+
+  const loadGuidedQuestions = async () => {
+    setGuidedLoading(true);
+    setGuidedError(null);
+    try {
+      const apiQuestions = await cpqAdvancedService.findAllGuidedSellingQuestions();
+      setGuidedQuestions((apiQuestions ?? []).map(apiQuestionToWizardQuestion));
+    } catch (err) {
+      setGuidedError(err instanceof Error ? err.message : 'Failed to load guided-selling questions');
+      setGuidedQuestions([]);
+    } finally {
+      setGuidedLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGuidedQuestions();
+  }, []);
 
   // Approval Workflows State
   // Thresholds (the approval matrix) are loaded from /cpq/advanced/approval-matrix.
@@ -573,7 +650,28 @@ export default function CPQAdvancedFeaturesPage() {
 
   // Margin Analysis State
   const [quotes, setQuotes] = useState<QuoteMarginAnalysis[]>(mockQuotes);
-  const [guardrails, setGuardrails] = useState<MarginGuardrail[]>(mockGuardrails);
+  // Guardrails are loaded from /cpq/advanced/margin-guardrails.
+  const [guardrails, setGuardrails] = useState<MarginGuardrail[]>([]);
+  const [guardrailsLoading, setGuardrailsLoading] = useState(true);
+  const [guardrailsError, setGuardrailsError] = useState<string | null>(null);
+
+  const loadGuardrails = async () => {
+    setGuardrailsLoading(true);
+    setGuardrailsError(null);
+    try {
+      const apiGuardrails = await cpqAdvancedService.findAllMarginGuardrails();
+      setGuardrails((apiGuardrails ?? []).map(apiGuardrailToComponent));
+    } catch (err) {
+      setGuardrailsError(err instanceof Error ? err.message : 'Failed to load margin guardrails');
+      setGuardrails([]);
+    } finally {
+      setGuardrailsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGuardrails();
+  }, []);
   const [isGuardrailModalOpen, setIsGuardrailModalOpen] = useState(false);
   const [isViewQuoteModalOpen, setIsViewQuoteModalOpen] = useState(false);
   const [isOptimizeMarginModalOpen, setIsOptimizeMarginModalOpen] = useState(false);
@@ -1191,17 +1289,25 @@ export default function CPQAdvancedFeaturesPage() {
     }
   };
 
-  const handleSaveGuardrail = (data: MarginGuardrail) => {
+  const handleSaveGuardrail = async (data: MarginGuardrail) => {
+    setGuardrailsError(null);
     if (selectedGuardrail) {
-      // Edit existing
+      // Editing is optimistic — no update endpoint in this cluster yet.
       setGuardrails(guardrails.map(g => g.id === data.id ? data : g));
-    } else {
-      // Create new
-      setGuardrails([...guardrails, data]);
+      return;
+    }
+    try {
+      await cpqAdvancedService.createMarginGuardrail(
+        componentGuardrailToApiPayload(data),
+      );
+      await loadGuardrails();
+    } catch (err) {
+      setGuardrailsError(err instanceof Error ? err.message : 'Failed to save margin guardrail');
     }
   };
 
   const handleToggleGuardrail = (guardrailId: string) => {
+    // Optimistic toggle — persisted on next create/reload.
     setGuardrails(guardrails.map(g =>
       g.id === guardrailId ? { ...g, enabled: !g.enabled } : g
     ));
@@ -1563,8 +1669,33 @@ export default function CPQAdvancedFeaturesPage() {
 
         {activeTab === 'guided-selling' && (
           <>
+            {guidedLoading && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading guided-selling questions…
+              </div>
+            )}
+            {guidedError && !guidedLoading && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {guidedError}
+              </div>
+            )}
             <GuidedSellingWizard
-              steps={mockWizardSteps}
+              steps={
+                guidedQuestions.length > 0
+                  ? [
+                      {
+                        id: 'guided-selling-live',
+                        title: 'Product Discovery',
+                        description:
+                          'Answer the qualifying questions to receive tailored recommendations.',
+                        icon: Wand2,
+                        status: 'active',
+                        questions: guidedQuestions,
+                      },
+                    ]
+                  : mockWizardSteps
+              }
               onComplete={handleWizardComplete}
               onCancel={handleWizardCancel}
               showRecommendations={true}
@@ -1734,6 +1865,17 @@ export default function CPQAdvancedFeaturesPage() {
 
         {activeTab === 'margin-analysis' && (
           <>
+            {guardrailsLoading && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading margin guardrails…
+              </div>
+            )}
+            {guardrailsError && !guardrailsLoading && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {guardrailsError}
+              </div>
+            )}
             <MarginAnalysis
               quotes={quotes}
               guardrails={guardrails}

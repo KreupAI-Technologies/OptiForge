@@ -2,6 +2,8 @@ export * from './purchase-requisition.entity';
 export * from './purchase-order.entity';
 export * from './purchase-order-item.entity';
 export * from './rfq.entity';
+export * from './rfq-bid.entity';
+export * from './rfq-template.entity';
 export * from './vendor-quotation.entity';
 export * from './goods-receipt.entity';
 export * from './goods-receipt-item.entity';

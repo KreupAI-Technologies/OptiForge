@@ -68,6 +68,15 @@ export class RouteController {
     return this.routeService.findActive();
   }
 
+  @Post('optimize')
+  @ApiOperation({
+    summary: 'Batch-optimize all active routes (deterministic heuristic)',
+  })
+  @ApiResponse({ status: HttpStatus.OK })
+  async optimizeAll(): Promise<any> {
+    return this.routeService.optimizeAll();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get route by ID' })
   @ApiParam({ name: 'id' })

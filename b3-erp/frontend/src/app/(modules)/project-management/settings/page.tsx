@@ -78,6 +78,30 @@ export default function ProjectSettingsPage() {
  const [saveError, setSaveError] = useState<string | null>(null);
  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
+ // Apply a settings document (from the backend) into the form state.
+ const applySettings = (s: any) => {
+  setDefaultCurrency(s.defaultCurrency ?? 'INR');
+  setFiscalYearStart(s.fiscalYearStart ?? '04-01');
+  setDefaultProjectPrefix(s.defaultProjectPrefix ?? 'PRJ');
+  setAutoNumbering(s.autoNumbering ?? true);
+  setDocumentRetention(s.documentRetention ?? '7');
+  setProjectApprovalRequired(s.projectApprovalRequired ?? true);
+  setMilestoneApprovalRequired(s.milestoneApprovalRequired ?? true);
+  setBudgetApprovalThreshold(s.budgetApprovalThreshold ?? '5000000');
+  setChangeOrderApprovalLevels(s.changeOrderApprovalLevels ?? '2');
+  setDocumentApprovalRequired(s.documentApprovalRequired ?? true);
+  setProjectStartNotification(s.projectStartNotification ?? true);
+  setMilestoneCompleteNotification(s.milestoneCompleteNotification ?? true);
+  setBudgetExceededNotification(s.budgetExceededNotification ?? true);
+  setScheduleDelayNotification(s.scheduleDelayNotification ?? true);
+  setEmailNotifications(s.emailNotifications ?? true);
+  setSmsNotifications(s.smsNotifications ?? false);
+  setProjectManagerApproval(s.projectManagerApproval ?? true);
+  setDepartmentHeadApproval(s.departmentHeadApproval ?? true);
+  setFinanceApproval(s.financeApproval ?? true);
+  setCeoApprovalThreshold(s.ceoApprovalThreshold ?? '10000000');
+ };
+
  // Load persisted settings from the backend on mount.
  useEffect(() => {
   let mounted = true;
@@ -85,26 +109,7 @@ export default function ProjectSettingsPage() {
    try {
     const s = await projectManagementService.getPmSettings();
     if (!s || !mounted) return;
-    setDefaultCurrency(s.defaultCurrency ?? 'INR');
-    setFiscalYearStart(s.fiscalYearStart ?? '04-01');
-    setDefaultProjectPrefix(s.defaultProjectPrefix ?? 'PRJ');
-    setAutoNumbering(s.autoNumbering ?? true);
-    setDocumentRetention(s.documentRetention ?? '7');
-    setProjectApprovalRequired(s.projectApprovalRequired ?? true);
-    setMilestoneApprovalRequired(s.milestoneApprovalRequired ?? true);
-    setBudgetApprovalThreshold(s.budgetApprovalThreshold ?? '5000000');
-    setChangeOrderApprovalLevels(s.changeOrderApprovalLevels ?? '2');
-    setDocumentApprovalRequired(s.documentApprovalRequired ?? true);
-    setProjectStartNotification(s.projectStartNotification ?? true);
-    setMilestoneCompleteNotification(s.milestoneCompleteNotification ?? true);
-    setBudgetExceededNotification(s.budgetExceededNotification ?? true);
-    setScheduleDelayNotification(s.scheduleDelayNotification ?? true);
-    setEmailNotifications(s.emailNotifications ?? true);
-    setSmsNotifications(s.smsNotifications ?? false);
-    setProjectManagerApproval(s.projectManagerApproval ?? true);
-    setDepartmentHeadApproval(s.departmentHeadApproval ?? true);
-    setFinanceApproval(s.financeApproval ?? true);
-    setCeoApprovalThreshold(s.ceoApprovalThreshold ?? '10000000');
+    applySettings(s);
    } catch (err) {
     console.error('Error loading project settings:', err);
    }
@@ -113,7 +118,10 @@ export default function ProjectSettingsPage() {
   return () => {
    mounted = false;
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, []);
+
+ const [isResetting, setIsResetting] = useState(false);
 
  // Modal States
  const [showGeneralModal, setShowGeneralModal] = useState(false);
@@ -285,11 +293,27 @@ export default function ProjectSettingsPage() {
   setShowImportExportModal(false);
  };
 
- const handleResetSettings = () => {
-  // Reset the in-memory form to defaults; handleReset clears the dirty flag.
-  // A dedicated reset endpoint does not exist, so no backend call is made here.
-  setShowResetModal(false);
-  handleReset();
+ const handleResetSettings = async () => {
+  // Persist a reset to backend defaults, then apply the returned defaults to the form.
+  setIsResetting(true);
+  setSaveError(null);
+  setSaveSuccess(null);
+  try {
+   const fresh = await projectManagementService.resetPmSettings();
+   if (fresh) {
+    applySettings(fresh);
+    setHasChanges(false);
+    setSaveSuccess('Settings reset to defaults.');
+   } else {
+    setSaveError('Failed to reset settings. Please try again.');
+   }
+  } catch (err) {
+   console.error('Error resetting settings:', err);
+   setSaveError(err instanceof Error ? err.message : 'Failed to reset settings. Please try again.');
+  } finally {
+   setIsResetting(false);
+   setShowResetModal(false);
+  }
  };
 
  return (
@@ -314,7 +338,8 @@ export default function ProjectSettingsPage() {
          <div className="flex gap-3">
           <button
            onClick={handleReset}
-           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+           disabled={isResetting}
+           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60"
           >
            <RefreshCw className="w-4 h-4" />
            Reset

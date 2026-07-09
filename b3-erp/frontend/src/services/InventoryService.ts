@@ -1,4 +1,31 @@
 import { apiClient } from './api/client';
+import { config } from '@/lib/config';
+
+// Base API URL for raw (blob) downloads that bypass the JSON apiClient.
+const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL ?? config.apiUrl ?? 'http://localhost:3001/api/v1';
+
+export interface BarcodeImportRow {
+    serialNumber?: string;
+    barcode?: string;
+    barcodeType?: string;
+    itemId?: string;
+    itemCode?: string;
+    itemName?: string;
+    warehouseId?: string;
+    warehouseName?: string;
+    locationId?: string;
+    locationName?: string;
+    batchNumber?: string;
+}
+
+export interface BarcodeImportResult {
+    total: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: { row: number; reason: string }[];
+}
 
 export interface StockBalance {
     id: string;
@@ -612,6 +639,38 @@ class InventoryService {
         if (filters?.toDate) params.append('toDate', filters.toDate);
         const response = await apiClient.get<any[]>(`/inventory/stock-entries/stock-ledger?${params.toString()}`);
         return this.unwrapArray(response);
+    }
+
+    // ---- Barcodes ----
+    /** Bulk-import parsed barcode rows and attach them to serial-number records. */
+    async bulkImportBarcodes(rows: BarcodeImportRow[]): Promise<BarcodeImportResult> {
+        const response = await apiClient.post<BarcodeImportResult>('/inventory/barcodes/bulk-import', rows);
+        return ((response as any)?.data ?? response) as BarcodeImportResult;
+    }
+
+    /**
+     * Download a printable PDF label sheet for the given barcode ids. Returns a
+     * Blob; the caller is responsible for triggering the browser download.
+     */
+    async downloadBarcodeLabels(ids: string[], format: 'pdf' = 'pdf'): Promise<Blob> {
+        const params = new URLSearchParams();
+        params.append('ids', ids.join(','));
+        params.append('format', format);
+        const res = await fetch(`${API_BASE_URL}/inventory/barcodes/labels?${params.toString()}`, {
+            method: 'GET',
+            credentials: 'include',
+        });
+        if (!res.ok) {
+            let message = res.statusText || `HTTP ${res.status}`;
+            try {
+                const body = await res.json();
+                if (body?.message) message = Array.isArray(body.message) ? body.message.join('; ') : body.message;
+            } catch {
+                // keep statusText fallback
+            }
+            throw new Error(message);
+        }
+        return res.blob();
     }
 }
 

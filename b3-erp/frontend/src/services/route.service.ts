@@ -708,6 +708,39 @@ class RouteService {
     }
 
     /**
+     * Batch-optimize all active routes via the deterministic backend heuristic.
+     * Returns an aggregate summary of what was re-sequenced.
+     */
+    async optimizeAllRoutes(): Promise<{
+        routesConsidered: number;
+        routesOptimized: number;
+        stopsReordered: number;
+        optimizedAt: string;
+        routes: Array<{
+            id: string;
+            routeCode: string;
+            routeName: string;
+            numberOfStops: number;
+            reordered: boolean;
+        }>;
+    }> {
+        const response = await apiClient.post<{
+            routesConsidered: number;
+            routesOptimized: number;
+            stopsReordered: number;
+            optimizedAt: string;
+            routes: Array<{
+                id: string;
+                routeCode: string;
+                routeName: string;
+                numberOfStops: number;
+                reordered: boolean;
+            }>;
+        }>('/logistics/routes/optimize', {});
+        return response.data;
+    }
+
+    /**
      * Get freight charges and variance analysis
      */
     async getFreightAnalysis(): Promise<any> {

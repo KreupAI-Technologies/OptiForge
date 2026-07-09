@@ -187,10 +187,15 @@ export default function AccountHierarchyPage() {
           parentCustomerId: link.sourceAccountId,
         });
       } else {
-        // partner / competitor relationships have no hierarchy field yet.
-        throw new Error(
-          `"${link.relationshipType}" relationships are not yet supported by the backend.`,
-        );
+        // partner / competitor (non-hierarchy) relationships are persisted as
+        // typed account relationships.
+        await crmService.accountRelationships.create({
+          sourceAccountId: link.sourceAccountId,
+          targetAccountId: link.targetAccountId,
+          targetAccountName: link.targetAccountName,
+          relationshipType: link.relationshipType,
+          bidirectional: link.bidirectional,
+        });
       }
       setShowAccountLinkModal(false);
       setCurrentAccountId(undefined);

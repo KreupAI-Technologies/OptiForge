@@ -1,6 +1,54 @@
 import { apiClient } from './api/client';
 import { USE_LIVE_API } from './api-flags';
 
+// ---- NestJS domain backend (b3-erp) for net-new RFQ bid + template endpoints ----
+// Endpoint source of truth:
+//   procurement/controllers/rfq-bid.controller.ts     (@Controller('procurement/rfq'))
+//   procurement/controllers/rfq-template.controller.ts (@Controller('procurement/rfq/templates'))
+const DOMAIN_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const RFQ_COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-001';
+
+async function domainRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${DOMAIN_API_BASE_URL}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'x-company-id': RFQ_COMPANY_ID,
+    },
+    ...init,
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status}) for ${path}`);
+  }
+  if (res.status === 204) return undefined as unknown as T;
+  return res.json() as Promise<T>;
+}
+
+export interface RFQBid {
+  id: string;
+  companyId: string;
+  rfqId: string;
+  supplierId?: string;
+  supplierName: string;
+  amount: number;
+  status: 'submitted' | 'shortlisted' | 'rejected' | 'awarded';
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RFQTemplate {
+  id: string;
+  companyId: string;
+  name: string;
+  category?: string;
+  type: string;
+  description?: string;
+  content?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // ==================== TypeScript Interfaces ====================
 
 export type RFQStatus = 'Draft' | 'Sent' | 'Responses Received' | 'Under Evaluation' | 'Awarded' | 'Cancelled' | 'Expired';
@@ -1453,6 +1501,59 @@ class ProcurementRFQService {
       totalEstimatedValue: number;
     }>('/procurement/rfqs/stats');
     return response.data;
+  }
+
+  // ==================== Bids (NestJS domain backend) ====================
+
+  async getBids(rfqId: string): Promise<RFQBid[]> {
+    return domainRequest<RFQBid[]>(`/procurement/rfq/${rfqId}/bids`);
+  }
+
+  async createBid(rfqId: string, data: Partial<RFQBid>): Promise<RFQBid> {
+    return domainRequest<RFQBid>(`/procurement/rfq/${rfqId}/bids`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async shortlistBid(bidId: string, notes?: string): Promise<RFQBid> {
+    return domainRequest<RFQBid>(`/procurement/rfq/bids/${bidId}/shortlist`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  async rejectBid(bidId: string, notes?: string): Promise<RFQBid> {
+    return domainRequest<RFQBid>(`/procurement/rfq/bids/${bidId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  async awardBid(bidId: string, notes?: string): Promise<RFQBid> {
+    return domainRequest<RFQBid>(`/procurement/rfq/bids/${bidId}/award`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  // ==================== Templates (NestJS domain backend) ====================
+
+  async getTemplates(): Promise<RFQTemplate[]> {
+    return domainRequest<RFQTemplate[]>('/procurement/rfq/templates');
+  }
+
+  async createTemplate(data: Partial<RFQTemplate>): Promise<RFQTemplate> {
+    return domainRequest<RFQTemplate>('/procurement/rfq/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    return domainRequest<void>(`/procurement/rfq/templates/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
 

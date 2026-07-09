@@ -7,6 +7,11 @@ import {
   CostEstimateStatus,
 } from '../entities/cost-estimate.entity';
 import { EstimateVersion } from '../entities/estimate-template.entity';
+import {
+  ReportDefinition,
+  renderReport,
+  ReportFormat,
+} from '../../../common/utils/report-render.util';
 
 @Injectable()
 export class CostEstimateService {
@@ -100,6 +105,68 @@ export class CostEstimateService {
       where: { costEstimateId },
       order: { itemNumber: 'ASC' },
     });
+  }
+
+  /**
+   * Build a tabular report definition for a single estimate (header metadata +
+   * line items + cost summary) suitable for the shared report renderer.
+   */
+  async buildExportDefinition(
+    companyId: string,
+    id: string,
+  ): Promise<ReportDefinition> {
+    const estimate = await this.findOne(companyId, id);
+    const items = await this.findItems(id);
+    const currency = estimate.currency || '';
+
+    const rows = items.map((it) => ({
+      itemNumber: it.itemNumber || '',
+      description: it.description || '',
+      category: it.category || '',
+      unit: it.unit || '',
+      quantity: Number(it.quantity) || 0,
+      unitCost: Number(it.unitCost) || 0,
+      totalCost: Number(it.totalCost) || 0,
+    }));
+
+    return {
+      title: `Estimate ${estimate.estimateNumber || estimate.id}`,
+      subtitle: estimate.title || undefined,
+      companyLabel: estimate.customerName || undefined,
+      generatedAt: new Date(),
+      columns: [
+        { key: 'itemNumber', header: 'Item #', width: 12 },
+        { key: 'description', header: 'Description', width: 40 },
+        { key: 'category', header: 'Category', width: 18 },
+        { key: 'unit', header: 'Unit', width: 10 },
+        { key: 'quantity', header: 'Qty', width: 10, numeric: true },
+        { key: 'unitCost', header: `Rate (${currency})`, width: 14, numeric: true },
+        { key: 'totalCost', header: `Amount (${currency})`, width: 16, numeric: true },
+      ],
+      rows,
+      summary: {
+        Status: estimate.status,
+        Version: estimate.version,
+        'Material Cost': Number(estimate.materialCost) || 0,
+        'Labor Cost': Number(estimate.laborCost) || 0,
+        'Overhead Cost': Number(estimate.overheadCost) || 0,
+        'Equipment Cost': Number(estimate.equipmentCost) || 0,
+        'Subcontractor Cost': Number(estimate.subcontractorCost) || 0,
+        Contingency: Number(estimate.contingency) || 0,
+        [`Total (${currency})`]: Number(estimate.totalCost) || 0,
+      },
+    };
+  }
+
+  /** Render a single estimate to a downloadable buffer in the given format. */
+  async exportEstimate(
+    companyId: string,
+    id: string,
+    format: ReportFormat,
+  ): Promise<{ buffer: Buffer; title: string }> {
+    const def = await this.buildExportDefinition(companyId, id);
+    const buffer = await renderReport(def, format);
+    return { buffer, title: def.title };
   }
 
   async update(

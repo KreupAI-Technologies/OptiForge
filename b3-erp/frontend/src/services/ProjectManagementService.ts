@@ -1833,6 +1833,43 @@ class ProjectManagementService {
         await apiClient.delete(`/project-resources/${id}`);
     }
 
+    // Transfer a resource allocation from one project to another.
+    async transferResource(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resources/transfer', data);
+        return response.data;
+    }
+
+    // Compute workload-balancing recommendations across current allocations.
+    async balanceWorkload(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resources/balance-workload', data);
+        return response.data;
+    }
+
+    // Create a pending resource request (approved later into an allocation).
+    async createResourceRequest(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resource-requests', data);
+        return response.data;
+    }
+
+    async getResourceRequests(projectId?: string): Promise<any[]> {
+        const url = projectId
+            ? `/project-resource-requests?projectId=${encodeURIComponent(projectId)}`
+            : '/project-resource-requests';
+        const res = await apiClient.get<any[]>(url);
+        return ProjectManagementService.unwrapArray(res);
+    }
+
+    // Upsert the recorded skills for a resource.
+    async saveResourceSkills(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/project-resource-skills', data);
+        return response.data;
+    }
+
+    async getResourceSkills(resourceId: string): Promise<any> {
+        const response = await apiClient.get<any>(`/project-resource-skills/${encodeURIComponent(resourceId)}`);
+        return response.data;
+    }
+
     // --- Raw list endpoints (no projectId filter) ---
     // These hit the NestJS list controllers that return a bare array (not the
     // { success, data } envelope). apiClient.get() JSON-parses the body and
@@ -2326,6 +2363,20 @@ class ProjectManagementService {
             return (await res.json()) as PmSettings;
         } catch (error) {
             console.error('Error saving PM settings:', error);
+            return null;
+        }
+    }
+
+    async resetPmSettings(companyId = 'default'): Promise<PmSettings | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/settings/reset?companyId=${encodeURIComponent(companyId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) throw new Error(`Reset settings failed: ${res.status}`);
+            return (await res.json()) as PmSettings;
+        } catch (error) {
+            console.error('Error resetting PM settings:', error);
             return null;
         }
     }

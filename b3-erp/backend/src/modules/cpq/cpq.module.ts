@@ -57,6 +57,10 @@ import {
   CPQApprovalMatrixRule,
 } from './entities/cpq-advanced.entity';
 import {
+  CPQGuidedSellingQuestion,
+  CPQMarginGuardrail,
+} from './entities/cpq-advanced2.entity';
+import {
   CPQConfigRuleItem,
   CPQCompatibilityEntry,
   CPQCrossSellRule,
@@ -88,6 +92,10 @@ import {
   CPQPricingVersionService,
   CPQApprovalMatrixService,
 } from './services/cpq-advanced.service';
+import {
+  CPQGuidedSellingQuestionService,
+  CPQMarginGuardrailService,
+} from './services/cpq-advanced2.service';
 import { CPQAnalyticsDashboardsService } from './services/cpq-analytics-dashboards.service';
 import {
   CPQConfigRuleItemService,
@@ -121,6 +129,10 @@ import {
   CPQPricingVersionController,
   CPQApprovalMatrixController,
 } from './controllers/cpq-advanced.controller';
+import {
+  CPQGuidedSellingQuestionController,
+  CPQMarginGuardrailController,
+} from './controllers/cpq-advanced2.controller';
 import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-dashboards.controller';
 import {
   CPQConfigRuleItemController,
@@ -207,6 +219,9 @@ import {
       // Advanced-features tabs (pricing version control + approval matrix)
       CPQPricingVersion,
       CPQApprovalMatrixRule,
+      // Advanced-features tabs (guided-selling questions + margin guardrails)
+      CPQGuidedSellingQuestion,
+      CPQMarginGuardrail,
     ]),
   ],
   controllers: [
@@ -233,6 +248,8 @@ import {
     CPQConfigStepController,
     CPQPricingVersionController,
     CPQApprovalMatrixController,
+    CPQGuidedSellingQuestionController,
+    CPQMarginGuardrailController,
   ],
   providers: [
     ProductConfigurationService,
@@ -258,6 +275,8 @@ import {
     CPQConfigStepService,
     CPQPricingVersionService,
     CPQApprovalMatrixService,
+    CPQGuidedSellingQuestionService,
+    CPQMarginGuardrailService,
   ],
   exports: [
     ProductConfigurationService,

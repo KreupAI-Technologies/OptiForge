@@ -70,6 +70,8 @@ import { KittingController } from './controllers/kitting.controller';
 import { KittingService } from './services/kitting.service';
 import { ReplenishmentController } from './controllers/replenishment.controller';
 import { ReplenishmentService } from './services/replenishment.service';
+import { BarcodeController } from './controllers/barcode.controller';
+import { BarcodeService } from './services/barcode.service';
 
 @Module({
   imports: [
@@ -112,6 +114,7 @@ import { ReplenishmentService } from './services/replenishment.service';
     InventoryPolicyController,
     KittingController,
     ReplenishmentController,
+    BarcodeController,
   ],
   providers: [
     InventoryPolicyService,
@@ -136,6 +139,7 @@ import { ReplenishmentService } from './services/replenishment.service';
     InventoryAnalyticsService,
     CycleCountService,
     ReplenishmentService,
+    BarcodeService,
     AuditLogger,
   ],
   exports: [

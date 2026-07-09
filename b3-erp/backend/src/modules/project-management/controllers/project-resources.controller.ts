@@ -1,6 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Put, Param, Delete, Query } from '@nestjs/common';
 import { ProjectResourcesService } from '../services/project-resources.service';
-import { CreateProjectResourceDto, UpdateProjectResourceDto } from '../dto/project-resource.dto';
+import {
+    CreateProjectResourceDto,
+    UpdateProjectResourceDto,
+    TransferResourceDto,
+    BalanceWorkloadDto,
+} from '../dto/project-resource.dto';
 
 @Controller('project-resources')
 export class ProjectResourcesController {
@@ -9,6 +14,16 @@ export class ProjectResourcesController {
     @Post()
     create(@Body() createResourceDto: CreateProjectResourceDto) {
         return this.resourcesService.create(createResourceDto);
+    }
+
+    @Post('transfer')
+    transfer(@Body() dto: TransferResourceDto) {
+        return this.resourcesService.transfer(dto);
+    }
+
+    @Post('balance-workload')
+    balanceWorkload(@Body() dto: BalanceWorkloadDto) {
+        return this.resourcesService.balanceWorkload(dto);
     }
 
     @Get()
@@ -23,6 +38,11 @@ export class ProjectResourcesController {
 
     @Patch(':id')
     update(@Param('id') id: string, @Body() updateResourceDto: UpdateProjectResourceDto) {
+        return this.resourcesService.update(id, updateResourceDto);
+    }
+
+    @Put(':id')
+    updatePut(@Param('id') id: string, @Body() updateResourceDto: UpdateProjectResourceDto) {
         return this.resourcesService.update(id, updateResourceDto);
     }
 

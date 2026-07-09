@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { cpqIntegrationEndpointService } from '@/services/cpq/cpq-orphans.service';
 import {
   ShoppingCart,
@@ -68,6 +69,7 @@ interface SyncLog {
 }
 
 export default function CPQIntegrationEcommercePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
@@ -442,12 +444,15 @@ export default function CPQIntegrationEcommercePage() {
             {webQuotes.map((quote) => (
               <tr key={quote.id} className="hover:bg-gray-50">
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <span
-                    className="text-sm font-medium text-gray-700"
-                    title="Quote detail view is not yet available"
+                  <button
+                    onClick={() =>
+                      router.push(`/cpq/quotes/view/${encodeURIComponent(quote.quoteId)}`)
+                    }
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                    title="View quote detail"
                   >
                     {quote.quoteId}
-                  </span>
+                  </button>
                 </td>
                 <td className="px-3 py-2">
                   <div className="text-sm font-medium text-gray-900">{quote.customerName}</div>

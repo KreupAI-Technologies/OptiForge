@@ -8,13 +8,22 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   CostEstimate,
   CostEstimateItem,
   CostEstimateStatus,
 } from '../entities/cost-estimate.entity';
 import { CostEstimateService } from '../services/cost-estimate.service';
+import {
+  contentTypeFor,
+  fileExtensionFor,
+  normalizeFormat,
+  safeFileName,
+} from '../../../common/utils/report-render.util';
 
 @Controller('estimation/cost-estimates')
 export class CostEstimateController {
@@ -67,6 +76,27 @@ export class CostEstimateController {
     @Param('id') id: string,
   ): Promise<CostEstimate> {
     return this.costEstimateService.findOne(companyId, id);
+  }
+
+  @Get(':id/export')
+  async exportEstimate(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+    @Query('format') format: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const fmt = normalizeFormat(format || 'pdf');
+    const { buffer, title } = await this.costEstimateService.exportEstimate(
+      companyId || 'default',
+      id,
+      fmt,
+    );
+    const filename = `${safeFileName(title)}.${fileExtensionFor(fmt)}`;
+    res.set({
+      'Content-Type': contentTypeFor(fmt),
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get(':id/versions')

@@ -250,6 +250,10 @@ export class SerialNumber {
   @Column({ length: 255, nullable: true })
   barcode: string;
 
+  // Symbology of the barcode (EAN-13, Code-128, QR Code, Data Matrix …).
+  @Column({ length: 50, nullable: true })
+  barcodeType: string;
+
   @Column({ type: 'text', nullable: true })
   qrCode: string; // QR code data
 
