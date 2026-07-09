@@ -14,7 +14,7 @@ import {
 } from '@/components/production/downtime/DowntimeRCAModals';
 import { ExportRCAReportModal, ExportRCAConfig } from '@/components/production/downtime/DowntimeExportModals';
 
-// Local interface definitions for page-specific mock data
+// Local interface definitions for RCA investigation view models
 interface CorrectiveAction {
   id: string;
   action: string;

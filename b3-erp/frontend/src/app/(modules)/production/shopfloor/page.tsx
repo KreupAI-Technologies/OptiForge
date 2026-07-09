@@ -570,10 +570,36 @@ export default function ShopfloorTerminalPage() {
     }
   };
 
-  // Audio Feedback
+  // Audio Feedback — short synthesized tones via the Web Audio API (no asset files needed).
   const playAudioFeedback = (type: 'success' | 'error' | 'warning' | 'click' | 'logout') => {
-    // In real app, play actual audio files
-    console.log(`Audio feedback: ${type}`);
+    if (typeof window === 'undefined') return;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    // Frequency (Hz) and duration (s) per feedback type.
+    const tones: Record<typeof type, { freq: number; dur: number }> = {
+      success: { freq: 880, dur: 0.12 },
+      error: { freq: 220, dur: 0.25 },
+      warning: { freq: 440, dur: 0.18 },
+      click: { freq: 660, dur: 0.05 },
+      logout: { freq: 330, dur: 0.2 },
+    };
+    try {
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const { freq, dur } = tones[type];
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + dur);
+      osc.onended = () => ctx.close();
+    } catch {
+      // Audio is a non-critical enhancement; ignore playback failures.
+    }
   };
 
   // Modal Handlers
