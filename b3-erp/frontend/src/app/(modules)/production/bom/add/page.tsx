@@ -187,6 +187,8 @@ export default function BOMAddPage() {
 
   // Save current components as a reusable assembly template
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
 
   useEffect(() => {
     // Auto-generate BOM number
@@ -693,12 +695,22 @@ export default function BOMAddPage() {
 
   // Save current components as a reusable assembly template via
   // POST production/bom-templates.
+  const openSaveTemplateModal = () => {
+    if (components.length === 0) {
+      setSaveError('Add at least one component before saving a template.');
+      return;
+    }
+    setSaveError(null);
+    setTemplateName(bom.productName || 'New Assembly Template');
+    setShowSaveTemplateModal(true);
+  };
+
   const handleSaveAsTemplate = async () => {
     if (components.length === 0) {
       setSaveError('Add at least one component before saving a template.');
       return;
     }
-    const name = window.prompt('Template name:', bom.productName || 'New Assembly Template');
+    const name = templateName.trim();
     if (!name) return;
     setSavingTemplate(true);
     setSaveError(null);
@@ -723,6 +735,7 @@ export default function BOMAddPage() {
           isPhantom: c.isPhantom,
         })),
       });
+      setShowSaveTemplateModal(false);
       setActionMessage(`Saved "${name}" as an assembly template.`);
     } catch (err: any) {
       setSaveError(err?.message ?? 'Failed to save the assembly template.');
@@ -1064,7 +1077,7 @@ export default function BOMAddPage() {
               <span>{excelImporting ? 'Importing…' : 'Import from Excel'}</span>
             </button>
             <button
-              onClick={handleSaveAsTemplate}
+              onClick={openSaveTemplateModal}
               disabled={savingTemplate || components.length === 0}
               className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -1681,6 +1694,61 @@ export default function BOMAddPage() {
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Apply Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save as Assembly Template Modal */}
+      {showSaveTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Save as Assembly Template</h3>
+              <button onClick={() => setShowSaveTemplateModal(false)}>
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveAsTemplate();
+              }}
+              className="p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Template name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  autoFocus
+                  required
+                  placeholder="e.g. Standard Kitchen Cabinet Assembly"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Saves the current {components.length} component{components.length === 1 ? '' : 's'} as a reusable template.
+                </p>
+              </div>
+            </form>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowSaveTemplateModal(false)}
+                disabled={savingTemplate}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveAsTemplate}
+                disabled={savingTemplate || !templateName.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingTemplate ? 'Saving…' : 'Save Template'}
               </button>
             </div>
           </div>

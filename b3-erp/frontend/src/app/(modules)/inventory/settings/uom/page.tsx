@@ -32,6 +32,13 @@ export default function UOMPage() {
 
   const [uoms, setUoms] = useState<UnitOfMeasure[]>([]);
 
+  // Create/edit modal state (replaces the interim window.prompt flow).
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
+  const [modalCode, setModalCode] = useState('');
+  const [modalName, setModalName] = useState('');
+  const [modalTargetId, setModalTargetId] = useState<number | string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const mapUom = (row: any): UnitOfMeasure => ({
     id: row?.id ?? row?._id ?? '',
     code: row?.code ?? row?.symbol ?? row?.abbreviation ?? '',
@@ -58,21 +65,46 @@ export default function UOMPage() {
     fetchUoms();
   }, []);
 
-  const handleCreateUom = async (payload: any) => {
-    try {
-      await commonMastersService.createUom({ ...payload, companyId: COMPANY_ID });
-      await fetchUoms();
-    } catch (error) {
-      console.error('Failed to create UOM', error);
-    }
+  const openCreateModal = () => {
+    setModalMode('create');
+    setModalTargetId(null);
+    setModalCode('');
+    setModalName('');
   };
 
-  const handleUpdateUom = async (id: number | string, payload: any) => {
+  const openEditModal = (uom: UnitOfMeasure) => {
+    setModalMode('edit');
+    setModalTargetId(uom.id);
+    setModalCode(uom.code);
+    setModalName(uom.name);
+  };
+
+  const handleModalSubmit = async () => {
+    let payload: { create?: { code: string; name: string }; edit?: { id: string; name: string } };
+    if (modalMode === 'create') {
+      const code = modalCode.trim();
+      if (!code) return;
+      payload = { create: { code, name: modalName.trim() || code } };
+    } else if (modalMode === 'edit' && modalTargetId !== null) {
+      const name = modalName.trim();
+      if (!name) return;
+      payload = { edit: { id: String(modalTargetId), name } };
+    } else {
+      return;
+    }
+    setSaving(true);
     try {
-      await commonMastersService.updateUom(String(id), payload);
+      if (payload.create) {
+        await commonMastersService.createUom({ ...payload.create, companyId: COMPANY_ID });
+      } else if (payload.edit) {
+        await commonMastersService.updateUom(payload.edit.id, { name: payload.edit.name });
+      }
+      setModalMode(null);
       await fetchUoms();
     } catch (error) {
-      console.error('Failed to update UOM', error);
+      console.error('Failed to save UOM', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -127,12 +159,7 @@ export default function UOMPage() {
         </div>
         <div className="flex items-center space-x-3">
           <button
-            onClick={() => {
-              const code = window.prompt('UOM code');
-              if (!code) return;
-              const name = window.prompt('UOM name') || code;
-              handleCreateUom({ code, name });
-            }}
+            onClick={openCreateModal}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
@@ -258,11 +285,7 @@ export default function UOMPage() {
                         <span className="text-gray-700">View</span>
                       </button>
                       <button
-                        onClick={() => {
-                          const name = window.prompt('UOM name', uom.name);
-                          if (name === null) return;
-                          handleUpdateUom(uom.id, { name });
-                        }}
+                        onClick={() => openEditModal(uom)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
                       >
                         <Edit2 className="w-4 h-4 text-gray-600" />
@@ -300,6 +323,86 @@ export default function UOMPage() {
           <p className="mt-2">Example: 1 MM = 1 MTR × 0.001 = 0.001 MTR</p>
         </div>
       </div>
+
+      {/* Create / Edit UOM Modal */}
+      {modalMode !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between border-b p-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {modalMode === 'create' ? 'Add Unit of Measure' : 'Edit Unit of Measure'}
+              </h3>
+              <button
+                onClick={() => setModalMode(null)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleModalSubmit();
+              }}
+              className="space-y-4 p-4"
+            >
+              {modalMode === 'create' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    UOM code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={modalCode}
+                    onChange={(e) => setModalCode(e.target.value)}
+                    autoFocus
+                    required
+                    placeholder="e.g. KG, MTR, PC"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  UOM name{modalMode === 'edit' ? <span className="text-red-500"> *</span> : (
+                    <span className="text-gray-400"> (defaults to code)</span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={modalName}
+                  onChange={(e) => setModalName(e.target.value)}
+                  autoFocus={modalMode === 'edit'}
+                  required={modalMode === 'edit'}
+                  placeholder="e.g. Kilogram"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalMode(null)}
+                  disabled={saving}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    saving ||
+                    (modalMode === 'create' ? !modalCode.trim() : !modalName.trim())
+                  }
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : modalMode === 'create' ? 'Add UOM' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

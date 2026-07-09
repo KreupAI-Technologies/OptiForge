@@ -77,6 +77,10 @@ const InventoryMovementsPage = () => {
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
+  // Edit-remarks modal state (replaces the interim window.prompt flow).
+  const [editMovement, setEditMovement] = useState<InventoryMovement | null>(null)
+  const [editRemarks, setEditRemarks] = useState('')
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -383,14 +387,24 @@ const InventoryMovementsPage = () => {
   // Edit is limited to the mutable remarks field: the create modals have no
   // edit/initialData mode, so a full edit form is out of scope for this phase.
   // Persists via the existing PUT /inventory/stock-entries/:id endpoint.
-  const handleEditMovement = async (movement: InventoryMovement) => {
-    const nextRemarks = window.prompt('Update remarks for this movement:', movement.remarks)
-    if (nextRemarks === null || nextRemarks === movement.remarks) return
+  const handleEditMovement = (movement: InventoryMovement) => {
+    setEditRemarks(movement.remarks)
+    setEditMovement(movement)
+  }
+
+  const handleEditRemarksSubmit = async () => {
+    if (!editMovement) return
+    const nextRemarks = editRemarks
+    if (nextRemarks === editMovement.remarks) {
+      setEditMovement(null)
+      return
+    }
     setIsSubmitting(true)
     setActionError(null)
     setActionSuccess(null)
     try {
-      await inventoryService.updateStockEntry(movement.id, { remarks: nextRemarks })
+      await inventoryService.updateStockEntry(editMovement.id, { remarks: nextRemarks })
+      setEditMovement(null)
       setActionSuccess('Movement updated successfully.')
       setRefreshKey((k) => k + 1)
     } catch (err) {
@@ -757,6 +771,63 @@ const InventoryMovementsPage = () => {
         movements={movements.map(m => convertToMovement(m))}
         onViewDetails={handleViewMovementFromHistory}
       />
+
+      {/* Edit Remarks Modal */}
+      {editMovement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Edit Movement Remarks</h3>
+                <p className="text-sm text-gray-500">{editMovement.movementId}</p>
+              </div>
+              <button
+                onClick={() => setEditMovement(null)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleEditRemarksSubmit()
+              }}
+              className="space-y-4 p-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                <textarea
+                  value={editRemarks}
+                  onChange={(e) => setEditRemarks(e.target.value)}
+                  autoFocus
+                  rows={4}
+                  placeholder="Update remarks for this movement…"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditMovement(null)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

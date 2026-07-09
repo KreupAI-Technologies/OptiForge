@@ -580,6 +580,12 @@ function OnboardingChecklist() {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
+  // Add-item modal state (replaces the interim window.prompt flow).
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formItem, setFormItem] = useState('');
+  const [formCategory, setFormCategory] = useState('');
+  const [formAssignee, setFormAssignee] = useState('');
+
   const loadChecklist = async () => {
     try {
       setLoading(true);
@@ -605,12 +611,20 @@ function OnboardingChecklist() {
     loadChecklist();
   }, []);
 
+  const openAddModal = () => {
+    setFormItem('');
+    setFormCategory('');
+    setFormAssignee('');
+    setError(null);
+    setShowAddModal(true);
+  };
+
   const handleAddItem = async () => {
     if (adding) return;
-    const item = window.prompt('Checklist item description:');
+    const item = formItem.trim();
     if (!item) return;
-    const category = window.prompt('Category (e.g. Documentation, IT Setup):') || 'General';
-    const assignee = window.prompt('Assignee (e.g. HR, IT):') || 'HR';
+    const category = formCategory.trim() || 'General';
+    const assignee = formAssignee.trim() || 'HR';
     setAdding(true);
     try {
       await OnboardingTasksService.create({
@@ -618,9 +632,10 @@ function OnboardingChecklist() {
         status: 'pending',
         data: { item, category, assignee },
       });
+      setShowAddModal(false);
       await loadChecklist();
     } catch {
-      alert('Failed to add checklist item. Please try again.');
+      setError('Failed to add checklist item. Please try again.');
     } finally {
       setAdding(false);
     }
@@ -631,13 +646,89 @@ function OnboardingChecklist() {
       <div className="p-4 border-b flex justify-between items-center">
         <h3 className="text-lg font-semibold">Onboarding Checklist</h3>
         <button
-          onClick={handleAddItem}
+          onClick={openAddModal}
           disabled={adding}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
         >
           {adding ? 'Adding…' : 'Add Checklist Item'}
         </button>
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between border-b p-4">
+              <h3 className="text-lg font-semibold text-gray-900">Add Checklist Item</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddItem();
+              }}
+              className="space-y-4 p-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Item description <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formItem}
+                  onChange={(e) => setFormItem(e.target.value)}
+                  autoFocus
+                  required
+                  placeholder="e.g. Collect signed offer letter"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <input
+                  type="text"
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                  placeholder="Documentation, IT Setup (default: General)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+                <input
+                  type="text"
+                  value={formAssignee}
+                  onChange={(e) => setFormAssignee(e.target.value)}
+                  placeholder="HR, IT (default: HR)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  disabled={adding}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adding || !formItem.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {adding ? 'Adding…' : 'Add Item'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {loading && <div className="p-4 text-sm text-blue-700">Loading checklist…</div>}
       {error && !loading && <div className="p-4 text-sm text-red-700">{error}</div>}
       {!loading && !error && checklistItems.length === 0 && (

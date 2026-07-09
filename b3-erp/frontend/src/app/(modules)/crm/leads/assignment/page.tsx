@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { userManagementService, UserStatus } from '@/services/user-management.service';
 import { leadService } from '@/services/lead.service';
@@ -71,6 +71,62 @@ export default function LeadAssignmentPage() {
   const [loading, setLoading] = useState(true);
   const [assignmentRules, setAssignmentRules] = useState<AssignmentRule[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Rule-name modal (replaces the previous window.prompt flow).
+  // mode: 'create' → add a new rule; 'edit' → rename an existing rule.
+  const [ruleModal, setRuleModal] = useState<{ mode: 'create' } | { mode: 'edit'; id: string } | null>(null);
+  const [ruleNameValue, setRuleNameValue] = useState('');
+  const [ruleSaving, setRuleSaving] = useState(false);
+  const [ruleError, setRuleError] = useState<string | null>(null);
+
+  const openCreateRuleModal = () => {
+    setRuleModal({ mode: 'create' });
+    setRuleNameValue('');
+    setRuleError(null);
+  };
+
+  const openEditRuleModal = (rule: AssignmentRule) => {
+    setRuleModal({ mode: 'edit', id: rule.id });
+    setRuleNameValue(rule.name);
+    setRuleError(null);
+  };
+
+  const closeRuleModal = () => {
+    if (ruleSaving) return;
+    setRuleModal(null);
+    setRuleError(null);
+  };
+
+  const handleRuleModalSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!ruleModal) return;
+    const name = ruleNameValue.trim();
+    if (!name) {
+      setRuleError('Rule name is required.');
+      return;
+    }
+    setRuleSaving(true);
+    setRuleError(null);
+    try {
+      if (ruleModal.mode === 'create') {
+        await createRule({
+          name,
+          enabled: true,
+          priority: assignmentRules.length + 1,
+          criteria: '',
+          assignTo: '',
+          description: '',
+        });
+      } else {
+        await updateRule(ruleModal.id, { name });
+      }
+      setRuleModal(null);
+    } catch (err) {
+      setRuleError(err instanceof Error ? err.message : 'Failed to save rule.');
+    } finally {
+      setRuleSaving(false);
+    }
+  };
 
   useEffect(() => {
     const fetchReps = async () => {
@@ -234,19 +290,7 @@ export default function LeadAssignmentPage() {
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-bold text-gray-900">Assignment Rules</h2>
             <button
-              onClick={() => {
-                const name = typeof window !== 'undefined' ? window.prompt('Rule name') : null;
-                if (name && name.trim()) {
-                  createRule({
-                    name: name.trim(),
-                    enabled: true,
-                    priority: assignmentRules.length + 1,
-                    criteria: '',
-                    assignTo: '',
-                    description: '',
-                  });
-                }
-              }}
+              onClick={openCreateRuleModal}
               className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Play className="h-4 w-4" />
@@ -298,12 +342,7 @@ export default function LeadAssignmentPage() {
                       {rule.enabled ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                     </button>
                     <button
-                      onClick={() => {
-                        const name = typeof window !== 'undefined' ? window.prompt('Rule name', rule.name) : null;
-                        if (name && name.trim() && name.trim() !== rule.name) {
-                          updateRule(rule.id, { name: name.trim() });
-                        }
-                      }}
+                      onClick={() => openEditRuleModal(rule)}
                       className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                     >
                       <Edit className="h-4 w-4" />
@@ -447,6 +486,60 @@ export default function LeadAssignmentPage() {
           ))}
         </div>
       </div>
+
+      {/* Rule Name Modal (create / rename) */}
+      {ruleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="border-b px-5 py-3">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {ruleModal.mode === 'create' ? 'Add Assignment Rule' : 'Rename Assignment Rule'}
+              </h3>
+            </div>
+            <form onSubmit={handleRuleModalSubmit}>
+              <div className="space-y-3 px-5 py-4">
+                {ruleError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {ruleError}
+                  </div>
+                )}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Rule Name *</label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={ruleNameValue}
+                    onChange={(e) => setRuleNameValue(e.target.value)}
+                    placeholder="e.g. Round-robin for enterprise leads"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 border-t px-5 py-3">
+                <button
+                  type="button"
+                  onClick={closeRuleModal}
+                  disabled={ruleSaving}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={ruleSaving || !ruleNameValue.trim()}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {ruleSaving
+                    ? 'Saving…'
+                    : ruleModal.mode === 'create'
+                      ? 'Add Rule'
+                      : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

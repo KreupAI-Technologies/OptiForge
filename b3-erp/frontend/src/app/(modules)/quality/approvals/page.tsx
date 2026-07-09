@@ -83,6 +83,10 @@ export default function QCApprovalsPage() {
     const [actioningId, setActioningId] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
 
+    // Reject-reason modal state (replaces the interim window.prompt flow).
+    const [rejectTarget, setRejectTarget] = useState<QCApproval | null>(null);
+    const [rejectReason, setRejectReason] = useState('');
+
     // Load projects
     useEffect(() => {
         const loadProjects = async () => {
@@ -170,13 +174,20 @@ export default function QCApprovalsPage() {
         }
     };
 
-    const handleReject = async (approval: QCApproval) => {
+    const handleReject = (approval: QCApproval) => {
         if (actioningId) return;
-        const reason = typeof window !== 'undefined' ? window.prompt('Reason for rejection:') : '';
-        if (reason === null) return;
+        setRejectReason('');
+        setRejectTarget(approval);
+    };
+
+    const confirmReject = async () => {
+        if (!rejectTarget || actioningId) return;
+        const approval = rejectTarget;
+        const reason = rejectReason.trim();
         setActioningId(approval.id);
         try {
             await InspectionService.rejectInspection(approval.id, undefined, reason || 'Rejected at QC approval gate');
+            setRejectTarget(null);
             toast({ title: 'Inspection Rejected', description: `${approval.inspectionId} rejected.` });
             setReloadKey((k) => k + 1);
         } catch (error) {
@@ -460,6 +471,66 @@ export default function QCApprovalsPage() {
                     </>
                 )}
             </div>
+
+            {/* Reject Reason Modal */}
+            {rejectTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+                        <div className="flex items-center justify-between border-b p-4">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                <XCircle className="w-5 h-5 text-red-600" />
+                                Reject Inspection
+                            </h3>
+                            <button
+                                onClick={() => setRejectTarget(null)}
+                                className="text-gray-400 hover:text-gray-600"
+                                aria-label="Close"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                confirmReject();
+                            }}
+                            className="space-y-4 p-4"
+                        >
+                            <p className="text-sm text-gray-600">
+                                Rejecting <span className="font-medium">{rejectTarget.inspectionId}</span> ({rejectTarget.productName}).
+                            </p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for rejection</label>
+                                <textarea
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    autoFocus
+                                    rows={3}
+                                    placeholder="Explain why this inspection is being rejected…"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <Button type="button" variant="outline" disabled={actioningId === rejectTarget.id} onClick={() => setRejectTarget(null)}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    className="bg-red-600 hover:bg-red-700"
+                                    disabled={actioningId === rejectTarget.id}
+                                >
+                                    {actioningId === rejectTarget.id ? (
+                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                    ) : (
+                                        <XCircle className="w-4 h-4 mr-1" />
+                                    )}
+                                    Confirm Reject
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

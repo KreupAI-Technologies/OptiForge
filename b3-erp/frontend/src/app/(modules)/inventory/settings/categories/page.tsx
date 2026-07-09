@@ -32,6 +32,12 @@ export default function InventoryCategoriesPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
 
+  // Create/edit modal state (replaces the interim window.prompt flow).
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
+  const [modalName, setModalName] = useState('');
+  const [modalTargetId, setModalTargetId] = useState<number | string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const mapCategory = (row: any): Category => ({
     id: row?.id ?? row?._id ?? '',
     code: row?.code ?? '',
@@ -58,21 +64,34 @@ export default function InventoryCategoriesPage() {
     fetchCategories();
   }, []);
 
-  const handleCreateCategory = async (name: string) => {
-    try {
-      await commonMastersService.createItemCategory({ name, companyId: COMPANY_ID });
-      await fetchCategories();
-    } catch (error) {
-      console.error('Failed to create category', error);
-    }
+  const openCreateModal = () => {
+    setModalMode('create');
+    setModalTargetId(null);
+    setModalName('');
   };
 
-  const handleUpdateCategory = async (id: number | string, payload: any) => {
+  const openEditModal = (category: Category) => {
+    setModalMode('edit');
+    setModalTargetId(category.id);
+    setModalName(category.name);
+  };
+
+  const handleModalSubmit = async () => {
+    const name = modalName.trim();
+    if (!name) return;
+    setSaving(true);
     try {
-      await commonMastersService.updateItemCategory(String(id), payload);
+      if (modalMode === 'create') {
+        await commonMastersService.createItemCategory({ name, companyId: COMPANY_ID });
+      } else if (modalMode === 'edit' && modalTargetId !== null) {
+        await commonMastersService.updateItemCategory(String(modalTargetId), { name });
+      }
+      setModalMode(null);
       await fetchCategories();
     } catch (error) {
-      console.error('Failed to update category', error);
+      console.error('Failed to save category', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -115,11 +134,7 @@ export default function InventoryCategoriesPage() {
         </div>
         <div className="flex items-center space-x-3">
           <button
-            onClick={() => {
-              const name = window.prompt('Category name');
-              if (!name) return;
-              handleCreateCategory(name);
-            }}
+            onClick={openCreateModal}
             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
@@ -232,11 +247,7 @@ export default function InventoryCategoriesPage() {
                         <span className="text-gray-700">View</span>
                       </button>
                       <button
-                        onClick={() => {
-                          const name = window.prompt('Category name', category.name);
-                          if (name === null) return;
-                          handleUpdateCategory(category.id, { name });
-                        }}
+                        onClick={() => openEditModal(category)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
                       >
                         <Edit2 className="w-4 h-4 text-gray-600" />
@@ -259,6 +270,65 @@ export default function InventoryCategoriesPage() {
           </table>
         </div>
       </div>
+
+      {/* Create / Edit Category Modal */}
+      {modalMode !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between border-b p-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {modalMode === 'create' ? 'Add Category' : 'Edit Category'}
+              </h3>
+              <button
+                onClick={() => setModalMode(null)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleModalSubmit();
+              }}
+              className="space-y-4 p-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={modalName}
+                  onChange={(e) => setModalName(e.target.value)}
+                  autoFocus
+                  required
+                  placeholder="Enter category name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalMode(null)}
+                  disabled={saving}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !modalName.trim()}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : modalMode === 'create' ? 'Add Category' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

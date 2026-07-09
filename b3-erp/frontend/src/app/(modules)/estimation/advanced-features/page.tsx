@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, FormEvent } from 'react';
 import { estimationAnalyticsService } from '@/services/estimation-analytics.service';
 import { costEstimateService, CostEstimate } from '@/services/estimation-cost-estimate.service';
 import {
@@ -403,36 +403,67 @@ export default function EstimationAdvancedFeaturesPage() {
     loadRisks();
   }, [loadRisks]);
 
-  const handleAddRisk = useCallback(async () => {
+  // Add-risk modal (replaces the previous window.prompt flow).
+  const [isAddRiskOpen, setIsAddRiskOpen] = useState(false);
+  const [riskDescription, setRiskDescription] = useState('');
+  const [riskSaving, setRiskSaving] = useState(false);
+  const [addRiskError, setAddRiskError] = useState<string | null>(null);
+
+  const handleAddRisk = useCallback(() => {
     if (!estimateId || !primaryEstimate) return;
-    const description = typeof window !== 'undefined' ? window.prompt('Risk description?') : null;
-    if (!description) return;
-    try {
-      await estimationAnalyticsService.createRiskAnalysis(COMPANY_ID, {
-        estimateId,
-        estimateNumber: primaryEstimate.estimateNumber,
-        projectName: primaryEstimate.title,
-        risks: [
-          {
-            riskId: `r-${Date.now()}`,
-            category: 'Financial',
-            description,
-            probability: 'Medium',
-            impact: 'Medium',
-            riskScore: 4,
-            mitigationStrategy: '',
-            mitigationCost: 0,
-            residualRisk: 'Low',
-            owner: '',
-            status: 'Identified',
-          },
-        ],
-      });
-      await loadRisks();
-    } catch {
-      /* fallback handled in service */
-    }
-  }, [estimateId, primaryEstimate, loadRisks]);
+    setRiskDescription('');
+    setAddRiskError(null);
+    setIsAddRiskOpen(true);
+  }, [estimateId, primaryEstimate]);
+
+  const closeAddRiskModal = useCallback(() => {
+    if (riskSaving) return;
+    setIsAddRiskOpen(false);
+    setAddRiskError(null);
+  }, [riskSaving]);
+
+  const handleSubmitRisk = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!estimateId || !primaryEstimate) return;
+      const description = riskDescription.trim();
+      if (!description) {
+        setAddRiskError('Risk description is required.');
+        return;
+      }
+      setRiskSaving(true);
+      setAddRiskError(null);
+      try {
+        await estimationAnalyticsService.createRiskAnalysis(COMPANY_ID, {
+          estimateId,
+          estimateNumber: primaryEstimate.estimateNumber,
+          projectName: primaryEstimate.title,
+          risks: [
+            {
+              riskId: `r-${Date.now()}`,
+              category: 'Financial',
+              description,
+              probability: 'Medium',
+              impact: 'Medium',
+              riskScore: 4,
+              mitigationStrategy: '',
+              mitigationCost: 0,
+              residualRisk: 'Low',
+              owner: '',
+              status: 'Identified',
+            },
+          ],
+        });
+        setIsAddRiskOpen(false);
+        await loadRisks();
+      } catch (err) {
+        setAddRiskError(err instanceof Error ? err.message : 'Failed to add risk.');
+      } finally {
+        setRiskSaving(false);
+      }
+    },
+    [estimateId, primaryEstimate, riskDescription, loadRisks],
+  );
 
   // ==================== Workflow & Approvals tab ====================
   const [approvalRequests, setApprovalRequests] = useState<ApprovalRequest[]>([]);
@@ -780,6 +811,54 @@ export default function EstimationAdvancedFeaturesPage() {
           )
         )}
       </div>
+
+      {/* Add Risk Modal */}
+      {isAddRiskOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="border-b px-5 py-3">
+              <h3 className="text-lg font-semibold text-gray-900">Add Risk</h3>
+            </div>
+            <form onSubmit={handleSubmitRisk}>
+              <div className="space-y-3 px-5 py-4">
+                {addRiskError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {addRiskError}
+                  </div>
+                )}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Risk Description *</label>
+                  <textarea
+                    autoFocus
+                    value={riskDescription}
+                    onChange={(e) => setRiskDescription(e.target.value)}
+                    rows={4}
+                    placeholder="Describe the risk…"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 border-t px-5 py-3">
+                <button
+                  type="button"
+                  onClick={closeAddRiskModal}
+                  disabled={riskSaving}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={riskSaving || !riskDescription.trim()}
+                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {riskSaving ? 'Adding…' : 'Add Risk'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
