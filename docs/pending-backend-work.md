@@ -3,7 +3,8 @@
 > ## ✅ Core `[BE]` clusters RESOLVED & LIVE — branch `feat/readiness-fixes`
 > Implemented full-stack across 4 backend waves + applied to the database.
 > - **Endpoints:** 16 new NestJS controllers wired to real UI (loading/error states, no fabricated success). `nest build` exit 0; backend + frontend `tsc` both 0.
-> - **Database: APPLIED.** All **12 additive `orphan_*.sql`** migrations (`CREATE TABLE / ADD COLUMN IF NOT EXISTS`, no DROPs) were applied to the live Neon DB via `npm run db:manual` — ledger clean (`db:manual:status` = up to date), tables/columns verified present.
+> - **Database: APPLIED.** All **19 additive `orphan_*.sql`** migrations (`CREATE TABLE / ADD COLUMN IF NOT EXISTS`, no DROPs) applied to the live Neon DB via `npm run db:manual` — ledger clean, tables/columns verified present. *(Waves A–B3 = 12; follow-up Waves C1–C2 = 7 more: rfq-bids, crm-advanced, pm-resources, cpq-advanced2, inventory-barcodes, hr-compliance, hr-training-alumni.)*
+> - **Follow-up (Waves C1–C2) — DONE:** it-admin user detail/edit pages; pm-settings reset; logistics route-optimize; estimation pending-estimate PDF; procurement RFQ bids (shortlist/reject/award) + templates; crm account-relationships + activity likes; projects/resources 5 actions; inventory barcode bulk-import + PDF labels; cpq quote-detail page + guided-selling/margin-guardrail tabs; **HR** compliance (certs/policy-ack/POSH/remediation/statutory), asset-management (all 8 sections), training (skill-matrix/gap/effectiveness/budget/reports), performance reports, alumni comments.
 > - **Infra built:** file-upload/storage (`attachments` module → `./uploads`), PDF/Excel generation (pdfkit/exceljs). GST/TDS persist filings + generate documents **locally** (no live GSTN/TRACES portal — needs credentials/certification).
 >
 > **Not everything on this list was done** — see the [Still Open](#still-open-not-done-this-round) section. Cosmetic `[UI]`/`[RD]` items, several read-only insight modules, and various HR/CRM "coming-soon" sub-sections were intentionally out of scope for this round. Items below are marked `[x]` (done + live) or `[ ]` (open).
@@ -131,27 +132,23 @@ Checkbox: `[x]` = implemented full-stack + DB live · `[ ]` = still open.
 - [x] **[BE]** `reports/custom/page.tsx` — run/render + export (reuses `ReportSavedItem`/`ReportDataset`)
 - [x] **[BE]** `reports/financial/page.tsx` — report generation/download
 
-## Still open (not done this round)
+## Still open (after Waves A–C2)
 
-The following were **intentionally out of scope** and remain open. Grouped by type:
+Most functional `[BE]`/`[PG]` items are now done+live. What genuinely remains:
 
-**[BE] net-new (open):**
-- `procurement/rfq-rfp` (bid shortlist/reject, settings/templates), `procurement/advanced-features` tabs
-- procurement read-only insight modules ×8 (write endpoints only if actions required)
-- `cpq/advanced-features` remaining 4 tabs (guided-selling, doc-gen, e-signature, margin-guardrails), `cpq/integration/{cad,ecommerce}` view-quote
-- `crm/advanced-features/{account-hierarchy, activity-timeline}`
-- `projects/resources` (transfer/balance/request/skills/log-time), `project-management/settings` reset
-- `logistics/analytics/optimization` route-optimization
-- `estimation/workflow/pending/view/[id]` PDF export; `production/planning` what-if persistence
-- `inventory/tracking/barcode` bulk import + label print
-- `rfq/view/[id]` linked-PR view
-- HR "coming-soon" sub-sections: `hr-compliance` (6), `training-development` (6), `asset-management` (8), `performance-management` reports, `training/elearning/library`, `alumni/network` comments
+**[BE] needs external infra / speculative (intentionally left honest, not faked):**
+- `cpq/advanced-features` — **e-signature** + **document-generation** tabs (need DocuSign-class provider / doc templating)
+- `procurement/advanced-features` — decorative feature tabs; procurement read-only **insight modules ×8** (compliance, e-marketplace, risk, strategic-sourcing, supplier-*) — dashboards, read-only by design (write endpoints only if a real action is defined)
+- HR **EEO reports** (no diversity data model) and **e-learning content player** (video/progress delivery) — left as honest empty states
+- `logistics/site/transporter notifications` — records persist, but **real SMS/email dispatch** needs a provider
+- GST/TDS — documents generate locally; **live GSTN/TRACES e-filing** needs govt credentials/certification
+- `production/planning` what-if **scenario persistence** (generate-WO is done; multi-scenario save not)
 
-**[PG] pages to build (open):** `it-admin/users/[id]` + `[id]/edit`
+**[UI] cosmetic (endpoint exists — functional, polish only):** finance reconciliation/payment-verification, inventory uom/categories/adjustments/movements `window.prompt`→modal, procurement delegated-card forms, crm leads/assignment, hr onboarding
 
-**[UI] cosmetic (endpoint exists, open):** finance reconciliation/payment-verification, inventory uom/categories/adjustments/movements, procurement requisitions/PO-view + delegated cards, estimation advanced-features, crm leads/assignment, hr onboarding
+**[RD] display gaps (cosmetic):** finance assets/cash fields, project-management capacity/view showcase defaults
 
-**[RD] display gaps (open):** finance assets/cash, project-management capacity/view
+Everything else on this page is **done + DB-live**.
 
 ## Summary
 
