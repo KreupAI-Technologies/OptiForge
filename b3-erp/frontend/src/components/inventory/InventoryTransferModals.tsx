@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { inventoryService } from '@/services/InventoryService'
 import { X, TruckIcon, Package, ArrowRight, CheckCircle, Clock, MapPin, AlertCircle, FileText, User, Calendar, Edit, Printer, Download } from 'lucide-react'
 
 // ==================== INTERFACES ====================
@@ -177,7 +178,6 @@ export const CreateTransferModal: React.FC<CreateTransferModalProps> = ({ isOpen
   if (!isOpen) return null
 
   const handleNext = () => {
-    // TODO: Add validation for current step
     if (currentStep === 1) {
       // Validate transfer details
       if (!formData.fromWarehouse || !formData.toWarehouse) {
@@ -186,6 +186,14 @@ export const CreateTransferModal: React.FC<CreateTransferModalProps> = ({ isOpen
       }
       if (formData.fromWarehouse === formData.toWarehouse && formData.transferType === 'warehouse') {
         alert('Source and destination warehouses cannot be the same')
+        return
+      }
+      if (!formData.transferDate || !formData.expectedDelivery) {
+        alert('Please provide both transfer and expected delivery dates')
+        return
+      }
+      if (!formData.reason) {
+        alert('Please select a reason for the transfer')
         return
       }
     }
@@ -222,6 +230,30 @@ export const CreateTransferModal: React.FC<CreateTransferModalProps> = ({ isOpen
     const updated = [...itemRows]
     updated[index] = { ...updated[index], [field]: value }
     setItemRows(updated)
+  }
+
+  const lookupAvailableQty = async (index: number, itemId: string) => {
+    const ref = itemId.trim()
+    if (!ref) return
+    try {
+      const balances = await inventoryService.getStockBalances(
+        formData.fromWarehouse ? { itemId: ref, warehouseId: formData.fromWarehouse } : { itemId: ref }
+      )
+      const total = (balances || []).reduce(
+        (sum: number, b: any) => sum + Number(b.availableQuantity ?? b.available ?? b.quantity ?? 0),
+        0
+      )
+      const uom = (balances || [])[0]?.uom ?? ''
+      setItemRows((rows) => {
+        const updated = [...rows]
+        if (updated[index]) {
+          updated[index] = { ...updated[index], availableQty: total, uom: uom || updated[index].uom }
+        }
+        return updated
+      })
+    } catch {
+      // Leave availableQty as entered; user can still proceed with manual entry.
+    }
   }
 
   return (
@@ -487,23 +519,17 @@ export const CreateTransferModal: React.FC<CreateTransferModalProps> = ({ isOpen
                     {itemRows.map((item, index) => (
                       <tr key={index}>
                         <td className="px-4 py-3">
-                          <select
-                            value={item.itemId}
+                          <input
+                            type="text"
+                            value={item.itemName}
                             onChange={(e) => {
-                              const selectedItem = e.target.value
-                              // TODO: Fetch item details from API
-                              updateItemRow(index, 'itemId', selectedItem)
-                              updateItemRow(index, 'itemName', 'Item ' + selectedItem)
-                              updateItemRow(index, 'availableQty', 100) // Mock data
-                              updateItemRow(index, 'uom', 'PCS')
+                              updateItemRow(index, 'itemName', e.target.value)
+                              updateItemRow(index, 'itemId', e.target.value)
                             }}
+                            onBlur={(e) => lookupAvailableQty(index, e.target.value)}
+                            placeholder="Item code / name"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          >
-                            <option value="">Select Item</option>
-                            <option value="ITEM-001">SKU-001 - Product A</option>
-                            <option value="ITEM-002">SKU-002 - Product B</option>
-                            <option value="ITEM-003">SKU-003 - Product C</option>
-                          </select>
+                          />
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-medium text-gray-900">{item.availableQty}</span>
@@ -844,7 +870,6 @@ export const ViewTransferDetailsModal: React.FC<ViewTransferDetailsModalProps> =
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center text-gray-500">
               <FileText className="w-8 h-8 mb-2 text-gray-400" />
               <p className="text-sm">No attachments available</p>
-              {/* TODO: Add attachment upload/display functionality */}
             </div>
           </div>
         </div>
@@ -1747,6 +1772,7 @@ export const ReceiveTransferModal: React.FC<ReceiveTransferModalProps> = ({
 interface TransferHistoryModalProps {
   isOpen: boolean
   onClose: () => void
+  transfers: Transfer[]
   onViewDetails: (transfer: Transfer) => void
   onExport?: () => void
 }
@@ -1754,6 +1780,7 @@ interface TransferHistoryModalProps {
 export const TransferHistoryModal: React.FC<TransferHistoryModalProps> = ({
   isOpen,
   onClose,
+  transfers,
   onViewDetails,
   onExport,
 }) => {
@@ -1769,44 +1796,6 @@ export const TransferHistoryModal: React.FC<TransferHistoryModalProps> = ({
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  // TODO: Replace with actual API data
-  const mockTransfers: Transfer[] = [
-    {
-      id: '1',
-      transferNumber: 'TRF-2025-001',
-      status: 'completed',
-      priority: 'normal',
-      transferType: 'Warehouse to Warehouse',
-      fromLocation: { warehouse: 'Main Warehouse', zone: 'A', bin: 'A-01' },
-      toLocation: { warehouse: 'Distribution Center', zone: 'B', bin: 'B-01' },
-      transferDate: '2025-01-15',
-      expectedDelivery: '2025-01-17',
-      reason: 'Inventory Rebalancing',
-      items: [],
-      timeline: [],
-      createdBy: 'John Doe',
-      createdDate: '2025-01-15',
-      value: 15000,
-    },
-    {
-      id: '2',
-      transferNumber: 'TRF-2025-002',
-      status: 'in-transit',
-      priority: 'urgent',
-      transferType: 'Warehouse to Warehouse',
-      fromLocation: { warehouse: 'Distribution Center' },
-      toLocation: { warehouse: 'Regional Warehouse' },
-      transferDate: '2025-01-20',
-      expectedDelivery: '2025-01-22',
-      reason: 'Meet Demand',
-      items: [],
-      timeline: [],
-      createdBy: 'Jane Smith',
-      createdDate: '2025-01-20',
-      value: 28500,
-    },
-  ]
-
   if (!isOpen) return null
 
   const toggleFilter = (filterType: 'status' | 'priority', value: string) => {
@@ -1818,12 +1807,24 @@ export const TransferHistoryModal: React.FC<TransferHistoryModalProps> = ({
     }
   }
 
-  const totalTransfers = mockTransfers.length
-  const inTransit = mockTransfers.filter((t) => t.status === 'in-transit').length
-  const completed = mockTransfers.filter((t) => t.status === 'completed').length
-  const totalValue = mockTransfers.reduce((sum, t) => sum + (t.value || 0), 0)
+  const visibleTransfers = transfers.filter((t) => {
+    if (filters.status.length > 0 && !filters.status.includes(t.status)) return false
+    if (filters.priority.length > 0 && !filters.priority.includes(t.priority)) return false
+    if (filters.fromLocation && t.fromLocation.warehouse !== filters.fromLocation) return false
+    if (filters.toLocation && t.toLocation.warehouse !== filters.toLocation) return false
+    return true
+  })
+
+  const totalTransfers = visibleTransfers.length
+  const inTransit = visibleTransfers.filter((t) => t.status === 'in-transit').length
+  const completed = visibleTransfers.filter((t) => t.status === 'completed').length
+  const totalValue = visibleTransfers.reduce((sum, t) => sum + (t.value || 0), 0)
 
   const totalPages = Math.ceil(totalTransfers / itemsPerPage)
+  const paginatedTransfers = visibleTransfers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
@@ -1976,7 +1977,7 @@ export const TransferHistoryModal: React.FC<TransferHistoryModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {mockTransfers.map((transfer) => (
+                  {paginatedTransfers.map((transfer) => (
                     <tr key={transfer.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">{transfer.transferDate}</td>
                       <td className="px-4 py-3 text-sm font-medium text-blue-600">{transfer.transferNumber}</td>

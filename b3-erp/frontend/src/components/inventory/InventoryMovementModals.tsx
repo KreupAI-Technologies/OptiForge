@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import { inventoryService } from '@/services/InventoryService'
+import { exportToCsv, printCurrentView } from '@/lib/export'
 import {
   Package,
   TruckIcon,
@@ -963,6 +965,8 @@ export const RecordReturnModal: React.FC<RecordReturnModalProps> = ({
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [loadingIssue, setLoadingIssue] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
   const updateItem = (index: number, field: keyof ReturnItem, value: any) => {
     const newItems = [...formData.items]
@@ -1008,21 +1012,48 @@ export const RecordReturnModal: React.FC<RecordReturnModalProps> = ({
     onClose()
   }
 
-  const loadIssueData = () => {
-    // TODO: Fetch issue data based on originalIssueRef and populate items
-    const mockItems: ReturnItem[] = [
-      {
-        itemId: '1',
-        itemName: 'Sample Item 1',
-        issuedQuantity: 10,
+  const loadIssueData = async () => {
+    const ref = formData.originalIssueRef.trim()
+    if (!ref) {
+      setLoadError('Enter an issue reference first')
+      return
+    }
+    setLoadingIssue(true)
+    setLoadError('')
+    try {
+      const entries = (await inventoryService.getStockEntries()) as any[]
+      const match = (entries || []).find(
+        (e) =>
+          e?.referenceNumber === ref ||
+          e?.reference === ref ||
+          e?.entryNumber === ref ||
+          e?.id === ref
+      )
+      if (!match) {
+        setFormData({ ...formData, items: [] })
+        setLoadError(`No issue found for reference "${ref}"`)
+        return
+      }
+      const sourceItems: any[] = match.items ?? match.lines ?? match.entryItems ?? []
+      const items: ReturnItem[] = sourceItems.map((it) => ({
+        itemId: String(it.itemId ?? it.id ?? it.itemCode ?? ''),
+        itemName: String(it.itemName ?? it.name ?? it.itemCode ?? ''),
+        issuedQuantity: Number(it.quantity ?? it.issueQuantity ?? it.qty ?? 0),
         returnQuantity: 0,
         condition: 'good',
-        toWarehouse: '',
-        toZone: '',
-        toBin: ''
+        toWarehouse: String(it.warehouse ?? it.fromWarehouse ?? ''),
+        toZone: String(it.zone ?? it.fromZone ?? ''),
+        toBin: String(it.bin ?? it.fromBin ?? '')
+      }))
+      setFormData({ ...formData, items })
+      if (items.length === 0) {
+        setLoadError('The referenced issue has no line items')
       }
-    ]
-    setFormData({ ...formData, items: mockItems })
+    } catch {
+      setLoadError('Failed to load issue data. Please try again.')
+    } finally {
+      setLoadingIssue(false)
+    }
   }
 
   return (
@@ -1057,11 +1088,13 @@ export const RecordReturnModal: React.FC<RecordReturnModalProps> = ({
               />
               <button
                 onClick={loadIssueData}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                disabled={loadingIssue}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Search className="w-4 h-4" />
+                {loadingIssue ? <Clock className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               </button>
             </div>
+            {loadError && <p className="mt-1 text-sm text-red-600">{loadError}</p>}
           </FormField>
 
           <FormField label="Returned By" required error={errors.returnedBy}>
@@ -1261,13 +1294,27 @@ export const ViewMovementDetailsModal: React.FC<ViewMovementDetailsModalProps> =
   }
 
   const handlePrint = () => {
-    // TODO: Implement print functionality
-    console.log('Print movement:', movement.id)
+    printCurrentView()
   }
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log('Export movement:', movement.id)
+    exportToCsv(
+      `movement-${movement.movementNumber}`,
+      movement.items.map((item) => ({
+        movementNumber: movement.movementNumber,
+        type: movement.type,
+        date: movement.date,
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        uom: item.uom,
+        batchNumber: item.batchNumber ?? '',
+        serialNumbers: item.serialNumbers?.join('; ') ?? '',
+        location: item.location,
+        cost: item.cost,
+        total: item.cost * item.quantity
+      }))
+    )
   }
 
   const totalCost = movement.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0)
@@ -1416,7 +1463,6 @@ export const ViewMovementDetailsModal: React.FC<ViewMovementDetailsModalProps> =
             Attached Documents
           </h4>
           <p className="text-sm text-gray-500 italic">No documents attached</p>
-          {/* TODO: Add document upload/display functionality */}
         </div>
 
         {/* Audit Trail */}
@@ -1498,7 +1544,6 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
   }
 
   const autoAllocate = () => {
-    // TODO: Auto-allocate items from available stock
     const newItems = formData.items.map(item => ({
       ...item,
       issueQuantity: Math.min(item.requiredQuantity, item.availableStock)
@@ -1539,31 +1584,18 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
     onClose()
   }
 
-  const loadWorkOrder = () => {
-    // TODO: Fetch work order BOM and populate items
-    const mockItems: BatchIssueItem[] = [
-      {
-        itemId: '1',
-        itemName: 'Raw Material A',
-        requiredQuantity: 100,
-        issueQuantity: 0,
-        availableStock: 150,
-        fromWarehouse: 'WH-01',
-        fromZone: 'A',
-        fromBin: '01'
-      },
-      {
-        itemId: '2',
-        itemName: 'Component B',
-        requiredQuantity: 50,
-        issueQuantity: 0,
-        availableStock: 30,
-        fromWarehouse: 'WH-01',
-        fromZone: 'B',
-        fromBin: '05'
-      }
-    ]
-    setFormData({ ...formData, items: mockItems })
+  const addBomRow = () => {
+    const newRow: BatchIssueItem = {
+      itemId: '',
+      itemName: '',
+      requiredQuantity: 0,
+      issueQuantity: 0,
+      availableStock: 0,
+      fromWarehouse: '',
+      fromZone: '',
+      fromBin: ''
+    }
+    setFormData({ ...formData, items: [...formData.items, newRow] })
   }
 
   const fullyAllocatedCount = formData.items.filter(
@@ -1596,10 +1628,11 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
               <button
-                onClick={loadWorkOrder}
+                onClick={addBomRow}
                 className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                title="Add BOM item"
               >
-                <Search className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
               </button>
             </div>
           </FormField>
@@ -1675,9 +1708,25 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
                     const shortage = item.issueQuantity - item.requiredQuantity
                     return (
                       <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-sm text-gray-900">{item.itemName}</td>
-                        <td className="px-3 py-2 text-sm text-right text-gray-900">
-                          {item.requiredQuantity}
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={item.itemName}
+                            onChange={(e) => {
+                              updateItem(index, 'itemName', e.target.value)
+                              updateItem(index, 'itemId', e.target.value)
+                            }}
+                            placeholder="Item name"
+                            className="w-40 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            value={item.requiredQuantity}
+                            onChange={(e) => updateItem(index, 'requiredQuantity', parseFloat(e.target.value) || 0)}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          />
                         </td>
                         <td className="px-3 py-2">
                           <input
@@ -1691,8 +1740,13 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
                             }`}
                           />
                         </td>
-                        <td className="px-3 py-2 text-sm text-right text-gray-700">
-                          {item.availableStock}
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            value={item.availableStock}
+                            onChange={(e) => updateItem(index, 'availableStock', parseFloat(e.target.value) || 0)}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          />
                         </td>
                         <td className="px-3 py-2 text-sm text-right">
                           {shortage < 0 ? (
@@ -1753,7 +1807,7 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
             {formData.items.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <Archive className="w-12 h-12 mb-2 opacity-50" />
-                <p>Enter a work order number and click search to load BOM items.</p>
+                <p>Enter the work order number, then click + to add BOM items.</p>
               </div>
             )}
           </div>
@@ -1846,8 +1900,18 @@ export const MovementHistoryModal: React.FC<MovementHistoryModalProps> = ({
   const totalPages = Math.ceil(filteredMovements.length / itemsPerPage)
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log('Export movements')
+    exportToCsv(
+      'movement-history',
+      filteredMovements.map((m) => ({
+        date: m.date,
+        movementNumber: m.movementNumber,
+        type: m.type,
+        status: m.status,
+        items: m.items.length,
+        location: m.toLocation || m.fromLocation || '',
+        createdBy: m.createdBy
+      }))
+    )
   }
 
   const getTypeBadge = (type: string) => {

@@ -137,13 +137,14 @@ export default function StockPage() {
     setIsAddItemOpen(true);
   };
 
-  const handleAddItemSubmit = async (data: AddStockItemData) => {
+  const handleAddItemSubmit = async (data: AddStockItemData, isDraft = false) => {
     setIsSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
     try {
       await inventoryService.createStockEntry({
         entryType: 'Material Receipt',
+        status: isDraft ? 'Draft' : 'Submitted',
         postingDate: new Date().toISOString().slice(0, 10),
         remarks: data.description,
         lines: [
@@ -159,7 +160,7 @@ export default function StockPage() {
         ],
       });
       setIsAddItemOpen(false);
-      setActionSuccess('Stock item added successfully.');
+      setActionSuccess(isDraft ? 'Stock item saved as draft.' : 'Stock item added successfully.');
       await fetchStockData(); // Refresh data
     } catch (err) {
       console.error('Failed to create stock item', err);

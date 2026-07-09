@@ -216,6 +216,25 @@ const InventoryTransfersPage = () => {
   const endIndex = startIndex + itemsPerPage
   const currentTransfers = filteredTransfers.slice(startIndex, endIndex)
 
+  const historyTransfers: Transfer[] = transfers.map((t) => ({
+    id: t.id,
+    transferNumber: t.transferId,
+    status: (t.status === 'in_transit' ? 'in-transit' : t.status) as Transfer['status'],
+    priority: 'normal',
+    transferType: t.transportMode || '',
+    fromLocation: { warehouse: t.fromWarehouse },
+    toLocation: { warehouse: t.toWarehouse },
+    transferDate: t.transferDate,
+    expectedDelivery: t.expectedDelivery,
+    reason: '',
+    items: [],
+    timeline: [],
+    createdBy: t.initiatedBy,
+    createdDate: t.transferDate,
+    approvedBy: t.approvedBy || undefined,
+    value: t.totalValue,
+  }))
+
   const handleExport = () => {
     exportToCsv('stock-transfers', filteredTransfers as unknown as Record<string, unknown>[])
   }
@@ -870,6 +889,7 @@ const InventoryTransfersPage = () => {
         <TransferHistoryModal
           isOpen={isHistoryOpen}
           onClose={() => setIsHistoryOpen(false)}
+          transfers={historyTransfers}
           onViewDetails={handleHistoryViewDetails}
           onExport={() => exportToCsv('stock-transfer-history', filteredTransfers as unknown as Record<string, unknown>[])}
         />

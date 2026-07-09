@@ -498,20 +498,68 @@ export const BulkAdjustmentModal: React.FC<BulkAdjustmentModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const parseCsvRows = (text: string): BulkAdjustmentData['items'] => {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+    if (lines.length === 0) return []
+
+    const splitLine = (line: string): string[] => {
+      const cells: string[] = []
+      let current = ''
+      let inQuotes = false
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i]
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"'
+            i++
+          } else {
+            inQuotes = !inQuotes
+          }
+        } else if (ch === ',' && !inQuotes) {
+          cells.push(current)
+          current = ''
+        } else {
+          current += ch
+        }
+      }
+      cells.push(current)
+      return cells.map((c) => c.trim())
+    }
+
+    const header = splitLine(lines[0]).map((h) => h.toLowerCase())
+    const idx = (name: string) => header.indexOf(name)
+    const itemCodeIdx = idx('itemcode') !== -1 ? idx('itemcode') : idx('sku')
+    const itemNameIdx = idx('itemname') !== -1 ? idx('itemname') : idx('name')
+    const currentIdx = idx('currentquantity') !== -1 ? idx('currentquantity') : idx('current')
+    const adjustedIdx = idx('adjustedquantity') !== -1 ? idx('adjustedquantity') : idx('adjusted')
+    const costIdx = idx('costimpact') !== -1 ? idx('costimpact') : idx('cost')
+
+    return lines.slice(1).map((line) => {
+      const cells = splitLine(line)
+      const currentQuantity = parseFloat(cells[currentIdx]) || 0
+      const adjustedQuantity = parseFloat(cells[adjustedIdx]) || 0
+      return {
+        itemCode: itemCodeIdx !== -1 ? cells[itemCodeIdx] || '' : '',
+        itemName: itemNameIdx !== -1 ? cells[itemNameIdx] || '' : '',
+        currentQuantity,
+        adjustedQuantity,
+        difference: adjustedQuantity - currentQuantity,
+        costImpact: costIdx !== -1 ? parseFloat(cells[costIdx]) || 0 : 0
+      }
+    })
+  }
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setFormData({ ...formData, uploadedFile: file })
+    if (!file) return
 
-      // TODO: Parse CSV/Excel file and populate items
-      // Mock data for demonstration
-      const mockItems = [
-        { itemCode: 'ITM-001', itemName: 'Item 1', currentQuantity: 100, adjustedQuantity: 120, difference: 20, costImpact: 200 },
-        { itemCode: 'ITM-002', itemName: 'Item 2', currentQuantity: 50, adjustedQuantity: 45, difference: -5, costImpact: -50 }
-      ]
-      setFormData({ ...formData, uploadedFile: file, items: mockItems })
+    const reader = new FileReader()
+    reader.onload = () => {
+      const items = parseCsvRows(String(reader.result ?? ''))
+      setFormData({ ...formData, uploadedFile: file, items })
       setStep(2)
     }
+    reader.readAsText(file)
   }
 
   const handleSubmit = () => {

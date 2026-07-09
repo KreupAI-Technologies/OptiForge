@@ -153,6 +153,7 @@ interface ViewStockDetailsModalProps {
   onTransfer?: () => void
   onGenerateBarcode?: () => void
   onExport?: () => void
+  recentTransactions?: StockTransaction[]
 }
 
 export function ViewStockDetailsModal({
@@ -163,40 +164,13 @@ export function ViewStockDetailsModal({
   onAdjust,
   onTransfer,
   onGenerateBarcode,
-  onExport
+  onExport,
+  recentTransactions = []
 }: ViewStockDetailsModalProps) {
   if (!isOpen || !item) return null
 
   const stockStatus = item.currentQuantity === 0 ? 'out-of-stock' :
                       item.currentQuantity <= item.minLevel ? 'low-stock' : 'in-stock'
-
-  // Mock recent transactions
-  const recentTransactions: StockTransaction[] = [
-    {
-      id: '1',
-      date: new Date(Date.now() - 86400000).toISOString(),
-      type: 'receipt',
-      reference: 'PO-2024-001',
-      quantityIn: 100,
-      quantityOut: 0,
-      balance: item.currentQuantity,
-      location: 'WH-01/Zone-A/Bin-12',
-      user: 'John Doe',
-      notes: 'Purchase order receipt'
-    },
-    {
-      id: '2',
-      date: new Date(Date.now() - 172800000).toISOString(),
-      type: 'issue',
-      reference: 'WO-2024-045',
-      quantityIn: 0,
-      quantityOut: 50,
-      balance: item.currentQuantity - 50,
-      location: 'WH-01/Zone-A/Bin-12',
-      user: 'Jane Smith',
-      notes: 'Issued for production'
-    }
-  ]
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3">
@@ -385,6 +359,9 @@ export function ViewStockDetailsModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
+                  {recentTransactions.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-400">No recent transactions</td></tr>
+                  )}
                   {recentTransactions.map((txn) => (
                     <tr key={txn.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">{formatDateTime(txn.date)}</td>
@@ -499,7 +476,7 @@ export function ViewStockDetailsModal({
 interface AddStockItemModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: AddStockItemData) => void
+  onSubmit: (data: AddStockItemData, isDraft?: boolean) => void
 }
 
 export function AddStockItemModal({ isOpen, onClose, onSubmit }: AddStockItemModalProps) {
@@ -553,6 +530,11 @@ export function AddStockItemModal({ isOpen, onClose, onSubmit }: AddStockItemMod
       onSubmit(formData)
       onClose()
     }
+  }
+
+  const handleSaveDraft = () => {
+    onSubmit(formData, true)
+    onClose()
   }
 
   const generateBarcode = () => {
@@ -944,11 +926,7 @@ export function AddStockItemModal({ isOpen, onClose, onSubmit }: AddStockItemMod
             Cancel
           </button>
           <button
-            onClick={() => {
-              console.log('Saving as draft:', formData)
-              // TODO: Implement save as draft API call
-              alert('Draft saved')
-            }}
+            onClick={handleSaveDraft}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Save as Draft
@@ -1029,7 +1007,9 @@ export function EditStockItemModal({ isOpen, onClose, onSave, item }: EditStockI
 
   if (!isOpen || !item) return null
 
-  const hasTransactions = true // Mock - in real app, check if item has any transactions
+  // Conservatively treat an item that holds stock as having movement history,
+  // so the tracking-change warning is shown whenever it could matter.
+  const hasTransactions = (item.currentQuantity ?? 0) > 0
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3">

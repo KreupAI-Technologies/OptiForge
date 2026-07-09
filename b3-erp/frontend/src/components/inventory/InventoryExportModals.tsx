@@ -93,11 +93,12 @@ export function ExportStockDataModal({ isOpen, onClose, onExport }: ExportStockD
   const handleExport = async () => {
     if (validate()) {
       setIsLoading(true)
-      // TODO: Implement actual export API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      onExport(config)
-      setIsLoading(false)
-      onClose()
+      try {
+        await onExport(config)
+      } finally {
+        setIsLoading(false)
+        onClose()
+      }
     }
   }
 
