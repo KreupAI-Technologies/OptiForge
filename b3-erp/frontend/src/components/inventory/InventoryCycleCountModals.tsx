@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { X, Plus, Trash2, Calendar, ClipboardList, CheckCircle, AlertCircle, Play, Pause, FileText, Download, TrendingUp } from 'lucide-react'
+import { inventoryService } from '@/services/InventoryService'
 
 // ==================== INTERFACES ====================
 
@@ -9,6 +10,7 @@ export interface CycleCountItem {
   itemId: string
   itemCode: string
   itemName: string
+  category: string
   location: string
   zone: string
   bin: string
@@ -440,6 +442,8 @@ export const StartSessionModal: React.FC<StartSessionModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [selectedZone, setSelectedZone] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
 
   const addZone = () => {
     if (selectedZone && !formData.zones.includes(selectedZone)) {
@@ -452,30 +456,39 @@ export const StartSessionModal: React.FC<StartSessionModalProps> = ({
     setFormData({ ...formData, zones: formData.zones.filter(z => z !== zone) })
   }
 
-  const generateItems = () => {
-    // TODO: API call to generate items based on zones and filters
-    // Mock items for demonstration
-    const mockItems: CycleCountItem[] = [
-      {
-        itemId: '1',
-        itemCode: 'ITM-001',
-        itemName: 'Item 1',
-        location: formData.warehouse,
-        zone: formData.zones[0] || 'Zone-A',
-        bin: 'A-01-01',
-        expectedQuantity: 100,
+  // Build the count list from the warehouse's real stock balances (expected = system on-hand).
+  const generateItems = async () => {
+    if (!formData.warehouse) {
+      setGenerateError('Select a warehouse first')
+      return
+    }
+    setIsGenerating(true)
+    setGenerateError(null)
+    try {
+      const balances = await inventoryService.getStockBalances({ warehouseId: formData.warehouse })
+      const items: CycleCountItem[] = (balances || []).map((b, index) => ({
+        itemId: String(b.itemId ?? b.id ?? index + 1),
+        itemCode: b.itemCode ?? '',
+        itemName: b.itemName ?? '',
+        category: (b as any).category ?? (b as any).categoryName ?? 'Uncategorized',
+        location: b.locationName ?? b.warehouseName ?? formData.warehouse,
+        zone: (b as any).zone ?? formData.zones[0] ?? '',
+        bin: (b as any).bin ?? b.locationName ?? '-',
+        expectedQuantity: Number(b.availableQuantity ?? 0),
         countedQuantity: 0,
         variance: 0,
         variancePercentage: 0,
         status: 'pending'
+      }))
+      setFormData(prev => ({ ...prev, items, totalItems: items.length }))
+      if (items.length === 0) {
+        setGenerateError('No stock found for the selected warehouse')
       }
-    ]
-
-    setFormData({
-      ...formData,
-      items: mockItems,
-      totalItems: mockItems.length
-    })
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : 'Failed to generate count list')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -633,15 +646,19 @@ export const StartSessionModal: React.FC<StartSessionModalProps> = ({
             <button
               type="button"
               onClick={generateItems}
-              disabled={formData.zones.length === 0}
+              disabled={formData.zones.length === 0 || !formData.warehouse || isGenerating}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <ClipboardList className="w-5 h-5" />
-              Generate Count List ({formData.totalItems} items)
+              {isGenerating ? 'Generating…' : `Generate Count List (${formData.totalItems} items)`}
             </button>
-            <p className="text-sm text-gray-500 mt-2 text-center">
-              This will generate the list of items to count based on selected zones
-            </p>
+            {generateError ? (
+              <p className="text-sm text-red-500 mt-2 text-center">{generateError}</p>
+            ) : (
+              <p className="text-sm text-gray-500 mt-2 text-center">
+                This will pull the selected warehouse&apos;s on-hand stock as the count list
+              </p>
+            )}
           </div>
 
           {/* Notes */}

@@ -173,6 +173,7 @@ export default function CycleCountPage() {
         itemId: String(l.itemId ?? l.id ?? `${count.id}-${index + 1}`),
         itemCode: l.itemCode ?? '',
         itemName: l.itemName ?? '',
+        category: l.category ?? l.categoryName ?? l.itemCategory ?? 'Uncategorized',
         location: l.location ?? l.warehouseName ?? count.warehouse,
         zone: l.zone ?? l.zoneName ?? count.zone,
         bin: l.bin ?? l.binName ?? '-',
@@ -258,10 +259,10 @@ export default function CycleCountPage() {
     const totalExpected = session.items.reduce((sum, item) => sum + item.expectedQuantity, 0);
     const variancePercentage = totalExpected > 0 ? (totalVariance / totalExpected) * 100 : 0;
 
-    // Group by category (mock categories)
-    const categories = ['Raw Materials', 'Components', 'Finished Goods', 'Consumables'];
+    // Group by the item's actual category (derived from the counted items, not fabricated).
+    const categories = Array.from(new Set(session.items.map(item => item.category || 'Uncategorized')));
     const varianceByCategory = categories.map(category => {
-      const categoryItems = session.items.slice(0, Math.floor(session.items.length / categories.length));
+      const categoryItems = session.items.filter(item => (item.category || 'Uncategorized') === category);
       return {
         category,
         variance: categoryItems.reduce((sum, item) => sum + item.variance, 0),
