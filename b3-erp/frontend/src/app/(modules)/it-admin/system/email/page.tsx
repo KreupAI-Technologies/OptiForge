@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mail, Save, Send, CheckCircle, XCircle, Server, Lock, AlertCircle, TestTube } from 'lucide-react';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, EmailStatsDto } from '@/services/it-admin.service';
 
 interface EmailSettings {
   smtp: {
@@ -75,9 +75,19 @@ export default function EmailSettingsPage() {
     }
   });
 
+  const [emailStats, setEmailStats] = useState<EmailStatsDto>({
+    sent24h: 0,
+    sentThisMonth: 0,
+    failed: 0,
+    deliveryRate: 0,
+    openRate: 0,
+    clickRate: 0,
+    bounceRate: 0,
+  });
+
   useEffect(() => {
     let cancelled = false;
-    ItAdminService.getConfigValue('it.system.email')
+    ItAdminService.getEmailSettings()
       .then((res) => {
         if (cancelled) return;
         if (res && res.value) {
@@ -86,6 +96,13 @@ export default function EmailSettingsPage() {
       })
       .catch(() => {
         // no stored config yet; keep defaults
+      });
+    ItAdminService.getEmailStats()
+      .then((stats) => {
+        if (!cancelled && stats) setEmailStats(stats);
+      })
+      .catch(() => {
+        // keep zeros on error
       });
     return () => {
       cancelled = true;
@@ -105,7 +122,7 @@ export default function EmailSettingsPage() {
 
   const handleSave = async () => {
     try {
-      await ItAdminService.setConfigValue('it.system.email', settings);
+      await ItAdminService.saveEmailSettings(settings);
     } catch {
       // best-effort persistence
     }
@@ -114,20 +131,20 @@ export default function EmailSettingsPage() {
 
   const sendTestEmail = async () => {
     setTestStatus('sending');
-    // Simulate API call
-    setTimeout(() => {
-      setTestStatus('success');
-      setTimeout(() => setTestStatus('idle'), 3000);
-    }, 2000);
-  };
-
-  const emailStats = {
-    sent24h: 1247,
-    sentThisMonth: 18543,
-    deliveryRate: 98.5,
-    openRate: 42.3,
-    clickRate: 12.8,
-    bounceRate: 1.2
+    try {
+      const res = await ItAdminService.sendTestEmail({
+        toAddress: testEmail,
+        smtpHost: settings.smtp.host,
+      });
+      setTestStatus(res.success ? 'success' : 'error');
+      // Refresh stats after a recorded test attempt.
+      ItAdminService.getEmailStats()
+        .then((stats) => stats && setEmailStats(stats))
+        .catch(() => {});
+    } catch {
+      setTestStatus('error');
+    }
+    setTimeout(() => setTestStatus('idle'), 3000);
   };
 
   return (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, Server, Database, Cpu, HardDrive, Globe, Zap, TrendingUp, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Filter, Download, Eye, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, MonitoredServerDto } from '@/services/it-admin.service';
 
 interface SystemHealthMetric {
   id: string;
@@ -102,86 +102,36 @@ const SystemHealthPage = () => {
     };
   }, []);
 
-  const [servers] = useState<ServerHealth[]>([
-    {
-      id: '1',
-      serverName: 'WEB-01',
-      type: 'Web Server',
-      status: 'Healthy',
-      cpu: 45,
-      memory: 62,
-      disk: 48,
-      network: 35,
-      uptime: '45 days',
-      lastRestart: '2025-09-06 10:00:00',
-      location: 'Mumbai DC',
-    },
-    {
-      id: '2',
-      serverName: 'WEB-02',
-      type: 'Web Server',
-      status: 'Healthy',
-      cpu: 52,
-      memory: 58,
-      disk: 51,
-      network: 42,
-      uptime: '45 days',
-      lastRestart: '2025-09-06 10:05:00',
-      location: 'Mumbai DC',
-    },
-    {
-      id: '3',
-      serverName: 'DB-MASTER',
-      type: 'Database Server',
-      status: 'Healthy',
-      cpu: 68,
-      memory: 78,
-      disk: 65,
-      network: 58,
-      uptime: '90 days',
-      lastRestart: '2025-07-23 08:00:00',
-      location: 'Mumbai DC',
-    },
-    {
-      id: '4',
-      serverName: 'DB-REPLICA',
-      type: 'Database Server',
-      status: 'Warning',
-      cpu: 82,
-      memory: 88,
-      disk: 72,
-      network: 65,
-      uptime: '30 days',
-      lastRestart: '2025-09-21 14:00:00',
-      location: 'Bangalore DC',
-    },
-    {
-      id: '5',
-      serverName: 'APP-01',
-      type: 'Application Server',
-      status: 'Healthy',
-      cpu: 55,
-      memory: 65,
-      disk: 42,
-      network: 48,
-      uptime: '45 days',
-      lastRestart: '2025-09-06 10:15:00',
-      location: 'Mumbai DC',
-    },
-    {
-      id: '6',
-      serverName: 'CACHE-01',
-      type: 'Cache Server',
-      status: 'Healthy',
-      cpu: 38,
-      memory: 72,
-      disk: 28,
-      network: 52,
-      uptime: '60 days',
-      lastRestart: '2025-08-22 09:00:00',
-      location: 'Mumbai DC',
-    },
-  ]);
+  const [servers, setServers] = useState<ServerHealth[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    ItAdminService.getMonitoredServers()
+      .then((rows: MonitoredServerDto[]) => {
+        if (!active) return;
+        setServers(
+          (Array.isArray(rows) ? rows : []).map((s) => ({
+            id: s.id,
+            serverName: s.name,
+            type: s.role,
+            status: s.status,
+            cpu: s.cpuPct ?? 0,
+            memory: s.memPct ?? 0,
+            disk: s.diskPct ?? 0,
+            network: s.networkPct ?? 0,
+            uptime: s.uptime ?? '',
+            lastRestart: s.lastRestartAt ?? '',
+            location: s.location ?? '',
+          })),
+        );
+      })
+      .catch(() => {
+        if (active) setServers([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stats: HealthStats = {
     overallHealth: 92,

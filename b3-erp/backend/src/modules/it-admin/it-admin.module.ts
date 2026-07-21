@@ -40,6 +40,11 @@ import { ExportDataset } from './entities/export-dataset.entity';
 import { SystemMonitor } from './entities/system-monitor.entity';
 import { TwoFactorSetting } from './entities/two-factor-setting.entity';
 import { TwoFactorEnrollment } from './entities/two-factor-enrollment.entity';
+import { ComplianceViolation } from './entities/compliance-violation.entity';
+import { CleanupTask } from './entities/cleanup-task.entity';
+import { ExportTemplate } from './entities/export-template.entity';
+import { MonitoredServer } from './entities/monitored-server.entity';
+import { EmailTestLog } from './entities/email-test-log.entity';
 
 // Services
 import { UserService } from './services/user.service';
@@ -75,6 +80,11 @@ import { BackupRecordService } from './services/backup-record.service';
 import { ExportDatasetService } from './services/export-dataset.service';
 import { SystemMonitorService } from './services/system-monitor.service';
 import { TwoFactorService } from './services/two-factor.service';
+import { ComplianceViolationService } from './services/compliance-violation.service';
+import { CleanupTaskService } from './services/cleanup-task.service';
+import { ExportTemplateService } from './services/export-template.service';
+import { MonitoredServerService } from './services/monitored-server.service';
+import { EmailSettingsService } from './services/email-settings.service';
 
 // Seeders
 import { RoleSeederService } from './services/role-seeder.service';
@@ -116,6 +126,11 @@ import { BackupRecordController } from './controllers/backup-record.controller';
 import { ExportDatasetController } from './controllers/export-dataset.controller';
 import { SystemMonitorController } from './controllers/system-monitor.controller';
 import { TwoFactorController } from './controllers/two-factor.controller';
+import { ComplianceViolationController } from './controllers/compliance-violation.controller';
+import { CleanupTaskController } from './controllers/cleanup-task.controller';
+import { ExportTemplateController } from './controllers/export-template.controller';
+import { MonitoredServerController } from './controllers/monitored-server.controller';
+import { EmailSettingsController } from './controllers/email-settings.controller';
 
 @Module({
   imports: [
@@ -156,6 +171,11 @@ import { TwoFactorController } from './controllers/two-factor.controller';
       ComplianceRequirement,
       TwoFactorSetting,
       TwoFactorEnrollment,
+      ComplianceViolation,
+      CleanupTask,
+      ExportTemplate,
+      MonitoredServer,
+      EmailTestLog,
     ]),
   ],
   controllers: [
@@ -190,6 +210,11 @@ import { TwoFactorController } from './controllers/two-factor.controller';
     SystemMonitorController,
     ComplianceRequirementController,
     TwoFactorController,
+    ComplianceViolationController,
+    CleanupTaskController,
+    ExportTemplateController,
+    MonitoredServerController,
+    EmailSettingsController,
   ],
   providers: [
     UserService,
@@ -227,6 +252,11 @@ import { TwoFactorController } from './controllers/two-factor.controller';
     SystemMonitorService,
     ComplianceRequirementService,
     TwoFactorService,
+    ComplianceViolationService,
+    CleanupTaskService,
+    ExportTemplateService,
+    MonitoredServerService,
+    EmailSettingsService,
     // Seeders
     RoleSeederService,
     PermissionSeederService,

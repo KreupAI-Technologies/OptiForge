@@ -439,6 +439,115 @@ export interface SystemConfigValueDto {
   value: any;
 }
 
+export interface EmailStatsDto {
+  sent24h: number;
+  sentThisMonth: number;
+  failed: number;
+  deliveryRate: number;
+  openRate: number;
+  clickRate: number;
+  bounceRate: number;
+}
+
+export interface EmailTestResultDto {
+  success: boolean;
+  message: string;
+  loggedAt: string;
+}
+
+export interface NotificationMetricsDto {
+  totalNotifications: number;
+  last30Days: number;
+  byChannel: Record<string, number>;
+  byPriority: Record<string, number>;
+  configuredSettings: number;
+  criticalSettings: number;
+}
+
+export interface ComplianceViolationDto {
+  id: string;
+  companyId?: string;
+  requirementId?: string;
+  category: string;
+  requirement?: string;
+  description?: string;
+  severity: string;
+  status: string;
+  affectedEntity?: string;
+  detectedBy?: string;
+  assignedTo?: string;
+  detectedAt?: string;
+  dueDate?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CleanupTaskDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  category: string;
+  impact: string;
+  estimatedSpace?: string;
+  recordCount: number;
+  automated: boolean;
+  enabled: boolean;
+  lastRunAt?: string;
+  recordsAffected: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CleanupRunResultDto {
+  task: CleanupTaskDto;
+  ranAt: string;
+  recordsAffected: number;
+  estimatedSpace: string;
+}
+
+export interface ExportTemplateDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  dataset?: string;
+  format: string;
+  tables?: string[];
+  columns?: string[];
+  filters?: string[];
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ImportColumnMappingDto {
+  sourceColumn: string;
+  targetColumn: string;
+  dataType: string;
+  required: boolean;
+}
+
+export interface MonitoredServerDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  host?: string;
+  role: string;
+  status: string;
+  cpuPct: number;
+  memPct: number;
+  diskPct: number;
+  networkPct: number;
+  uptime?: string;
+  location?: string;
+  lastRestartAt?: string;
+  lastCheckAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IntegrationConfigDto {
   id: string;
   companyId?: string;
@@ -1288,6 +1397,159 @@ class ItAdminServiceClass {
         method: 'POST',
         body: JSON.stringify({ count }),
       },
+    );
+  }
+
+  // --- Email Settings (system/email page) ---
+  async getEmailSettings(): Promise<SystemConfigValueDto> {
+    return request<SystemConfigValueDto>('/it-admin/email/settings');
+  }
+
+  async saveEmailSettings(value: any): Promise<SystemConfigValueDto> {
+    return request<SystemConfigValueDto>('/it-admin/email/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    });
+  }
+
+  async getEmailStats(companyId?: string): Promise<EmailStatsDto> {
+    return request<EmailStatsDto>(`/it-admin/email/stats${qs({ companyId })}`);
+  }
+
+  async sendTestEmail(body: {
+    toAddress: string;
+    smtpHost?: string;
+    companyId?: string;
+  }): Promise<EmailTestResultDto> {
+    return request<EmailTestResultDto>('/it-admin/email/test', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  // --- Notification metrics (system/notifications page) ---
+  async getNotificationMetrics(
+    companyId?: string,
+  ): Promise<NotificationMetricsDto> {
+    return request<NotificationMetricsDto>(
+      `/it-admin/notification-settings/metrics${qs({ companyId })}`,
+    );
+  }
+
+  // --- Compliance Violations (audit/compliance page) ---
+  async getComplianceViolations(params?: {
+    companyId?: string;
+    category?: string;
+    severity?: string;
+    status?: string;
+  }): Promise<ComplianceViolationDto[]> {
+    return request<ComplianceViolationDto[]>(
+      `/it-admin/compliance-violations${qs(params)}`,
+    );
+  }
+
+  async createComplianceViolation(
+    data: Partial<ComplianceViolationDto>,
+  ): Promise<ComplianceViolationDto> {
+    return request<ComplianceViolationDto>('/it-admin/compliance-violations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resolveComplianceViolation(
+    id: string,
+    resolvedBy?: string,
+  ): Promise<ComplianceViolationDto> {
+    return request<ComplianceViolationDto>(
+      `/it-admin/compliance-violations/${id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'Resolved', resolvedBy }),
+      },
+    );
+  }
+
+  async updateComplianceViolation(
+    id: string,
+    data: Partial<ComplianceViolationDto>,
+  ): Promise<ComplianceViolationDto> {
+    return request<ComplianceViolationDto>(
+      `/it-admin/compliance-violations/${id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
+  // --- Cleanup Tasks (database/cleanup page) ---
+  async getCleanupTasks(params?: {
+    companyId?: string;
+    category?: string;
+  }): Promise<CleanupTaskDto[]> {
+    return request<CleanupTaskDto[]>(`/it-admin/cleanup-tasks${qs(params)}`);
+  }
+
+  async runCleanupTask(id: string): Promise<CleanupRunResultDto> {
+    return request<CleanupRunResultDto>(`/it-admin/cleanup-tasks/run/${id}`, {
+      method: 'POST',
+    });
+  }
+
+  async updateCleanupTask(
+    id: string,
+    data: Partial<CleanupTaskDto>,
+  ): Promise<CleanupTaskDto> {
+    return request<CleanupTaskDto>(`/it-admin/cleanup-tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- Export Templates (database/export page) ---
+  async getExportTemplates(params?: {
+    companyId?: string;
+    dataset?: string;
+  }): Promise<ExportTemplateDto[]> {
+    return request<ExportTemplateDto[]>(
+      `/it-admin/export-templates${qs(params)}`,
+    );
+  }
+
+  async applyExportTemplate(id: string): Promise<ExportTemplateDto> {
+    return request<ExportTemplateDto>(
+      `/it-admin/export-templates/${id}/apply`,
+      { method: 'POST' },
+    );
+  }
+
+  async createExportTemplate(
+    data: Partial<ExportTemplateDto>,
+  ): Promise<ExportTemplateDto> {
+    return request<ExportTemplateDto>('/it-admin/export-templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- Import column-schema (database/import page) ---
+  async getImportColumnSchema(
+    dataset: string,
+  ): Promise<ImportColumnMappingDto[]> {
+    return request<ImportColumnMappingDto[]>(
+      `/it-admin/export-templates/column-schema/${encodeURIComponent(dataset)}`,
+    );
+  }
+
+  // --- Monitored Servers (monitoring/health page) ---
+  async getMonitoredServers(params?: {
+    companyId?: string;
+    status?: string;
+    role?: string;
+  }): Promise<MonitoredServerDto[]> {
+    return request<MonitoredServerDto[]>(
+      `/it-admin/monitored-servers${qs(params)}`,
     );
   }
 }

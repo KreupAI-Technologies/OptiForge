@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, FileText, Database, CheckSquare, Square, Filter, Calendar, FileSpreadsheet, FileJson, FileCode } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, ExportTemplateDto } from '@/services/it-admin.service';
 
 interface ExportTemplate {
   id: string;
@@ -65,44 +65,32 @@ export default function DatabaseExportPage() {
     };
   }, []);
 
-  const [templates] = useState<ExportTemplate[]>([
-    {
-      id: '1',
-      name: 'Sales Report',
-      description: 'Export all sales-related data',
-      format: 'excel',
-      tables: ['sales_orders', 'quotations', 'invoices', 'customers'],
-      filters: ['date_range', 'status'],
-      lastUsed: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Production Data',
-      description: 'Work orders, BOM, and quality data',
-      format: 'csv',
-      tables: ['work_orders', 'bom', 'quality_checks'],
-      filters: ['date_range'],
-      lastUsed: '2024-01-18'
-    },
-    {
-      id: '3',
-      name: 'Inventory Snapshot',
-      description: 'Current inventory and movements',
-      format: 'json',
-      tables: ['inventory', 'stock_movements', 'warehouses'],
-      filters: [],
-      lastUsed: '2024-01-20'
-    },
-    {
-      id: '4',
-      name: 'Full Database Dump',
-      description: 'Complete database export with schema',
-      format: 'sql',
-      tables: ['*'],
-      filters: [],
-      lastUsed: '2024-01-10'
-    }
-  ]);
+  const [templates, setTemplates] = useState<ExportTemplate[]>([]);
+
+  const mapTemplate = (dto: ExportTemplateDto): ExportTemplate => ({
+    id: dto.id,
+    name: dto.name,
+    description: dto.description ?? '',
+    format: (dto.format as ExportTemplate['format']) ?? 'csv',
+    tables: dto.tables ?? [],
+    filters: dto.filters ?? [],
+    lastUsed: dto.lastUsedAt ? dto.lastUsedAt.split('T')[0] : undefined,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    ItAdminService.getExportTemplates()
+      .then((rows) => {
+        if (cancelled) return;
+        setTemplates((Array.isArray(rows) ? rows : []).map(mapTemplate));
+      })
+      .catch(() => {
+        if (!cancelled) setTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categories = ['All', 'User Management', 'Sales', 'Production', 'Inventory', 'Master Data', 'Finance'];
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -148,6 +136,16 @@ export default function DatabaseExportPage() {
         }))
       );
     }
+    // Stamp lastUsedAt on the backend, then reflect it in the list.
+    ItAdminService.applyExportTemplate(template.id)
+      .then((updated) => {
+        setTemplates(prev =>
+          prev.map(t => (t.id === updated.id ? mapTemplate(updated) : t))
+        );
+      })
+      .catch(() => {
+        // best-effort; selection already applied locally
+      });
   };
 
   const handleExport = async () => {

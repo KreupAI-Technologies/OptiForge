@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell, Save, Mail, MessageSquare, Smartphone, CheckSquare, Volume2, AlertTriangle } from 'lucide-react';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, NotificationMetricsDto } from '@/services/it-admin.service';
 
 interface NotificationChannel {
   email: boolean;
@@ -28,9 +28,17 @@ export default function NotificationSettingsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const [notifications, setNotifications] = useState<NotificationSetting[]>([]);
+  const [metrics, setMetrics] = useState<NotificationMetricsDto | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    ItAdminService.getNotificationMetrics()
+      .then((m) => {
+        if (!cancelled && m) setMetrics(m);
+      })
+      .catch(() => {
+        // keep null; stats fall back to derived counts
+      });
     ItAdminService.getNotificationSettings()
       .then((data) => {
         if (cancelled) return;
@@ -126,12 +134,22 @@ export default function NotificationSettingsPage() {
     return colors[priority as keyof typeof colors] || colors.low;
   };
 
+  // Prefer backend-computed delivery metrics (real it_notifications counts);
+  // fall back to setting-derived counts when metrics are unavailable.
   const stats = {
-    totalNotifications: notifications.length,
-    emailEnabled: notifications.filter(n => n.channels.email).length,
-    smsEnabled: notifications.filter(n => n.channels.sms).length,
-    pushEnabled: notifications.filter(n => n.channels.push).length,
-    criticalAlerts: notifications.filter(n => n.priority === 'critical').length
+    totalNotifications: metrics?.configuredSettings ?? notifications.length,
+    emailEnabled:
+      metrics?.byChannel?.Email ??
+      notifications.filter(n => n.channels.email).length,
+    smsEnabled:
+      metrics?.byChannel?.SMS ??
+      notifications.filter(n => n.channels.sms).length,
+    pushEnabled:
+      metrics?.byChannel?.Push ??
+      notifications.filter(n => n.channels.push).length,
+    criticalAlerts:
+      metrics?.criticalSettings ??
+      notifications.filter(n => n.priority === 'critical').length
   };
 
   return (

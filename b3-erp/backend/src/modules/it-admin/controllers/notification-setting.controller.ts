@@ -30,6 +30,13 @@ export class NotificationSettingController {
     return this.service.findAll({ companyId, category });
   }
 
+  @Get('metrics')
+  @ApiOperation({ summary: 'Notification delivery metrics (computed)' })
+  @ApiQuery({ name: 'companyId', required: false })
+  async metrics(@Query('companyId') companyId?: string) {
+    return this.service.metrics(companyId);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create notification setting' })
   async create(

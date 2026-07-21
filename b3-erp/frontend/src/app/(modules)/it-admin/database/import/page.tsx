@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, FileText, Database, CheckCircle, XCircle, AlertTriangle, Clock, Play, Pause, RotateCcw } from 'lucide-react';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, ImportColumnMappingDto } from '@/services/it-admin.service';
 
 interface ImportJob {
   id: string;
@@ -80,14 +80,36 @@ export default function DatabaseImportPage() {
     'stock_movements', 'warehouses', 'products', 'suppliers', 'transactions', 'payments'
   ];
 
-  const [columnMappings] = useState<ImportMapping[]>([
-    { sourceColumn: 'customer_name', targetColumn: 'name', dataType: 'string', required: true, mapped: true },
-    { sourceColumn: 'email_address', targetColumn: 'email', dataType: 'string', required: true, mapped: true },
-    { sourceColumn: 'phone', targetColumn: 'phone', dataType: 'string', required: false, mapped: true },
-    { sourceColumn: 'company', targetColumn: 'company_name', dataType: 'string', required: false, mapped: true },
-    { sourceColumn: 'address', targetColumn: 'address', dataType: 'text', required: false, mapped: true },
-    { sourceColumn: 'tax_id', targetColumn: 'tax_number', dataType: 'string', required: false, mapped: false }
-  ]);
+  // Column mapping for the selected target table, fetched from the backend
+  // static schema (empty for datasets with no defined mapping).
+  const [columnMappings, setColumnMappings] = useState<ImportMapping[]>([]);
+
+  useEffect(() => {
+    if (!selectedTable) {
+      setColumnMappings([]);
+      return;
+    }
+    let cancelled = false;
+    ItAdminService.getImportColumnSchema(selectedTable)
+      .then((rows: ImportColumnMappingDto[]) => {
+        if (cancelled) return;
+        setColumnMappings(
+          (Array.isArray(rows) ? rows : []).map((r) => ({
+            sourceColumn: r.sourceColumn,
+            targetColumn: r.targetColumn,
+            dataType: r.dataType,
+            required: r.required,
+            mapped: true,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setColumnMappings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTable]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Trash2, Database, AlertTriangle, CheckCircle, Play, BarChart3, HardDrive, Clock, Archive } from 'lucide-react';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, CleanupTaskDto } from '@/services/it-admin.service';
 
 interface CleanupTask {
   id: string;
@@ -33,150 +33,33 @@ export default function DatabaseCleanupPage() {
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const [cleanupTasks, setCleanupTasks] = useState<CleanupTask[]>([
-    {
-      id: '1',
-      name: 'Old Application Logs',
-      description: 'Delete application logs older than 90 days',
-      category: 'logs',
-      estimatedSpace: '2.4 GB',
-      recordCount: 1245678,
-      lastRun: '2024-01-15',
-      impact: 'low',
-      automated: true,
-      enabled: true
-    },
-    {
-      id: '2',
-      name: 'System Error Logs',
-      description: 'Delete system error logs older than 60 days',
-      category: 'logs',
-      estimatedSpace: '856 MB',
-      recordCount: 345789,
-      lastRun: '2024-01-15',
-      impact: 'low',
-      automated: true,
-      enabled: true
-    },
-    {
-      id: '3',
-      name: 'Temporary Files',
-      description: 'Remove temporary upload files and cache',
-      category: 'temp',
-      estimatedSpace: '1.2 GB',
-      recordCount: 8934,
-      lastRun: '2024-01-18',
-      impact: 'low',
-      automated: true,
-      enabled: true
-    },
-    {
-      id: '4',
-      name: 'Session Data',
-      description: 'Clean expired user sessions older than 7 days',
-      category: 'temp',
-      estimatedSpace: '145 MB',
-      recordCount: 45678,
-      lastRun: '2024-01-19',
-      impact: 'low',
-      automated: true,
-      enabled: true
-    },
-    {
-      id: '5',
-      name: 'Orphaned Records',
-      description: 'Delete records with missing foreign key references',
-      category: 'orphaned',
-      estimatedSpace: '345 MB',
-      recordCount: 2345,
-      lastRun: '2024-01-10',
-      impact: 'medium',
-      automated: false,
-      enabled: false
-    },
-    {
-      id: '6',
-      name: 'Orphaned Attachments',
-      description: 'Remove files without database references',
-      category: 'orphaned',
-      estimatedSpace: '678 MB',
-      recordCount: 1234,
-      lastRun: '2024-01-12',
-      impact: 'low',
-      automated: false,
-      enabled: false
-    },
-    {
-      id: '7',
-      name: 'Duplicate Customers',
-      description: 'Find and merge duplicate customer records',
-      category: 'duplicates',
-      estimatedSpace: '12 MB',
-      recordCount: 156,
-      impact: 'high',
-      automated: false,
-      enabled: false
-    },
-    {
-      id: '8',
-      name: 'Duplicate Products',
-      description: 'Identify duplicate product SKUs and consolidate',
-      category: 'duplicates',
-      estimatedSpace: '8 MB',
-      recordCount: 89,
-      impact: 'high',
-      automated: false,
-      enabled: false
-    },
-    {
-      id: '9',
-      name: 'Archived Orders',
-      description: 'Move completed orders older than 1 year to archive',
-      category: 'archived',
-      estimatedSpace: '3.4 GB',
-      recordCount: 12456,
-      lastRun: '2024-01-01',
-      impact: 'low',
-      automated: true,
-      enabled: true
-    },
-    {
-      id: '10',
-      name: 'Archived Transactions',
-      description: 'Archive financial transactions older than 2 years',
-      category: 'archived',
-      estimatedSpace: '2.8 GB',
-      recordCount: 45678,
-      lastRun: '2024-01-01',
-      impact: 'low',
-      automated: true,
-      enabled: true
-    },
-    {
-      id: '11',
-      name: 'Old Email Queue',
-      description: 'Delete sent emails older than 30 days',
-      category: 'logs',
-      estimatedSpace: '456 MB',
-      recordCount: 234567,
-      lastRun: '2024-01-18',
-      impact: 'low',
-      automated: true,
-      enabled: true
-    },
-    {
-      id: '12',
-      name: 'Audit Trail',
-      description: 'Archive audit logs older than 3 years',
-      category: 'archived',
-      estimatedSpace: '5.6 GB',
-      recordCount: 2345678,
-      lastRun: '2024-01-01',
-      impact: 'low',
-      automated: true,
-      enabled: true
+  const [cleanupTasks, setCleanupTasks] = useState<CleanupTask[]>([]);
+
+  const mapTask = (dto: CleanupTaskDto): CleanupTask => ({
+    id: dto.id,
+    name: dto.name,
+    description: dto.description ?? '',
+    category: (dto.category as CleanupTask['category']) ?? 'logs',
+    estimatedSpace: dto.estimatedSpace ?? '',
+    recordCount: Number(dto.recordCount ?? 0),
+    lastRun: dto.lastRunAt ? dto.lastRunAt.split('T')[0] : undefined,
+    impact: (dto.impact as CleanupTask['impact']) ?? 'low',
+    automated: !!dto.automated,
+    enabled: !!dto.enabled,
+  });
+
+  const loadCleanupTasks = useCallback(async () => {
+    try {
+      const rows = await ItAdminService.getCleanupTasks();
+      setCleanupTasks((Array.isArray(rows) ? rows : []).map(mapTask));
+    } catch {
+      setCleanupTasks([]);
     }
-  ]);
+  }, []);
+
+  useEffect(() => {
+    loadCleanupTasks();
+  }, [loadCleanupTasks]);
 
   const [cleanupHistory, setCleanupHistory] = useState<CleanupHistory[]>([]);
 
@@ -234,18 +117,37 @@ export default function DatabaseCleanupPage() {
 
   const confirmCleanup = async () => {
     try {
+      // Run each selected cleanup task (stamps lastRunAt + returns a summary).
+      await Promise.all(
+        selectedTasks.map((id) => ItAdminService.runCleanupTask(id)),
+      );
+      // Record the batch in the backup/history ledger for the "Recent Cleanups"
+      // panel, then refresh both tasks (updated lastRun) and history.
       await ItAdminService.createBackupRecord({
         name: 'Cleanup ' + new Date().toISOString(),
         type: 'cleanup',
         status: 'completed',
         automated: false,
       });
-      await loadCleanupHistory();
+      await Promise.all([loadCleanupTasks(), loadCleanupHistory()]);
     } catch {
       // best-effort; ignore failures
     }
     setShowConfirmation(false);
     setSelectedTasks([]);
+  };
+
+  const handleToggleEnabled = async (task: CleanupTask) => {
+    try {
+      const updated = await ItAdminService.updateCleanupTask(task.id, {
+        enabled: !task.enabled,
+      });
+      setCleanupTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? mapTask(updated) : t)),
+      );
+    } catch {
+      // best-effort; ignore failures
+    }
   };
 
   const getImpactColor = (impact: string) => {
@@ -451,6 +353,19 @@ export default function DatabaseCleanupPage() {
                                 Automated
                               </span>
                             )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleEnabled(task);
+                              }}
+                              className={`ml-auto px-2 py-1 rounded-full text-xs font-medium border ${
+                                task.enabled
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-gray-100 text-gray-600 border-gray-300'
+                              }`}
+                            >
+                              {task.enabled ? 'Enabled' : 'Disabled'}
+                            </button>
                           </div>
 
                           <p className="text-sm text-gray-600 mb-3 ml-7">{task.description}</p>

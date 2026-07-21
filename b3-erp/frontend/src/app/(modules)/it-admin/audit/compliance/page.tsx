@@ -217,39 +217,45 @@ const ComplianceAuditPage = () => {
 
   const [violations, setViolations] = useState<ComplianceViolation[]>([]);
 
+  const loadViolations = async () => {
+    try {
+      const rows = await ItAdminService.getComplianceViolations();
+      const mapped: ComplianceViolation[] = (Array.isArray(rows) ? rows : []).map(
+        (v) => ({
+          id: v.id,
+          violationId: v.id.slice(0, 8).toUpperCase(),
+          timestamp: v.detectedAt || v.createdAt || '',
+          category: v.category || 'General',
+          requirement: v.requirement || '',
+          severity: v.severity || 'Medium',
+          description: v.description || '',
+          affectedEntity: v.affectedEntity || '',
+          detectedBy: v.detectedBy || 'System',
+          status: v.status || 'Open',
+          assignedTo: v.assignedTo || '',
+          dueDate: v.dueDate || '',
+          resolvedDate: v.resolvedAt || undefined,
+        }),
+      );
+      setViolations(mapped);
+    } catch {
+      setViolations([]);
+    }
+  };
+
   useEffect(() => {
-    const loadViolations = async () => {
-      try {
-        const res = await ItAdminService.getAuditLogs({ limit: '50' });
-        const logs = Array.isArray(res?.data) ? res.data : [];
-        const mapped: ComplianceViolation[] = logs
-          .filter((log) => {
-            const sev = (log.severity || '').toLowerCase();
-            return sev === 'high' || sev === 'critical';
-          })
-          .map((log) => ({
-            id: log.id,
-            violationId: log.entityId || log.id,
-            timestamp: log.createdAt || '',
-            category: log.module || 'General',
-            requirement: log.entityType || log.action || '',
-            severity: log.severity || 'High',
-            description: log.description || '',
-            affectedEntity: log.entityType
-              ? `${log.entityType}${log.entityId ? `: ${log.entityId}` : ''}`
-              : (log.entityId || ''),
-            detectedBy: log.userName || 'System',
-            status: log.status || 'Open',
-            assignedTo: log.userName || '',
-            dueDate: '',
-          }));
-        setViolations(mapped);
-      } catch {
-        setViolations([]);
-      }
-    };
     loadViolations();
   }, []);
+
+  const handleResolveViolation = async (id: string) => {
+    try {
+      await ItAdminService.resolveComplianceViolation(id);
+      showToast('Violation resolved', 'success');
+      await loadViolations();
+    } catch {
+      showToast('Failed to resolve violation', 'error');
+    }
+  };
 
   const stats: ComplianceStats = {
     overallCompliance: requirements.length > 0
@@ -799,13 +805,23 @@ const ComplianceAuditPage = () => {
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{vio.assignedTo}</td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => handleViewDetails(vio)}
-                        className="text-orange-600 hover:text-orange-700 p-1"
-                       
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {vio.status !== 'Resolved' && (
+                          <button
+                            onClick={() => handleResolveViolation(vio.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 border border-green-300 rounded hover:bg-green-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Resolve
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleViewDetails(vio)}
+                          className="text-orange-600 hover:text-orange-700 p-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
