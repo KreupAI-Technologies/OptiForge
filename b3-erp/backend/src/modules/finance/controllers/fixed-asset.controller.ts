@@ -30,6 +30,28 @@ export class FixedAssetController {
     return this.service.getSummary();
   }
 
+  // Static routes BEFORE :id so they are not captured as an id param.
+  @Post('depreciation/run')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Run one depreciation period for all active assets' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Depreciation run summary' })
+  async runDepreciation(): Promise<any> {
+    return this.service.runDepreciation();
+  }
+
+  @Post('depreciation/manual-entry')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Post a manual depreciation adjustment for one asset' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Updated asset' })
+  async manualDepreciation(
+    @Body() body: { assetId?: string; assetCode?: string; amount: number },
+  ): Promise<any> {
+    return this.service.manualDepreciationEntry(
+      body.assetId || body.assetCode || '',
+      Number(body.amount),
+    );
+  }
+
   @Get()
   @ApiOperation({ summary: 'List fixed assets' })
   @ApiQuery({ name: 'status', required: false })

@@ -208,4 +208,99 @@ export class FixedAssetService {
       byCategory: Array.from(byCategoryMap.values()),
     };
   }
+
+  /**
+   * Run one depreciation period (monthly) for every active asset: compute the
+   * period charge per the asset's method, add it to accumulated depreciation
+   * (never beyond cost − salvage), refresh net book value, and stamp the run
+   * date. Returns a summary of what was processed.
+   */
+  async runDepreciation(): Promise<{
+    processed: number;
+    skipped: number;
+    totalDepreciation: number;
+    runDate: string;
+  }> {
+    const assets = await this.repo.find({
+      where: { status: AssetStatus.ACTIVE },
+    });
+    const now = new Date();
+    let processed = 0;
+    let skipped = 0;
+    let totalDepreciation = 0;
+
+    for (const a of assets) {
+      const cost = Number(a.acquisitionCost) || 0;
+      const salvage = Number(a.salvageValue) || 0;
+      const accumulated = Number(a.accumulatedDepreciation) || 0;
+      const depreciableBase = cost - salvage;
+      const remaining = depreciableBase - accumulated;
+      if (depreciableBase <= 0 || remaining <= 0.01) {
+        skipped += 1;
+        continue;
+      }
+
+      const lifeMonths =
+        (Number(a.usefulLifeYears) || 0) * 12 + (Number(a.usefulLifeMonths) || 0) || 60;
+
+      let monthly = 0;
+      switch (a.depreciationMethod) {
+        case DepreciationMethod.WRITTEN_DOWN_VALUE:
+        case DepreciationMethod.DOUBLE_DECLINING: {
+          const annualRate = Number(a.depreciationRate)
+            ? Number(a.depreciationRate) / 100
+            : (a.depreciationMethod === DepreciationMethod.DOUBLE_DECLINING ? 2 : 1) /
+              (lifeMonths / 12);
+          const bookValue = cost - accumulated;
+          monthly = (bookValue * annualRate) / 12;
+          break;
+        }
+        case DepreciationMethod.STRAIGHT_LINE:
+        default:
+          monthly = depreciableBase / lifeMonths;
+          break;
+      }
+
+      // Never depreciate past the salvage floor.
+      monthly = Math.min(monthly, remaining);
+      if (monthly <= 0) {
+        skipped += 1;
+        continue;
+      }
+
+      a.accumulatedDepreciation = Math.round((accumulated + monthly) * 100) / 100;
+      a.netBookValue = Math.round((cost - a.accumulatedDepreciation) * 100) / 100;
+      a.lastDepreciationDate = now as any;
+      await this.repo.save(a);
+      processed += 1;
+      totalDepreciation += monthly;
+    }
+
+    return {
+      processed,
+      skipped,
+      totalDepreciation: Math.round(totalDepreciation * 100) / 100,
+      runDate: now.toISOString(),
+    };
+  }
+
+  /** Post a manual depreciation adjustment against a single asset (by id or code). */
+  async manualDepreciationEntry(assetIdOrCode: string, amount: number): Promise<any> {
+    if (!assetIdOrCode || !(amount > 0)) {
+      throw new NotFoundException('A valid asset and positive amount are required');
+    }
+    const asset =
+      (await this.repo.findOne({ where: { id: assetIdOrCode } }).catch(() => null)) ||
+      (await this.repo.findOne({ where: { assetCode: assetIdOrCode } }));
+    if (!asset) {
+      throw new NotFoundException(`Fixed asset ${assetIdOrCode} not found`);
+    }
+    const cost = Number(asset.acquisitionCost) || 0;
+    asset.accumulatedDepreciation =
+      Math.round(((Number(asset.accumulatedDepreciation) || 0) + amount) * 100) / 100;
+    asset.netBookValue = Math.round((cost - asset.accumulatedDepreciation) * 100) / 100;
+    asset.lastDepreciationDate = new Date() as any;
+    await this.repo.save(asset);
+    return this.decorate(asset);
+  }
 }

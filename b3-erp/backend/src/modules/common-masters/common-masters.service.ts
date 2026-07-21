@@ -1589,6 +1589,46 @@ export class CommonMastersService {
         return this.prisma.skill.delete({ where: { id } });
     }
 
+    // Batch (mfg_batches) write
+    async createBatch(data: {
+        batchNumber: string; itemId: string; companyId: string;
+        manufacturingDate?: Date; expiryDate?: Date; quantity?: number; status?: string;
+    }) {
+        return this.prisma.batch.create({ data });
+    }
+
+    async updateBatch(id: string, data: {
+        batchNumber?: string; manufacturingDate?: Date; expiryDate?: Date;
+        quantity?: number; status?: string; isActive?: boolean;
+    }) {
+        await this.findByIdOrThrow(this.prisma.batch, id, 'Batch');
+        return this.prisma.batch.update({ where: { id }, data });
+    }
+
+    async deleteBatch(id: string) {
+        await this.findByIdOrThrow(this.prisma.batch, id, 'Batch');
+        return this.prisma.batch.delete({ where: { id } });
+    }
+
+    // Routing (mfg_routings) write
+    async createRouting(data: {
+        code: string; name: string; itemId: string; companyId: string; isDefault?: boolean;
+    }) {
+        return this.prisma.routing.create({ data });
+    }
+
+    async updateRouting(id: string, data: {
+        code?: string; name?: string; isDefault?: boolean; isActive?: boolean;
+    }) {
+        await this.findByIdOrThrow(this.prisma.routing, id, 'Routing');
+        return this.prisma.routing.update({ where: { id }, data });
+    }
+
+    async deleteRouting(id: string) {
+        await this.findByIdOrThrow(this.prisma.routing, id, 'Routing');
+        return this.prisma.routing.delete({ where: { id } });
+    }
+
     // ===========================
     // HOLIDAY CRUD
     // ===========================

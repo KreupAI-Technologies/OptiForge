@@ -961,4 +961,125 @@ export class CommonMastersController {
         return this.commonMastersService.deleteLocation(id);
     }
 
+    // ===========================
+    // MANUFACTURING MASTERS — WRITE
+    // ===========================
+
+    @Post('skills')
+    createSkill(@Body() data: any) { return this.commonMastersService.createSkill(data); }
+    @Put('skills/:id')
+    updateSkill(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateSkill(id, data); }
+    @Delete('skills/:id')
+    deleteSkill(@Param('id') id: string) { return this.commonMastersService.deleteSkill(id); }
+
+    @Post('batches')
+    createBatch(@Body() data: any) { return this.commonMastersService.createBatch(data); }
+    @Put('batches/:id')
+    updateBatch(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateBatch(id, data); }
+    @Delete('batches/:id')
+    deleteBatch(@Param('id') id: string) { return this.commonMastersService.deleteBatch(id); }
+
+    @Post('routings')
+    createRouting(@Body() data: any) { return this.commonMastersService.createRouting(data); }
+    @Put('routings/:id')
+    updateRouting(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateRouting(id, data); }
+    @Delete('routings/:id')
+    deleteRouting(@Param('id') id: string) { return this.commonMastersService.deleteRouting(id); }
+
+    // ===========================
+    // KITCHEN MANUFACTURING MASTERS — WRITE
+    // ===========================
+
+    @Post('cabinet-types')
+    createCabinetType(@Body() data: any) { return this.commonMastersService.createCabinetType(data); }
+    @Put('cabinet-types/:id')
+    updateCabinetType(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateCabinetType(id, data); }
+    @Delete('cabinet-types/:id')
+    deleteCabinetType(@Param('id') id: string) { return this.commonMastersService.deleteCabinetType(id); }
+
+    @Post('kitchen-hardware')
+    createKitchenHardware(@Body() data: any) { return this.commonMastersService.createKitchenHardware(data); }
+    @Put('kitchen-hardware/:id')
+    updateKitchenHardware(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateKitchenHardware(id, data); }
+    @Delete('kitchen-hardware/:id')
+    deleteKitchenHardware(@Param('id') id: string) { return this.commonMastersService.deleteKitchenHardware(id); }
+
+    @Post('kitchen-finishes')
+    createKitchenFinish(@Body() data: any) { return this.commonMastersService.createKitchenFinish(data); }
+    @Put('kitchen-finishes/:id')
+    updateKitchenFinish(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateKitchenFinish(id, data); }
+    @Delete('kitchen-finishes/:id')
+    deleteKitchenFinish(@Param('id') id: string) { return this.commonMastersService.deleteKitchenFinish(id); }
+
+    @Post('material-grades')
+    createMaterialGrade(@Body() data: any) { return this.commonMastersService.createMaterialGrade(data); }
+    @Put('material-grades/:id')
+    updateMaterialGrade(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateMaterialGrade(id, data); }
+    @Delete('material-grades/:id')
+    deleteMaterialGrade(@Param('id') id: string) { return this.commonMastersService.deleteMaterialGrade(id); }
+
+    @Post('kitchen-layouts')
+    createKitchenLayout(@Body() data: any) { return this.commonMastersService.createKitchenLayout(data); }
+    @Put('kitchen-layouts/:id')
+    updateKitchenLayout(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateKitchenLayout(id, data); }
+    @Delete('kitchen-layouts/:id')
+    deleteKitchenLayout(@Param('id') id: string) { return this.commonMastersService.deleteKitchenLayout(id); }
+
+    @Post('installation-types')
+    createInstallationType(@Body() data: any) { return this.commonMastersService.createInstallationType(data); }
+    @Put('installation-types/:id')
+    updateInstallationType(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateInstallationType(id, data); }
+    @Delete('installation-types/:id')
+    deleteInstallationType(@Param('id') id: string) { return this.commonMastersService.deleteInstallationType(id); }
+
+    @Post('kitchen-appliances')
+    createKitchenAppliance(@Body() data: any) { return this.commonMastersService.createKitchenAppliance(data); }
+    @Put('kitchen-appliances/:id')
+    updateKitchenAppliance(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateKitchenAppliance(id, data); }
+    @Delete('kitchen-appliances/:id')
+    deleteKitchenAppliance(@Param('id') id: string) { return this.commonMastersService.deleteKitchenAppliance(id); }
+
+    // ===========================
+    // FINANCIAL MASTERS — WRITE
+    // ===========================
+
+    @Post('exchange-rates')
+    createExchangeRate(@Body() data: any) { return this.commonMastersService.createExchangeRate(data); }
+    @Put('exchange-rates/:id')
+    updateExchangeRate(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateExchangeRate(id, data); }
+    @Delete('exchange-rates/:id')
+    deleteExchangeRate(@Param('id') id: string) { return this.commonMastersService.deleteExchangeRate(id); }
+
+    @Post('bank-accounts')
+    createBankAccount(@Body() data: any) { return this.commonMastersService.createBankAccount(data); }
+    @Put('bank-accounts/:id')
+    updateBankAccount(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateBankAccount(id, data); }
+    @Delete('bank-accounts/:id')
+    deleteBankAccount(@Param('id') id: string) { return this.commonMastersService.deleteBankAccount(id); }
+
+    @Post('price-lists')
+    createPriceList(@Body() data: any) { return this.commonMastersService.createPriceList(data); }
+    @Put('price-lists/:id')
+    updatePriceList(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updatePriceList(id, data); }
+    @Delete('price-lists/:id')
+    deletePriceList(@Param('id') id: string) { return this.commonMastersService.deletePriceList(id); }
+
+    // ===========================
+    // SYSTEM MASTERS — WRITE
+    // ===========================
+
+    @Post('document-types')
+    createDocumentType(@Body() data: any) { return this.commonMastersService.createDocumentType(data); }
+    @Put('document-types/:id')
+    updateDocumentType(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateDocumentType(id, data); }
+    @Delete('document-types/:id')
+    deleteDocumentType(@Param('id') id: string) { return this.commonMastersService.deleteDocumentType(id); }
+
+    @Post('number-series')
+    createNumberSeries(@Body() data: any) { return this.commonMastersService.createNumberSeries(data); }
+    @Put('number-series/:id')
+    updateNumberSeries(@Param('id') id: string, @Body() data: any) { return this.commonMastersService.updateNumberSeries(id, data); }
+    @Delete('number-series/:id')
+    deleteNumberSeries(@Param('id') id: string) { return this.commonMastersService.deleteNumberSeries(id); }
+
 }
