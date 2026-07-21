@@ -160,9 +160,11 @@ export default function MaterialConsumptionPage() {
   setSelectedConsumption(null);
  };
 
+ // NOTE: no bulk/import endpoint exists for material consumption on the NestJS
+ // backend (only single POST create). The Bulk Upload action is disabled below
+ // until a server-side bulk/parse endpoint is available. Kept as a no-op so the
+ // modal contract stays satisfied without faking a batch call.
  const handleBulkUpload = (_data: any) => {
-  // NEEDS BACKEND: no bulk/import endpoint for material consumption; file parsing must be server-side.
-  alert('Bulk upload is not available yet — please add records individually.');
   setShowBulkUploadModal(false);
  };
 
@@ -273,7 +275,9 @@ export default function MaterialConsumptionPage() {
      </button>
      <button
       onClick={() => setShowBulkUploadModal(true)}
-      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 shadow-sm"
+      disabled
+      title="Bulk upload not yet available — no server-side bulk/import endpoint. Add records individually."
+      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg shadow-sm opacity-50 cursor-not-allowed"
      >
       <Upload className="h-4 w-4" />
       <span>Bulk Upload</span>

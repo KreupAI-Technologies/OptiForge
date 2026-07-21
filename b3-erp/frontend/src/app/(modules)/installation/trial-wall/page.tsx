@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { AttachmentsService, Attachment } from '@/services/attachments.service';
 import {
     ArrowLeft,
     ArrowRight,
@@ -34,6 +35,8 @@ interface TrialCheck {
 }
 
 const CHECKLIST_TYPE = 'trial-wall';
+// Owning-record type used to key trial-wall photos in the attachments store.
+const PHOTO_ENTITY_TYPE = 'trial-wall-photo';
 
 function TrialWallPageContent() {
     const router = useRouter();
@@ -48,13 +51,57 @@ function TrialWallPageContent() {
     const [checks, setChecks] = useState<TrialCheck[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const [photos, setPhotos] = useState<Attachment[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         loadProjects();
     }, []);
 
     useEffect(() => {
-        if (selectedProject) loadChecklist(selectedProject.id);
+        if (selectedProject) {
+            loadChecklist(selectedProject.id);
+            loadPhotos(selectedProject.id);
+        } else {
+            setPhotos([]);
+        }
     }, [selectedProject]);
+
+    const loadPhotos = async (projectId: string) => {
+        try {
+            const rows = await AttachmentsService.list(PHOTO_ENTITY_TYPE, projectId);
+            setPhotos(rows);
+        } catch (error) {
+            console.error('Error loading trial wall photos:', error);
+            setPhotos([]);
+        }
+    };
+
+    const handleCaptureClick = () => fileInputRef.current?.click();
+
+    const handleFilesChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!selectedProject) return;
+        const files = Array.from(e.target.files ?? []);
+        e.target.value = '';
+        if (files.length === 0) return;
+
+        setIsUploading(true);
+        try {
+            await Promise.all(
+                files.map((file) =>
+                    AttachmentsService.upload(file, PHOTO_ENTITY_TYPE, selectedProject.id),
+                ),
+            );
+            await loadPhotos(selectedProject.id);
+            toast({ title: 'Upload Complete', description: `${files.length} photo(s) added.` });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Upload failed';
+            toast({ variant: 'destructive', title: 'Upload Failed', description: msg });
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const loadChecklist = async (projectId: string) => {
         try {
@@ -291,13 +338,43 @@ function TrialWallPageContent() {
                         <CardTitle>Visual Documentation</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleFilesChosen}
+                        />
                         <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-2">
-                            <Camera className="h-8 w-8 text-muted-foreground" />
+                            <Camera className="h-8 w-8 text-muted-foreground mx-auto" />
                             <p className="text-sm text-muted-foreground">Upload photos of trial assembly</p>
-                            <Button variant="outline" size="sm">
-                                Capture / Upload
+                            <Button variant="outline" size="sm" disabled={isUploading} onClick={handleCaptureClick}>
+                                {isUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                                {isUploading ? 'Uploading…' : 'Capture / Upload'}
                             </Button>
                         </div>
+                        {photos.length > 0 && (
+                            <div className="grid grid-cols-3 gap-2">
+                                {photos.map((photo) => (
+                                    <a
+                                        key={photo.id}
+                                        href={AttachmentsService.downloadUrl(photo.id)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block aspect-square bg-gray-100 rounded overflow-hidden border"
+                                        title={photo.fileName}
+                                    >
+                                        {photo.mimeType?.startsWith('image/') ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={AttachmentsService.downloadUrl(photo.id)} alt={photo.fileName} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="h-full w-full flex items-center justify-center text-xs text-gray-400 p-1 text-center truncate">{photo.fileName}</div>
+                                        )}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
                         <div className="bg-blue-50 p-3 rounded-lg">
                             <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
                                 <Ruler className="h-4 w-4" />

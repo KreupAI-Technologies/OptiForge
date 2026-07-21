@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Plus, Save, Trash2, ArrowRight, Package, LayoutGrid, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ArrowRight, Package, LayoutGrid, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -134,13 +134,6 @@ export default function AccessoriesBOMPage() {
     }
   };
 
-  const handleSave = () => {
-    toast({
-      title: "BOM Saved",
-      description: `Accessories BOM for ${selectedProject?.name} has been updated.`,
-    });
-  };
-
   const handleNext = () => {
     router.push('/project-management/technical/specs/shutters');
   };
@@ -222,10 +215,6 @@ export default function AccessoriesBOMPage() {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => router.push(window.location.pathname)}>
             Change Project
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleSave}>
-            <Save className="w-4 h-4 mr-2" />
-            Save Draft
           </Button>
           <Button onClick={handleNext} size="sm" className="bg-blue-600 hover:bg-blue-700">
             Next: Shutter Specs <ArrowRight className="w-4 h-4 ml-2" />

@@ -98,455 +98,76 @@ export default function ResourceUtilizationPage() {
  const [showDetailsModal, setShowDetailsModal] = useState(false);
  const [selectedResource, setSelectedResource] = useState<ResourceUtilization | null>(null);
 
- // Mock data - 12 resource records
- const [mockResources, setMockResources] = useState<ResourceUtilization[]>([
-  {
-   id: '1',
-   resourceId: 'EMP001',
-   resourceName: 'Rajesh Kumar',
-   role: 'Project Manager',
-   department: 'Project Management',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 168,
-   actualHours: 172,
-   utilization: 97.7,
-   efficiency: 102.4,
-   billableHours: 160,
-   nonBillableHours: 12,
-   overtimeHours: 8,
-   leaveHours: 0,
-   idleHours: 4,
-   activeProjects: 3,
-   costPerHour: 1200,
-   totalRevenue: 275000,
-   totalCost: 206400,
-   availability: 'Fully Allocated',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ001', projectName: 'Taj Kitchen Upgrade', allocatedHours: 60, actualHours: 64, startDate: '2024-01-15', endDate: '2024-06-30' },
-    { projectId: 'PRJ003', projectName: 'L&T Cold Room', allocatedHours: 56, actualHours: 58, startDate: '2024-02-01', endDate: '2024-07-15' },
-    { projectId: 'PRJ007', projectName: 'Reliance Switchgear', allocatedHours: 52, actualHours: 50, startDate: '2024-03-01', endDate: '2024-08-30' },
-   ],
-  },
-  {
-   id: '2',
-   resourceId: 'EMP015',
-   resourceName: 'Priya Sharma',
-   role: 'Senior Engineer',
-   department: 'Engineering',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 192,
-   actualHours: 196,
-   utilization: 111.4,
-   efficiency: 102.1,
-   billableHours: 184,
-   nonBillableHours: 12,
-   overtimeHours: 20,
-   leaveHours: 0,
-   idleHours: 0,
-   activeProjects: 2,
-   costPerHour: 950,
-   totalRevenue: 312000,
-   totalCost: 186200,
-   availability: 'Overallocated',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ002', projectName: 'BigBasket Cold Chain', allocatedHours: 96, actualHours: 98, startDate: '2024-01-20', endDate: '2024-06-15' },
-    { projectId: 'PRJ005', projectName: 'Godrej Kitchen', allocatedHours: 96, actualHours: 98, startDate: '2024-02-10', endDate: '2024-07-20' },
-   ],
-  },
-  {
-   id: '3',
-   resourceId: 'EMP022',
-   resourceName: 'Amit Patel',
-   role: 'Design Engineer',
-   department: 'Design',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 140,
-   actualHours: 138,
-   utilization: 78.4,
-   efficiency: 98.6,
-   billableHours: 130,
-   nonBillableHours: 8,
-   overtimeHours: 0,
-   leaveHours: 16,
-   idleHours: 22,
-   activeProjects: 2,
-   costPerHour: 850,
-   totalRevenue: 195000,
-   totalCost: 117300,
-   availability: 'Partially Available',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ004', projectName: 'ITC Hotel Kitchen', allocatedHours: 72, actualHours: 70, startDate: '2024-02-05', endDate: '2024-06-30' },
-    { projectId: 'PRJ008', projectName: 'Marriott Upgrade', allocatedHours: 68, actualHours: 68, startDate: '2024-03-10', endDate: '2024-08-15' },
-   ],
-  },
-  {
-   id: '4',
-   resourceId: 'CON005',
-   resourceName: 'Suresh Reddy',
-   role: 'Installation Supervisor',
-   department: 'Installation',
-   employeeType: 'Contract',
-   totalCapacity: 176,
-   allocatedHours: 176,
-   actualHours: 180,
-   utilization: 102.3,
-   efficiency: 102.3,
-   billableHours: 176,
-   nonBillableHours: 4,
-   overtimeHours: 4,
-   leaveHours: 0,
-   idleHours: 0,
-   activeProjects: 4,
-   costPerHour: 750,
-   totalRevenue: 264000,
-   totalCost: 135000,
-   availability: 'Fully Allocated',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ001', projectName: 'Taj Kitchen Upgrade', allocatedHours: 48, actualHours: 50, startDate: '2024-04-01', endDate: '2024-06-30' },
-    { projectId: 'PRJ002', projectName: 'BigBasket Cold Chain', allocatedHours: 44, actualHours: 46, startDate: '2024-04-05', endDate: '2024-06-15' },
-    { projectId: 'PRJ003', projectName: 'L&T Cold Room', allocatedHours: 42, actualHours: 42, startDate: '2024-04-10', endDate: '2024-07-15' },
-    { projectId: 'PRJ006', projectName: 'Siemens Switchgear', allocatedHours: 42, actualHours: 42, startDate: '2024-04-15', endDate: '2024-07-30' },
-   ],
-  },
-  {
-   id: '5',
-   resourceId: 'EMP033',
-   resourceName: 'Kavita Singh',
-   role: 'Quality Inspector',
-   department: 'Quality Assurance',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 120,
-   actualHours: 115,
-   utilization: 65.3,
-   efficiency: 95.8,
-   billableHours: 110,
-   nonBillableHours: 5,
-   overtimeHours: 0,
-   leaveHours: 24,
-   idleHours: 37,
-   activeProjects: 3,
-   costPerHour: 700,
-   totalRevenue: 165000,
-   totalCost: 80500,
-   availability: 'Available',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ001', projectName: 'Taj Kitchen Upgrade', allocatedHours: 40, actualHours: 38, startDate: '2024-03-15', endDate: '2024-06-30' },
-    { projectId: 'PRJ004', projectName: 'ITC Hotel Kitchen', allocatedHours: 40, actualHours: 39, startDate: '2024-03-20', endDate: '2024-06-30' },
-    { projectId: 'PRJ007', projectName: 'Reliance Switchgear', allocatedHours: 40, actualHours: 38, startDate: '2024-03-25', endDate: '2024-08-30' },
-   ],
-  },
-  {
-   id: '6',
-   resourceId: 'EMP041',
-   resourceName: 'Deepak Mehta',
-   role: 'Commissioning Engineer',
-   department: 'Commissioning',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 160,
-   actualHours: 165,
-   utilization: 93.8,
-   efficiency: 103.1,
-   billableHours: 158,
-   nonBillableHours: 7,
-   overtimeHours: 5,
-   leaveHours: 8,
-   idleHours: 3,
-   activeProjects: 3,
-   costPerHour: 900,
-   totalRevenue: 237000,
-   totalCost: 148500,
-   availability: 'Partially Available',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ002', projectName: 'BigBasket Cold Chain', allocatedHours: 56, actualHours: 58, startDate: '2024-05-01', endDate: '2024-06-15' },
-    { projectId: 'PRJ005', projectName: 'Godrej Kitchen', allocatedHours: 52, actualHours: 54, startDate: '2024-05-10', endDate: '2024-07-20' },
-    { projectId: 'PRJ006', projectName: 'Siemens Switchgear', allocatedHours: 52, actualHours: 53, startDate: '2024-05-15', endDate: '2024-07-30' },
-   ],
-  },
-  {
-   id: '7',
-   resourceId: 'CON012',
-   resourceName: 'Ravi Krishnan',
-   role: 'Site Engineer',
-   department: 'Site Operations',
-   employeeType: 'Contract',
-   totalCapacity: 176,
-   allocatedHours: 88,
-   actualHours: 85,
-   utilization: 48.3,
-   efficiency: 96.6,
-   billableHours: 80,
-   nonBillableHours: 5,
-   overtimeHours: 0,
-   leaveHours: 0,
-   idleHours: 91,
-   activeProjects: 1,
-   costPerHour: 650,
-   totalRevenue: 120000,
-   totalCost: 55250,
-   availability: 'Available',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ008', projectName: 'Marriott Upgrade', allocatedHours: 88, actualHours: 85, startDate: '2024-03-10', endDate: '2024-08-15' },
-   ],
-  },
-  {
-   id: '8',
-   resourceId: 'EMP052',
-   resourceName: 'Anjali Gupta',
-   role: 'Procurement Specialist',
-   department: 'Procurement',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 144,
-   actualHours: 148,
-   utilization: 84.1,
-   efficiency: 102.8,
-   billableHours: 135,
-   nonBillableHours: 13,
-   overtimeHours: 4,
-   leaveHours: 8,
-   idleHours: 20,
-   activeProjects: 5,
-   costPerHour: 800,
-   totalRevenue: 202500,
-   totalCost: 118400,
-   availability: 'Partially Available',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ001', projectName: 'Taj Kitchen Upgrade', allocatedHours: 30, actualHours: 32, startDate: '2024-01-15', endDate: '2024-06-30' },
-    { projectId: 'PRJ002', projectName: 'BigBasket Cold Chain', allocatedHours: 28, actualHours: 30, startDate: '2024-01-20', endDate: '2024-06-15' },
-    { projectId: 'PRJ003', projectName: 'L&T Cold Room', allocatedHours: 30, actualHours: 30, startDate: '2024-02-01', endDate: '2024-07-15' },
-    { projectId: 'PRJ005', projectName: 'Godrej Kitchen', allocatedHours: 28, actualHours: 28, startDate: '2024-02-10', endDate: '2024-07-20' },
-    { projectId: 'PRJ007', projectName: 'Reliance Switchgear', allocatedHours: 28, actualHours: 28, startDate: '2024-03-01', endDate: '2024-08-30' },
-   ],
-  },
-  {
-   id: '9',
-   resourceId: 'CONS003',
-   resourceName: 'Dr. Vikram Malhotra',
-   role: 'Technical Consultant',
-   department: 'Consulting',
-   employeeType: 'Consultant',
-   totalCapacity: 80,
-   allocatedHours: 72,
-   actualHours: 68,
-   utilization: 85.0,
-   efficiency: 94.4,
-   billableHours: 68,
-   nonBillableHours: 0,
-   overtimeHours: 0,
-   leaveHours: 0,
-   idleHours: 12,
-   activeProjects: 2,
-   costPerHour: 2500,
-   totalRevenue: 255000,
-   totalCost: 170000,
-   availability: 'Partially Available',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ003', projectName: 'L&T Cold Room', allocatedHours: 36, actualHours: 34, startDate: '2024-02-01', endDate: '2024-07-15' },
-    { projectId: 'PRJ007', projectName: 'Reliance Switchgear', allocatedHours: 36, actualHours: 34, startDate: '2024-03-01', endDate: '2024-08-30' },
-   ],
-  },
-  {
-   id: '10',
-   resourceId: 'EMP067',
-   resourceName: 'Sandeep Yadav',
-   role: 'Electrical Engineer',
-   department: 'Engineering',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 176,
-   actualHours: 174,
-   utilization: 98.9,
-   efficiency: 98.9,
-   billableHours: 168,
-   nonBillableHours: 6,
-   overtimeHours: 0,
-   leaveHours: 0,
-   idleHours: 2,
-   activeProjects: 2,
-   costPerHour: 900,
-   totalRevenue: 252000,
-   totalCost: 156600,
-   availability: 'Fully Allocated',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ006', projectName: 'Siemens Switchgear', allocatedHours: 88, actualHours: 87, startDate: '2024-02-15', endDate: '2024-07-30' },
-    { projectId: 'PRJ007', projectName: 'Reliance Switchgear', allocatedHours: 88, actualHours: 87, startDate: '2024-03-01', endDate: '2024-08-30' },
-   ],
-  },
-  {
-   id: '11',
-   resourceId: 'EMP073',
-   resourceName: 'Meera Iyer',
-   role: 'Documentation Specialist',
-   department: 'Administration',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 0,
-   actualHours: 0,
-   utilization: 0,
-   efficiency: 0,
-   billableHours: 0,
-   nonBillableHours: 0,
-   overtimeHours: 0,
-   leaveHours: 176,
-   idleHours: 0,
-   activeProjects: 0,
-   costPerHour: 600,
-   totalRevenue: 0,
-   totalCost: 0,
-   availability: 'Available',
-   status: 'On Leave',
-   currentProjects: [],
-  },
-  {
-   id: '12',
-   resourceId: 'EMP081',
-   resourceName: 'Arun Nair',
-   role: 'Safety Officer',
-   department: 'Safety & Compliance',
-   employeeType: 'Permanent',
-   totalCapacity: 176,
-   allocatedHours: 132,
-   actualHours: 128,
-   utilization: 72.7,
-   efficiency: 97.0,
-   billableHours: 120,
-   nonBillableHours: 8,
-   overtimeHours: 0,
-   leaveHours: 8,
-   idleHours: 40,
-   activeProjects: 4,
-   costPerHour: 750,
-   totalRevenue: 180000,
-   totalCost: 96000,
-   availability: 'Available',
-   status: 'Active',
-   currentProjects: [
-    { projectId: 'PRJ001', projectName: 'Taj Kitchen Upgrade', allocatedHours: 32, actualHours: 31, startDate: '2024-01-15', endDate: '2024-06-30' },
-    { projectId: 'PRJ002', projectName: 'BigBasket Cold Chain', allocatedHours: 34, actualHours: 33, startDate: '2024-01-20', endDate: '2024-06-15' },
-    { projectId: 'PRJ005', projectName: 'Godrej Kitchen', allocatedHours: 33, actualHours: 32, startDate: '2024-02-10', endDate: '2024-07-20' },
-    { projectId: 'PRJ008', projectName: 'Marriott Upgrade', allocatedHours: 33, actualHours: 32, startDate: '2024-03-10', endDate: '2024-08-15' },
-   ],
-  },
- ]);
+ // Resource records loaded from the backend (no seed/mock data).
+ const [resources, setResources] = useState<ResourceUtilization[]>([]);
+ const [loading, setLoading] = useState(true);
+ // Target utilization % shown on the KPI card; adjustable via "Set Targets".
+ const [utilizationTarget, setUtilizationTarget] = useState(85);
 
- useEffect(() => {
-  projectManagementService.listResourceUtilization()
-   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockResources(rows as unknown as ResourceUtilization[]); })
-   .catch(() => { /* keep seed data on error */ });
- }, []);
-
- // Calculate department metrics
- const departmentMetrics: DepartmentMetrics[] = [
-  {
-   department: 'Engineering',
-   totalResources: 2,
-   avgUtilization: 105.1,
-   totalCapacity: 352,
-   allocatedCapacity: 368,
-   availableCapacity: -16,
-   totalRevenue: 564000,
-   efficiency: 100.5,
-  },
-  {
-   department: 'Project Management',
-   totalResources: 1,
-   avgUtilization: 97.7,
-   totalCapacity: 176,
-   allocatedCapacity: 168,
-   availableCapacity: 8,
-   totalRevenue: 275000,
-   efficiency: 102.4,
-  },
-  {
-   department: 'Design',
-   totalResources: 1,
-   avgUtilization: 78.4,
-   totalCapacity: 176,
-   allocatedCapacity: 140,
-   availableCapacity: 36,
-   totalRevenue: 195000,
-   efficiency: 98.6,
-  },
-  {
-   department: 'Installation',
-   totalResources: 1,
-   avgUtilization: 102.3,
-   totalCapacity: 176,
-   allocatedCapacity: 176,
-   availableCapacity: 0,
-   totalRevenue: 264000,
-   efficiency: 102.3,
-  },
-  {
-   department: 'Quality Assurance',
-   totalResources: 1,
-   avgUtilization: 65.3,
-   totalCapacity: 176,
-   allocatedCapacity: 120,
-   availableCapacity: 56,
-   totalRevenue: 165000,
-   efficiency: 95.8,
-  },
-  {
-   department: 'Commissioning',
-   totalResources: 1,
-   avgUtilization: 93.8,
-   totalCapacity: 176,
-   allocatedCapacity: 160,
-   availableCapacity: 16,
-   totalRevenue: 237000,
-   efficiency: 103.1,
-  },
-  {
-   department: 'Site Operations',
-   totalResources: 1,
-   avgUtilization: 48.3,
-   totalCapacity: 176,
-   allocatedCapacity: 88,
-   availableCapacity: 88,
-   totalRevenue: 120000,
-   efficiency: 96.6,
-  },
-  {
-   department: 'Procurement',
-   totalResources: 1,
-   avgUtilization: 84.1,
-   totalCapacity: 176,
-   allocatedCapacity: 144,
-   availableCapacity: 32,
-   totalRevenue: 202500,
-   efficiency: 102.8,
-  },
- ];
-
- // Overall metrics
- const overallMetrics = {
-  totalResources: mockResources.filter(r => r.status === 'Active').length,
-  avgUtilization: mockResources.reduce((sum, r) => sum + r.utilization, 0) / mockResources.length,
-  totalCapacity: mockResources.reduce((sum, r) => sum + r.totalCapacity, 0),
-  allocatedCapacity: mockResources.reduce((sum, r) => sum + r.allocatedHours, 0),
-  availableCapacity: mockResources.reduce((sum, r) => sum + (r.totalCapacity - r.allocatedHours), 0),
-  totalRevenue: mockResources.reduce((sum, r) => sum + r.totalRevenue, 0),
-  totalCost: mockResources.reduce((sum, r) => sum + r.totalCost, 0),
-  avgEfficiency: mockResources.filter(r => r.efficiency > 0).reduce((sum, r) => sum + r.efficiency, 0) / mockResources.filter(r => r.efficiency > 0).length,
+ const loadResources = () => {
+  setLoading(true);
+  return projectManagementService.listResourceUtilization()
+   .then((rows) => {
+    setResources(Array.isArray(rows) ? (rows as unknown as ResourceUtilization[]) : []);
+   })
+   .catch(() => { setResources([]); })
+   .finally(() => setLoading(false));
  };
 
- const filteredResources = mockResources.filter((resource) => {
+ useEffect(() => {
+  loadResources();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, []);
+
+ // Department metrics derived from the fetched rows.
+ const departmentMetrics: DepartmentMetrics[] = Object.values(
+  resources.reduce((acc, r) => {
+   const key = r.department || 'Unassigned';
+   if (!acc[key]) {
+    acc[key] = {
+     department: key,
+     totalResources: 0,
+     avgUtilization: 0,
+     totalCapacity: 0,
+     allocatedCapacity: 0,
+     availableCapacity: 0,
+     totalRevenue: 0,
+     efficiency: 0,
+    };
+   }
+   const d = acc[key];
+   d.totalResources += 1;
+   d.avgUtilization += r.utilization || 0;
+   d.totalCapacity += r.totalCapacity || 0;
+   d.allocatedCapacity += r.allocatedHours || 0;
+   d.totalRevenue += r.totalRevenue || 0;
+   d.efficiency += r.efficiency || 0;
+   return acc;
+  }, {} as Record<string, DepartmentMetrics>)
+ ).map((d) => ({
+  ...d,
+  avgUtilization: d.totalResources ? d.avgUtilization / d.totalResources : 0,
+  efficiency: d.totalResources ? d.efficiency / d.totalResources : 0,
+  availableCapacity: d.totalCapacity - d.allocatedCapacity,
+ }));
+
+ // Overall metrics derived from the fetched rows.
+ const withEfficiency = resources.filter(r => r.efficiency > 0);
+ const overallMetrics = {
+  totalResources: resources.filter(r => r.status === 'Active').length,
+  avgUtilization: resources.length ? resources.reduce((sum, r) => sum + r.utilization, 0) / resources.length : 0,
+  totalCapacity: resources.reduce((sum, r) => sum + r.totalCapacity, 0),
+  allocatedCapacity: resources.reduce((sum, r) => sum + r.allocatedHours, 0),
+  availableCapacity: resources.reduce((sum, r) => sum + (r.totalCapacity - r.allocatedHours), 0),
+  totalRevenue: resources.reduce((sum, r) => sum + r.totalRevenue, 0),
+  totalCost: resources.reduce((sum, r) => sum + r.totalCost, 0),
+  avgEfficiency: withEfficiency.length ? withEfficiency.reduce((sum, r) => sum + r.efficiency, 0) / withEfficiency.length : 0,
+ };
+
+ // Distinct departments present in the data (drives the filter dropdown).
+ const departmentOptions = Array.from(new Set(resources.map(r => r.department).filter(Boolean))).sort();
+
+ const filteredResources = resources.filter((resource) => {
   const matchesSearch =
    resource.resourceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
    resource.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -610,8 +231,10 @@ export default function ResourceUtilizationPage() {
  };
 
  const handleApplyFilters = (filters: any) => {
-  console.log('Filters applied:', filters);
+  // Apply the modal's selections to the page's live filter state, then refetch.
+  if (filters?.department) setDepartmentFilter(filters.department);
   setShowFilterModal(false);
+  loadResources();
  };
 
  const handleExportReport = (options: any) => {
@@ -620,7 +243,8 @@ export default function ResourceUtilizationPage() {
  };
 
  const handleSetTargets = (target: any) => {
-  console.log('Target set:', target);
+  const value = Number(target?.target);
+  if (!Number.isNaN(value) && value > 0) setUtilizationTarget(value);
   setShowSetTargetsModal(false);
  };
 
@@ -683,8 +307,12 @@ export default function ResourceUtilizationPage() {
       <option value="last-quarter">Last Quarter</option>
       <option value="ytd">Year to Date</option>
      </select>
-     <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-      <RefreshCw className="w-4 h-4" />
+     <button
+      onClick={() => loadResources()}
+      disabled={loading}
+      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-60"
+     >
+      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
       Refresh
      </button>
      <button
@@ -716,7 +344,7 @@ export default function ResourceUtilizationPage() {
        <div>
         <p className="text-sm text-gray-600">Avg Utilization</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">{overallMetrics.avgUtilization.toFixed(1)}%</p>
-        <p className="text-xs text-yellow-600 mt-1">Target: 85%</p>
+        <p className="text-xs text-yellow-600 mt-1">Target: {utilizationTarget}%</p>
        </div>
        <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
         <TrendingUp className="w-6 h-6 text-yellow-600" />
@@ -776,6 +404,13 @@ export default function ResourceUtilizationPage() {
         </tr>
        </thead>
        <tbody className="divide-y divide-gray-100">
+        {departmentMetrics.length === 0 && (
+         <tr>
+          <td colSpan={8} className="py-6 px-4 text-center text-sm text-gray-500">
+           {loading ? 'Loading department metrics…' : 'No department data available'}
+          </td>
+         </tr>
+        )}
         {departmentMetrics.map((dept) => (
          <tr key={dept.department} className="hover:bg-gray-50">
           <td className="py-3 px-4 text-sm font-medium text-gray-900">{dept.department}</td>
@@ -825,17 +460,9 @@ export default function ResourceUtilizationPage() {
       className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
      >
       <option value="all">All Departments</option>
-      <option value="Engineering">Engineering</option>
-      <option value="Project Management">Project Management</option>
-      <option value="Design">Design</option>
-      <option value="Installation">Installation</option>
-      <option value="Quality Assurance">Quality Assurance</option>
-      <option value="Commissioning">Commissioning</option>
-      <option value="Site Operations">Site Operations</option>
-      <option value="Procurement">Procurement</option>
-      <option value="Consulting">Consulting</option>
-      <option value="Administration">Administration</option>
-      <option value="Safety & Compliance">Safety & Compliance</option>
+      {departmentOptions.map((dept) => (
+       <option key={dept} value={dept}>{dept}</option>
+      ))}
      </select>
      <select
       value={availabilityFilter}
@@ -1086,8 +713,12 @@ export default function ResourceUtilizationPage() {
     {filteredResources.length === 0 && (
      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
       <AlertCircle className="w-12 h-12 text-gray-400 mb-2" />
-      <h3 className="text-lg font-medium text-gray-900 mb-2">No resources found</h3>
-      <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+      <h3 className="text-lg font-medium text-gray-900 mb-2">
+       {loading ? 'Loading resources…' : 'No resources found'}
+      </h3>
+      <p className="text-gray-600">
+       {loading ? 'Please wait while we fetch resource utilization data.' : 'Try adjusting your search or filter criteria'}
+      </p>
      </div>
     )}
    </div>

@@ -48,6 +48,12 @@ function FinalAlignPageContent() {
     const [checks, setChecks] = useState<FinalCheck[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const [showIssueModal, setShowIssueModal] = useState(false);
+    const [issueTitle, setIssueTitle] = useState('');
+    const [issueDescription, setIssueDescription] = useState('');
+    const [issueSeverity, setIssueSeverity] = useState('Medium');
+    const [isReportingIssue, setIsReportingIssue] = useState(false);
+
     useEffect(() => {
         loadProjects();
     }, []);
@@ -139,6 +145,33 @@ function FinalAlignPageContent() {
             });
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleReportIssue = async () => {
+        if (!selectedProject || !issueTitle.trim()) return;
+        setIsReportingIssue(true);
+        try {
+            await projectManagementService.createSiteIssue({
+                projectId: selectedProject.id,
+                projectName: selectedProject.name,
+                issueTitle: issueTitle.trim(),
+                issueType: 'Alignment',
+                severity: issueSeverity,
+                description: issueDescription.trim(),
+                status: 'Open',
+                reportedDate: new Date().toISOString(),
+            });
+            toast({ title: 'Issue Reported', description: 'Alignment issue logged to site issues.' });
+            setShowIssueModal(false);
+            setIssueTitle('');
+            setIssueDescription('');
+            setIssueSeverity('Medium');
+        } catch (error) {
+            console.error('Error reporting alignment issue:', error);
+            toast({ variant: 'destructive', title: 'Report Failed', description: 'Could not log the issue. Please retry.' });
+        } finally {
+            setIsReportingIssue(false);
         }
     };
 
@@ -305,7 +338,7 @@ function FinalAlignPageContent() {
                             <p className="text-sm text-muted-foreground mb-2">
                                 Use laser level for long horizontal lines
                             </p>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => setShowIssueModal(true)}>
                                 <AlertTriangle className="h-4 w-4 mr-2" />
                                 Report Alignment Issue
                             </Button>
@@ -313,6 +346,61 @@ function FinalAlignPageContent() {
                     </CardContent>
                 </Card>
             </div>
+
+            {showIssueModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                        <div className="px-4 py-3 border-b flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-orange-600" />
+                            <h3 className="font-semibold text-lg">Report Alignment Issue</h3>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            <div>
+                                <label className="text-sm font-medium">Title</label>
+                                <input
+                                    type="text"
+                                    value={issueTitle}
+                                    onChange={(e) => setIssueTitle(e.target.value)}
+                                    placeholder="e.g. Shutter gap exceeds tolerance"
+                                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">Severity</label>
+                                <select
+                                    value={issueSeverity}
+                                    onChange={(e) => setIssueSeverity(e.target.value)}
+                                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                >
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">Description</label>
+                                <textarea
+                                    value={issueDescription}
+                                    onChange={(e) => setIssueDescription(e.target.value)}
+                                    rows={3}
+                                    placeholder="Describe the alignment deviation…"
+                                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+                        <div className="px-4 py-3 border-t flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowIssueModal(false)} disabled={isReportingIssue}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleReportIssue} disabled={!issueTitle.trim() || isReportingIssue}>
+                                {isReportingIssue && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Submit Issue
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

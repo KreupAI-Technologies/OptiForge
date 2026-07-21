@@ -2,9 +2,9 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Upload, FileText, Trash2, Eye, Plus, ArrowRight, FolderOpen, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, Eye, Plus, ArrowRight, FolderOpen, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { projectManagementService, Project, ProductionDrawing } from '@/services/ProjectManagementService';
+import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { AttachmentsService, Attachment } from '@/services/attachments.service';
+
+// Owning-record type used to key production drawings in the attachments store.
+const DRAWING_ENTITY_TYPE = 'production-drawing';
 
 export default function TechnicalDrawingsPage() {
   const router = useRouter();
@@ -29,8 +33,10 @@ export default function TechnicalDrawingsPage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [drawings, setDrawings] = useState<ProductionDrawing[]>([]);
+  const [drawings, setDrawings] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (projectId) {
@@ -61,7 +67,7 @@ export default function TechnicalDrawingsPage() {
     try {
       const [project, dData] = await Promise.all([
         projectManagementService.getProject(id),
-        projectManagementService.getProductionDrawings(id)
+        AttachmentsService.list(DRAWING_ENTITY_TYPE, id)
       ]);
       setSelectedProject(project);
       setDrawings(dData);
@@ -77,43 +83,43 @@ export default function TechnicalDrawingsPage() {
     }
   };
 
-  const handleUpload = async () => {
-    toast({
-      title: "Upload Started",
-      description: "Uploading technical drawings...",
-    });
+  const handleSelectFilesClick = () => {
+    fileInputRef.current?.click();
+  };
 
+  const handleFilesChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!projectId) return;
+    const files = Array.from(e.target.files ?? []);
+    // Reset the input so choosing the same file again re-triggers change.
+    e.target.value = '';
+    if (files.length === 0) return;
+
+    setIsUploading(true);
     try {
-      const newDrawing: ProductionDrawing = {
-        id: `DWG-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-        projectId: projectId!,
-        name: `Technical_Detail_${drawings.length + 1}.pdf`,
-        version: 'v1.0',
-        type: 'PDF',
-        uploadedBy: 'Technical Designer',
-        date: new Date().toISOString().split('T')[0],
-        status: 'Draft',
-      };
-
-      await projectManagementService.addProductionDrawing(newDrawing);
-      setDrawings([...drawings, newDrawing]);
-
+      await Promise.all(
+        files.map((file) =>
+          AttachmentsService.upload(file, DRAWING_ENTITY_TYPE, projectId, 'Technical Designer'),
+        ),
+      );
+      await loadProjectData(projectId);
       toast({
         title: "Upload Complete",
-        description: "Drawing added to repository.",
+        description: `${files.length} file(s) added to the drawing repository.`,
       });
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to upload drawing.",
+        description: error instanceof Error ? error.message : "Failed to upload drawing.",
       });
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      await projectManagementService.deleteProductionDrawing(id);
+      await AttachmentsService.remove(id);
       setDrawings(drawings.filter(d => d.id !== id));
       toast({
         title: "Drawing Deleted",
@@ -123,7 +129,7 @@ export default function TechnicalDrawingsPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to delete drawing.",
+        description: error instanceof Error ? error.message : "Failed to delete drawing.",
       });
     }
   };
@@ -231,9 +237,16 @@ export default function TechnicalDrawingsPage() {
                 <CardDescription>CAD files and production specifications</CardDescription>
               </div>
             </div>
-            <Button onClick={handleUpload} variant="outline" className="gap-2 border-blue-200 hover:bg-blue-50">
-              <Upload className="w-4 h-4 text-blue-600" />
-              Upload New Version
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFilesChosen}
+            />
+            <Button onClick={handleSelectFilesClick} disabled={isUploading} variant="outline" className="gap-2 border-blue-200 hover:bg-blue-50">
+              {isUploading ? <Loader2 className="w-4 h-4 text-blue-600 animate-spin" /> : <Upload className="w-4 h-4 text-blue-600" />}
+              {isUploading ? 'Uploading…' : 'Upload New Version'}
             </Button>
           </CardHeader>
           <CardContent className="p-0">
@@ -242,56 +255,53 @@ export default function TechnicalDrawingsPage() {
                 <TableRow>
                   <TableHead className="w-[300px]">File Name</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Version</TableHead>
+                  <TableHead>Size</TableHead>
                   <TableHead>Uploaded By</TableHead>
-                  <TableHead>Release Date</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Uploaded</TableHead>
                   <TableHead className="text-right pr-6">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {drawings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center">
+                    <TableCell colSpan={6} className="h-40 text-center">
                       <div className="flex flex-col items-center justify-center text-gray-500 gap-2">
                         <FileText className="w-8 h-8 opacity-20" />
                         <p>No drawings uploaded for this project yet.</p>
-                        <Button variant="link" onClick={handleUpload} className="text-blue-600">Upload first file</Button>
+                        <Button variant="link" onClick={handleSelectFilesClick} disabled={isUploading} className="text-blue-600">Upload first file</Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  drawings.map((drawing) => (
+                  drawings.map((drawing) => {
+                    const ext = (drawing.fileName.split('.').pop() || 'FILE').toUpperCase();
+                    const isCad = /dwg|dxf|step|stp|iges|igs/i.test(ext);
+                    return (
                     <TableRow key={drawing.id} className="group hover:bg-blue-50/30 transition-colors">
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded ${drawing.type === 'CAD' ? 'bg-orange-50' : 'bg-red-50'}`}>
-                            <FileText className={`w-4 h-4 ${drawing.type === 'CAD' ? 'text-orange-600' : 'text-red-600'}`} />
+                          <div className={`p-2 rounded ${isCad ? 'bg-orange-50' : 'bg-red-50'}`}>
+                            <FileText className={`w-4 h-4 ${isCad ? 'text-orange-600' : 'text-red-600'}`} />
                           </div>
                           <div>
-                            <p className="text-gray-900">{drawing.name}</p>
+                            <p className="text-gray-900">{drawing.fileName}</p>
                             <p className="text-[10px] text-gray-400 font-mono tracking-tighter uppercase">{drawing.id}</p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wider">{drawing.type}</Badge>
+                        <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wider">{ext}</Badge>
                       </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-bold text-gray-600">{drawing.version}</span>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">{drawing.uploadedBy}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{drawing.date}</TableCell>
-                      <TableCell>
-                        <Badge className={`${drawing.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'} border-none`}>
-                          {drawing.status}
-                        </Badge>
-                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">{(drawing.size / 1024).toFixed(0)} KB</TableCell>
+                      <TableCell className="text-sm text-gray-600">{drawing.uploadedBy || '—'}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{drawing.createdAt ? new Date(drawing.createdAt).toLocaleDateString() : '—'}</TableCell>
                       <TableCell className="text-right pr-6">
                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white shadow-sm border border-transparent hover:border-gray-200">
-                            <Eye className="w-4 h-4 text-gray-500" />
-                          </Button>
+                          <a href={AttachmentsService.downloadUrl(drawing.id)} target="_blank" rel="noopener noreferrer">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white shadow-sm border border-transparent hover:border-gray-200">
+                              <Eye className="w-4 h-4 text-gray-500" />
+                            </Button>
+                          </a>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -303,7 +313,8 @@ export default function TechnicalDrawingsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

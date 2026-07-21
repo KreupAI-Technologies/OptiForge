@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { projectManagementService, BOQItem, Project } from '@/services/ProjectManagementService';
+import { exportToCsv } from '@/lib/export';
 import { useProjectContext } from '@/context/ProjectContext';
 import { useSearchParams } from 'next/navigation';
 
@@ -121,10 +122,39 @@ export default function BOQCheckPage() {
     }
   };
 
+  // Real client-side export: build a BOQ cross-check discrepancy report (CSV/blob)
+  // from the fetched BOQ items and trigger a browser download.
   const handleGenerateReport = () => {
+    if (items.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Nothing to export",
+        description: "No BOQ items are loaded for this project.",
+      });
+      return;
+    }
+    const projectSlug = (selectedProject?.projectCode || selectedProject?.name || 'project')
+      .replace(/[^a-z0-9]+/gi, '_');
+    exportToCsv(
+      `BOQ_CrossCheck_${projectSlug}.csv`,
+      items.map((item) => ({
+        Item: item.description,
+        'BOQ Qty': item.boqQty,
+        'Drawing Qty': item.drawingQty,
+        Status: item.status,
+        Notes: item.notes ?? '',
+      })),
+      [
+        { key: 'Item' },
+        { key: 'BOQ Qty' },
+        { key: 'Drawing Qty' },
+        { key: 'Status' },
+        { key: 'Notes' },
+      ],
+    );
     toast({
-      title: "Report Generated",
-      description: "BOQ discrepancy report has been downloaded.",
+      title: "Report Downloaded",
+      description: `BOQ cross-check report exported (${mismatchCount} mismatch${mismatchCount === 1 ? '' : 'es'}).`,
     });
   };
 

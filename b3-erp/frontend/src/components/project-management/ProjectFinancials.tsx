@@ -32,35 +32,103 @@ const ProjectFinancials: React.FC<ProjectFinancialsProps> = ({ projectId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchFinancials = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const response = await projectFinancialsApi.getFinancials(projectId);
+    const [showTxModal, setShowTxModal] = useState(false);
+    const [txType, setTxType] = useState<'expense' | 'income'>('expense');
+    const [txAmount, setTxAmount] = useState('');
+    const [txCategory, setTxCategory] = useState('');
+    const [txDescription, setTxDescription] = useState('');
+    const [savingTx, setSavingTx] = useState(false);
 
-                if (response.success) {
-                    const data: any = response.data || {};
-                    setFinancials({
-                        budget: data.budget ?? 0,
-                        totalIncome: data.totalIncome ?? 0,
-                        totalExpenditure: data.totalExpenditure ?? 0,
-                        margin: data.margin ?? 0,
-                        expensesByCategory: data.expensesByCategory ?? [],
-                        monthlyTrend: data.monthlyTrend ?? [],
-                        recentTransactions: data.recentTransactions ?? [],
-                    });
-                }
-            } catch (err) {
-                console.error('Failed to fetch financials:', err);
-                setError('Failed to load financial data');
-            } finally {
-                setLoading(false);
+    const fetchFinancials = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await projectFinancialsApi.getFinancials(projectId);
+
+            if (response.success) {
+                const data: any = response.data || {};
+                setFinancials({
+                    budget: data.budget ?? 0,
+                    totalIncome: data.totalIncome ?? 0,
+                    totalExpenditure: data.totalExpenditure ?? 0,
+                    margin: data.margin ?? 0,
+                    expensesByCategory: data.expensesByCategory ?? [],
+                    monthlyTrend: data.monthlyTrend ?? [],
+                    recentTransactions: data.recentTransactions ?? [],
+                });
             }
-        };
+        } catch (err) {
+            console.error('Failed to fetch financials:', err);
+            setError('Failed to load financial data');
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchFinancials();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId]);
+
+    const handleExportReport = () => {
+        if (!financials) return;
+        const rows: string[][] = [];
+        rows.push(['Metric', 'Value']);
+        rows.push(['Budget', String(financials.budget)]);
+        rows.push(['Total Income', String(financials.totalIncome)]);
+        rows.push(['Total Expenditure', String(financials.totalExpenditure)]);
+        rows.push(['Net Margin', String(financials.margin)]);
+        rows.push([]);
+        rows.push(['Category', 'Amount']);
+        (financials.expensesByCategory ?? []).forEach((c: any) => {
+            rows.push([String(c.name ?? ''), String(c.value ?? '')]);
+        });
+        rows.push([]);
+        rows.push(['Date', 'Description', 'Category', 'Status', 'Amount']);
+        (financials.recentTransactions ?? []).forEach((t: any) => {
+            rows.push([
+                String(t.date ?? ''),
+                String(t.description ?? ''),
+                String(t.category ?? ''),
+                String(t.status ?? ''),
+                String(t.amount ?? ''),
+            ]);
+        });
+        const csv = rows
+            .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `financial-report-${projectId}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleSaveTransaction = async () => {
+        const amount = parseFloat(txAmount);
+        if (isNaN(amount) || amount <= 0) return;
+        setSavingTx(true);
+        try {
+            if (txType === 'expense') {
+                await projectFinancialsApi.trackExpense(projectId, amount, txCategory || 'General', txDescription);
+            } else {
+                await projectFinancialsApi.trackIncome(projectId, amount, txCategory || 'General', txDescription);
+            }
+            setShowTxModal(false);
+            setTxAmount('');
+            setTxCategory('');
+            setTxDescription('');
+            await fetchFinancials();
+        } catch (err) {
+            console.error('Failed to save transaction:', err);
+        } finally {
+            setSavingTx(false);
+        }
+    };
 
 
     if (loading) {
@@ -92,16 +160,81 @@ const ProjectFinancials: React.FC<ProjectFinancialsProps> = ({ projectId }) => {
                     <p className="text-sm text-gray-500">Track project budget, expenses, and profitability</p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="outline" className="flex items-center gap-2">
+                    <Button variant="outline" className="flex items-center gap-2" onClick={handleExportReport}>
                         <Download className="w-4 h-4" />
                         Export Report
                     </Button>
-                    <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                    <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowTxModal(true)}>
                         <Plus className="w-4 h-4" />
                         Add Transaction
                     </Button>
                 </div>
             </div>
+
+            {showTxModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                        <div className="px-4 py-3 border-b">
+                            <h3 className="font-semibold text-lg">Add Transaction</h3>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            <div>
+                                <label className="text-sm font-medium">Type</label>
+                                <select
+                                    value={txType}
+                                    onChange={(e) => setTxType(e.target.value as 'expense' | 'income')}
+                                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                >
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">Amount (₹)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={txAmount}
+                                    onChange={(e) => setTxAmount(e.target.value)}
+                                    placeholder="0"
+                                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">{txType === 'expense' ? 'Category' : 'Source'}</label>
+                                <input
+                                    type="text"
+                                    value={txCategory}
+                                    onChange={(e) => setTxCategory(e.target.value)}
+                                    placeholder={txType === 'expense' ? 'e.g. Materials' : 'e.g. Milestone Payment'}
+                                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">Description</label>
+                                <textarea
+                                    value={txDescription}
+                                    onChange={(e) => setTxDescription(e.target.value)}
+                                    rows={2}
+                                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+                        <div className="px-4 py-3 border-t flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowTxModal(false)} disabled={savingTx}>
+                                Cancel
+                            </Button>
+                            <Button
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                onClick={handleSaveTransaction}
+                                disabled={savingTx || !txAmount || parseFloat(txAmount) <= 0}
+                            >
+                                {savingTx ? 'Saving…' : 'Save Transaction'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

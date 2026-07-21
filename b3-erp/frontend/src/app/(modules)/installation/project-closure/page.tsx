@@ -85,6 +85,8 @@ function ProjectClosurePageContent() {
         if (!selectedProject) return;
         setIsSubmitting(true);
         try {
+            // NOTE: the closure endpoint (POST /api/project-closure/initiate/:projectId)
+            // takes no body — the captured rating/feedback are not persisted server-side.
             await projectManagementService.initiateProjectClosure(selectedProject.id);
             setClosed(true);
             toast({
@@ -93,10 +95,14 @@ function ProjectClosurePageContent() {
             });
         } catch (error) {
             console.error('Error closing project:', error);
+            // Surface the backend readiness gate (BadRequestException) message when present.
+            const description = error instanceof Error && error.message
+                ? error.message
+                : 'Could not close the project. Please try again.';
             toast({
                 variant: 'destructive',
                 title: 'Closure Failed',
-                description: 'Could not close the project. Please try again.',
+                description,
             });
         } finally {
             setIsSubmitting(false);

@@ -75,13 +75,10 @@ export default function PhotoDocumentationPage() {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
 
-      // In a real app we'd fetch photos for the project
-      // For now using mock data
-      setPhotos([
-        { id: '1', name: 'Site_Entrance.jpg', url: '', size: '2.4 MB', date: 'Jan 20, 2025' },
-        { id: '2', name: 'Kitchen_Area.jpg', url: '', size: '3.1 MB', date: 'Jan 20, 2025' },
-        { id: '3', name: 'Storage_Room.jpg', url: '', size: '1.8 MB', date: 'Jan 20, 2025' },
-      ]);
+      // The mobile-api exposes only an upload endpoint (POST /mobile-api/upload-photo/:projectId);
+      // there is no photo-list (GET) route, so the gallery starts empty and populates as the
+      // user uploads within this session. No seed/mock data.
+      setPhotos([]);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -144,6 +141,10 @@ export default function PhotoDocumentationPage() {
   };
 
   const handleDelete = (id: string) => {
+    // BACKEND GAP: mobile-api has no photo-DELETE endpoint, so this cannot be
+    // persisted server-side. Guard with a confirm and remove from the local
+    // gallery only. If a real DELETE route is added, call it here then reload.
+    if (!window.confirm('Remove this photo from the gallery?')) return;
     setPhotos((prev) => prev.filter(p => p.id !== id));
     toast({
       title: "Photo Removed",
@@ -286,6 +287,14 @@ export default function PhotoDocumentationPage() {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Empty gallery state */}
+            {photos.length === 0 && (
+              <div className="md:col-span-3 text-center py-8 text-gray-500">
+                <FileImage className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No photos yet. Use “Upload Photos” to add site images.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -82,6 +82,15 @@ export default function ProjectReportsPage() {
  const [searchTerm, setSearchTerm] = useState('');
  const [reportTypeFilter, setReportTypeFilter] = useState('all');
  const [frequencyFilter, setFrequencyFilter] = useState('all');
+ // Advanced filters applied from the AdvancedFilterModal (derived, real client-side filtering).
+ const [advancedFilters, setAdvancedFilters] = useState<{
+  reportType?: string[];
+  format?: string[];
+  status?: string[];
+  generatedBy?: string;
+  dateFrom?: string;
+  dateTo?: string;
+ } | null>(null);
  const [showGenerateModal, setShowGenerateModal] = useState(false);
  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
 
@@ -447,7 +456,28 @@ export default function ProjectReportsPage() {
    report.description.toLowerCase().includes(searchTerm.toLowerCase());
   const matchesType = reportTypeFilter === 'all' || report.reportType === reportTypeFilter;
   const matchesFrequency = frequencyFilter === 'all' || report.frequency === frequencyFilter;
-  return matchesSearch && matchesType && matchesFrequency;
+
+  // Advanced filters (from the AdvancedFilterModal). Empty arrays / blanks are ignored.
+  const af = advancedFilters;
+  const matchesAdvType = !af?.reportType?.length || af.reportType.includes(report.reportType);
+  const matchesAdvFormat = !af?.format?.length || af.format.includes(report.format);
+  const matchesAdvStatus = !af?.status?.length || af.status.includes(report.status);
+  const matchesAdvBy =
+   !af?.generatedBy || report.generatedBy.toLowerCase().includes(af.generatedBy.toLowerCase());
+  const matchesAdvFrom = !af?.dateFrom || report.lastGenerated >= af.dateFrom;
+  const matchesAdvTo = !af?.dateTo || report.lastGenerated <= af.dateTo;
+
+  return (
+   matchesSearch &&
+   matchesType &&
+   matchesFrequency &&
+   matchesAdvType &&
+   matchesAdvFormat &&
+   matchesAdvStatus &&
+   matchesAdvBy &&
+   matchesAdvFrom &&
+   matchesAdvTo
+  );
  });
 
  const getStatusColor = (status: string) => {
@@ -569,29 +599,57 @@ export default function ProjectReportsPage() {
   setShowPreviewModal(true);
  };
 
- const handleShare = (data: any) => {
-  console.log('Share report:', data);
-  // API call would go here
+ // Real per-row export: build a single-row CSV from the fetched report metadata
+ // and trigger a browser download (blob via exportToCsv -> Blob + anchor + revoke).
+ const handleDownloadReport = (report: Report) => {
+  const { icon, ...rest } = report;
+  exportToCsv(
+   `${report.reportName.replace(/[^a-z0-9]+/gi, '_') || 'report'}.csv`,
+   [rest as unknown as Record<string, unknown>],
+  );
+ };
+
+ // No dedicated share-link backend endpoint exists; the honest action is to copy
+ // a deep-link to this report to the clipboard (real client-side behavior).
+ const handleShare = async (data: any) => {
+  const reportId = data?.reportId ?? selectedReport?.id;
+  if (!reportId || typeof window === 'undefined') return;
+  const link = `${window.location.origin}/project-management/reports?reportId=${encodeURIComponent(reportId)}`;
+  try {
+   await navigator.clipboard.writeText(link);
+  } catch {
+   // Clipboard blocked (permissions/insecure context): fall back to prompt-free no-op.
+  }
  };
 
  const handleExportMultiple = (data: any) => {
-  exportToCsv('reports', filteredReports as unknown as Record<string, unknown>[]);
-  // API call would go here
+  const chosen: Report[] =
+   Array.isArray(data?.reportIds) && data.reportIds.length
+    ? mockReports.filter((r) => data.reportIds.includes(r.id))
+    : filteredReports;
+  const rows = chosen.map(({ icon, ...rest }) => rest as unknown as Record<string, unknown>);
+  exportToCsv('reports', rows.length ? rows : (filteredReports.map(({ icon, ...rest }) => rest) as unknown as Record<string, unknown>[]));
  };
 
  const handleCompareReports = () => {
-  console.log('Compare reports:', selectedReports);
-  // API call would go here
+  setShowComparisonModal(true);
  };
 
  const handleAdvancedFilter = (filters: any) => {
-  console.log('Apply advanced filters:', filters);
-  // API call would go here
+  // Apply the modal's filters to the displayed list via derived state (real filtering).
+  setAdvancedFilters({
+   reportType: Array.isArray(filters?.reportType) ? filters.reportType : undefined,
+   format: Array.isArray(filters?.format) ? filters.format : undefined,
+   status: Array.isArray(filters?.status) ? filters.status : undefined,
+   generatedBy: filters?.generatedBy || undefined,
+   dateFrom: filters?.dateFrom || undefined,
+   dateTo: filters?.dateTo || undefined,
+  });
+  setActiveTab('recent');
  };
 
  const handleViewAnalytics = () => {
-  console.log('View analytics');
-  // API call would go here
+  setShowAnalyticsModal(true);
  };
 
  const handleCreateTemplate = async (data: any) => {
@@ -616,13 +674,21 @@ export default function ProjectReportsPage() {
  };
 
  const handleViewHistory = (report: Report) => {
-  console.log('View history for report:', report);
-  // API call would go here
+  setSelectedReport(report);
+  setShowHistoryModal(true);
  };
 
+ // No backend notification-preferences endpoint exists on the PM service; persist
+ // the user's report-notification preferences locally so the choice actually sticks.
  const handleNotificationSettings = (data: any) => {
-  console.log('Save notification settings:', data);
-  // API call would go here
+  if (typeof window !== 'undefined') {
+   try {
+    window.localStorage.setItem('pm.reports.notificationSettings', JSON.stringify(data ?? {}));
+   } catch {
+    // Storage unavailable (private mode / quota) — nothing else to persist to.
+   }
+  }
+  setShowNotificationModal(false);
  };
 
  const handleDeleteReport = async (report: Report) => {
@@ -643,11 +709,6 @@ export default function ProjectReportsPage() {
  const openShareModal = (report: Report) => {
   setSelectedReport(report);
   setShowShareModal(true);
- };
-
- const openHistoryModal = (report: Report) => {
-  setSelectedReport(report);
-  setShowHistoryModal(true);
  };
 
  const openScheduleModal = (report: Report) => {
@@ -704,11 +765,18 @@ export default function ProjectReportsPage() {
         Advanced Filter
        </button>
        <button
-        onClick={() => setShowAnalyticsModal(true)}
+        onClick={handleViewAnalytics}
         className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
        >
         <BarChart3 className="w-4 h-4" />
         Analytics
+       </button>
+       <button
+        onClick={handleCompareReports}
+        className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+       >
+        <Copy className="w-4 h-4" />
+        Compare
        </button>
        <button
         onClick={() => setShowExportMultipleModal(true)}
@@ -905,7 +973,10 @@ export default function ProjectReportsPage() {
                <Eye className="w-4 h-4" />
                Preview
               </button>
-              <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm transition-colors">
+              <button
+               onClick={() => handleDownloadReport(report)}
+               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm transition-colors"
+              >
                <Download className="w-4 h-4" />
                Download
               </button>
@@ -927,7 +998,7 @@ export default function ProjectReportsPage() {
                Schedule
               </button>
               <button
-               onClick={() => openHistoryModal(report)}
+               onClick={() => handleViewHistory(report)}
                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 text-sm transition-colors"
               >
                <Clock className="w-4 h-4" />

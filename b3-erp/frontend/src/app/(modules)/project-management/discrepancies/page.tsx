@@ -28,6 +28,8 @@ export default function DiscrepanciesPage() {
   const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewIssue, setViewIssue] = useState<Discrepancy | null>(null);
+  const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [newIssue, setNewIssue] = useState({
     title: '',
     description: '',
@@ -108,12 +110,12 @@ export default function DiscrepanciesPage() {
     }
   };
 
-  const handleFilter = () => {
-    toast({
-      title: "Filter Applied",
-      description: "Showing active issues only.",
-    });
-  };
+  // Real client-side filter over the already-fetched discrepancies.
+  const toggleActiveFilter = () => setShowActiveOnly((prev) => !prev);
+
+  const visibleDiscrepancies = showActiveOnly
+    ? discrepancies.filter((d) => d.status !== 'Resolved')
+    : discrepancies;
 
   if (!projectId) {
     return (
@@ -260,9 +262,9 @@ export default function DiscrepanciesPage() {
               <CardTitle>Active Issues</CardTitle>
               <CardDescription>Track resolution of identified discrepancies</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={handleFilter}>
+            <Button variant={showActiveOnly ? 'default' : 'outline'} size="sm" onClick={toggleActiveFilter}>
               <Filter className="w-4 h-4 mr-2" />
-              Filter
+              {showActiveOnly ? 'Showing Active' : 'Filter Active'}
             </Button>
           </CardHeader>
           <CardContent>
@@ -270,10 +272,12 @@ export default function DiscrepanciesPage() {
               <p className="text-center py-8 text-gray-500">Loading discrepancies...</p>
             ) : (
               <div className="space-y-2">
-                {discrepancies.length === 0 ? (
-                  <p className="text-center py-8 text-gray-500">No discrepancies logged yet.</p>
+                {visibleDiscrepancies.length === 0 ? (
+                  <p className="text-center py-8 text-gray-500">
+                    {showActiveOnly ? 'No active discrepancies.' : 'No discrepancies logged yet.'}
+                  </p>
                 ) : (
-                  discrepancies.map((issue) => (
+                  visibleDiscrepancies.map((issue) => (
                     <div key={issue.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex items-start gap-2">
                         <div className={`p-2 rounded-full mt-1 ${issue.priority === 'High' ? 'bg-red-100 text-red-600' :
@@ -301,7 +305,7 @@ export default function DiscrepanciesPage() {
                           }`}>
                           {issue.status}
                         </span>
-                        <Button variant="ghost" size="sm" onClick={() => toast({ title: "View Issue", description: `Viewing details for ${issue.id}` })}>View</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setViewIssue(issue)}>View</Button>
                       </div>
                     </div>
                   ))
@@ -311,6 +315,49 @@ export default function DiscrepanciesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* View discrepancy details — populated from the already-fetched row object */}
+      <Dialog open={!!viewIssue} onOpenChange={(open) => { if (!open) setViewIssue(null); }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{viewIssue?.title}</DialogTitle>
+            <DialogDescription>Discrepancy {viewIssue?.id}</DialogDescription>
+          </DialogHeader>
+          {viewIssue && (
+            <div className="grid gap-3 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Badge className={
+                  viewIssue.priority === 'High' ? 'bg-red-100 text-red-700' :
+                  viewIssue.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-blue-100 text-blue-700'
+                }>{viewIssue.priority} Priority</Badge>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  viewIssue.status === 'Open' ? 'bg-red-100 text-red-700' :
+                  viewIssue.status === 'In Review' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-green-100 text-green-700'
+                }`}>{viewIssue.status}</span>
+              </div>
+              <div>
+                <Label className="text-gray-500">Description</Label>
+                <p className="text-gray-900 mt-1">{viewIssue.description}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-gray-500">Reported By</Label>
+                  <p className="text-gray-900 mt-1">{viewIssue.reportedBy}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Date</Label>
+                  <p className="text-gray-900 mt-1">{viewIssue.date}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewIssue(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
