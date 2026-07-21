@@ -159,15 +159,32 @@ export default function PricingMarkupPage() {
   }
 
 
-  const categoryMarkups: CategoryMarkup[] = [
-    { category: 'Kitchen Sinks', defaultMarkup: 50.0, minMarkup: 45.0, maxMarkup: 55.0, products: 13, avgActualMarkup: 49.8 },
-    { category: 'Kitchen Faucets', defaultMarkup: 52.5, minMarkup: 48.0, maxMarkup: 58.0, products: 18, avgActualMarkup: 52.3 },
-    { category: 'Cookware', defaultMarkup: 55.5, minMarkup: 50.0, maxMarkup: 60.0, products: 25, avgActualMarkup: 55.7 },
-    { category: 'Kitchen Appliances', defaultMarkup: 54.0, minMarkup: 50.0, maxMarkup: 60.0, products: 13, avgActualMarkup: 54.2 },
-    { category: 'Kitchen Cabinets', defaultMarkup: 45.0, minMarkup: 40.0, maxMarkup: 50.0, products: 22, avgActualMarkup: 44.9 },
-    { category: 'Countertops', defaultMarkup: 47.5, minMarkup: 45.0, maxMarkup: 52.0, products: 14, avgActualMarkup: 47.4 },
-    { category: 'Kitchen Accessories', defaultMarkup: 51.5, minMarkup: 45.0, maxMarkup: 60.0, products: 18, avgActualMarkup: 50.8 }
-  ]
+  // Derive category guidelines from the fetched markup rules grouped by
+  // category. Each metric is computed from the rules themselves (no fabricated
+  // example numbers): default = average markup %, min/max = observed range,
+  // products = number of rules in the category, avgActual = average markup %.
+  const categoryMarkups: CategoryMarkup[] = useMemo(() => {
+    const byCategory = new Map<string, number[]>()
+    for (const r of markupRules) {
+      const key = r.category?.trim() || 'Uncategorized'
+      const list = byCategory.get(key) ?? []
+      list.push(r.markupPercent)
+      byCategory.set(key, list)
+    }
+    return Array.from(byCategory.entries())
+      .map(([category, percents]) => {
+        const avg = percents.reduce((s, p) => s + p, 0) / percents.length
+        return {
+          category,
+          defaultMarkup: avg,
+          minMarkup: Math.min(...percents),
+          maxMarkup: Math.max(...percents),
+          products: percents.length,
+          avgActualMarkup: avg,
+        }
+      })
+      .sort((a, b) => a.category.localeCompare(b.category))
+  }, [markupRules])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -294,13 +311,16 @@ export default function PricingMarkupPage() {
           <h2 className="text-lg font-semibold text-gray-900">Category Markup Guidelines</h2>
         </div>
         <div className="p-6">
+          {categoryMarkups.length === 0 && (
+            <p className="text-sm text-gray-500">No category guidelines available.</p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {categoryMarkups.map((cat) => (
               <div key={cat.category} className="p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900 text-sm">{cat.category}</p>
-                    <p className="text-xs text-gray-600 mt-1">{cat.products} products</p>
+                    <p className="text-xs text-gray-600 mt-1">{cat.products} {cat.products === 1 ? 'rule' : 'rules'}</p>
                   </div>
                   <Calculator className="h-5 w-5 text-gray-400" />
                 </div>
@@ -316,7 +336,7 @@ export default function PricingMarkupPage() {
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-green-500 h-2 rounded-full"
-                      style={{ width: `${(cat.avgActualMarkup / cat.maxMarkup) * 100}%` }}
+                      style={{ width: `${cat.maxMarkup > 0 ? Math.min((cat.avgActualMarkup / cat.maxMarkup) * 100, 100) : 0}%` }}
                     />
                   </div>
                   <div className="flex items-center justify-between text-sm">

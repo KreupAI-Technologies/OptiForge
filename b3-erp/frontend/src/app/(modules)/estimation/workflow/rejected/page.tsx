@@ -51,6 +51,7 @@ export default function EstimateWorkflowRejectedPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -124,10 +125,16 @@ export default function EstimateWorkflowRejectedPage() {
     }
   }
 
-  const filteredEstimates =
-    categoryFilter === 'all'
-      ? rejectedEstimates
-      : rejectedEstimates.filter((e) => e.rejectionCategory === categoryFilter)
+  const filteredEstimates = rejectedEstimates.filter((e) => {
+    if (categoryFilter !== 'all' && e.rejectionCategory !== categoryFilter) return false
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return true
+    return (
+      e.estimateNumber.toLowerCase().includes(q) ||
+      e.projectName.toLowerCase().includes(q) ||
+      e.customerName.toLowerCase().includes(q)
+    )
+  })
 
   const handleExport = () => {
     exportToCsv('rejected-estimates', filteredEstimates)
@@ -294,6 +301,8 @@ export default function EstimateWorkflowRejectedPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search estimates..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

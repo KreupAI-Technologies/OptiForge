@@ -184,8 +184,17 @@ export default function LogisticsDashboard() {
   const handleOptimizeAll = async () => {
     setIsOptimizing(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000)) // Simulate bulk optimization
-      toast.success('All active routes have been optimized for fuel and time efficiency.')
+      const result = await routeService.optimizeAllRoutes()
+      // Refresh freight analysis to reflect the newly optimized routes
+      try {
+        const analysis = await routeService.getFreightAnalysis()
+        setFreightAnalysis(analysis)
+      } catch {
+        // non-fatal: optimization already applied
+      }
+      toast.success(
+        `Optimized ${result.routesOptimized} of ${result.routesConsidered} active routes (${result.stopsReordered} stops reordered).`
+      )
     } catch (err) {
       toast.error('Failed to optimize routes')
     } finally {

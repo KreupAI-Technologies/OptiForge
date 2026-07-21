@@ -52,6 +52,7 @@ export default function EstimateWorkflowConvertedPage() {
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -144,10 +145,17 @@ export default function EstimateWorkflowConvertedPage() {
     return 'text-gray-600'
   }
 
-  const filteredEstimates =
-    statusFilter === 'all'
-      ? convertedEstimates
-      : convertedEstimates.filter((e) => e.status === statusFilter)
+  const filteredEstimates = convertedEstimates.filter((e) => {
+    if (statusFilter !== 'all' && e.status !== statusFilter) return false
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return true
+    return (
+      e.estimateNumber.toLowerCase().includes(q) ||
+      e.orderNumber.toLowerCase().includes(q) ||
+      e.projectName.toLowerCase().includes(q) ||
+      e.customerName.toLowerCase().includes(q)
+    )
+  })
 
   const totalConverted = filteredEstimates.length
   const totalEstimatedValue = filteredEstimates.reduce((sum, e) => sum + e.estimatedValue, 0)
@@ -256,6 +264,8 @@ export default function EstimateWorkflowConvertedPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search orders..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

@@ -40,6 +40,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { shipmentService, Shipment, CreateShipmentDto } from '@/services/shipment.service';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
@@ -151,6 +155,16 @@ export default function LogisticsTrackingPage() {
   const [trackingEvents, setTrackingEvents] = useState<TrackingEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Edit-tracking modal state
+  const [editShipmentId, setEditShipmentId] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    status: Shipment['status'];
+    priority: Shipment['priority'];
+    expectedDeliveryDate: string;
+    notes: string;
+  }>({ status: 'In Transit', priority: 'Normal', expectedDeliveryDate: '', notes: '' });
 
   // Load projects and tracking data
   useEffect(() => {
@@ -530,47 +544,47 @@ export default function LogisticsTrackingPage() {
       `Note: Full interactive map view available in web interface`);
   };
 
+  const normalizeStatus = (s: string): Shipment['status'] => {
+    const valid: Shipment['status'][] = ['Draft', 'Pending', 'Dispatched', 'In Transit', 'Delivered', 'Cancelled', 'Returned'];
+    return valid.includes(s as Shipment['status']) ? (s as Shipment['status']) : 'In Transit';
+  };
+
+  const normalizePriority = (p: string): Shipment['priority'] => {
+    const map: Record<string, Shipment['priority']> = {
+      low: 'Low', medium: 'Normal', normal: 'Normal', high: 'High', critical: 'Urgent', urgent: 'Urgent',
+    };
+    return map[p?.toLowerCase()] || 'Normal';
+  };
+
   const handleEditTracking = (shipment: TrackingEvent) => {
-    alert('✏️ Edit Tracking Details\n\n' +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `SHIPMENT: ${shipment.tracking_id}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Current Details:\n` +
-      `• Tracking ID: ${shipment.tracking_id}\n` +
-      `• Shipment Number: ${shipment.shipment_number}\n` +
-      `• Customer: ${shipment.customer_name}\n` +
-      `• Current Location: ${shipment.current_location}\n` +
-      `• Status: ${shipment.status}\n` +
-      `• Priority: ${shipment.priority.toUpperCase()}\n` +
-      `• Carrier: ${shipment.carrier}\n` +
-      `• ETA: ${shipment.estimated_delivery}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `EDITABLE FIELDS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `✓ Current Location\n` +
-      `✓ Event Type & Status\n` +
-      `✓ Priority Level\n` +
-      `✓ Estimated Delivery Time\n` +
-      `✓ Carrier Assignment\n` +
-      `✓ Environmental Conditions\n` +
-      `✓ Checkpoint Progress\n` +
-      `✓ Delay Information\n` +
-      `✓ Tracking Notes\n` +
-      `✓ Route Modifications\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `AVAILABLE ACTIONS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `• Update current location\n` +
-      `• Modify delivery schedule\n` +
-      `• Change priority level\n` +
-      `• Reassign carrier\n` +
-      `• Add checkpoint milestone\n` +
-      `• Update environmental readings\n` +
-      `• Record delay/exception\n` +
-      `• Add tracking notes\n` +
-      `• Update customer notifications\n\n` +
-      `Would you like to proceed with editing this shipment?\n` +
-      `(Full edit form available in production interface)`);
+    setEditShipmentId(shipment.id);
+    setEditForm({
+      status: normalizeStatus(shipment.status),
+      priority: normalizePriority(shipment.priority),
+      expectedDeliveryDate: (shipment.estimated_delivery || '').slice(0, 10),
+      notes: '',
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editShipmentId) return;
+    setIsSavingEdit(true);
+    try {
+      await shipmentService.updateShipment(editShipmentId, {
+        status: editForm.status,
+        priority: editForm.priority,
+        expectedDeliveryDate: editForm.expectedDeliveryDate || undefined,
+        notes: editForm.notes || undefined,
+      });
+      toast({ title: 'Shipment updated', description: 'Tracking details were saved successfully.', variant: 'success' });
+      setEditShipmentId(null);
+      await loadTrackingData();
+    } catch (error) {
+      console.error('Error updating shipment:', error);
+      toast({ title: 'Error', description: 'Failed to update tracking details. Please try again.', variant: 'destructive' });
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   // Event type badge component
@@ -1090,6 +1104,70 @@ export default function LogisticsTrackingPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Tracking Modal */}
+      <Dialog open={!!editShipmentId} onOpenChange={(open) => { if (!open) setEditShipmentId(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Tracking Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-status">Status</Label>
+              <select
+                id="edit-status"
+                value={editForm.status}
+                onChange={(e) => setEditForm({ ...editForm, status: e.target.value as Shipment['status'] })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              >
+                {['Draft', 'Pending', 'Dispatched', 'In Transit', 'Delivered', 'Cancelled', 'Returned'].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-priority">Priority</Label>
+              <select
+                id="edit-priority"
+                value={editForm.priority}
+                onChange={(e) => setEditForm({ ...editForm, priority: e.target.value as Shipment['priority'] })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              >
+                {['Low', 'Normal', 'High', 'Urgent'].map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-eta">Expected Delivery Date</Label>
+              <Input
+                id="edit-eta"
+                type="date"
+                value={editForm.expectedDeliveryDate}
+                onChange={(e) => setEditForm({ ...editForm, expectedDeliveryDate: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                placeholder="Add tracking notes"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditShipmentId(null)} disabled={isSavingEdit}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
+              {isSavingEdit ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
