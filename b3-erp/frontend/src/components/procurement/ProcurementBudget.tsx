@@ -7,7 +7,7 @@ import {
   DollarSign, TrendingUp, AlertCircle, Target, BarChart3, Plus,
   Edit, Download, RefreshCw, Settings, Calendar, FileText, CheckCircle,
   XCircle, TrendingDown, Activity, PieChart, ArrowUpRight, ArrowDownRight,
-  Percent, Users, Package, Clock, Filter, Search, Eye, Send, Bell, Zap
+  Percent, Users, Package, Clock, Filter, Search, Eye, Send, Bell, Zap, Trash2
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
@@ -177,6 +177,17 @@ const ProcurementBudget: React.FC = () => {
     } catch (err) {
       console.error('Failed to create budget:', err);
       alert('Failed to create budget. Please try again.');
+    }
+  };
+
+  const handleDeleteBudget = async (budget: BudgetLine) => {
+    if (!window.confirm(`Delete budget "${budget.category}"? This cannot be undone.`)) return;
+    try {
+      await procurementOperationsService.deleteBudget(budget.id);
+      await reloadBudgets();
+    } catch (err) {
+      console.error('Failed to delete budget:', err);
+      alert('Failed to delete budget. Please try again.');
     }
   };
 
@@ -1478,6 +1489,7 @@ Data Privacy:
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilization</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -1525,6 +1537,15 @@ Data Privacy:
                         {line.status}
                       </span>
                     </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm">
+                      <button
+                        onClick={() => handleDeleteBudget(line)}
+                        className="inline-flex items-center gap-1 px-2 py-1 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-xs"
+                        title="Delete budget"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1548,7 +1569,7 @@ Data Privacy:
                   <td className="px-3 py-2 whitespace-nowrap text-sm font-bold text-gray-900">
                     {((totalSpent / totalBudget) * 100).toFixed(1)}%
                   </td>
-                  <td colSpan={2}></td>
+                  <td colSpan={3}></td>
                 </tr>
               </tfoot>
             </table>

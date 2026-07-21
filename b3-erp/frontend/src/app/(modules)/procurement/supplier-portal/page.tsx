@@ -134,6 +134,157 @@ export default function SupplierPortal() {
     }
   }, [])
 
+  // Reload invoices/RFQs after a mutation.
+  const reloadInvoices = React.useCallback(async () => {
+    try {
+      const rows = await procurementPagesService.getPurchaseInvoices()
+      setInvoices(
+        (rows ?? []).map((r: any) => ({
+          id: r.invoiceNumber ?? r.internalInvoiceNumber ?? r.id ?? '',
+          poNumber: r.poNumber ?? r.purchaseOrderNumber ?? '',
+          date: (r.invoiceDate ?? r.date ?? '').toString().split('T')[0] || '',
+          amount: Number(r.totalAmount ?? r.amount ?? 0) || 0,
+          status: r.status ?? '',
+          dueDate: (r.dueDate ?? '').toString().split('T')[0] || '',
+        })),
+      )
+    } catch {
+      /* keep existing state on failure */
+    }
+  }, [])
+
+  // ---- Quote submission form (POST /procurement/vendor-quotations) ----
+  const emptyQuoteForm = {
+    rfqId: '',
+    quotationDate: new Date().toISOString().split('T')[0],
+    validUntil: '',
+    itemDescription: '',
+    quantity: '1',
+    unitPrice: '',
+    currency: 'USD',
+    paymentTerms: '',
+    deliveryDays: '',
+    notes: '',
+  }
+  const [quoteForm, setQuoteForm] = useState({ ...emptyQuoteForm })
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
+
+  const handleSubmitQuote = async () => {
+    setQuoteError(null)
+    const selectedRfq = rfqs.find((r) => r.id === quoteForm.rfqId)
+    if (!selectedRfq) {
+      setQuoteError('Please select an RFQ.')
+      return
+    }
+    if (!quoteForm.validUntil) {
+      setQuoteError('Please provide a "valid until" date.')
+      return
+    }
+    const quantity = Number(quoteForm.quantity) || 0
+    const unitPrice = Number(quoteForm.unitPrice) || 0
+    if (quantity <= 0 || unitPrice <= 0) {
+      setQuoteError('Quantity and unit price must be greater than zero.')
+      return
+    }
+    setQuoteSubmitting(true)
+    try {
+      await procurementPagesService.createVendorQuotation({
+        quotationDate: quoteForm.quotationDate,
+        validUntil: quoteForm.validUntil,
+        rfqId: selectedRfq.id,
+        rfqNumber: selectedRfq.id,
+        vendorId: supplierInfo.id,
+        vendorName: supplierInfo.name,
+        items: [
+          {
+            description: quoteForm.itemDescription || selectedRfq.title,
+            quantity,
+            unitPrice,
+            totalAmount: quantity * unitPrice,
+          },
+        ],
+        currency: quoteForm.currency,
+        paymentTerms: quoteForm.paymentTerms || undefined,
+        deliveryDays: quoteForm.deliveryDays ? Number(quoteForm.deliveryDays) : undefined,
+        notes: quoteForm.notes || undefined,
+      })
+      setShowQuoteModal(false)
+      setQuoteForm({ ...emptyQuoteForm })
+    } catch (err: any) {
+      setQuoteError(err?.message ?? 'Failed to submit quotation.')
+    } finally {
+      setQuoteSubmitting(false)
+    }
+  }
+
+  // ---- Invoice creation form (POST /procurement/purchase-invoices) ----
+  const emptyInvoiceForm = {
+    vendorInvoiceNumber: '',
+    invoiceDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    purchaseOrderId: '',
+    itemDescription: '',
+    quantity: '1',
+    unitPrice: '',
+    currency: 'USD',
+    paymentTerms: '',
+    notes: '',
+  }
+  const [invoiceForm, setInvoiceForm] = useState({ ...emptyInvoiceForm })
+  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false)
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
+
+  const handleCreateInvoice = async () => {
+    setInvoiceError(null)
+    if (!invoiceForm.vendorInvoiceNumber.trim()) {
+      setInvoiceError('Please provide your invoice number.')
+      return
+    }
+    if (!invoiceForm.dueDate) {
+      setInvoiceError('Please provide a due date.')
+      return
+    }
+    const quantity = Number(invoiceForm.quantity) || 0
+    const unitPrice = Number(invoiceForm.unitPrice) || 0
+    if (quantity <= 0 || unitPrice <= 0) {
+      setInvoiceError('Quantity and unit price must be greater than zero.')
+      return
+    }
+    const selectedPo = purchaseOrders.find((po) => po.id === invoiceForm.purchaseOrderId)
+    setInvoiceSubmitting(true)
+    try {
+      await procurementPagesService.createPurchaseInvoice({
+        vendorInvoiceNumber: invoiceForm.vendorInvoiceNumber.trim(),
+        invoiceDate: invoiceForm.invoiceDate,
+        dueDate: invoiceForm.dueDate,
+        invoiceType: 'Standard',
+        purchaseOrderId: selectedPo?.id || undefined,
+        purchaseOrderNumber: selectedPo?.id || undefined,
+        vendorId: supplierInfo.id,
+        vendorName: supplierInfo.name,
+        items: [
+          {
+            description: invoiceForm.itemDescription || `Invoice ${invoiceForm.vendorInvoiceNumber}`,
+            quantity,
+            unitPrice,
+            totalAmount: quantity * unitPrice,
+          },
+        ],
+        currency: invoiceForm.currency,
+        paymentTerms: invoiceForm.paymentTerms || undefined,
+        notes: invoiceForm.notes || undefined,
+      })
+      setShowInvoiceModal(false)
+      setInvoiceForm({ ...emptyInvoiceForm })
+      await reloadInvoices()
+    } catch (err: any) {
+      setInvoiceError(err?.message ?? 'Failed to create invoice.')
+    } finally {
+      setInvoiceSubmitting(false)
+    }
+  }
+
   // Performance Data (no dedicated endpoint; static illustrative trend)
   const performanceData = [
     { month: 'Jan', delivered: 15, onTime: 14, quality: 98 },
@@ -1007,20 +1158,74 @@ export default function SupplierPortal() {
       {/* Quote Modal */}
       {showQuoteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b">
               <h3 className="text-lg font-semibold">Submit Quotation</h3>
             </div>
-            <div className="p-6">
-              <p className="text-gray-600 mb-2">Quote submission form would go here</p>
-              <div className="flex gap-3">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  Submit Quote
-                </button>
-                <button
-                  onClick={() => setShowQuoteModal(false)}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+            <div className="p-6 space-y-4">
+              {quoteError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{quoteError}</div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">RFQ *</label>
+                <select
+                  value={quoteForm.rfqId}
+                  onChange={(e) => setQuoteForm({ ...quoteForm, rfqId: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
                 >
+                  <option value="">Select an RFQ</option>
+                  {rfqs.map((r) => (
+                    <option key={r.id} value={r.id}>{r.id} — {r.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quotation Date *</label>
+                  <input type="date" value={quoteForm.quotationDate} onChange={(e) => setQuoteForm({ ...quoteForm, quotationDate: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until *</label>
+                  <input type="date" value={quoteForm.validUntil} onChange={(e) => setQuoteForm({ ...quoteForm, validUntil: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item / Description</label>
+                <input type="text" value={quoteForm.itemDescription} onChange={(e) => setQuoteForm({ ...quoteForm, itemDescription: e.target.value })} placeholder="Defaults to RFQ title" className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                  <input type="number" min="1" value={quoteForm.quantity} onChange={(e) => setQuoteForm({ ...quoteForm, quantity: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price *</label>
+                  <input type="number" min="0" step="0.01" value={quoteForm.unitPrice} onChange={(e) => setQuoteForm({ ...quoteForm, unitPrice: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <input type="text" value={quoteForm.currency} onChange={(e) => setQuoteForm({ ...quoteForm, currency: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
+                  <input type="text" value={quoteForm.paymentTerms} onChange={(e) => setQuoteForm({ ...quoteForm, paymentTerms: e.target.value })} placeholder="e.g. Net 30" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Delivery (days)</label>
+                  <input type="number" min="0" value={quoteForm.deliveryDays} onChange={(e) => setQuoteForm({ ...quoteForm, deliveryDays: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={quoteForm.notes} onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleSubmitQuote} disabled={quoteSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {quoteSubmitting ? 'Submitting…' : 'Submit Quote'}
+                </button>
+                <button onClick={() => { setShowQuoteModal(false); setQuoteError(null) }} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
                   Cancel
                 </button>
               </div>
@@ -1032,20 +1237,70 @@ export default function SupplierPortal() {
       {/* Invoice Modal */}
       {showInvoiceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b">
               <h3 className="text-lg font-semibold">Create Invoice</h3>
             </div>
-            <div className="p-6">
-              <p className="text-gray-600 mb-2">Invoice creation form would go here</p>
+            <div className="p-6 space-y-4">
+              {invoiceError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{invoiceError}</div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number *</label>
+                  <input type="text" value={invoiceForm.vendorInvoiceNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, vendorInvoiceNumber: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Order</label>
+                  <select value={invoiceForm.purchaseOrderId} onChange={(e) => setInvoiceForm({ ...invoiceForm, purchaseOrderId: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">None</option>
+                    {purchaseOrders.map((po) => (
+                      <option key={po.id} value={po.id}>{po.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date *</label>
+                  <input type="date" value={invoiceForm.invoiceDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceDate: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
+                  <input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item / Description</label>
+                <input type="text" value={invoiceForm.itemDescription} onChange={(e) => setInvoiceForm({ ...invoiceForm, itemDescription: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                  <input type="number" min="1" value={invoiceForm.quantity} onChange={(e) => setInvoiceForm({ ...invoiceForm, quantity: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price *</label>
+                  <input type="number" min="0" step="0.01" value={invoiceForm.unitPrice} onChange={(e) => setInvoiceForm({ ...invoiceForm, unitPrice: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <input type="text" value={invoiceForm.currency} onChange={(e) => setInvoiceForm({ ...invoiceForm, currency: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
+                <input type="text" value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentTerms: e.target.value })} placeholder="e.g. Net 30" className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
               <div className="flex gap-3">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  Create Invoice
+                <button onClick={handleCreateInvoice} disabled={invoiceSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {invoiceSubmitting ? 'Creating…' : 'Create Invoice'}
                 </button>
-                <button
-                  onClick={() => setShowInvoiceModal(false)}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                >
+                <button onClick={() => { setShowInvoiceModal(false); setInvoiceError(null) }} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
                   Cancel
                 </button>
               </div>

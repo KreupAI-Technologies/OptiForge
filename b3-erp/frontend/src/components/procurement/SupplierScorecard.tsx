@@ -108,14 +108,23 @@ export default function SupplierScorecard() {
 
 
   // Handler functions (simplified)
-  const handleRefresh = () => {
-    console.log('Refreshing supplier scorecard data...')
-    alert('Refreshing Supplier Scorecard - Updating performance scores, rankings, and tier assignments.')
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await reloadScores()
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const handleSettings = () => {
-    console.log('Opening scorecard settings...')
-    alert('Supplier Scorecard Settings - Configure scoring weights, tier thresholds, evaluation frequency, and data sources.')
+    // No scoring-config persistence endpoint exists (vendor-scorecards is CRUD only);
+    // export the current tier/score snapshot the settings would govern.
+    if (!supplierScores.length) return
+    exportToCsv(
+      `scorecard-settings-snapshot-${new Date().toISOString().slice(0, 10)}.csv`,
+      supplierScores.map((s) => ({ supplierName: s.supplierName, tier: s.tier, overallScore: s.overallScore })),
+    )
   }
 
   const handleExport = () => {
@@ -145,47 +154,44 @@ export default function SupplierScorecard() {
   }
 
   const handleViewSupplierDetails = (supplier: SupplierScore) => {
-    console.log('Viewing supplier details:', supplier.supplierId)
-    alert(`Supplier Details: ${supplier.supplierName} - Score: ${supplier.overallScore}/100, Tier: ${supplier.tier.toUpperCase()}, Rank: #${supplier.rank}`)
+    setSelectedSupplier(supplier)
+    setActiveTab('metrics')
   }
 
   const handleEditWeights = () => {
-    console.log('Opening weight editor...')
-    alert('Edit Scorecard Weights - This would allow customization of scoring weights for quality, delivery, price, service, innovation, and sustainability.')
+    setActiveTab('metrics')
   }
 
-  const handleRecalculateScores = () => {
-    console.log('Recalculating supplier scores...')
-    alert('Recalculating Supplier Scores - This would pull latest data and recalculate all supplier scores and rankings.')
+  const handleRecalculateScores = async () => {
+    // No dedicated recalculate endpoint; re-pull the latest persisted scores/rankings.
+    setRefreshing(true)
+    try {
+      await reloadScores()
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const handleCompareSuppliers = () => {
-    if (!comparisonMode) {
-      alert('Supplier Comparison Mode - Select 2-5 suppliers to compare their performance side-by-side.')
-    } else {
-      alert('Compare Selected Suppliers - This would show a detailed comparison of selected suppliers.')
-    }
     setComparisonMode(!comparisonMode)
   }
 
   const handleViewTrends = (supplier: SupplierScore) => {
-    console.log('Viewing performance trends for:', supplier.supplierId)
-    alert(`Performance Trends: ${supplier.supplierName} - Trend: ${supplier.trend.toUpperCase()}. This would show historical performance data.`)
+    setSelectedSupplier(supplier)
+    setActiveTab('trends')
   }
 
   const handleCreateAction = () => {
-    console.log('Creating improvement action...')
-    alert('Create Supplier Improvement Action - This would open a form to create improvement actions for underperforming suppliers.')
+    setActiveTab('actions')
   }
 
   const handleViewBenchmarks = () => {
-    console.log('Viewing industry benchmarks...')
-    alert('Industry Benchmark Analysis - This would show how your supplier base compares to industry standards.')
+    setActiveTab('benchmarks')
   }
 
   const handleScheduleReview = (supplier: SupplierScore) => {
-    console.log('Scheduling supplier review for:', supplier.supplierId)
-    alert(`Schedule Business Review: ${supplier.supplierName} - This would open a scheduling dialog for supplier review meetings.`)
+    setSelectedSupplier(supplier)
+    setActiveTab('actions')
   }
 
   const handleExportSupplierReport = (supplier: SupplierScore) => {
@@ -212,40 +218,40 @@ export default function SupplierScorecard() {
 
   // Mock data
   const [supplierScores, setSupplierScores] = useState<SupplierScore[]>([])
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
+  const reloadScores = React.useCallback(async () => {
     const tierMap: Record<string, SupplierScore['tier']> = {
       PLATINUM: 'platinum', GOLD: 'gold', SILVER: 'silver', BRONZE: 'bronze',
     }
-    const load = async () => {
-      try {
-        const raw = await procurementVendorScorecardService.getScorecards()
-        if (!cancelled && Array.isArray(raw) && raw.length) {
-          setSupplierScores(raw.map((s: any, idx: number): SupplierScore => ({
-            supplierId: s.vendorId ?? s.supplierId ?? s.id ?? `SUP${idx + 1}`,
-            supplierName: s.vendorName ?? s.supplierName ?? '—',
-            category: s.category ?? '—',
-            overallScore: Number(s.overallScore ?? s.totalScore ?? 0),
-            qualityScore: Number(s.qualityScore ?? 0),
-            deliveryScore: Number(s.deliveryScore ?? 0),
-            priceScore: Number(s.priceScore ?? s.costScore ?? 0),
-            serviceScore: Number(s.serviceScore ?? 0),
-            innovationScore: Number(s.innovationScore ?? 0),
-            sustainabilityScore: Number(s.sustainabilityScore ?? 0),
-            trend: (String(s.trend ?? 'stable').toLowerCase() as SupplierScore['trend']),
-            rank: Number(s.rank ?? idx + 1),
-            tier: tierMap[String(s.tier ?? '').toUpperCase()] ?? 'bronze',
-            lastEvaluation: (s.lastEvaluation ?? s.evaluationDate ?? '').toString().slice(0, 10),
-          })))
-        }
-      } catch {
-        // keep sample data on error
+    try {
+      const raw = await procurementVendorScorecardService.getScorecards()
+      if (Array.isArray(raw) && raw.length) {
+        setSupplierScores(raw.map((s: any, idx: number): SupplierScore => ({
+          supplierId: s.vendorId ?? s.supplierId ?? s.id ?? `SUP${idx + 1}`,
+          supplierName: s.vendorName ?? s.supplierName ?? '—',
+          category: s.category ?? '—',
+          overallScore: Number(s.overallScore ?? s.totalScore ?? 0),
+          qualityScore: Number(s.qualityScore ?? 0),
+          deliveryScore: Number(s.deliveryScore ?? 0),
+          priceScore: Number(s.priceScore ?? s.costScore ?? 0),
+          serviceScore: Number(s.serviceScore ?? 0),
+          innovationScore: Number(s.innovationScore ?? 0),
+          sustainabilityScore: Number(s.sustainabilityScore ?? 0),
+          trend: (String(s.trend ?? 'stable').toLowerCase() as SupplierScore['trend']),
+          rank: Number(s.rank ?? idx + 1),
+          tier: tierMap[String(s.tier ?? '').toUpperCase()] ?? 'bronze',
+          lastEvaluation: (s.lastEvaluation ?? s.evaluationDate ?? '').toString().slice(0, 10),
+        })))
       }
+    } catch {
+      // keep existing data on error
     }
-    load()
-    return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    void reloadScores()
+  }, [reloadScores])
 
   const performanceMetrics: PerformanceMetric[] = [
     { metric: 'Quality', weight: 25, target: 90, actual: 88, score: 97.8, trend: 'improving' },
@@ -376,11 +382,12 @@ export default function SupplierScorecard() {
             </button>
             <button
               onClick={handleRecalculateScores}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+              disabled={refreshing}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50"
               title="Recalculate All Scores"
             >
-              <RefreshCw className="w-4 h-4" />
-              Update Scores
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Updating…' : 'Update Scores'}
             </button>
           </div>
         </div>

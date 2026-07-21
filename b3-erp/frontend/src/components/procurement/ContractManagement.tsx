@@ -245,6 +245,30 @@ export default function ContractManagement() {
     }
   };
 
+  const handleTerminateContract = async (contract: Contract) => {
+    if (contract.status === 'terminated' || contract.status === 'expired') {
+      setActionError(`Contract ${contract.id} is already ${contract.status}.`);
+      return;
+    }
+    const backendId = (contract as Contract & { _backendId?: string })._backendId;
+    if (!backendId) {
+      setActionError(`Cannot terminate ${contract.id}: missing contract id.`);
+      return;
+    }
+    const reason = window.prompt(`Terminate contract ${contract.id} — ${contract.title}?\n\nEnter termination reason:`)?.trim();
+    if (!reason) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementContractService.terminateContract(backendId, { reason });
+      await loadContracts();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to terminate ${contract.id}`);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const handleViewTerms = (contract: Contract) => {
     console.log('Viewing contract terms:', contract.id, contract);
     alert(`Contract Terms: ${contract.id} - ${contract.title}. Value: $${(contract.value / 1000).toFixed(0)}K, Type: ${contract.type.toUpperCase()}, Auto-Renewal: ${contract.autoRenew ? 'Yes' : 'No'}.`);
@@ -902,6 +926,17 @@ export default function ContractManagement() {
                               >
                                 <FileEdit className="w-4 h-4 text-purple-600" />
                                 <span className="text-purple-700">Amend</span>
+                              </button>
+                            )}
+
+                            {(contract.status === 'active' || contract.status === 'expiring' || contract.status === 'negotiation' || contract.status === 'draft') && (
+                              <button
+                                onClick={() => handleTerminateContract(contract)}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 bg-red-50 rounded-lg hover:bg-red-100 text-sm transition-colors"
+                                title="Terminate Contract"
+                              >
+                                <XCircle className="w-4 h-4 text-red-600" />
+                                <span className="text-red-700">Terminate</span>
                               </button>
                             )}
 

@@ -132,6 +132,16 @@ export const procurementPagesService = {
   async createSupplierPortalDocument(data: Record<string, any>): Promise<any> {
     return request('/procurement/supplier-portal/documents', { method: 'POST', body: JSON.stringify(data) });
   },
+
+  // ---- Vendor Quotations (procurement/vendor-quotations) — supplier-facing quote submission ----
+  async createVendorQuotation(data: Record<string, any>): Promise<any> {
+    return request('/procurement/vendor-quotations', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  // ---- Purchase Invoices (procurement/purchase-invoices) — supplier-facing invoice creation ----
+  async createPurchaseInvoice(data: Record<string, any>): Promise<any> {
+    return request('/procurement/purchase-invoices', { method: 'POST', body: JSON.stringify(data) });
+  },
   async getCollaborationInsights(): Promise<any> { return request('/procurement/insights/collaboration'); },
   async getOnboardingInsights(): Promise<any> { return request('/procurement/insights/onboarding'); },
   async getVendorActivities(): Promise<any[]> { return asArray(await request('/procurement/insights/vendor-activities')); },

@@ -928,6 +928,29 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
     </svg>
   );
 
+  // ---- Client-side artifact helpers (no report/schedule/dashboard persistence endpoint exists) ----
+  const triggerDownload = (filename: string, mime: string, content: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadJson = (prefix: string, data: unknown) => {
+    triggerDownload(`${prefix}-${Date.now()}.json`, 'application/json', JSON.stringify(data, null, 2));
+  };
+
+  const exportAnalyticsData = (_options: unknown) => {
+    const header = 'Category,Amount,Percentage,Trend';
+    const rows = spendByCategory.map((c) => [c.category, c.amount, c.percentage, c.trend].join(','));
+    triggerDownload(`procurement-analytics-${Date.now()}.csv`, 'text/csv', [header, ...rows].join('\n'));
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -1017,7 +1040,7 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
         isOpen={isCreateReportModalOpen}
         onClose={() => setIsCreateReportModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Creating custom report:', data)
+          downloadJson('procurement-report-config', data)
           setIsCreateReportModalOpen(false)
         }}
       />
@@ -1026,7 +1049,7 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         onSubmit={(options) => {
-          console.log('Exporting report:', options)
+          exportAnalyticsData(options)
           setIsExportModalOpen(false)
         }}
       />
@@ -1035,7 +1058,7 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
         isOpen={isScheduleReportModalOpen}
         onClose={() => setIsScheduleReportModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Scheduling report:', data)
+          downloadJson('procurement-report-schedule', data)
           setIsScheduleReportModalOpen(false)
         }}
       />
@@ -1044,7 +1067,7 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
         isOpen={isDashboardCustomizationModalOpen}
         onClose={() => setIsDashboardCustomizationModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Customizing dashboard:', data)
+          downloadJson('procurement-dashboard-layout', data)
           setIsDashboardCustomizationModalOpen(false)
         }}
       />

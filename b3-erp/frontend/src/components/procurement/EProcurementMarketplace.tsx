@@ -52,38 +52,39 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   // Supplier stores (connected suppliers) loaded from backend
   const [supplierStores, setSupplierStores] = useState<any[]>([]);
 
-  useEffect(() => {
-    const loadMarketplaceInsights = async () => {
-      try {
-        const data = await procurementPagesService.getMarketplaceInsights();
-        const catalogs = data?.catalogs ?? [];
-        if (Array.isArray(catalogs) && catalogs.length > 0) {
-          setSupplierStores(
-            catalogs.map((c: any) => ({
-              id: c?.vendorId ?? '',
-              name: c?.vendorName ?? '',
-              rating: c?.rating ?? 0,
-              products: c?.catalogItems ?? 0,
-              responseTime: c?.punchoutEnabled ? 'Punch-out enabled' : 'Standard',
-              onTimeDelivery: 0,
-              categories: [],
-              certifications: [],
-              joinedDate: '',
-              orders: c?.ordersYtd ?? 0,
-              punchout: c?.punchoutEnabled ?? false,
-            }))
-          );
-        }
-        setMarketplaceProducts(Array.isArray(data?.products) ? data.products : []);
-        setCategories(Array.isArray(data?.categories) ? data.categories : []);
-        setRecentOrders(Array.isArray(data?.recentOrders) ? data.recentOrders : []);
-        setTrendingProducts(Array.isArray(data?.trendingProducts) ? data.trendingProducts : []);
-      } catch (err) {
-        console.error('Failed to load marketplace insights', err);
+  const loadMarketplaceInsights = React.useCallback(async () => {
+    try {
+      const data = await procurementPagesService.getMarketplaceInsights();
+      const catalogs = data?.catalogs ?? [];
+      if (Array.isArray(catalogs) && catalogs.length > 0) {
+        setSupplierStores(
+          catalogs.map((c: any) => ({
+            id: c?.vendorId ?? '',
+            name: c?.vendorName ?? '',
+            rating: c?.rating ?? 0,
+            products: c?.catalogItems ?? 0,
+            responseTime: c?.punchoutEnabled ? 'Punch-out enabled' : 'Standard',
+            onTimeDelivery: 0,
+            categories: [],
+            certifications: [],
+            joinedDate: '',
+            orders: c?.ordersYtd ?? 0,
+            punchout: c?.punchoutEnabled ?? false,
+          }))
+        );
       }
-    };
-    loadMarketplaceInsights();
+      setMarketplaceProducts(Array.isArray(data?.products) ? data.products : []);
+      setCategories(Array.isArray(data?.categories) ? data.categories : []);
+      setRecentOrders(Array.isArray(data?.recentOrders) ? data.recentOrders : []);
+      setTrendingProducts(Array.isArray(data?.trendingProducts) ? data.trendingProducts : []);
+    } catch (err) {
+      console.error('Failed to load marketplace insights', err);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadMarketplaceInsights();
+  }, [loadMarketplaceInsights]);
 
   // Recent orders (loaded from backend getMarketplaceInsights().recentOrders)
   const [recentOrders, setRecentOrders] = useState<Array<{
@@ -230,8 +231,9 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
               </div>
               <button
                 onClick={handleCompareProducts}
-                className="flex items-center space-x-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
-                title="Compare Products"
+                disabled
+                className="flex items-center space-x-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Compare Products — not yet available"
               >
                 <BarChart3 className="h-4 w-4" />
                 <span>Compare</span>
@@ -880,8 +882,7 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
 
   // Handler functions
   const handleBrowseCatalog = () => {
-    console.log('Browsing catalog...');
-    alert(`Browse Product Catalog\n\nCategories Available:\n• Raw Materials (${Math.floor(Math.random() * 500 + 200)} items)\n• Electronic Components (${Math.floor(Math.random() * 300 + 150)} items)\n• Office Supplies (${Math.floor(Math.random() * 400 + 100)} items)\n• Industrial Equipment (${Math.floor(Math.random() * 200 + 50)} items)\n• IT Hardware (${Math.floor(Math.random() * 250 + 80)} items)\n\nFilters:\n☐ Price range: $[____] to $[____]\n☐ Supplier rating: ⭐ 4+ only\n☐ Delivery time: Next day | 2-3 days | 1 week\n☐ Location: Local | Regional | Global\n☐ Certifications: ISO, RoHS, CE, etc.\n\nSort By:\n○ Relevance\n○ Price (Low to High)\n○ Price (High to Low)\n○ Rating\n○ Delivery Time\n\nView: [Grid] [List]`);
+    setActiveTab('marketplace');
   };
 
   const handleAddToCart = (product: any) => {
@@ -889,8 +890,7 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   };
 
   const handleCompareProducts = () => {
-    console.log('Comparing products...');
-    alert(`Compare Products\n\nSelect 2-4 products to compare:\n\nComparison Criteria:\n☑ Price\n☑ Supplier rating\n☑ Delivery time\n☑ Specifications\n☑ Certifications\n☑ Warranty terms\n☑ Payment terms\n☑ Volume discounts\n\nCurrently Selected: 0 products\n\nClick products in catalog to add to comparison.\nThen click 'Compare' to see side-by-side view.\n\nComparison Table Format:\nFeature | Product A | Product B | Product C\nPrice   | $X       | $Y       | $Z\nRating  | ⭐⭐⭐⭐   | ⭐⭐⭐⭐⭐  | ⭐⭐⭐\n...`);
+    // No product-comparison feature or backend is available yet.
   };
 
   const handlePlaceOrder = async () => {
@@ -919,49 +919,42 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   };
 
   const handleTrackDelivery = () => {
-    console.log('Tracking delivery...');
-    alert(`Track Delivery\n\nRecent Orders:\n\nOrder #${Math.floor(Math.random() * 10000)}:\n• Status: In Transit\n• Shipped: 2 days ago\n• Expected: Tomorrow\n• Carrier: FedEx\n• Tracking: ${Math.floor(Math.random() * 1e12)}\n• Location: Distribution Center (150 mi away)\n\nOrder #${Math.floor(Math.random() * 10000)}:\n• Status: Delivered\n• Delivered: Yesterday, 2:45 PM\n• Received by: Receiving Dept\n• POD: Signed\n\nOrder #${Math.floor(Math.random() * 10000)}:\n• Status: Preparing for Shipment\n• Ordered: 3 days ago\n• Expected Ship: Today\n\nTracking Options:\n[View Map] [Contact Carrier] [Report Issue]\n[Delivery Notifications] [Proof of Delivery]`);
+    setActiveTab('orders');
   };
 
   const handleViewProductDetails = (product: any) => {
-    console.log('Viewing product details:', product);
-    alert(`Product Details\n\n${product?.name || 'Product Name'}\nSKU: ${product?.id || 'N/A'}\nCategory: ${product?.category || 'N/A'}\n\nPrice: $${product?.price || '0.00'} per ${product?.unit || 'unit'}\nMin Order: ${product?.minOrder || 1} ${product?.unit || 'units'}\n\nSupplier: ${product?.supplier || 'N/A'}\nRating: ${'⭐'.repeat(Math.floor(Math.random() * 2) + 3)}\nReviews: ${Math.floor(Math.random() * 500) + 50}\n\nAvailability: ${Math.random() > 0.3 ? 'In Stock ✓' : 'Out of Stock'}\nLead Time: ${Math.floor(Math.random() * 10) + 1} days\n\nSpecifications:\n• Weight: ${(Math.random() * 50).toFixed(1)} lbs\n• Dimensions: ${Math.floor(Math.random() * 20)}x${Math.floor(Math.random() * 20)}x${Math.floor(Math.random() * 20)} in\n• Material: [Product specific]\n• Certifications: ISO 9001, RoHS\n\nDocuments:\n☐ Datasheet\n☐ Safety Data Sheet (SDS)\n☐ Certification Documents\n☐ User Manual\n\n[Add to Cart] [Add to Favorites] [Share]`);
+    // No product-detail modal or backend endpoint exists; keep the user on the catalog.
+    setActiveTab('marketplace');
   };
 
   const handleManageCart = () => {
-    console.log('Managing cart...');
-    const itemCount = Math.floor(Math.random() * 8) + 1;
-    alert(`Shopping Cart (${itemCount} items)\n\nCart Actions:\n\n1. Review Items:\n   • Edit quantities\n   • Remove items\n   • Save for later\n   • Add notes/specifications\n\n2. Apply Discounts:\n   • Volume discounts (auto-applied)\n   • Promotional codes: [Enter code]\n   • Contract pricing (if applicable)\n   • Bundle deals\n\n3. Split Cart:\n   • Ship to multiple locations\n   • Different delivery dates\n   • Separate POs by department\n\n4. Request Quotes:\n   • Get bulk pricing\n   • Negotiate terms\n   • Request alternatives\n\n5. Save & Share:\n   • Save cart for later\n   • Share with team for approval\n   • Export cart as list\n   • Create requisition from cart\n\nCurrent Total: $${(Math.random() * 10000 + 1000).toFixed(2)}\n\n[Proceed to Checkout] [Continue Shopping] [Clear Cart]`);
+    // Cart contents surface in the Orders tab; there is no dedicated cart tab.
+    setActiveTab('orders');
   };
 
   const handleSearchProducts = () => {
-    console.log('Searching products...');
-    alert(`Product Search\n\nSearch Options:\n\n1. KEYWORD SEARCH\n   [________________]\n   Examples: "steel pipes", "laptop i7", "safety gloves"\n\n2. ADVANCED SEARCH\n   Product Name: [________]\n   SKU/Part #: [________]\n   Category: [Select]\n   Supplier: [Select]\n   Price Range: $[___] to $[___]\n   Certifications: [Select]\n\n3. SMART SEARCH\n   • Search by image (upload photo)\n   • Search by specification\n   • Search similar products\n   • Search replacements/alternatives\n\n4. SAVED SEARCHES\n   • "Monthly office supplies"\n   • "Raw materials - steel"\n   • "IT equipment refresh"\n   [Create new saved search]\n\n5. RECENT SEARCHES\n   • ${['Industrial gloves', 'LED bulbs', 'Printer toner'][Math.floor(Math.random() * 3)]}\n   • ${['Safety equipment', 'Cleaning supplies', 'Cables'][Math.floor(Math.random() * 3)]}\n\nSearch Tips:\n• Use quotation marks for exact phrases\n• Use * as wildcard\n• Filter by "in stock" for immediate availability\n\n[Search] [Advanced] [Clear]`);
+    // The search box in the marketplace tab already filters live via searchTerm.
+    setActiveTab('marketplace');
   };
 
   const handleViewSupplierProfile = (supplier: string) => {
-    console.log('Viewing supplier profile:', supplier);
-    alert(`Supplier Profile: ${supplier}\n\nOverview:\n• Rating: ${'⭐'.repeat(4)}${Math.random() > 0.5 ? '⭐' : ''}  (${(Math.random() * 2 + 3).toFixed(1)}/5)\n• Reviews: ${Math.floor(Math.random() * 500) + 100}\n• Products: ${Math.floor(Math.random() * 300) + 50}\n• Years in Business: ${Math.floor(Math.random() * 20) + 5}\n\nPerformance Metrics:\n• On-Time Delivery: ${Math.floor(Math.random() * 10) + 90}%\n• Quality Rating: ${Math.floor(Math.random() * 5) + 95}%\n• Response Time: <${Math.floor(Math.random() * 24) + 1} hours\n• Order Fulfillment: ${Math.floor(Math.random() * 5) + 95}%\n\nCertifications:\n✓ ISO 9001:2015\n✓ ISO 14001\n${Math.random() > 0.5 ? '✓ AS9100' : ''}\n${Math.random() > 0.5 ? '✓ IATF 16949' : ''}\n\nServices:\n• Custom Manufacturing\n• Just-in-Time Delivery\n• Technical Support\n• Volume Discounts\n• Consignment Inventory\n\nContact:\n• Email: sales@${supplier.toLowerCase().replace(/\s+/g, '')}.com\n• Phone: 1-800-${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}\n• Website: www.${supplier.toLowerCase().replace(/\s+/g, '')}.com\n\n[Contact Supplier] [View All Products] [Add to Favorites]`);
+    setActiveTab('suppliers');
   };
 
   const handleManageFavorites = () => {
-    console.log('Managing favorites...');
-    alert(`Favorites & Lists\n\nMy Lists:\n\n1. Frequently Ordered (${Math.floor(Math.random() * 20) + 10} items)\n   Quick reorder of common items\n   Last ordered: Last week\n\n2. Office Supplies Quarterly (${Math.floor(Math.random() * 15) + 5} items)\n   Recurring order list\n   Next order: In 2 weeks\n\n3. Manufacturing - Raw Materials (${Math.floor(Math.random() * 25) + 8} items)\n   Production materials\n   Last ordered: 3 days ago\n\n4. Wishlist - Equipment Upgrade (${Math.floor(Math.random() * 10) + 3} items)\n   Future purchases for budget planning\n\nList Actions:\n• Create new list\n• Share list with team\n• Set up auto-reorder\n• Export list to Excel\n• Convert list to requisition\n• Compare prices across lists\n\nFavorite Suppliers (${Math.floor(Math.random() * 10) + 5}):\n☆ Get notifications of new products\n☆ Receive special offers\n☆ Priority customer service\n\n[Create List] [Manage Suppliers] [Reorder from List]`);
+    // No favorites/lists feature or backend is available yet.
   };
 
   const handleViewOrderHistory = () => {
-    console.log('Viewing order history...');
-    alert(`Order History\n\nFilters:\n• Date Range: [Last 90 days ▼]\n• Status: [All ▼]\n• Supplier: [All ▼]\n• Category: [All ▼]\n\nRecent Orders:\n\nPO-${Math.floor(Math.random() * 10000)}\n• Date: ${Math.floor(Math.random() * 30) + 1} days ago\n• Items: ${Math.floor(Math.random() * 10) + 1}\n• Total: $${(Math.random() * 5000 + 500).toFixed(2)}\n• Status: Delivered ✓\n• [View] [Reorder] [Return] [Invoice]\n\nPO-${Math.floor(Math.random() * 10000)}\n• Date: ${Math.floor(Math.random() * 60) + 30} days ago\n• Items: ${Math.floor(Math.random() * 5) + 1}\n• Total: $${(Math.random() * 3000 + 200).toFixed(2)}\n• Status: Delivered ✓\n• [View] [Reorder]\n\nOrder Statistics:\n• Total Orders (YTD): ${Math.floor(Math.random() * 100) + 50}\n• Total Spend (YTD): $${(Math.random() * 100000 + 50000).toFixed(2)}\n• Average Order Value: $${(Math.random() * 2000 + 500).toFixed(2)}\n• Most Ordered Category: ${['Office Supplies', 'Raw Materials', 'IT Equipment'][Math.floor(Math.random() * 3)]}\n\nQuick Actions:\n[Reorder Favorites] [Export History] [Generate Report]`);
+    setActiveTab('orders');
   };
 
   const handleRefresh = () => {
-    console.log('Refreshing marketplace data...');
-    alert(`Refresh Marketplace\n\nSyncing data:\n✓ Product catalog (${Math.floor(Math.random() * 5000) + 1000} products)\n✓ Supplier information (${Math.floor(Math.random() * 100) + 50} suppliers)\n✓ Pricing updates\n✓ Availability status\n✓ Cart contents\n✓ Order status\n✓ Notifications\n\nLast Refresh: ${new Date(Date.now() - Math.random() * 600000).toLocaleTimeString()}\n\nNew Since Last Visit:\n• ${Math.floor(Math.random() * 20)} new products\n• ${Math.floor(Math.random() * 5)} price updates\n• ${Math.floor(Math.random() * 3)} new suppliers\n• ${Math.floor(Math.random() * 10)} special offers\n\n[Refresh Now]`);
+    void loadMarketplaceInsights();
   };
 
   const handleSettings = () => {
-    console.log('Opening marketplace settings...');
-    alert(`Marketplace Settings\n\n1. PREFERENCES\n   • Default delivery address\n   • Preferred suppliers\n   • Budget alerts\n   • Approval thresholds\n\n2. NOTIFICATIONS\n   ☑ New product alerts\n   ☑ Price changes\n   ☑ Order status updates\n   ☑ Delivery notifications\n   ☐ Special offers\n\n3. DISPLAY\n   • View: ${['Grid', 'List'][Math.floor(Math.random() * 2)]}\n   • Products per page: 24\n   • Currency: USD\n   • Language: English\n\n4. INTEGRATION\n   • ERP sync: Enabled\n   • Approval workflow: Active\n   • Budget check: Real-time\n\n5. PAYMENT\n   • Default: Corporate Account\n   • P-Card: Enabled\n   • Credit limit: $${Math.floor(Math.random() * 50000) + 10000}\n\n[Save Settings] [Reset Defaults]`);
+    // No settings panel or backend is available yet.
   };
 
   return (
@@ -1007,8 +1000,9 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
             </button>
             <button
               onClick={handleManageFavorites}
-              className="flex items-center space-x-2 px-4 py-2 bg-white text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
-              title="Manage Favorites"
+              disabled
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Manage Favorites — not yet available"
             >
               <Heart className="h-4 w-4" />
               <span>Favorites</span>

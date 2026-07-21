@@ -207,6 +207,26 @@ export default function ProcurementAutomation() {
     return costSavings.reduce((sum, item) => sum + item.savings, 0)
   }
 
+  // ---- Client-side artifact helpers.
+  // The procurement backend exposes no automation-rule CRUD/test/log endpoints
+  // (only GET insights), so these modals produce a real downloadable artifact
+  // rather than a fake API call. ----
+  const triggerDownload = (filename: string, mime: string, content: string) => {
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadJson = (prefix: string, data: unknown) => {
+    triggerDownload(`${prefix}-${Date.now()}.json`, 'application/json', JSON.stringify(data, null, 2))
+  }
+
   return (
     <div className="p-6 space-y-3 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -953,7 +973,7 @@ export default function ProcurementAutomation() {
           aiEnabled: selectedAutomation.aiEnabled
         } : undefined}
         onSubmit={(data) => {
-          console.log('Configure rule:', data);
+          downloadJson('automation-rule-config', data);
           setIsConfigureModalOpen(false);
         }}
         isNew={isNewRule}
@@ -975,7 +995,7 @@ export default function ProcurementAutomation() {
           aiEnabled: selectedAutomation.aiEnabled
         } : undefined}
         onSubmit={(data) => {
-          console.log('Test automation:', data);
+          downloadJson('automation-test-run', data);
           setIsTestModalOpen(false);
         }}
       />
@@ -996,7 +1016,7 @@ export default function ProcurementAutomation() {
           aiEnabled: selectedAutomation.aiEnabled
         } : undefined}
         onExport={(data) => {
-          console.log('Export logs:', data);
+          downloadJson('automation-logs', data);
           setIsLogsModalOpen(false);
         }}
       />
@@ -1017,7 +1037,7 @@ export default function ProcurementAutomation() {
           aiEnabled: selectedAutomation.aiEnabled
         } : undefined}
         onSubmit={(data) => {
-          console.log('Manage automation:', data);
+          downloadJson('automation-settings', data);
           setIsManageModalOpen(false);
         }}
       />

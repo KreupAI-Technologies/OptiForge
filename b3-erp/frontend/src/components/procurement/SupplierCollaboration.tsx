@@ -43,37 +43,61 @@ const SupplierCollaboration: React.FC<SupplierCollaborationProps> = () => {
   // Supplier data (loaded from API)
   const [suppliers, setSuppliers] = useState<any[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadCollaboration = async () => {
-      try {
-        const data = await procurementPagesService.getCollaborationInsights();
-        const partners = Array.isArray(data?.partners) ? data.partners : [];
-        const mapped = partners.map((p: any) => ({
-          id: p?.vendorId ?? '',
-          name: p?.vendorName ?? '',
-          contact: p?.contact ?? '',
-          email: p?.email ?? '',
-          phone: p?.phone ?? '',
-          status: p?.status ?? '',
-          tier: p?.tier ?? '',
-          projects: p?.openThreads ?? 0,
-          rating: p?.rating ?? 0,
-          lastActivity: p?.lastActivity ?? '',
-          collaborationScore: p?.sharedDocuments ?? 0
-        }));
-        if (!cancelled && mapped.length > 0) {
-          setSuppliers(mapped);
-        }
-      } catch (err) {
-        console.error('Failed to load collaboration insights:', err);
+  const loadCollaboration = React.useCallback(async () => {
+    try {
+      const data = await procurementPagesService.getCollaborationInsights();
+      const partners = Array.isArray(data?.partners) ? data.partners : [];
+      const mapped = partners.map((p: any) => ({
+        id: p?.vendorId ?? '',
+        name: p?.vendorName ?? '',
+        contact: p?.contact ?? '',
+        email: p?.email ?? '',
+        phone: p?.phone ?? '',
+        status: p?.status ?? '',
+        tier: p?.tier ?? '',
+        projects: p?.openThreads ?? 0,
+        rating: p?.rating ?? 0,
+        lastActivity: p?.lastActivity ?? '',
+        collaborationScore: p?.sharedDocuments ?? 0
+      }));
+      if (mapped.length > 0) {
+        setSuppliers(mapped);
       }
-    };
-    loadCollaboration();
-    return () => {
-      cancelled = true;
-    };
+    } catch (err) {
+      console.error('Failed to load collaboration insights:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadCollaboration();
+  }, [loadCollaboration]);
+
+  // Persist a collaboration action as a supplier-portal message record, then refresh.
+  const persistCollaboration = async (
+    type: 'rfq' | 'po' | 'invoice' | 'quality' | 'general',
+    subject: string,
+    data: any,
+  ) => {
+    const target = selectedSupplier ?? suppliers[0];
+    if (!target?.id) {
+      console.error('No supplier selected for collaboration action.');
+      return;
+    }
+    try {
+      await procurementPagesService.createSupplierPortalMessage({
+        supplierId: target.id,
+        supplierName: target.name,
+        type,
+        subject,
+        message: data?.message || data?.notes || subject,
+        status: 'unread',
+        priority: (data?.priority as string) || 'medium',
+      });
+      await loadCollaboration();
+    } catch (err) {
+      console.error('Failed to persist collaboration action:', err);
+    }
+  };
 
   // Mock collaboration projects
   const collaborationProjects = [
@@ -1107,7 +1131,7 @@ const SupplierCollaboration: React.FC<SupplierCollaborationProps> = () => {
         onClose={() => setIsShareForecastModalOpen(false)}
         supplier={selectedSupplier}
         onSubmit={(data) => {
-          console.log('Share forecast:', data);
+          void persistCollaboration('rfq', `Demand forecast shared (${data?.period ?? ''})`, data);
           setIsShareForecastModalOpen(false);
         }}
       />
@@ -1117,7 +1141,7 @@ const SupplierCollaboration: React.FC<SupplierCollaborationProps> = () => {
         onClose={() => setIsRequestQuotesModalOpen(false)}
         supplier={selectedSupplier}
         onSubmit={(data) => {
-          console.log('Request quotes:', data);
+          void persistCollaboration('rfq', 'Quote request', data);
           setIsRequestQuotesModalOpen(false);
         }}
       />
@@ -1127,7 +1151,7 @@ const SupplierCollaboration: React.FC<SupplierCollaborationProps> = () => {
         onClose={() => setIsCollaborateDesignModalOpen(false)}
         supplier={selectedSupplier}
         onSubmit={(data) => {
-          console.log('Start collaboration:', data);
+          void persistCollaboration('general', 'Design collaboration', data);
           setIsCollaborateDesignModalOpen(false);
         }}
       />
@@ -1137,7 +1161,7 @@ const SupplierCollaboration: React.FC<SupplierCollaborationProps> = () => {
         onClose={() => setIsMessageSuppliersModalOpen(false)}
         supplier={selectedSupplier}
         onSubmit={(data) => {
-          console.log('Send message:', data);
+          void persistCollaboration('general', data?.subject ?? 'Message to supplier', data);
           setIsMessageSuppliersModalOpen(false);
         }}
       />

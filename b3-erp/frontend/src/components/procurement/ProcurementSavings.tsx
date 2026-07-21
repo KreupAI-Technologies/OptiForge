@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   DollarSign, TrendingUp, Target, Zap, BarChart3, Award, Plus,
-  Edit, Download, RefreshCw, Settings, CheckCircle, XCircle,
+  Edit, Trash2, Download, RefreshCw, Settings, CheckCircle, XCircle,
   AlertCircle, FileText, Calendar, Star, TrendingDown, Activity,
   Percent, Package, Clock, Filter, Search, Eye, Send, ArrowUpRight
 } from 'lucide-react';
@@ -190,9 +190,39 @@ const ProcurementSavings: React.FC = () => {
     }
   };
 
+  const handleEditInitiative = async (initiative: SavingsInitiative) => {
+    const name = window.prompt('Initiative title:', initiative.name)?.trim();
+    if (!name) return;
+    const actualStr = window.prompt('Actual savings ($):', String(initiative.actualSavings));
+    if (actualStr === null) return;
+    const actualSavings = Number(actualStr) || 0;
+    try {
+      await procurementSavingsService.updateInitiative(initiative.id, {
+        title: name,
+        actualSavings,
+      });
+      await loadInitiatives();
+    } catch (err) {
+      console.error('Failed to update savings initiative:', err);
+      alert('Failed to update savings initiative. Please try again.');
+    }
+  };
+
+  const handleDeleteInitiative = async (initiative: SavingsInitiative) => {
+    if (!window.confirm(`Delete savings initiative "${initiative.name}"? This cannot be undone.`)) return;
+    try {
+      await procurementSavingsService.deleteInitiative(initiative.id);
+      await loadInitiatives();
+    } catch (err) {
+      console.error('Failed to delete savings initiative:', err);
+      alert('Failed to delete savings initiative. Please try again.');
+    }
+  };
+
   const handleAnalyzeTrends = () => {
-    console.log('Analyzing savings trends...');
-    alert('Analyze Savings Trends - This would show monthly performance, category trends, savings type distribution, and forecasts.');
+    // No analytics endpoint exists (savings-initiatives is CRUD only); switch to
+    // the analytics tab which renders the already-fetched savings insight charts.
+    setActiveTab('analytics');
   };
 
   const handleManageBaselines = () => {
@@ -201,8 +231,7 @@ const ProcurementSavings: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    console.log('Refreshing savings data...');
-    alert('Refreshing Savings Data - Syncing from all systems and updating initiative status.');
+    void loadInitiatives();
   };
 
   const handleSettings = () => {
@@ -553,6 +582,7 @@ const ProcurementSavings: React.FC = () => {
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -605,6 +635,24 @@ const ProcurementSavings: React.FC = () => {
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(initiative.status)}`}>
                         {initiative.status}
                       </span>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditInitiative(initiative)}
+                          className="inline-flex items-center px-2 py-1 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 text-xs"
+                          title="Edit initiative"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteInitiative(initiative)}
+                          className="inline-flex items-center px-2 py-1 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-xs"
+                          title="Delete initiative"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

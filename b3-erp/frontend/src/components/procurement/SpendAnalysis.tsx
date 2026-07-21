@@ -220,6 +220,31 @@ export default function SpendAnalysis() {
   const calculateTotalSpend = () => spendByCategory.reduce((sum, cat) => sum + cat.current, 0)
   const calculateTotalSavings = () => savingsOpportunities.reduce((sum, opp) => sum + opp.potential, 0)
 
+  // ---- Client-side artifact helpers (no backend persistence endpoint exists) ----
+  const triggerDownload = (filename: string, mime: string, content: string) => {
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadJson = (prefix: string, data: unknown) => {
+    triggerDownload(`${prefix}-${Date.now()}.json`, 'application/json', JSON.stringify(data, null, 2))
+  }
+
+  const exportSpendData = (_options: unknown) => {
+    const header = 'Category,Current Spend,Previous Spend,Budget,Variance,Suppliers,Transactions'
+    const rows = spendByCategory.map((c) =>
+      [c.category, c.current, c.previous, c.budget, c.variance, c.suppliers, c.transactions].join(',')
+    )
+    triggerDownload(`spend-analysis-${Date.now()}.csv`, 'text/csv', [header, ...rows].join('\n'))
+  }
+
   return (
     <div className="p-6 space-y-3 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -977,12 +1002,15 @@ export default function SpendAnalysis() {
         </div>
       </div>
 
-      {/* Spend Analysis Modals */}
+      {/* Spend Analysis Modals.
+          Note: procurement backend exposes no report/schedule/dashboard persistence
+          endpoints (spend-analysis + insights controllers are GET-only), so these
+          modals produce a real client-side artifact instead of a fake API call. */}
       <CreateCustomReportModal
         isOpen={isCreateReportModalOpen}
         onClose={() => setIsCreateReportModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Creating spend analysis report:', data)
+          downloadJson('spend-analysis-report-config', data)
           setIsCreateReportModalOpen(false)
         }}
       />
@@ -991,7 +1019,7 @@ export default function SpendAnalysis() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         onSubmit={(options) => {
-          console.log('Exporting spend analysis:', options)
+          exportSpendData(options)
           setIsExportModalOpen(false)
         }}
         reportName="Spend Analysis Report"
@@ -1001,7 +1029,7 @@ export default function SpendAnalysis() {
         isOpen={isScheduleReportModalOpen}
         onClose={() => setIsScheduleReportModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Scheduling spend analysis:', data)
+          downloadJson('spend-analysis-schedule', data)
           setIsScheduleReportModalOpen(false)
         }}
       />
@@ -1010,7 +1038,7 @@ export default function SpendAnalysis() {
         isOpen={isDashboardCustomizationModalOpen}
         onClose={() => setIsDashboardCustomizationModalOpen(false)}
         onSubmit={(data) => {
-          console.log('Customizing spend dashboard:', data)
+          downloadJson('spend-dashboard-layout', data)
           setIsDashboardCustomizationModalOpen(false)
         }}
       />
