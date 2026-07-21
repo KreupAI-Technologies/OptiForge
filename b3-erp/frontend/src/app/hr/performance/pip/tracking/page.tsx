@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
-import { HrTalentService } from '@/services/hr-talent.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 import { Clock, CheckCircle, AlertTriangle, ChevronRight, Calculator, Calendar } from 'lucide-react';
 
 interface PIP {
@@ -16,6 +15,25 @@ interface PIP {
   actionItems: { id: string; text: string; completed: boolean }[];
 }
 
+/** Map a NestJS PIP row onto the page's view model. */
+function mapPip(r: any): PIP {
+  const items = Array.isArray(r?.actionItems) ? r.actionItems : [];
+  return {
+    id: String(r?.id ?? ''),
+    employee: r?.employeeName ?? r?.employeeId ?? 'Unknown',
+    role: r?.role ?? '',
+    startDate: r?.startDate ?? '',
+    endDate: r?.endDate ?? '',
+    status: (r?.status ?? 'active') as PIP['status'],
+    progress: Number(r?.progress ?? 0),
+    actionItems: items.map((it: any, idx: number) => ({
+      id: String(it?.id ?? idx),
+      text: it?.text ?? it?.description ?? '',
+      completed: Boolean(it?.completed),
+    })),
+  };
+}
+
 export default function PIPTrackingPage() {
   const [activePIPs, setActivePIPs] = useState<PIP[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,8 +44,8 @@ export default function PIPTrackingPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrPagesService.performanceReviews<any[]>();
-        if (!cancelled) setActivePIPs(Array.isArray(rows) ? (rows as any) : []);
+        const { data } = await PerformanceManagementService.getPIPs();
+        if (!cancelled) setActivePIPs((data ?? []).map(mapPip));
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load data');
@@ -58,10 +76,11 @@ export default function PIPTrackingPage() {
       pip.id === pipId ? { ...pip, actionItems: updatedItems, progress: newProgress } : pip
     ));
 
-    // Persist
-    void HrTalentService.updatePerformance(pipId, {
-      data: { actionItems: updatedItems, progress: newProgress }
-    }).catch(() => {
+    // Persist: PUT the full checklist + derived progress to the PIP.
+    void PerformanceManagementService.updatePIP(pipId, {
+      actionItems: updatedItems,
+      progress: newProgress,
+    } as any).catch(() => {
       // Revert on failure
       setActivePIPs(prev => prev.map(pip =>
         pip.id === pipId ? target : pip

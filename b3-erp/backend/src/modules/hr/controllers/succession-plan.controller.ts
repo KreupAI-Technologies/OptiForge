@@ -25,6 +25,12 @@ export class SuccessionPlanController {
     return this.service.findAll(companyId || 'company-1', recordType);
   }
 
+  /** Computed analytics — must be declared before the ':id' route. */
+  @Get('analytics')
+  analytics(@Query('companyId') companyId: string) {
+    return this.service.analytics(companyId || 'company-1');
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string): Promise<SuccessionPlan> {
     return this.service.findOne(id);

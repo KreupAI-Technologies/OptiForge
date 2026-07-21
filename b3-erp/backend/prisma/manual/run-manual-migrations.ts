@@ -132,6 +132,8 @@ const MIGRATION_ORDER: string[] = [
     // Net-new HR Documents backend (policies + repository/compliance columns)
     'orphan_hr_policies.sql',
     'orphan_hr_documents_repo_compliance.sql',
+    // Net-new HR Performance / Succession / Biometric backends
+    'orphan_hr_performance_net_new.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

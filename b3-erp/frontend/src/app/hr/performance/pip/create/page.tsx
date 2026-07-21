@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, User, Calendar, Plus, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 
 interface ActionItem {
   id: string;
@@ -50,20 +49,21 @@ export default function CreatePIPPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/hr/disciplinary-actions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId: 'default-company-id',
-          employeeName: formData.employeeName,
-          actionType: 'PIP',
-          actionDate: formData.startDate,
-          description: formData.reason,
-          justification: formData.goals,
-          notes: JSON.stringify(formData.actionItems)
-        })
-      });
-      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      await PerformanceManagementService.createPIP({
+        employeeName: formData.employeeName,
+        reason: formData.reason,
+        goals: formData.goals,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        status: 'active',
+        // Normalise the local action items into the PIP checklist shape.
+        actionItems: formData.actionItems.map((it) => ({
+          id: it.id,
+          text: it.description,
+          dueDate: it.dueDate,
+          completed: false,
+        })),
+      } as any);
       toast({ title: 'PIP created successfully!' });
       router.push('/hr/performance/pip/tracking');
     } catch (err) {

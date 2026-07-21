@@ -244,6 +244,24 @@ import { SuccessionPlanService } from './services/succession-plan.service';
 import { ProbationReviewService } from './services/probation-review.service';
 import { PerformanceGoalService } from './services/performance-goal.service';
 
+// Net-new HR Performance / Succession / Biometric backends
+import { Recognition } from './entities/recognition.entity';
+import { RecognitionComment } from './entities/recognition-comment.entity';
+import { ReviewMeeting } from './entities/review-meeting.entity';
+import { KpiAssignment } from './entities/kpi-assignment.entity';
+import { PerformanceImprovementPlan } from './entities/performance-improvement-plan.entity';
+import { BiometricDevice } from './entities/biometric-device.entity';
+import { RecognitionController } from './controllers/recognition.controller';
+import { ReviewMeetingController } from './controllers/review-meeting.controller';
+import { KpiAssignmentController } from './controllers/kpi-assignment.controller';
+import { PerformanceImprovementPlanController } from './controllers/performance-improvement-plan.controller';
+import { BiometricDeviceController } from './controllers/biometric-device.controller';
+import { RecognitionService } from './services/recognition.service';
+import { ReviewMeetingService } from './services/review-meeting.service';
+import { KpiAssignmentService } from './services/kpi-assignment.service';
+import { PerformanceImprovementPlanService } from './services/performance-improvement-plan.service';
+import { BiometricDeviceService } from './services/biometric-device.service';
+
 // Onboarding / Offboarding tasks (orphan-endpoint build) — direct imports
 import { OnboardingTask } from './entities/onboarding-task.entity';
 import { OffboardingTask } from './entities/offboarding-task.entity';
@@ -499,6 +517,13 @@ import { PrismaModule } from '../prisma/prisma.module';
       SuccessionPlan,
       ProbationReview,
       PerformanceGoal,
+      // Net-new HR Performance / Succession / Biometric backends
+      Recognition,
+      RecognitionComment,
+      ReviewMeeting,
+      KpiAssignment,
+      PerformanceImprovementPlan,
+      BiometricDevice,
       OnboardingTask,
       OffboardingTask,
       // Payroll orphan-endpoint build
@@ -634,6 +659,12 @@ import { PrismaModule } from '../prisma/prisma.module';
     SuccessionPlanController,
     ProbationReviewController,
     PerformanceGoalController,
+    // Net-new HR Performance / Succession / Biometric backends
+    RecognitionController,
+    ReviewMeetingController,
+    KpiAssignmentController,
+    PerformanceImprovementPlanController,
+    BiometricDeviceController,
     OnboardingTaskController,
     OnboardingController,
     OvertimeSettingsController,
@@ -760,6 +791,12 @@ import { PrismaModule } from '../prisma/prisma.module';
     SuccessionPlanService,
     ProbationReviewService,
     PerformanceGoalService,
+    // Net-new HR Performance / Succession / Biometric backends
+    RecognitionService,
+    ReviewMeetingService,
+    KpiAssignmentService,
+    PerformanceImprovementPlanService,
+    BiometricDeviceService,
     OnboardingTaskService,
     OffboardingTaskService,
     // Payroll orphan-endpoint build

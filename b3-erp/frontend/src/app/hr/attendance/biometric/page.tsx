@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Fingerprint, Plus, Edit, Activity, MapPin, Wifi, WifiOff, RefreshCw, AlertTriangle, CheckCircle, Search, Filter } from 'lucide-react';
 import DataTable, { Column } from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
-import { HrAttendanceService } from '@/services/hr-payroll.service';
+import { AttendanceService } from '@/services/attendance.service';
 
 interface BiometricDevice {
   id: string;
@@ -32,29 +32,43 @@ export default function BiometricDevicesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deviceForm, setDeviceForm] = useState({
+    deviceId: '',
+    name: '',
+    model: '',
+    location: '',
+    ipAddress: '',
+    port: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const mapRow = (r: any): BiometricDevice => ({
+    id: String(r.id ?? ''),
+    deviceId: r.deviceId ?? '',
+    name: r.name ?? '',
+    model: r.model ?? '',
+    location: r.location ?? '',
+    ipAddress: r.ipAddress ?? '',
+    port: r.port ?? 4370,
+    status: (r.status ?? 'online') as BiometricDevice['status'],
+    lastSyncTime: r.lastSyncAt ?? '',
+    totalPunchesToday: 0,
+    enrolledUsers: r.enrolledUsers ?? 0,
+    storageUsed: 0,
+    batteryBackup: r.batteryBackup ?? false,
+    installedDate: r.createdAt ?? '',
+  });
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setIsLoading(true); setLoadError(null);
       try {
-        const raw = await HrAttendanceService.getBiometric();
+        const raw = await AttendanceService.getBiometricDevices();
         if (!cancelled) {
-          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
-            id: String(r.id ?? r.details?.id ?? ''),
-            deviceId: r.details?.deviceId ?? r.employeeCode ?? '',
-            name: r.details?.name ?? r.employeeName ?? '',
-            model: r.details?.model ?? '',
-            location: r.details?.location ?? r.department ?? '',
-            ipAddress: r.details?.ipAddress ?? '',
-            port: r.details?.port ?? 4370,
-            status: (r.status ?? r.details?.status ?? 'online') as BiometricDevice['status'],
-            lastSyncTime: r.details?.lastSyncTime ?? r.date ?? '',
-            totalPunchesToday: r.details?.totalPunchesToday ?? 0,
-            enrolledUsers: r.details?.enrolledUsers ?? 0,
-            storageUsed: r.details?.storageUsed ?? 0,
-            batteryBackup: r.details?.batteryBackup ?? false,
-            installedDate: r.details?.installedDate ?? '',
-          } as BiometricDevice));
+          const mapped = (Array.isArray(raw) ? raw : []).map(mapRow);
           setRows(mapped);
         }
       } catch (e) { if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); } }
@@ -62,6 +76,25 @@ export default function BiometricDevicesPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const handleAddDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true); setSaveError(null);
+    try {
+      const created = await AttendanceService.registerBiometricDevice({
+        ...deviceForm,
+        port: parseInt(deviceForm.port) || 4370,
+        status: 'online',
+      });
+      setRows((prev) => [mapRow(created), ...prev]);
+      setShowAddModal(false);
+      setDeviceForm({ deviceId: '', name: '', model: '', location: '', ipAddress: '', port: '' });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to add device');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return rows.filter(device => {
@@ -296,7 +329,10 @@ export default function BiometricDevicesPage() {
             <RefreshCw className="h-4 w-4" />
             Sync All
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button
+            onClick={() => { setSaveError(null); setShowAddModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
             <Plus className="h-4 w-4" />
             Add Device
           </button>
@@ -323,6 +359,106 @@ export default function BiometricDevicesPage() {
 
       {/* Devices Table */}
       <DataTable data={filteredData} columns={columns} />
+
+      {/* Add Device Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Fingerprint className="h-5 w-5 text-blue-600" />
+                Add Biometric Device
+              </h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleAddDevice} className="p-6 space-y-4">
+              {saveError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{saveError}</div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Device ID</label>
+                  <input
+                    type="text"
+                    value={deviceForm.deviceId}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, deviceId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={deviceForm.name}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <input
+                    type="text"
+                    value={deviceForm.model}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, model: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={deviceForm.location}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">IP Address</label>
+                  <input
+                    type="text"
+                    value={deviceForm.ipAddress}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, ipAddress: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                  <input
+                    type="number"
+                    value={deviceForm.port}
+                    onChange={(e) => setDeviceForm({ ...deviceForm, port: e.target.value })}
+                    placeholder="4370"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                >
+                  <Plus className="h-4 w-4" />
+                  {isSaving ? 'Saving...' : 'Add Device'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

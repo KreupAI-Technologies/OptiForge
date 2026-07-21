@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
-import { HrTalentService } from '@/services/hr-talent.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 import { Calendar, Clock, MapPin, Users, Plus, Video, Monitor } from 'lucide-react';
 
 interface Meeting {
@@ -17,6 +16,20 @@ interface Meeting {
   status: 'scheduled' | 'completed';
 }
 
+function mapMeeting(r: any): Meeting {
+  return {
+    id: String(r?.id ?? ''),
+    employeeName: r?.employeeName ?? '',
+    role: r?.role ?? '',
+    date: r?.scheduledDate ?? '',
+    time: r?.scheduledTime ?? '',
+    duration: r?.duration ?? '',
+    type: r?.type === 'in_person' ? 'in_person' : 'remote',
+    location: r?.location ?? '',
+    status: r?.status === 'completed' ? 'completed' : 'scheduled',
+  };
+}
+
 export default function ReviewMeetingsPage() {
   const [showModal, setShowModal] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -28,8 +41,8 @@ export default function ReviewMeetingsPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrPagesService.performanceReviews<any[]>();
-        if (!cancelled) setMeetings(Array.isArray(rows) ? (rows as any) : []);
+        const rows = await PerformanceManagementService.getReviewMeetings();
+        if (!cancelled) setMeetings(Array.isArray(rows) ? rows.map(mapMeeting) : []);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load data');
@@ -54,28 +67,30 @@ export default function ReviewMeetingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const [rescheduleTarget, setRescheduleTarget] = useState<Meeting | null>(null);
+  const [rescheduleForm, setRescheduleForm] = useState({ date: '', time: '', location: '' });
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     setSaveError(null);
-    const newMeeting: Omit<Meeting, 'id'> = {
-      employeeName: formData.employeeName,
-      role: 'Team Member',
-      date: formData.date,
-      time: formData.time,
-      duration: `${formData.duration} min`,
-      type: formData.type as 'in_person' | 'remote',
-      location: formData.location || (formData.type === 'remote' ? 'Google Meet' : 'TBD'),
-      status: 'scheduled'
-    };
 
     try {
-      const created = await HrTalentService.createPerformance<Meeting>(newMeeting as Meeting, {
-        recordType: 'review-meeting',
+      const created = await PerformanceManagementService.scheduleReviewMeeting({
+        employeeName: formData.employeeName,
+        role: 'Team Member',
+        scheduledDate: formData.date,
+        scheduledTime: formData.time,
+        duration: `${formData.duration} min`,
+        type: formData.type as 'in_person' | 'remote',
+        location: formData.location || (formData.type === 'remote' ? 'Google Meet' : 'TBD'),
         status: 'scheduled',
-      });
+      } as any);
 
-      setMeetings(prev => [...prev, { ...(newMeeting as Meeting), ...created } as Meeting].sort((a, b) =>
+      const mapped = mapMeeting(created);
+      setMeetings(prev => [...prev, mapped].sort((a, b) =>
         new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
       ));
 
@@ -92,6 +107,39 @@ export default function ReviewMeetingsPage() {
       setSaveError(err instanceof Error ? err.message : 'Failed to schedule meeting');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const openReschedule = (meeting: Meeting) => {
+    setRescheduleError(null);
+    setRescheduleTarget(meeting);
+    setRescheduleForm({ date: meeting.date, time: meeting.time, location: meeting.location });
+  };
+
+  const handleReschedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rescheduleTarget) return;
+    setIsRescheduling(true);
+    setRescheduleError(null);
+
+    try {
+      const updated = await PerformanceManagementService.rescheduleReviewMeeting(rescheduleTarget.id, {
+        scheduledDate: rescheduleForm.date,
+        scheduledTime: rescheduleForm.time,
+        location: rescheduleForm.location || undefined,
+      });
+
+      const mapped = mapMeeting(updated);
+      setMeetings(prev => prev
+        .map(m => (m.id === rescheduleTarget.id ? mapped : m))
+        .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime())
+      );
+
+      setRescheduleTarget(null);
+    } catch (err) {
+      setRescheduleError(err instanceof Error ? err.message : 'Failed to reschedule meeting');
+    } finally {
+      setIsRescheduling(false);
     }
   };
 
@@ -155,7 +203,10 @@ export default function ReviewMeetingsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 self-start sm:self-center">
-                    <button className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+                    <button
+                      onClick={() => openReschedule(meeting)}
+                      className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                    >
                       Reschedule
                     </button>
                     {meeting.type === 'remote' && (
@@ -307,6 +358,86 @@ export default function ReviewMeetingsPage() {
                   className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
                   {isSaving ? 'Scheduling…' : 'Schedule'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Reschedule Meeting</h2>
+              <button
+                onClick={() => setRescheduleTarget(null)}
+                className="text-gray-400 hover:text-gray-500 text-2xl"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleReschedule} className="p-6 space-y-2">
+              <p className="text-sm text-gray-500">
+                Rescheduling review with <span className="font-medium text-gray-700">{rescheduleTarget.employeeName}</span>.
+              </p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                    value={rescheduleForm.date}
+                    onChange={e => setRescheduleForm({ ...rescheduleForm, date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                  <input
+                    type="time"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                    value={rescheduleForm.time}
+                    onChange={e => setRescheduleForm({ ...rescheduleForm, time: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location (optional)</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="e.g. Conference Room B"
+                  value={rescheduleForm.location}
+                  onChange={e => setRescheduleForm({ ...rescheduleForm, location: e.target.value })}
+                />
+              </div>
+
+              {rescheduleError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {rescheduleError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setRescheduleTarget(null)}
+                  className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRescheduling}
+                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
+                >
+                  {isRescheduling ? 'Rescheduling…' : 'Reschedule'}
                 </button>
               </div>
             </form>

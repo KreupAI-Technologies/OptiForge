@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
-import { HrTalentService } from '@/services/hr-talent.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 import { UserCheck, Plus, Trash2, Search } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -26,7 +25,6 @@ interface Employee {
 export default function KPIAssignmentPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
-  // Mock Data
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -36,8 +34,34 @@ export default function KPIAssignmentPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrPagesService.performanceGoals<any[]>();
-        if (!cancelled) setEmployees(Array.isArray(rows) ? (rows as any) : []);
+        const res = await PerformanceManagementService.getKPIAssignments();
+        const rows: any[] = Array.isArray(res?.data) ? res.data : [];
+        // Group assignments by employeeId to build the Employee[] list.
+        const byEmployee = new Map<string, Employee>();
+        for (const row of rows) {
+          const empId = String(row.employeeId ?? '');
+          if (!empId) continue;
+          let emp = byEmployee.get(empId);
+          if (!emp) {
+            emp = {
+              id: empId,
+              name: row.employeeName ?? empId,
+              role: '',
+              kpis: [],
+            };
+            byEmployee.set(empId, emp);
+          }
+          emp.kpis.push({
+            id: String(row.id ?? ''),
+            title: row.title ?? '',
+            description: row.description ?? '',
+            target: row.target ?? '',
+            weight: Number(row.weightage ?? 0),
+            dueDate: row.dueDate ?? '',
+            status: 'assigned',
+          });
+        }
+        if (!cancelled) setEmployees(Array.from(byEmployee.values()));
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load data');
@@ -68,28 +92,25 @@ export default function KPIAssignmentPage() {
     if (!selectedEmployeeId) return;
     setIsSubmitting(true);
     setSubmitError(null);
-    const payload = {
-      employeeId: selectedEmployeeId,
-      title: formData.title,
-      description: formData.description,
-      target: formData.target,
-      weight: parseInt(formData.weight),
-      dueDate: formData.dueDate,
-      status: 'assigned' as const
-    };
+    const weight = parseInt(formData.weight);
     try {
-      const created = await HrTalentService.createPerformance<typeof payload>(payload, {
-        recordType: 'kpi-assignment',
+      const created = await PerformanceManagementService.createKPIAssignment({
+        employeeId: selectedEmployeeId,
+        employeeName: selectedEmployee?.name,
+        title: formData.title,
+        description: formData.description,
+        target: formData.target,
+        weightage: weight,
+        dueDate: formData.dueDate,
         status: 'assigned',
-        employeeCode: selectedEmployeeId
-      });
+      } as any);
       const newKPI: KPI = {
         id: String((created as any)?.id ?? Date.now().toString()),
-        title: payload.title,
-        description: payload.description,
-        target: payload.target,
-        weight: payload.weight,
-        dueDate: payload.dueDate,
+        title: formData.title,
+        description: formData.description,
+        target: formData.target,
+        weight,
+        dueDate: formData.dueDate,
         status: 'assigned'
       };
       setEmployees(prev => prev.map(emp =>

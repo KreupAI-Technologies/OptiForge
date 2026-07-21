@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
-import { HrTalentService } from '@/services/hr-talent.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 import { CheckCircle, AlertTriangle, FileText, XCircle, Clock } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -16,6 +15,25 @@ interface PIPReview {
   outcome?: string;
 }
 
+/** Map a NestJS PIP row onto the review view model. */
+function mapPipReview(r: any): PIPReview {
+  // Treat 'active' PIPs as awaiting a review decision.
+  const raw = String(r?.status ?? 'active');
+  const status: PIPReview['status'] =
+    raw === 'passed' || raw === 'failed' || raw === 'extended'
+      ? raw
+      : 'pending_review';
+  return {
+    id: String(r?.id ?? ''),
+    employee: r?.employeeName ?? r?.employeeId ?? 'Unknown',
+    role: r?.role ?? '',
+    startDate: r?.startDate ?? '',
+    endDate: r?.endDate ?? '',
+    status,
+    outcome: r?.reviewNotes ?? r?.outcome ?? undefined,
+  };
+}
+
 export default function PIPReviewPage() {
   const [reviews, setReviews] = useState<PIPReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,8 +44,8 @@ export default function PIPReviewPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrPagesService.performanceReviews<any[]>();
-        if (!cancelled) setReviews(Array.isArray(rows) ? (rows as any) : []);
+        const { data } = await PerformanceManagementService.getPIPs();
+        if (!cancelled) setReviews((data ?? []).map(mapPipReview));
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load data');
@@ -51,10 +69,11 @@ export default function PIPReviewPage() {
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      await HrTalentService.updatePerformance(selectedReview.id, {
-        data: { status: decision.type, outcome: decision.notes },
-        status: decision.type
-      });
+      await PerformanceManagementService.transitionPIP(
+        selectedReview.id,
+        decision.type,
+        decision.notes,
+      );
       setReviews(prev => prev.map(r =>
         r.id === selectedReview.id
           ? { ...r, status: decision.type as any, outcome: decision.notes }

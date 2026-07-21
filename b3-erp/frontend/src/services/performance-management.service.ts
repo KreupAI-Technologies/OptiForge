@@ -1243,11 +1243,15 @@ export class PerformanceManagementService {
     if (USE_MOCK_DATA) {
       return [];
     }
+    // NestJS: GET /hr/review-meetings?companyId&reviewId&employeeId&status -> bare ReviewMeeting[].
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.reviewId) params.append('reviewId', options.reviewId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
-    const response = await fetch(`/api/hr/performance/review-meetings?${params.toString()}`);
-    return response.json();
+    if (options?.status) params.append('status', options.status);
+    const response = await perfFetch(`/hr/review-meetings?${params.toString()}`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as ReviewMeeting[];
   }
 
   static async scheduleReviewMeeting(data: Partial<ReviewMeeting>): Promise<ReviewMeeting> {
@@ -1261,9 +1265,32 @@ export class PerformanceManagementService {
         ...data,
       } as ReviewMeeting;
     }
-    const response = await fetch('/api/hr/performance/review-meetings', {
+    // NestJS: POST /hr/review-meetings (companyId in body).
+    const response = await perfFetch('/hr/review-meetings', {
       method: 'POST',
-      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
+    });
+    return response.json();
+  }
+
+  static async rescheduleReviewMeeting(
+    id: string,
+    data: { scheduledDate?: string; scheduledTime?: string; location?: string },
+  ): Promise<ReviewMeeting> {
+    // NestJS: POST /hr/review-meetings/:id/reschedule
+    const response = await perfFetch(`/hr/review-meetings/${id}/reschedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  static async updateReviewMeeting(id: string, data: Partial<ReviewMeeting>): Promise<ReviewMeeting> {
+    // NestJS: PUT /hr/review-meetings/:id
+    const response = await perfFetch(`/hr/review-meetings/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1377,11 +1404,15 @@ export class PerformanceManagementService {
       if (options?.fromEmployeeId) filtered = filtered.filter(r => r.fromEmployeeId === options.fromEmployeeId);
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/recognitions?companyId&toEmployeeId&fromEmployeeId -> bare Recognition[].
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.toEmployeeId) params.append('toEmployeeId', options.toEmployeeId);
     if (options?.fromEmployeeId) params.append('fromEmployeeId', options.fromEmployeeId);
-    const response = await fetch(`/api/hr/performance/recognitions?${params.toString()}`);
-    return response.json();
+    const response = await perfFetch(`/hr/recognitions?${params.toString()}`);
+    const rows = await response.json();
+    const arr: Recognition[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async createRecognition(data: Partial<Recognition>): Promise<Recognition> {
@@ -1404,11 +1435,11 @@ export class PerformanceManagementService {
       mockRecognitions.push(newRecognition);
       return newRecognition;
     }
-    const response = await fetch('/api/hr/performance/recognitions', {
+    // NestJS: POST /hr/recognitions (companyId in body).
+    const response = await perfFetch('/hr/recognitions', {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -1423,11 +1454,31 @@ export class PerformanceManagementService {
       }
       return recognition!;
     }
-    const response = await fetch(`/api/hr/performance/recognitions/${id}/like`, {
+    // NestJS: POST /hr/recognitions/:id/like
+    const response = await perfFetch(`/hr/recognitions/${id}/like`, {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employeeId }),
+    });
+    return response.json();
+  }
+
+  static async getRecognitionComments(id: string): Promise<RecognitionComment[]> {
+    // NestJS: GET /hr/recognitions/:id/comments
+    const response = await perfFetch(`/hr/recognitions/${id}/comments`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as RecognitionComment[];
+  }
+
+  static async createRecognitionComment(
+    id: string,
+    data: { authorId?: string; authorName?: string; body: string },
+  ): Promise<RecognitionComment> {
+    // NestJS: POST /hr/recognitions/:id/comments
+    const response = await perfFetch(`/hr/recognitions/${id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
     });
     return response.json();
   }
@@ -1513,7 +1564,7 @@ export class PerformanceManagementService {
     return response.json();
   }
 
-  static async getKPIAssignments(options?: {
+  static async getKpiAssignments(options?: {
     kpiId?: string;
     employeeId?: string;
     departmentId?: string;
@@ -1526,12 +1577,32 @@ export class PerformanceManagementService {
       if (options?.departmentId) filtered = filtered.filter(a => a.departmentId === options.departmentId);
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/kpi-assignments?companyId&employeeId&status -> bare KpiAssignment[].
     const params = new URLSearchParams();
-    if (options?.kpiId) params.append('kpiId', options.kpiId);
+    params.append('companyId', COMPANY_ID);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
-    if (options?.departmentId) params.append('departmentId', options.departmentId);
-    const response = await fetch(`/api/hr/performance/kpi-assignments?${params.toString()}`);
-    return response.json();
+    if (options?.kpiId) params.append('kpiMasterId', options.kpiId);
+    if (options?.status) params.append('status', options.status);
+    const response = await perfFetch(`/hr/kpi-assignments?${params.toString()}`);
+    const rows = await response.json();
+    let arr: KPIAssignment[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    // Controller filters by employeeId/kpiMasterId/status; apply remaining FE filters client-side.
+    if (options?.departmentId) arr = arr.filter((a) => a.departmentId === options.departmentId);
+    return { data: arr, total: arr.length };
+  }
+
+  /** Alias used by KPI assignment pages. */
+  static async getKPIAssignments(options?: {
+    kpiId?: string;
+    employeeId?: string;
+    departmentId?: string;
+    status?: string;
+  }): Promise<{ data: KPIAssignment[]; total: number }> {
+    return this.getKpiAssignments(options);
+  }
+
+  static async createKPIAssignment(data: Partial<KPIAssignment>): Promise<KPIAssignment> {
+    return this.assignKPI(data);
   }
 
   static async assignKPI(data: Partial<KPIAssignment>): Promise<KPIAssignment> {
@@ -1552,11 +1623,11 @@ export class PerformanceManagementService {
       mockKPIAssignments.push(newAssignment);
       return newAssignment;
     }
-    const response = await fetch('/api/hr/performance/kpi-assignments', {
+    // NestJS: POST /hr/kpi-assignments (companyId in body).
+    const response = await perfFetch('/hr/kpi-assignments', {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -1586,13 +1657,26 @@ export class PerformanceManagementService {
         updatedBy: 'current_user',
       };
     }
-    const response = await fetch(`/api/hr/performance/kpi-assignments/${assignmentId}/track`, {
-      method: 'POST',
-      credentials: 'include',
+    // NestJS kpi-assignments has no /track action route; model it as a PUT update.
+    const achievement =
+      data.actualValue != null ? data.actualValue : 0;
+    const response = await perfFetch(`/hr/kpi-assignments/${assignmentId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ currentValue: data.actualValue, notes: data.notes }),
     });
-    return response.json();
+    const row = await response.json();
+    return {
+      id: String(row?.id ?? assignmentId),
+      assignmentId,
+      trackingDate: new Date().toISOString().split('T')[0],
+      actualValue: data.actualValue,
+      targetValue: Number(row?.target ?? 0),
+      achievement,
+      variance: 0,
+      notes: data.notes,
+      updatedBy: 'current_user',
+    } as KPITracking;
   }
 
   // ========== Performance Improvement Plan ==========
@@ -1609,12 +1693,16 @@ export class PerformanceManagementService {
       if (options?.status) filtered = filtered.filter(p => p.status === options.status);
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/performance-pips?companyId&employeeId&managerId&status -> bare array.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.managerId) params.append('managerId', options.managerId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/performance/pips?${params.toString()}`);
-    return response.json();
+    const response = await perfFetch(`/hr/performance-pips?${params.toString()}`);
+    const rows = await response.json();
+    const arr: PerformanceImprovementPlan[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async getPIPById(id: string): Promise<PerformanceImprovementPlan> {
@@ -1623,7 +1711,8 @@ export class PerformanceManagementService {
       if (!pip) throw new Error('PIP not found');
       return pip;
     }
-    const response = await fetch(`/api/hr/performance/pips/${id}`);
+    // NestJS: GET /hr/performance-pips/:id
+    const response = await perfFetch(`/hr/performance-pips/${id}`);
     return response.json();
   }
 
@@ -1650,11 +1739,31 @@ export class PerformanceManagementService {
       mockPIPs.push(newPIP);
       return newPIP;
     }
-    const response = await fetch('/api/hr/performance/pips', {
+    // NestJS: POST /hr/performance-pips (companyId in body).
+    const response = await perfFetch('/hr/performance-pips', {
       method: 'POST',
-      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
+    });
+    return response.json();
+  }
+
+  static async updatePIP(id: string, data: Partial<PerformanceImprovementPlan>): Promise<PerformanceImprovementPlan> {
+    // NestJS: PUT /hr/performance-pips/:id
+    const response = await perfFetch(`/hr/performance-pips/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  static async transitionPIP(id: string, status: string, reviewNotes?: string): Promise<PerformanceImprovementPlan> {
+    // NestJS: POST /hr/performance-pips/:id/transition
+    const response = await perfFetch(`/hr/performance-pips/${id}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, reviewNotes }),
     });
     return response.json();
   }
@@ -1678,11 +1787,12 @@ export class PerformanceManagementService {
       }
       return pip!;
     }
-    const response = await fetch(`/api/hr/performance/pips/${pipId}/objectives/${objectiveId}`, {
+    // NestJS performance-pips has no per-objective route; persist via a PUT that
+    // merges the objective progress into the PIP's actionItems payload.
+    const response = await perfFetch(`/hr/performance-pips/${pipId}`, {
       method: 'PUT',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ objectives: [{ id: objectiveId, ...data }] }),
     });
     return response.json();
   }
@@ -1697,11 +1807,16 @@ export class PerformanceManagementService {
       }
       return pip!;
     }
-    const response = await fetch(`/api/hr/performance/pips/${id}/extend`, {
-      method: 'POST',
-      credentials: 'include',
+    // NestJS: POST /hr/performance-pips/:id/transition (status=extended) + PUT endDate.
+    await perfFetch(`/hr/performance-pips/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newEndDate, reason }),
+      body: JSON.stringify({ endDate: newEndDate }),
+    });
+    const response = await perfFetch(`/hr/performance-pips/${id}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'extended', reviewNotes: reason }),
     });
     return response.json();
   }
@@ -1717,11 +1832,14 @@ export class PerformanceManagementService {
       }
       return pip!;
     }
-    const response = await fetch(`/api/hr/performance/pips/${id}/conclude`, {
+    // NestJS: POST /hr/performance-pips/:id/transition (status passed/failed).
+    const response = await perfFetch(`/hr/performance-pips/${id}/transition`, {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ outcome, notes }),
+      body: JSON.stringify({
+        status: outcome === 'success' ? 'passed' : 'failed',
+        reviewNotes: notes,
+      }),
     });
     return response.json();
   }

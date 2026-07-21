@@ -49,51 +49,28 @@ export default function Page() {
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await fetch(`${API_BASE_URL}/hr/succession-plans?companyId=default-company-id`);
+        // Computed analytics from existing succession-plan rows (NestJS).
+        const res = await fetch(`${API_BASE_URL}/hr/succession-plans/analytics?companyId=company-1`, {
+          credentials: 'include',
+        });
         if (!res.ok) return;
-        const data = await res.json();
-        const plans = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-        if (plans.length === 0) return;
-
-        const totalCriticalPositions = plans.length;
-        const positionsWithSuccessors = plans.filter(
-          (p: any) => (Array.isArray(p?.successors) && p.successors.length > 0) || p?.hasSuccessor || p?.successorId
-        ).length;
-        const coverageRate = totalCriticalPositions > 0
-          ? Math.round((positionsWithSuccessors / totalCriticalPositions) * 100)
-          : 0;
-        const readinessScores = plans
-          .map((p: any) => Number(p?.readinessScore ?? p?.avgReadiness))
-          .filter((n: number) => !Number.isNaN(n));
-        const avgReadinessScore = readinessScores.length > 0
-          ? Math.round(readinessScores.reduce((a: number, b: number) => a + b, 0) / readinessScores.length)
-          : 0;
-        const highPotentialTalent = plans.filter(
-          (p: any) => p?.highPotential || p?.isHighPotential || p?.talentTier === 'high'
-        ).length;
-        const activeDevelopmentPlans = plans.filter(
-          (p: any) => p?.developmentPlan || p?.hasDevelopmentPlan || p?.status === 'in_development'
-        ).length;
-
-        const readyNow = plans.filter((p: any) =>
-          (p?.readinessLevel ?? p?.readiness ?? '').toString().toLowerCase().includes('ready now')
-        ).length;
+        const a = await res.json();
+        if (!a || typeof a !== 'object') return;
 
         setAnalyticsData((prev) => ({
           ...prev,
-          overview: {
-            totalCriticalPositions,
-            positionsWithSuccessors,
-            coverageRate,
-            avgReadinessScore,
-            highPotentialTalent,
-            activeDevelopmentPlans,
-          },
-          riskLevels: prev.riskLevels,
+          overview: a.overview ?? prev.overview,
+          // Only override the static layout arrays when the backend has real data.
+          byDepartment: Array.isArray(a.byDepartment) && a.byDepartment.length > 0
+            ? a.byDepartment
+            : prev.byDepartment,
+          readinessDistribution: Array.isArray(a.readinessDistribution) && a.readinessDistribution.length > 0
+            ? a.readinessDistribution
+            : prev.readinessDistribution,
+          riskLevels: Array.isArray(a.riskLevels) && a.riskLevels.length > 0
+            ? a.riskLevels
+            : prev.riskLevels,
         }));
-
-        // touch derived count to avoid unused-var lint while keeping static distribution layout
-        void readyNow;
       } catch {
         // keep defaults on failure
       }

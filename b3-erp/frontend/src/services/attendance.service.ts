@@ -567,6 +567,37 @@ export class AttendanceService {
   }
 
   /**
+   * List registered biometric devices (NestJS: GET /hr/biometric-devices).
+   */
+  static async getBiometricDevices(companyId = 'company-1'): Promise<any[]> {
+    if (USE_MOCK_DATA) return [];
+    const rows = await this.request<any>(
+      `/hr/biometric-devices?companyId=${encodeURIComponent(companyId)}`,
+    );
+    return Array.isArray(rows) ? rows : (rows?.data ?? []);
+  }
+
+  /**
+   * Register a new biometric device (NestJS: POST /hr/biometric-devices).
+   */
+  static async registerBiometricDevice(data: {
+    deviceId?: string;
+    name?: string;
+    model?: string;
+    location?: string;
+    ipAddress?: string;
+    port?: number;
+    status?: string;
+    companyId?: string;
+  }): Promise<any> {
+    if (USE_MOCK_DATA) return { success: true, ...data };
+    return this.request<any>('/hr/biometric-devices', {
+      method: 'POST',
+      body: JSON.stringify({ companyId: 'company-1', ...data }),
+    });
+  }
+
+  /**
    * Sync biometric logs from a device
    */
   static async syncBiometricLogs(deviceId: string, logs: any[]): Promise<any> {

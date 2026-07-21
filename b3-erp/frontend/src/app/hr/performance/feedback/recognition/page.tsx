@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
-import { HrTalentService } from '@/services/hr-talent.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 import { Award, ThumbsUp, Heart, Star, Plus, User } from 'lucide-react';
-import DataTable from '@/components/DataTable';
 
 interface Recognition {
   id: string;
@@ -14,6 +12,19 @@ interface Recognition {
   message: string;
   date: string;
   reactions: number;
+}
+
+/** Map a NestJS Recognition row onto the page's view model. */
+function mapRecognition(r: any): Recognition {
+  return {
+    id: String(r?.id ?? ''),
+    sender: r?.fromEmployeeName ?? 'Unknown',
+    recipient: r?.toEmployeeName ?? '',
+    coreValue: r?.category ?? r?.recognitionType ?? '',
+    message: r?.message ?? r?.title ?? '',
+    date: (r?.createdAt ?? new Date().toISOString()).slice(0, 10),
+    reactions: Number(r?.likes ?? 0),
+  };
 }
 
 export default function RecognitionPage() {
@@ -27,8 +38,8 @@ export default function RecognitionPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrPagesService.performanceReviews<any[]>();
-        if (!cancelled) setRecognitions(Array.isArray(rows) ? (rows as any) : []);
+        const { data } = await PerformanceManagementService.getRecognitions();
+        if (!cancelled) setRecognitions((data ?? []).map(mapRecognition));
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load data');
@@ -63,28 +74,17 @@ export default function RecognitionPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitError(null);
-    const payload = {
-      sender: 'Current User',
-      recipient: formData.recipient,
-      coreValue: formData.coreValue,
-      message: formData.message,
-      date: new Date().toISOString().split('T')[0],
-      reactions: 0
-    };
     try {
-      const created = await HrTalentService.createPerformance<typeof payload>(payload, {
-        recordType: 'recognition'
+      const created = await PerformanceManagementService.createRecognition({
+        fromEmployeeName: 'Current User',
+        toEmployeeName: formData.recipient,
+        category: formData.coreValue,
+        recognitionType: 'spot_award',
+        title: formData.coreValue,
+        message: formData.message,
+        visibility: 'public',
       });
-      const newRecognition: Recognition = {
-        id: String((created as any)?.id ?? Date.now().toString()),
-        sender: payload.sender,
-        recipient: payload.recipient,
-        coreValue: payload.coreValue,
-        message: payload.message,
-        date: payload.date,
-        reactions: 0
-      };
-      setRecognitions(prev => [newRecognition, ...prev]);
+      setRecognitions(prev => [mapRecognition(created), ...prev]);
       setShowModal(false);
       setFormData({
         recipient: '',
@@ -99,9 +99,47 @@ export default function RecognitionPage() {
   };
 
   const handleReaction = (id: string) => {
+    // Optimistic bump, then persist the like.
     setRecognitions(prev => prev.map(r =>
       r.id === id ? { ...r, reactions: r.reactions + 1 } : r
     ));
+    void PerformanceManagementService.likeRecognition(id, 'current_user')
+      .then(updated => {
+        setRecognitions(prev => prev.map(r =>
+          r.id === id ? { ...r, reactions: Number((updated as any)?.likes ?? r.reactions) } : r
+        ));
+      })
+      .catch(() => {
+        // Revert on failure
+        setRecognitions(prev => prev.map(r =>
+          r.id === id ? { ...r, reactions: Math.max(0, r.reactions - 1) } : r
+        ));
+      });
+  };
+
+  // Comment modal state
+  const [commentTarget, setCommentTarget] = useState<Recognition | null>(null);
+  const [commentBody, setCommentBody] = useState('');
+  const [isCommenting, setIsCommenting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentTarget || !commentBody.trim()) return;
+    setIsCommenting(true);
+    setCommentError(null);
+    try {
+      await PerformanceManagementService.createRecognitionComment(commentTarget.id, {
+        authorName: 'Current User',
+        body: commentBody.trim(),
+      });
+      setCommentTarget(null);
+      setCommentBody('');
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : 'Failed to post comment');
+    } finally {
+      setIsCommenting(false);
+    }
   };
 
   return (
@@ -129,7 +167,9 @@ export default function RecognitionPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Received This Month</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">12</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {recognitions.filter(r => r.recipient === 'Current User').length}
+              </p>
             </div>
             <div className="h-12 w-12 bg-purple-50 rounded-lg flex items-center justify-center">
               <Star className="h-6 w-6 text-purple-600" />
@@ -140,7 +180,9 @@ export default function RecognitionPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Given This Month</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">5</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {recognitions.filter(r => r.sender === 'Current User').length}
+              </p>
             </div>
             <div className="h-12 w-12 bg-blue-50 rounded-lg flex items-center justify-center">
               <Heart className="h-6 w-6 text-blue-600" />
@@ -151,7 +193,7 @@ export default function RecognitionPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Team Shoutouts</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">45</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">{recognitions.length}</p>
             </div>
             <div className="h-12 w-12 bg-orange-50 rounded-lg flex items-center justify-center">
               <Award className="h-6 w-6 text-orange-600" />
@@ -197,7 +239,10 @@ export default function RecognitionPage() {
                       <ThumbsUp className="h-4 w-4" />
                       <span>{item.reactions}</span>
                     </button>
-                    <button className="text-sm text-gray-500 hover:text-purple-600 transition-colors">
+                    <button
+                      onClick={() => { setCommentTarget(item); setCommentBody(''); setCommentError(null); }}
+                      className="text-sm text-gray-500 hover:text-purple-600 transition-colors"
+                    >
                       Comment
                     </button>
                   </div>
@@ -282,6 +327,57 @@ export default function RecognitionPage() {
                   className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
                   {isSubmitting ? 'Sending…' : 'Send Shoutout'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Comment Modal */}
+      {commentTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Add Comment</h2>
+              <button
+                onClick={() => setCommentTarget(null)}
+                className="text-gray-400 hover:text-gray-500 text-2xl"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSubmitComment} className="p-6 space-y-2">
+              <p className="text-sm text-gray-500">
+                Commenting on {commentTarget.sender}&apos;s recognition of {commentTarget.recipient}.
+              </p>
+              {commentError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                  {commentError}
+                </div>
+              )}
+              <textarea
+                rows={3}
+                required
+                placeholder="Write a comment…"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                value={commentBody}
+                onChange={e => setCommentBody(e.target.value)}
+              />
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setCommentTarget(null)}
+                  className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCommenting}
+                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
+                >
+                  {isCommenting ? 'Posting…' : 'Post Comment'}
                 </button>
               </div>
             </form>
