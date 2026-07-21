@@ -35,6 +35,8 @@ interface AlignmentCheck {
     notes: string;
 }
 
+const CHECKLIST_TYPE = 'cabinet-align';
+
 function CabinetAlignPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -46,16 +48,37 @@ function CabinetAlignPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [checks, setChecks] = useState<AlignmentCheck[]>([
-        { id: '1', section: 'Base Units - Wall A', status: 'Pending', deviation: '-', notes: '' },
-        { id: '2', section: 'Tall Units - Wall B', status: 'Pending', deviation: '-', notes: '' },
-        { id: '3', section: 'Island Unit', status: 'Pending', deviation: '-', notes: '' },
-    ]);
+    const [checks, setChecks] = useState<AlignmentCheck[]>([]);
+    const [isLoadingChecks, setIsLoadingChecks] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) loadChecklist(selectedProject.id);
+    }, [selectedProject]);
+
+    const loadChecklist = async (projectId: string) => {
+        setIsLoadingChecks(true);
+        try {
+            const items = await projectManagementService.getInstallationChecklist(projectId, CHECKLIST_TYPE);
+            setChecks(
+                items.map((it) => ({
+                    id: it.id,
+                    section: it.label,
+                    status: (it.status as AlignmentCheck['status']) || 'Pending',
+                    deviation: it.deviation != null ? String(it.deviation) : '-',
+                    notes: it.notes || '',
+                })),
+            );
+        } catch (error) {
+            console.error('Error loading cabinet alignment checklist:', error);
+        } finally {
+            setIsLoadingChecks(false);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -96,6 +119,38 @@ function CabinetAlignPageContent() {
         setChecks(checks.map(c =>
             c.id === id ? { ...c, status } : c
         ));
+        projectManagementService.updateInstallationChecklistItem(id, { status }).catch((error) => {
+            console.error('Error saving alignment status:', error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save status. Please retry.' });
+        });
+    };
+
+    const handleDeviationChange = (id: string, value: string) => {
+        setChecks(checks.map(c => (c.id === id ? { ...c, deviation: value } : c)));
+    };
+
+    const handleDeviationCommit = (id: string, value: string) => {
+        const trimmed = value.trim();
+        const num = trimmed === '' || trimmed === '-' ? null : Number(trimmed);
+        projectManagementService
+            .updateInstallationChecklistItem(id, { deviation: Number.isNaN(num as number) ? null : num })
+            .catch((error) => {
+                console.error('Error saving deviation:', error);
+                toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save deviation.' });
+            });
+    };
+
+    const handleNotesChange = (id: string, value: string) => {
+        setChecks(checks.map(c => (c.id === id ? { ...c, notes: value } : c)));
+    };
+
+    const handleNotesCommit = (id: string, value: string) => {
+        projectManagementService
+            .updateInstallationChecklistItem(id, { notes: value })
+            .catch((error) => {
+                console.error('Error saving notes:', error);
+                toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save notes.' });
+            });
     };
 
     const handleComplete = async () => {
@@ -103,6 +158,7 @@ function CabinetAlignPageContent() {
         setIsSubmitting(true);
         try {
             const aligned = checks.filter(c => c.status === 'Aligned').length;
+            await projectManagementService.completeInstallationChecklist(selectedProject.id, CHECKLIST_TYPE);
             await projectManagementService.createInstallDailyReport({
                 projectId: selectedProject.id,
                 workDone: `Cabinet alignment verified: ${aligned}/${checks.length} sections aligned (${checks.map(c => c.section).join(', ')}).`,
@@ -287,6 +343,9 @@ function CabinetAlignPageContent() {
                                                 className="w-20 border rounded px-2 py-1 text-sm"
                                                 placeholder="0 mm"
                                                 disabled={check.status === 'Pending'}
+                                                value={check.deviation === '-' ? '' : check.deviation}
+                                                onChange={(e) => handleDeviationChange(check.id, e.target.value)}
+                                                onBlur={(e) => handleDeviationCommit(check.id, e.target.value)}
                                             />
                                         </td>
                                         <td className="p-4">
@@ -294,6 +353,9 @@ function CabinetAlignPageContent() {
                                                 type="text"
                                                 className="w-full border rounded px-2 py-1 text-sm"
                                                 placeholder="Add notes..."
+                                                value={check.notes}
+                                                onChange={(e) => handleNotesChange(check.id, e.target.value)}
+                                                onBlur={(e) => handleNotesCommit(check.id, e.target.value)}
                                             />
                                         </td>
                                         <td className="p-4 text-right">

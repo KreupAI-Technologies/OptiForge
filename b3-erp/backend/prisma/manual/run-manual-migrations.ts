@@ -116,6 +116,8 @@ const MIGRATION_ORDER: string[] = [
     'orphan_hr_training_budget.sql',
     'orphan_hr_review_cycle.sql',
     'orphan_it_admin_two_factor.sql',
+    // Per-check Installation Checklist subsystem (net-new, additive, idempotent)
+    'orphan_installation_checklists.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

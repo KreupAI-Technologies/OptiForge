@@ -33,6 +33,8 @@ interface TrialCheck {
     status: 'Pending' | 'Verified' | 'Adjustment Needed';
 }
 
+const CHECKLIST_TYPE = 'trial-wall';
+
 function TrialWallPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -43,17 +45,29 @@ function TrialWallPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [checks, setChecks] = useState<TrialCheck[]>([
-        { id: '1', item: 'Wall Panel Fitment', status: 'Pending' },
-        { id: '2', item: 'Gap Consistency (3mm)', status: 'Pending' },
-        { id: '3', item: 'Corner Joints', status: 'Pending' },
-        { id: '4', item: 'Vertical Plumb', status: 'Pending' },
-    ]);
+    const [checks, setChecks] = useState<TrialCheck[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) loadChecklist(selectedProject.id);
+    }, [selectedProject]);
+
+    const loadChecklist = async (projectId: string) => {
+        try {
+            const items = await projectManagementService.getInstallationChecklist(projectId, CHECKLIST_TYPE);
+            setChecks(items.map((it) => ({
+                id: it.id,
+                item: it.label,
+                status: (it.status as TrialCheck['status']) || 'Pending',
+            })));
+        } catch (error) {
+            console.error('Error loading trial wall checklist:', error);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -94,6 +108,10 @@ function TrialWallPageContent() {
         setChecks(checks.map(c =>
             c.id === id ? { ...c, status } : c
         ));
+        projectManagementService.updateInstallationChecklistItem(id, { status }).catch((error) => {
+            console.error('Error saving trial wall status:', error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save check. Please retry.' });
+        });
     };
 
     const handleComplete = async () => {
@@ -101,6 +119,7 @@ function TrialWallPageContent() {
         setIsSubmitting(true);
         try {
             const verified = checks.filter(c => c.status === 'Verified').length;
+            await projectManagementService.completeInstallationChecklist(selectedProject.id, CHECKLIST_TYPE);
             await projectManagementService.createInstallDailyReport({
                 projectId: selectedProject.id,
                 workDone: `Trial wall assembly verified: ${verified}/${checks.length} checks passed (${checks.map(c => c.item).join(', ')}).`,

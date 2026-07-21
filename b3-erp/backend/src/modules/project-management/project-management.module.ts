@@ -80,6 +80,7 @@ import { ToolDeployment } from './entities/tool-deployment.entity';
 import { DailyInstallReport } from './entities/daily-install-report.entity';
 import { InstallationTeamAssignment } from './entities/installation-team-assignment.entity';
 import { HandoverChecklistStep } from './entities/handover-checklist-step.entity';
+import { InstallationChecklistItem } from './entities/installation-checklist-item.entity';
 import { Invoice } from '../finance/entities/invoice.entity';
 import { PurchaseOrder } from '../procurement/entities/purchase-order.entity';
 import { GeneralLedger } from '../finance/entities/general-ledger.entity';
@@ -102,6 +103,7 @@ import { ProcurementService } from './services/procurement.service';
 import { ProductionService } from './services/production.service';
 import { QCPackagingService } from './services/qc-packaging.service';
 import { LogisticsInstallationService } from './services/logistics-installation.service';
+import { InstallationChecklistService } from './services/installation-checklist.service';
 import { ProjectClosureService } from './services/project-closure.service';
 import { ProjectAttachmentService } from './services/project-attachment.service';
 import { ToolManagementService } from './services/tool-management.service';
@@ -180,6 +182,7 @@ import { ProcurementController } from './controllers/procurement.controller';
 import { ProductionController } from './controllers/production.controller';
 import { QCPackagingController } from './controllers/qc-packaging.controller';
 import { LogisticsInstallationController } from './controllers/logistics-installation.controller';
+import { InstallationChecklistController } from './controllers/installation-checklist.controller';
 import { ProjectClosureController } from './controllers/project-closure.controller';
 import { ProjectAttachmentController } from './controllers/project-attachment.controller';
 import { ToolManagementController } from './controllers/tool-management.controller';
@@ -306,6 +309,7 @@ import { PmProjectCategoriesService } from './services/pm-project-categories.ser
         DailyInstallReport,
         InstallationTeamAssignment,
         HandoverChecklistStep,
+        InstallationChecklistItem,
         Invoice,
         PurchaseOrder,
         GeneralLedger,
@@ -364,6 +368,7 @@ import { PmProjectCategoriesService } from './services/pm-project-categories.ser
         ProductionController,
         QCPackagingController,
         LogisticsInstallationController,
+        InstallationChecklistController,
         ProjectClosureController,
         ProjectAttachmentController,
         ToolManagementController,
@@ -436,6 +441,7 @@ import { PmProjectCategoriesService } from './services/pm-project-categories.ser
         ProductionService,
         QCPackagingService,
         LogisticsInstallationService,
+        InstallationChecklistService,
         ProjectClosureService,
         ProjectAttachmentService,
         ToolManagementService,

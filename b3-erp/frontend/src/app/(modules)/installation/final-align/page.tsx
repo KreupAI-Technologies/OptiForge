@@ -33,6 +33,8 @@ interface FinalCheck {
     status: 'Pending' | 'Perfect' | 'Adjusted';
 }
 
+const CHECKLIST_TYPE = 'final-align';
+
 function FinalAlignPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -43,18 +45,29 @@ function FinalAlignPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [checks, setChecks] = useState<FinalCheck[]>([
-        { id: '1', description: 'Door Gaps (3mm uniform)', status: 'Pending' },
-        { id: '2', description: 'Drawer Front Alignment', status: 'Pending' },
-        { id: '3', description: 'Shutter Leveling', status: 'Pending' },
-        { id: '4', description: 'Handle Alignment', status: 'Pending' },
-        { id: '5', description: 'Skirting Alignment', status: 'Pending' },
-    ]);
+    const [checks, setChecks] = useState<FinalCheck[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) loadChecklist(selectedProject.id);
+    }, [selectedProject]);
+
+    const loadChecklist = async (projectId: string) => {
+        try {
+            const items = await projectManagementService.getInstallationChecklist(projectId, CHECKLIST_TYPE);
+            setChecks(items.map((it) => ({
+                id: it.id,
+                description: it.label,
+                status: (it.status as FinalCheck['status']) || 'Pending',
+            })));
+        } catch (error) {
+            console.error('Error loading final alignment checklist:', error);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -95,6 +108,10 @@ function FinalAlignPageContent() {
         setChecks(checks.map(c =>
             c.id === id ? { ...c, status } : c
         ));
+        projectManagementService.updateInstallationChecklistItem(id, { status }).catch((error) => {
+            console.error('Error saving final alignment status:', error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save check. Please retry.' });
+        });
     };
 
     const handleComplete = async () => {
@@ -102,6 +119,7 @@ function FinalAlignPageContent() {
         setIsSubmitting(true);
         try {
             const done = checks.filter(c => c.status !== 'Pending').length;
+            await projectManagementService.completeInstallationChecklist(selectedProject.id, CHECKLIST_TYPE);
             await projectManagementService.createInstallDailyReport({
                 projectId: selectedProject.id,
                 workDone: `Final alignment complete: ${done}/${checks.length} checks passed (${checks.map(c => c.description).join(', ')}).`,

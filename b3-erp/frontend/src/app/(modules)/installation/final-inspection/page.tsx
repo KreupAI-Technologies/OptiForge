@@ -34,6 +34,8 @@ interface InspectionPoint {
     status: 'Pass' | 'Fail' | 'Pending';
 }
 
+const CHECKLIST_TYPE = 'final-inspection';
+
 function FinalInspectionPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -44,19 +46,30 @@ function FinalInspectionPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [points, setPoints] = useState<InspectionPoint[]>([
-        { id: '1', category: 'Functionality', item: 'All drawers open/close smoothly', status: 'Pending' },
-        { id: '2', category: 'Functionality', item: 'Hinges adjusted and soft-close working', status: 'Pending' },
-        { id: '3', category: 'Aesthetics', item: 'No scratches or dents on surfaces', status: 'Pending' },
-        { id: '4', category: 'Aesthetics', item: 'Gaps are uniform (3mm)', status: 'Pending' },
-        { id: '5', category: 'Safety', item: 'Wall units securely mounted', status: 'Pending' },
-        { id: '6', category: 'Cleanliness', item: 'Inside cabinets free of dust', status: 'Pending' },
-    ]);
+    const [points, setPoints] = useState<InspectionPoint[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) loadChecklist(selectedProject.id);
+    }, [selectedProject]);
+
+    const loadChecklist = async (projectId: string) => {
+        try {
+            const items = await projectManagementService.getInstallationChecklist(projectId, CHECKLIST_TYPE);
+            setPoints(items.map((it) => ({
+                id: it.id,
+                category: (it.category as InspectionPoint['category']) || 'Functionality',
+                item: it.label,
+                status: (it.status as InspectionPoint['status']) || 'Pending',
+            })));
+        } catch (error) {
+            console.error('Error loading final inspection checklist:', error);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -97,6 +110,10 @@ function FinalInspectionPageContent() {
         setPoints(points.map(p =>
             p.id === id ? { ...p, status } : p
         ));
+        projectManagementService.updateInstallationChecklistItem(id, { status }).catch((error) => {
+            console.error('Error saving inspection result:', error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save inspection result. Please retry.' });
+        });
     };
 
     const handleComplete = async () => {
@@ -104,6 +121,7 @@ function FinalInspectionPageContent() {
         setIsSubmitting(true);
         try {
             const passed = points.filter(p => p.status === 'Pass').length;
+            await projectManagementService.completeInstallationChecklist(selectedProject.id, CHECKLIST_TYPE);
             await projectManagementService.createInstallDailyReport({
                 projectId: selectedProject.id,
                 workDone: `Final inspection completed: ${passed}/${points.length} checkpoints passed across ${Array.from(new Set(points.map(p => p.category))).join(', ')}.`,

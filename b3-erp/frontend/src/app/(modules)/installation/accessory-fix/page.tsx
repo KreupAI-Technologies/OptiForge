@@ -33,6 +33,8 @@ interface Accessory {
     status: 'Pending' | 'Installed' | 'Testing';
 }
 
+const CHECKLIST_TYPE = 'accessory-fix';
+
 function AccessoryFixPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -43,17 +45,30 @@ function AccessoryFixPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [accessories, setAccessories] = useState<Accessory[]>([
-        { id: '1', name: 'Soft Close Hinges', location: 'All Cabinets', status: 'Pending' },
-        { id: '2', name: 'Tandem Box Runners', location: 'Drawers', status: 'Pending' },
-        { id: '3', name: 'Corner Carousel', location: 'Corner Unit', status: 'Pending' },
-        { id: '4', name: 'Cutlery Tray', location: 'Top Drawer', status: 'Pending' },
-    ]);
+    const [accessories, setAccessories] = useState<Accessory[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) loadChecklist(selectedProject.id);
+    }, [selectedProject]);
+
+    const loadChecklist = async (projectId: string) => {
+        try {
+            const items = await projectManagementService.getInstallationChecklist(projectId, CHECKLIST_TYPE);
+            setAccessories(items.map((it) => ({
+                id: it.id,
+                name: it.label,
+                location: it.subLabel || '',
+                status: (it.status as Accessory['status']) || 'Pending',
+            })));
+        } catch (error) {
+            console.error('Error loading accessory checklist:', error);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -94,6 +109,10 @@ function AccessoryFixPageContent() {
         setAccessories(accessories.map(a =>
             a.id === id ? { ...a, status } : a
         ));
+        projectManagementService.updateInstallationChecklistItem(id, { status }).catch((error) => {
+            console.error('Error saving accessory status:', error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save accessory. Please retry.' });
+        });
     };
 
     const handleComplete = async () => {
@@ -101,6 +120,7 @@ function AccessoryFixPageContent() {
         setIsSubmitting(true);
         try {
             const installed = accessories.filter(a => a.status === 'Installed').length;
+            await projectManagementService.completeInstallationChecklist(selectedProject.id, CHECKLIST_TYPE);
             await projectManagementService.createInstallDailyReport({
                 projectId: selectedProject.id,
                 workDone: `Accessory fix completed: ${installed}/${accessories.length} accessories installed and tested (${accessories.map(a => a.name).join(', ')}).`,

@@ -33,6 +33,8 @@ interface CleaningTask {
     status: 'Pending' | 'Cleaned';
 }
 
+const CHECKLIST_TYPE = 'kitchen-cleaning';
+
 function KitchenCleaningPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -43,18 +45,29 @@ function KitchenCleaningPageContent() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-    const [tasks, setTasks] = useState<CleaningTask[]>([
-        { id: '1', area: 'Countertops & Surfaces', status: 'Pending' },
-        { id: '2', area: 'Inside Cabinets & Drawers', status: 'Pending' },
-        { id: '3', area: 'Floor Area', status: 'Pending' },
-        { id: '4', area: 'Remove Debris & Packaging', status: 'Pending' },
-        { id: '5', area: 'Wipe Down Appliances', status: 'Pending' },
-    ]);
+    const [tasks, setTasks] = useState<CleaningTask[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        if (selectedProject) loadChecklist(selectedProject.id);
+    }, [selectedProject]);
+
+    const loadChecklist = async (projectId: string) => {
+        try {
+            const items = await projectManagementService.getInstallationChecklist(projectId, CHECKLIST_TYPE);
+            setTasks(items.map((it) => ({
+                id: it.id,
+                area: it.label,
+                status: (it.status as CleaningTask['status']) || 'Pending',
+            })));
+        } catch (error) {
+            console.error('Error loading kitchen cleaning checklist:', error);
+        }
+    };
 
     const loadProjects = async () => {
         try {
@@ -92,15 +105,22 @@ function KitchenCleaningPageContent() {
     );
 
     const handleToggleStatus = (id: string) => {
+        const current = tasks.find(t => t.id === id);
+        const nextStatus: CleaningTask['status'] = current?.status === 'Pending' ? 'Cleaned' : 'Pending';
         setTasks(tasks.map(t =>
-            t.id === id ? { ...t, status: t.status === 'Pending' ? 'Cleaned' : 'Pending' } : t
+            t.id === id ? { ...t, status: nextStatus } : t
         ));
+        projectManagementService.updateInstallationChecklistItem(id, { status: nextStatus }).catch((error) => {
+            console.error('Error saving cleaning task:', error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save task. Please retry.' });
+        });
     };
 
     const handleComplete = async () => {
         if (!selectedProject) return;
         setIsSubmitting(true);
         try {
+            await projectManagementService.completeInstallationChecklist(selectedProject.id, CHECKLIST_TYPE);
             await projectManagementService.createInstallDailyReport({
                 projectId: selectedProject.id,
                 workDone: `Kitchen cleaning completed: ${tasks.map(t => t.area).join(', ')}.`,

@@ -3328,6 +3328,55 @@ class ProjectManagementService {
         return this.pmModulePatch<any>(`/api/logistics-installation/handover-checklist/step/${id}`, data);
     }
 
+    // ---------------------------------------------------------------------
+    // Per-check Installation Checklist subsystem (NestJS).
+    // Backs the six (modules)/installation/* checklist pages. Every per-item
+    // result (status, deviation, notes) is now persisted server-side instead
+    // of living only in React state. Mirrors the handover-checklist transport.
+    //   GET   /api/installation/checklists?projectId=&type=  (seeds on first read)
+    //   PATCH /api/installation/checklists/items/:id
+    //   POST  /api/installation/checklists/complete
+    // ---------------------------------------------------------------------
+
+    /** Fetch (seed-on-first-read) the persisted checklist for a project + type. */
+    async getInstallationChecklist(
+        projectId: string,
+        type: string,
+    ): Promise<Array<{
+        id: string;
+        projectId: string;
+        checklistType: string;
+        itemKey: string;
+        label: string;
+        category?: string | null;
+        subLabel?: string | null;
+        status: string;
+        deviation?: number | null;
+        notes?: string | null;
+        sortOrder: number;
+    }>> {
+        try {
+            return await this.pmModuleGet<any>(
+                `/api/installation/checklists?projectId=${encodeURIComponent(projectId)}&type=${encodeURIComponent(type)}`,
+            );
+        } catch {
+            return [];
+        }
+    }
+
+    /** Persist a single installation checklist item's status/deviation/notes. */
+    updateInstallationChecklistItem(
+        id: string,
+        payload: { status?: string; deviation?: number | null; notes?: string | null },
+    ): Promise<any> {
+        return this.pmModulePatch<any>(`/api/installation/checklists/items/${id}`, payload);
+    }
+
+    /** Mark an installation checklist complete (returns full persisted state). */
+    completeInstallationChecklist(projectId: string, type: string): Promise<any> {
+        return this.pmModulePost<any>(`/api/installation/checklists/complete`, { projectId, type });
+    }
+
     /** Read-only installation progress summary for a project. */
     getInstallationProgressSummary(projectId: string): Promise<any | null> {
         return this.pmModuleGetObject<any>(`/api/logistics-installation/progress-summary/${projectId}`);
