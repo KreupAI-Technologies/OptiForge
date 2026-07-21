@@ -4,6 +4,7 @@ const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-001';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', 'x-company-id': COMPANY_ID },
     ...init,
   });
@@ -17,6 +18,15 @@ export const procurementPagesService = {
   async getPurchaseOrders(): Promise<any[]> { return asArray(await request('/procurement/purchase-orders')); },
   async getVendors(): Promise<any[]> { return asArray(await request('/procurement/vendors')); },
   async getRfqs(): Promise<any[]> { return asArray(await request('/procurement/rfqs')); },
+  async getPurchaseInvoices(): Promise<any[]> { return asArray(await request('/procurement/purchase-invoices')); },
+
+  // ---- Vendor lifecycle actions (procurement/vendors/:id/*) ----
+  async approveVendor(id: string): Promise<any> {
+    return request(`/procurement/vendors/${id}/approve`, { method: 'POST' });
+  },
+  async updateVendor(id: string, data: Record<string, any>): Promise<any> {
+    return request(`/procurement/vendors/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
 
   // ---- PO approval actions (procurement/purchase-orders/:id/*) ----
   async delegatePurchaseOrder(id: string, payload: { delegatedTo: string; delegatedBy?: string; notes?: string }): Promise<any> {

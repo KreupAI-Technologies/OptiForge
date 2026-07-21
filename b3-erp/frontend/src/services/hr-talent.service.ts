@@ -25,6 +25,7 @@ export interface HrTalentRecord<T = Record<string, any>> {
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     cache: 'no-store',
   });
   if (!res.ok) {
@@ -87,6 +88,7 @@ export class HrTalentService {
   ): Promise<HrTalentRecord<T>> {
     const res = await fetch(`${API_BASE_URL}/hr/succession-plans`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         companyId: opts.companyId ?? 'company-1',
@@ -112,6 +114,7 @@ export class HrTalentService {
   ): Promise<HrTalentRecord<T>> {
     const res = await fetch(`${API_BASE_URL}/hr/probation-reviews`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         companyId: opts.companyId ?? 'company-1',
@@ -133,6 +136,7 @@ export class HrTalentService {
   ): Promise<HrTalentRecord<T>> {
     const res = await fetch(`${API_BASE_URL}/hr/probation-reviews/${id}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -149,6 +153,7 @@ export class HrTalentService {
   ): Promise<HrTalentRecord<T>> {
     const res = await fetch(`${API_BASE_URL}/hr/performance-goals`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         companyId: opts.companyId ?? 'company-1',
@@ -170,6 +175,7 @@ export class HrTalentService {
   ): Promise<HrTalentRecord<T>> {
     const res = await fetch(`${API_BASE_URL}/hr/performance-goals/${id}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });

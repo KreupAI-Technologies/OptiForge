@@ -1495,6 +1495,47 @@ class CommonMastersService {
     }
 
     // ===========================
+    // DESIGNATION CRUD
+    // ===========================
+    async createDesignation(data: { code: string; name: string; companyId: string }): Promise<{ id: string; code: string; name: string; companyId: string }> {
+        const response = await apiClient.post<{ id: string; code: string; name: string; companyId: string }>('/api/v1/common-masters/designations', data);
+        return response.data;
+    }
+
+    async updateDesignation(id: string, data: Partial<{ code: string; name: string; companyId: string }>): Promise<{ id: string; code: string; name: string; companyId: string }> {
+        const response = await apiClient.put<{ id: string; code: string; name: string; companyId: string }>(`/api/v1/common-masters/designations/${id}`, data);
+        return response.data;
+    }
+
+    async deleteDesignation(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/designations/${id}`);
+    }
+
+    // ===========================
+    // SHIFT CRUD
+    // ===========================
+    async getAllShifts(companyId?: string): Promise<{ id: string; code: string; name: string; startTime: string; endTime: string; companyId: string; isActive: boolean }[]> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<{ id: string; code: string; name: string; startTime: string; endTime: string; companyId: string; isActive: boolean }[]>(`/api/v1/common-masters/shifts?${params.toString()}`);
+        return response.data || [];
+    }
+
+    async createShift(data: { code: string; name: string; startTime: string; endTime: string; companyId: string }): Promise<{ id: string; code: string; name: string; startTime: string; endTime: string; companyId: string; isActive: boolean }> {
+        const response = await apiClient.post<{ id: string; code: string; name: string; startTime: string; endTime: string; companyId: string; isActive: boolean }>('/api/v1/common-masters/shifts', data);
+        return response.data;
+    }
+
+    async updateShift(id: string, data: Partial<{ code: string; name: string; startTime: string; endTime: string; companyId: string }>): Promise<{ id: string; code: string; name: string; startTime: string; endTime: string; companyId: string; isActive: boolean }> {
+        const response = await apiClient.put<{ id: string; code: string; name: string; startTime: string; endTime: string; companyId: string; isActive: boolean }>(`/api/v1/common-masters/shifts/${id}`, data);
+        return response.data;
+    }
+
+    async deleteShift(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/shifts/${id}`);
+    }
+
+    // ===========================
     // HR GRADE CRUD
     // ===========================
     async createHrGrade(data: Partial<HrGrade> & { gradeCode: string; gradeName: string; companyId: string }): Promise<HrGrade> {

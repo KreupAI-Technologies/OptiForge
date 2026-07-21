@@ -26,6 +26,7 @@ export interface RawNonConformance {
 export class DefectService {
   private static async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: 'include',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -44,6 +45,32 @@ export class DefectService {
   static async getAllDefects(): Promise<RawNonConformance[]> {
     const data = await this.request<RawNonConformance[]>('/quality/non-conformance');
     return Array.isArray(data) ? data : [];
+  }
+
+  // Create a defect (non-conformance record) via POST /quality/non-conformance.
+  // Backend CreateNonConformanceDto requires: ncrNumber, title, description,
+  // ncrType, severity, reportedDate. Optional: reportedByName, defectDescription, notes.
+  static async create(data: {
+    title: string;
+    description: string;
+    severity: string;
+    ncrType: string;
+    reportedByName?: string;
+    reportedDate?: string;
+  }): Promise<RawNonConformance> {
+    const ncrNumber = `NCR-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+    return this.request<RawNonConformance>('/quality/non-conformance', {
+      method: 'POST',
+      body: JSON.stringify({
+        ncrNumber,
+        title: data.title,
+        description: data.description,
+        ncrType: data.ncrType,
+        severity: data.severity,
+        reportedDate: data.reportedDate || new Date().toISOString().slice(0, 10),
+        ...(data.reportedByName ? { reportedByName: data.reportedByName } : {}),
+      }),
+    });
   }
 }
 

@@ -574,6 +574,7 @@ export class FinanceService {
     options?: RequestInit
   ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: 'include',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -586,6 +587,26 @@ export class FinanceService {
     }
 
     return response.json();
+  }
+
+  // Fixed-asset depreciation
+  static async runDepreciation(): Promise<{
+    processed: number;
+    skipped: number;
+    totalDepreciation: number;
+    runDate: string;
+  }> {
+    return this.request('/finance/fixed-assets/depreciation/run', { method: 'POST' });
+  }
+
+  static async manualDepreciationEntry(
+    assetCode: string,
+    amount: number,
+  ): Promise<any> {
+    return this.request('/finance/fixed-assets/depreciation/manual-entry', {
+      method: 'POST',
+      body: JSON.stringify({ assetCode, amount }),
+    });
   }
 
   // Dashboard Statistics
@@ -1638,6 +1659,7 @@ export class FinanceService {
     options?: RequestInit,
   ): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: 'include',
       ...options,
       headers: { ...(options?.headers ?? {}) },
     });

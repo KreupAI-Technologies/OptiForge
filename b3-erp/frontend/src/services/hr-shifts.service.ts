@@ -58,7 +58,34 @@ export interface ShiftSwap {
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     throw new Error(`Request failed (${res.status})`);
@@ -86,5 +113,37 @@ export class HrShiftsService {
       `/hr/shift-swaps?companyId=${encodeURIComponent(companyId)}`,
     );
     return Array.isArray(data) ? data : [];
+  }
+
+  static async createShiftAssignment(
+    payload: Partial<ShiftAssignment> & { companyId?: string },
+  ): Promise<ShiftAssignment> {
+    return postJson<ShiftAssignment>('/hr/shift-assignments', {
+      companyId: 'company-1',
+      ...payload,
+    });
+  }
+
+  static async updateShiftSwap(
+    id: string,
+    payload: Partial<ShiftSwap>,
+  ): Promise<ShiftSwap> {
+    return putJson<ShiftSwap>(`/hr/shift-swaps/${encodeURIComponent(id)}`, payload);
+  }
+
+  static async approveShiftSwap(id: string, approvedBy?: string): Promise<ShiftSwap> {
+    return HrShiftsService.updateShiftSwap(id, {
+      status: 'Approved',
+      approvedBy,
+      approvedDate: new Date().toISOString(),
+    });
+  }
+
+  static async rejectShiftSwap(id: string, approvedBy?: string): Promise<ShiftSwap> {
+    return HrShiftsService.updateShiftSwap(id, {
+      status: 'Rejected',
+      approvedBy,
+      approvedDate: new Date().toISOString(),
+    });
   }
 }

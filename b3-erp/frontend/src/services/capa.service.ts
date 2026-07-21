@@ -1077,6 +1077,7 @@ export class CAPAService {
     options?: RequestInit
   ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: 'include',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -1136,6 +1137,38 @@ export class CAPAService {
 
     const queryString = params.toString();
     return this.request<CAPA[]>(`/quality/capa${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // Create a CAPA matching the backend CreateCAPADto (quality/capa POST).
+  // Backend requires: capaNumber, title, description, problemStatement,
+  // rootCauseAnalysis, actionPlan, targetDate. Optional: priority, capaType, notes.
+  static async create(data: {
+    title: string;
+    description: string;
+    priority?: string;
+    capaType?: string;
+    problemStatement: string;
+    rootCauseAnalysis: string;
+    actionPlan: string;
+    targetDate: string;
+    notes?: string;
+  }): Promise<CAPA> {
+    const capaNumber = `CAPA-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+    return this.request<CAPA>('/quality/capa', {
+      method: 'POST',
+      body: JSON.stringify({
+        capaNumber,
+        title: data.title,
+        description: data.description,
+        problemStatement: data.problemStatement,
+        rootCauseAnalysis: data.rootCauseAnalysis,
+        actionPlan: data.actionPlan,
+        targetDate: data.targetDate,
+        ...(data.priority ? { priority: data.priority } : {}),
+        ...(data.capaType ? { capaType: data.capaType } : {}),
+        ...(data.notes ? { notes: data.notes } : {}),
+      }),
+    });
   }
 
   // Get CAPA by ID

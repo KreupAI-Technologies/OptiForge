@@ -4,6 +4,7 @@ const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-001';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', 'x-company-id': COMPANY_ID },
     ...init,
   });

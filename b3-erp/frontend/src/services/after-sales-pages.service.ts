@@ -36,6 +36,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const sep = path.includes('?') ? '&' : '?';
   const url = `${API_BASE_URL}${path}${sep}companyId=${encodeURIComponent(companyId)}`;
   const response = await fetch(url, {
+    credentials: 'include',
     ...options,
     headers: {
       'Content-Type': 'application/json',

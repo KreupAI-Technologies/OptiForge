@@ -82,6 +82,7 @@ export class AttachmentsService {
 
     const res = await fetch(`${API_BASE_URL}/attachments`, {
       method: 'POST',
+      credentials: 'include',
       headers: companyHeaders(), // no Content-Type: browser sets the multipart boundary
       body: form,
     });
@@ -93,7 +94,7 @@ export class AttachmentsService {
     const url = `${API_BASE_URL}/attachments?entityType=${encodeURIComponent(
       entityType,
     )}&entityId=${encodeURIComponent(entityId)}`;
-    const res = await fetch(url, { headers: companyHeaders() });
+    const res = await fetch(url, { credentials: 'include', headers: companyHeaders() });
     return asJson<Attachment[]>(res);
   }
 
@@ -106,6 +107,7 @@ export class AttachmentsService {
   static async remove(id: string): Promise<{ success: boolean }> {
     const res = await fetch(`${API_BASE_URL}/attachments/${id}`, {
       method: 'DELETE',
+      credentials: 'include',
       headers: companyHeaders(),
     });
     return asJson<{ success: boolean }>(res);
@@ -117,6 +119,7 @@ export class AttachmentsService {
     form.append('file', file);
     const res = await fetch(`${API_BASE_URL}/attachments/parse-spreadsheet`, {
       method: 'POST',
+      credentials: 'include',
       headers: companyHeaders(),
       body: form,
     });

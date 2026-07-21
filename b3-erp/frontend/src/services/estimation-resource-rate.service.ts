@@ -334,6 +334,22 @@ class EstimationResourceRateService {
     return response.data;
   }
 
+  async updateEquipmentRate(
+    companyId: string,
+    id: string,
+    data: Partial<EquipmentRate>
+  ): Promise<EquipmentRate> {
+    const response = await apiClient.patch<EquipmentRate>(
+      `${this.baseUrl}/equipment/${id}`,
+      data
+    );
+    return response.data;
+  }
+
+  async deleteEquipmentRate(companyId: string, id: string): Promise<void> {
+    await apiClient.delete(`${this.baseUrl}/equipment/${id}`);
+  }
+
   async findSubcontractorRateById(
     companyId: string,
     id: string
@@ -342,6 +358,22 @@ class EstimationResourceRateService {
       `${this.baseUrl}/subcontractors/${id}`
     );
     return response.data;
+  }
+
+  async updateSubcontractorRate(
+    companyId: string,
+    id: string,
+    data: Partial<SubcontractorRate>
+  ): Promise<SubcontractorRate> {
+    const response = await apiClient.patch<SubcontractorRate>(
+      `${this.baseUrl}/subcontractors/${id}`,
+      data
+    );
+    return response.data;
+  }
+
+  async deleteSubcontractorRate(companyId: string, id: string): Promise<void> {
+    await apiClient.delete(`${this.baseUrl}/subcontractors/${id}`);
   }
 
   // Rate-change history (audit trail) for a given resource rate. The backend

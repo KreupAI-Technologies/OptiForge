@@ -305,9 +305,43 @@ class ManufacturingMastersService {
         return response.data || [];
     }
 
+    // ===========================
+    // MACHINE CRUD (backend: POST/PUT/DELETE available)
+    // ===========================
+    async createMachine(data: Partial<Machine> & { machineCode: string; machineName: string; companyId: string }): Promise<Machine> {
+        const response = await apiClient.post<Machine>('/api/v1/common-masters/machines', data);
+        return response.data;
+    }
+
+    async updateMachine(id: string, data: Partial<Machine>): Promise<Machine> {
+        const response = await apiClient.put<Machine>(`/api/v1/common-masters/machines/${id}`, data);
+        return response.data;
+    }
+
+    async deleteMachine(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/machines/${id}`);
+    }
+
     async getAllWorkCenters(companyId: string): Promise<WorkCenter[]> {
         const response = await apiClient.get<WorkCenter[]>(`/api/v1/common-masters/work-centers?companyId=${companyId}`);
         return response.data || [];
+    }
+
+    // ===========================
+    // WORK CENTER CRUD (backend: POST/PUT/DELETE available)
+    // ===========================
+    async createWorkCenter(data: Partial<WorkCenter> & { code: string; name: string; companyId: string }): Promise<WorkCenter> {
+        const response = await apiClient.post<WorkCenter>('/api/v1/common-masters/work-centers', data);
+        return response.data;
+    }
+
+    async updateWorkCenter(id: string, data: Partial<WorkCenter>): Promise<WorkCenter> {
+        const response = await apiClient.put<WorkCenter>(`/api/v1/common-masters/work-centers/${id}`, data);
+        return response.data;
+    }
+
+    async deleteWorkCenter(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/work-centers/${id}`);
     }
 
     async getAllOperations(companyId: string): Promise<Operation[]> {
@@ -315,9 +349,46 @@ class ManufacturingMastersService {
         return response.data || [];
     }
 
+    // ===========================
+    // OPERATION CRUD (backend: POST/PUT/DELETE available)
+    // ===========================
+    async createOperation(data: Partial<Operation> & { code: string; name: string; companyId: string }): Promise<Operation> {
+        const response = await apiClient.post<Operation>('/api/v1/common-masters/operations', data);
+        return response.data;
+    }
+
+    async updateOperation(id: string, data: Partial<Operation>): Promise<Operation> {
+        const response = await apiClient.put<Operation>(`/api/v1/common-masters/operations/${id}`, data);
+        return response.data;
+    }
+
+    async deleteOperation(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/operations/${id}`);
+    }
+
     async getAllRoutings(companyId: string): Promise<Routing[]> {
         const response = await apiClient.get<Routing[]>(`/api/v1/common-masters/routings?companyId=${companyId}`);
         return response.data || [];
+    }
+
+    // ===========================
+    // ROUTING CRUD
+    // NOTE: backend common-masters currently exposes GET only for routings.
+    // These methods target the conventional REST paths and REQUIRE new
+    // backend POST/PUT/DELETE handlers before they will succeed.
+    // ===========================
+    async createRouting(data: Partial<Routing> & { code: string; name: string; companyId: string }): Promise<Routing> {
+        const response = await apiClient.post<Routing>('/api/v1/common-masters/routings', data);
+        return response.data;
+    }
+
+    async updateRouting(id: string, data: Partial<Routing>): Promise<Routing> {
+        const response = await apiClient.put<Routing>(`/api/v1/common-masters/routings/${id}`, data);
+        return response.data;
+    }
+
+    async deleteRouting(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/routings/${id}`);
     }
 
     async getAllTools(companyId: string): Promise<Tool[]> {
@@ -325,14 +396,64 @@ class ManufacturingMastersService {
         return response.data || [];
     }
 
+    // ===========================
+    // TOOL CRUD (backend: POST/PUT/DELETE available)
+    // ===========================
+    async createTool(data: Partial<Tool> & { code: string; name: string; companyId: string }): Promise<Tool> {
+        const response = await apiClient.post<Tool>('/api/v1/common-masters/tools', data);
+        return response.data;
+    }
+
+    async updateTool(id: string, data: Partial<Tool>): Promise<Tool> {
+        const response = await apiClient.put<Tool>(`/api/v1/common-masters/tools/${id}`, data);
+        return response.data;
+    }
+
+    async deleteTool(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/tools/${id}`);
+    }
+
     async getAllQualityParameters(companyId: string): Promise<QualityParameter[]> {
         const response = await apiClient.get<QualityParameter[]>(`/api/v1/common-masters/quality-parameters?companyId=${companyId}`);
         return response.data || [];
     }
 
+    // ===========================
+    // QUALITY PARAMETER CRUD (backend: POST/PUT/DELETE available)
+    // ===========================
+    async createQualityParameter(data: Partial<QualityParameter> & { code: string; name: string; companyId: string }): Promise<QualityParameter> {
+        const response = await apiClient.post<QualityParameter>('/api/v1/common-masters/quality-parameters', data);
+        return response.data;
+    }
+
+    async updateQualityParameter(id: string, data: Partial<QualityParameter>): Promise<QualityParameter> {
+        const response = await apiClient.put<QualityParameter>(`/api/v1/common-masters/quality-parameters/${id}`, data);
+        return response.data;
+    }
+
+    async deleteQualityParameter(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/quality-parameters/${id}`);
+    }
+
     async getAllSkills(companyId: string): Promise<Skill[]> {
         const response = await apiClient.get<Skill[]>(`/api/v1/common-masters/skills?companyId=${companyId}`);
         return response.data || [];
+    }
+
+    // ===========================
+    // SKILL CRUD
+    // NOTE: backend common-masters currently exposes GET + DELETE for skills.
+    // createSkill/updateSkill target the conventional REST paths and REQUIRE
+    // new backend POST/PUT handlers before they will succeed.
+    // ===========================
+    async createSkill(data: Partial<Skill> & { name: string; companyId: string }): Promise<Skill> {
+        const response = await apiClient.post<Skill>('/api/v1/common-masters/skills', data);
+        return response.data;
+    }
+
+    async updateSkill(id: string, data: Partial<Skill>): Promise<Skill> {
+        const response = await apiClient.put<Skill>(`/api/v1/common-masters/skills/${id}`, data);
+        return response.data;
     }
 
     async deleteSkill(id: string): Promise<void> {
@@ -342,6 +463,26 @@ class ManufacturingMastersService {
     async getAllBatches(companyId: string): Promise<Batch[]> {
         const response = await apiClient.get<Batch[]>(`/api/v1/common-masters/batches?companyId=${companyId}`);
         return response.data || [];
+    }
+
+    // ===========================
+    // BATCH CRUD
+    // NOTE: backend common-masters currently exposes GET only for batches.
+    // These methods target the conventional REST paths and REQUIRE new
+    // backend POST/PUT/DELETE handlers before they will succeed.
+    // ===========================
+    async createBatch(data: Partial<Batch> & { batchNumber: string; companyId: string }): Promise<Batch> {
+        const response = await apiClient.post<Batch>('/api/v1/common-masters/batches', data);
+        return response.data;
+    }
+
+    async updateBatch(id: string, data: Partial<Batch>): Promise<Batch> {
+        const response = await apiClient.put<Batch>(`/api/v1/common-masters/batches/${id}`, data);
+        return response.data;
+    }
+
+    async deleteBatch(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/batches/${id}`);
     }
 
     async getAllCabinetTypes(companyId: string): Promise<CabinetType[]> {
