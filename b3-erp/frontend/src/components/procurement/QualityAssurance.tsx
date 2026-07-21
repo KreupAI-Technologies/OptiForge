@@ -77,24 +77,11 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
     }
   ];
 
-  // Mock data for quality trends
-  const qualityTrends = [
-    { month: 'Jul', passRate: 95.2, defectRate: 4.8, inspections: 320 },
-    { month: 'Aug', passRate: 96.1, defectRate: 3.9, inspections: 345 },
-    { month: 'Sep', passRate: 95.8, defectRate: 4.2, inspections: 358 },
-    { month: 'Oct', passRate: 96.5, defectRate: 3.5, inspections: 372 },
-    { month: 'Nov', passRate: 96.3, defectRate: 3.7, inspections: 385 },
-    { month: 'Dec', passRate: 96.5, defectRate: 3.5, inspections: 390 }
-  ];
+  // Quality trends - loaded from API
+  const [qualityTrends, setQualityTrends] = useState<{ month: string; passRate: number; defectRate: number; inspections: number }[]>([]);
 
-  // Mock data for defect categories
-  const defectCategories = [
-    { name: 'Dimensional', value: 35, color: '#3B82F6' },
-    { name: 'Surface Finish', value: 25, color: '#10B981' },
-    { name: 'Material', value: 20, color: '#F59E0B' },
-    { name: 'Packaging', value: 12, color: '#EF4444' },
-    { name: 'Documentation', value: 8, color: '#8B5CF6' }
-  ];
+  // Defect categories - loaded from API
+  const [defectCategories, setDefectCategories] = useState<{ name: string; value: number; color: string }[]>([]);
 
   // Supplier quality scores - loaded from API
   const [supplierQualityScores, setSupplierQualityScores] = useState<any[]>([]);
@@ -114,6 +101,9 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
             }))
           );
         }
+        setQualityTrends(Array.isArray(data?.qualityTrends) ? data.qualityTrends : []);
+        setDefectCategories(Array.isArray(data?.defectCategories) ? data.defectCategories : []);
+        setComplianceStandards(Array.isArray(data?.complianceStandards) ? data.complianceStandards : []);
         const summary = data?.summary;
         if (summary) {
           setQualityMetrics((prev) => ({
@@ -162,13 +152,8 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
     }
   ];
 
-  // Mock data for compliance standards
-  const complianceStandards = [
-    { standard: 'ISO 9001', status: 'compliant', score: 98, lastAudit: '2024-11-15' },
-    { standard: 'ISO 14001', status: 'compliant', score: 96, lastAudit: '2024-10-20' },
-    { standard: 'OHSAS 18001', status: 'pending', score: 94, lastAudit: '2024-09-10' },
-    { standard: 'Industry Specific', status: 'compliant', score: 97, lastAudit: '2024-11-01' }
-  ];
+  // Compliance standards - loaded from API
+  const [complianceStandards, setComplianceStandards] = useState<{ standard: string; status: string; score: number; lastAudit: string }[]>([]);
 
   // Handler 1: Create Inspection - Comprehensive inspection creation wizard with template selection and assignment
   const handleCreateInspection = () => {

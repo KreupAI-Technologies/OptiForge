@@ -23,3 +23,5 @@ export * from './procurement-category.entity';
 export * from './savings-initiative.entity';
 export * from './vendor-scorecard.entity';
 export * from './vendor.entity';
+export * from './supplier-portal-message.entity';
+export * from './supplier-portal-document.entity';

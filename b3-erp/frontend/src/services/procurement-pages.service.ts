@@ -113,6 +113,25 @@ export const procurementPagesService = {
   async getQualityAssuranceInsights(): Promise<any> { return request('/procurement/insights/quality-assurance'); },
   async getStrategicSourcingInsights(): Promise<any> { return request('/procurement/insights/strategic-sourcing'); },
   async getMarketplaceInsights(): Promise<any> { return request('/procurement/insights/marketplace'); },
+  async getBudgetInsights(): Promise<any> { return request('/procurement/insights/budget'); },
+  async getSavingsInsights(): Promise<any> { return request('/procurement/insights/savings'); },
+
+  // ---- Supplier Portal (procurement/supplier-portal/*) ----
+  async getSupplierPortalSuppliers(): Promise<any[]> { return asArray(await request('/procurement/supplier-portal/suppliers')); },
+  async getSupplierPortalMessages(supplierId?: string): Promise<any[]> {
+    const qs = supplierId ? `?supplierId=${encodeURIComponent(supplierId)}` : '';
+    return asArray(await request(`/procurement/supplier-portal/messages${qs}`));
+  },
+  async createSupplierPortalMessage(data: Record<string, any>): Promise<any> {
+    return request('/procurement/supplier-portal/messages', { method: 'POST', body: JSON.stringify(data) });
+  },
+  async getSupplierPortalDocuments(supplierId?: string): Promise<any[]> {
+    const qs = supplierId ? `?supplierId=${encodeURIComponent(supplierId)}` : '';
+    return asArray(await request(`/procurement/supplier-portal/documents${qs}`));
+  },
+  async createSupplierPortalDocument(data: Record<string, any>): Promise<any> {
+    return request('/procurement/supplier-portal/documents', { method: 'POST', body: JSON.stringify(data) });
+  },
   async getCollaborationInsights(): Promise<any> { return request('/procurement/insights/collaboration'); },
   async getOnboardingInsights(): Promise<any> { return request('/procurement/insights/onboarding'); },
   async getVendorActivities(): Promise<any[]> { return asArray(await request('/procurement/insights/vendor-activities')); },

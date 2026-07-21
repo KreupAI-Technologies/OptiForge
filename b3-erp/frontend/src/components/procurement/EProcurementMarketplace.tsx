@@ -26,122 +26,28 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(true);
 
-  // Mock data for marketplace products
-  const marketplaceProducts = [
-    {
-      id: 'PRD001',
-      name: 'Industrial Grade Steel Plates',
-      supplier: 'Metal Works Inc',
-      category: 'Raw Materials',
-      price: 450,
-      unit: 'per ton',
-      rating: 4.8,
-      reviews: 124,
-      image: '/api/placeholder/200/200',
-      inStock: true,
-      leadTime: '3-5 days',
-      minOrder: 5,
-      discount: 10,
-      certifications: ['ISO 9001', 'CE'],
-      description: 'High-quality steel plates suitable for heavy machinery'
-    },
-    {
-      id: 'PRD002',
-      name: 'Electronic Control Modules',
-      supplier: 'Tech Components Ltd',
-      category: 'Electronics',
-      price: 1250,
-      unit: 'per unit',
-      rating: 4.9,
-      reviews: 89,
-      image: '/api/placeholder/200/200',
-      inStock: true,
-      leadTime: '7-10 days',
-      minOrder: 10,
-      discount: 15,
-      certifications: ['RoHS', 'CE', 'UL'],
-      description: 'Advanced control modules for automation systems'
-    },
-    {
-      id: 'PRD003',
-      name: 'Industrial Chemicals Bundle',
-      supplier: 'Chemical Supply Co',
-      category: 'Chemicals',
-      price: 890,
-      unit: 'per barrel',
-      rating: 4.6,
-      reviews: 67,
-      image: '/api/placeholder/200/200',
-      inStock: false,
-      leadTime: '14-21 days',
-      minOrder: 20,
-      discount: 5,
-      certifications: ['REACH', 'GHS'],
-      description: 'Premium grade industrial chemicals for manufacturing'
-    },
-    {
-      id: 'PRD004',
-      name: 'Precision Ball Bearings',
-      supplier: 'Global Bearings Ltd',
-      category: 'Components',
-      price: 125,
-      unit: 'per pack',
-      rating: 4.7,
-      reviews: 156,
-      image: '/api/placeholder/200/200',
-      inStock: true,
-      leadTime: '2-3 days',
-      minOrder: 50,
-      discount: 20,
-      certifications: ['ISO 9001', 'DIN'],
-      description: 'High-precision bearings for industrial applications'
-    },
-    {
-      id: 'PRD005',
-      name: 'Safety Equipment Kit',
-      supplier: 'SafetyFirst Inc',
-      category: 'Safety',
-      price: 350,
-      unit: 'per kit',
-      rating: 4.9,
-      reviews: 203,
-      image: '/api/placeholder/200/200',
-      inStock: true,
-      leadTime: '1-2 days',
-      minOrder: 10,
-      discount: 12,
-      certifications: ['OSHA', 'ANSI', 'CE'],
-      description: 'Complete safety equipment kit for industrial workers'
-    },
-    {
-      id: 'PRD006',
-      name: 'Hydraulic Pumps',
-      supplier: 'HydroTech Systems',
-      category: 'Machinery',
-      price: 2850,
-      unit: 'per unit',
-      rating: 4.5,
-      reviews: 45,
-      image: '/api/placeholder/200/200',
-      inStock: true,
-      leadTime: '10-15 days',
-      minOrder: 2,
-      discount: 8,
-      certifications: ['ISO 9001', 'API'],
-      description: 'Heavy-duty hydraulic pumps for industrial machinery'
-    }
-  ];
+  // Marketplace products (loaded from backend getMarketplaceInsights().products)
+  const [marketplaceProducts, setMarketplaceProducts] = useState<Array<{
+    id: string;
+    name: string;
+    supplier: string;
+    category: string;
+    price: number;
+    unit: string;
+    rating: number;
+    reviews: number;
+    inStock: boolean;
+    leadTime: string;
+    minOrder: number;
+    discount: number;
+    certifications: string[];
+    description: string;
+    image?: string;
+    ordered?: number;
+  }>>([]);
 
-  // Mock data for categories
-  const categories = [
-    { id: 'all', name: 'All Categories', count: 2456 },
-    { id: 'raw_materials', name: 'Raw Materials', count: 423 },
-    { id: 'electronics', name: 'Electronics', count: 567 },
-    { id: 'chemicals', name: 'Chemicals', count: 234 },
-    { id: 'components', name: 'Components', count: 789 },
-    { id: 'safety', name: 'Safety Equipment', count: 156 },
-    { id: 'machinery', name: 'Machinery', count: 287 }
-  ];
+  // Categories (loaded from backend getMarketplaceInsights().categories)
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; count: number }>>([]);
 
   // Supplier stores (connected suppliers) loaded from backend
   const [supplierStores, setSupplierStores] = useState<any[]>([]);
@@ -168,6 +74,10 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
             }))
           );
         }
+        setMarketplaceProducts(Array.isArray(data?.products) ? data.products : []);
+        setCategories(Array.isArray(data?.categories) ? data.categories : []);
+        setRecentOrders(Array.isArray(data?.recentOrders) ? data.recentOrders : []);
+        setTrendingProducts(Array.isArray(data?.trendingProducts) ? data.trendingProducts : []);
       } catch (err) {
         console.error('Failed to load marketplace insights', err);
       }
@@ -175,45 +85,23 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
     loadMarketplaceInsights();
   }, []);
 
-  // Mock data for recent orders
-  const recentOrders = [
-    {
-      id: 'ORD001',
-      date: '2024-12-15',
-      supplier: 'Metal Works Inc',
-      items: 3,
-      total: 4500,
-      status: 'delivered',
-      rating: 5
-    },
-    {
-      id: 'ORD002',
-      date: '2024-12-10',
-      supplier: 'Tech Components Ltd',
-      items: 5,
-      total: 12500,
-      status: 'in_transit',
-      rating: null
-    },
-    {
-      id: 'ORD003',
-      date: '2024-12-05',
-      supplier: 'Chemical Supply Co',
-      items: 2,
-      total: 8900,
-      status: 'processing',
-      rating: null
-    }
-  ];
+  // Recent orders (loaded from backend getMarketplaceInsights().recentOrders)
+  const [recentOrders, setRecentOrders] = useState<Array<{
+    id: string;
+    date: string;
+    supplier: string;
+    items: number;
+    total: number;
+    status: string;
+    rating: number;
+  }>>([]);
 
-  // Mock data for trending products
-  const trendingProducts = [
-    { name: 'Steel Plates', growth: 45, orders: 234 },
-    { name: 'Control Modules', growth: 38, orders: 189 },
-    { name: 'Ball Bearings', growth: 32, orders: 156 },
-    { name: 'Safety Kits', growth: 28, orders: 142 },
-    { name: 'Hydraulic Pumps', growth: 25, orders: 98 }
-  ];
+  // Trending products (loaded from backend getMarketplaceInsights().trendingProducts)
+  const [trendingProducts, setTrendingProducts] = useState<Array<{
+    name: string;
+    growth: number;
+    orders: number;
+  }>>([]);
 
   const addToCart = (product: any) => {
     setCartItems([...cartItems, { ...product, quantity: product.minOrder }]);

@@ -88,6 +88,10 @@ import { SpendAnalysisService } from './services/spend-analysis.service';
 import { ProcurementInsightsService } from './services/procurement-insights.service';
 import { ThreeWayMatchingService } from './services/three-way-matching.service';
 import { VendorCollaborationService } from './services/vendor-collaboration.service';
+import { SupplierPortalService } from './services/supplier-portal.service';
+import { SupplierPortalController } from './controllers/supplier-portal.controller';
+import { SupplierPortalMessage } from './entities/supplier-portal-message.entity';
+import { SupplierPortalDocument } from './entities/supplier-portal-document.entity';
 
 @Module({
   imports: [
@@ -117,6 +121,8 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
       VendorScorecard,
       Vendor,
       SourcingStrategy,
+      SupplierPortalMessage,
+      SupplierPortalDocument,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -147,6 +153,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     SpendAnalysisController,
     ProcurementInsightsController,
     SourcingStrategyController,
+    SupplierPortalController,
   ],
   providers: [
     ApprovalMatrixService,
@@ -179,6 +186,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorQuotationService,
     VendorService,
     SourcingStrategyService,
+    SupplierPortalService,
   ],
   exports: [
     ApprovalMatrixService,

@@ -22,8 +22,8 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   const [showRealTimeMonitoring, setShowRealTimeMonitoring] = useState(true);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
 
-  // Mock compliance data
-  const complianceMetrics = {
+  // Compliance metrics (defaults render before load; summary fields merged from API)
+  const [complianceMetrics, setComplianceMetrics] = useState({
     overallScore: 94.2,
     totalRequirements: 156,
     compliant: 147,
@@ -32,7 +32,7 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
     auditScore: 96.8,
     policiesUpdated: 12,
     incidentsThisMonth: 2
-  };
+  });
 
   // Compliance requirements (loaded from API)
   const [complianceRequirements, setComplianceRequirements] = useState<any[]>([]);
@@ -76,6 +76,15 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
             };
           })
         );
+        const s = data?.summary ?? {};
+        setComplianceMetrics(prev => ({
+          ...prev,
+          totalRequirements: s.totalRequirements ?? prev.totalRequirements,
+          compliant: s.compliant ?? prev.compliant,
+          nonCompliant: s.nonCompliant ?? prev.nonCompliant,
+          pending: s.pending ?? prev.pending,
+          auditScore: s.auditScore ?? prev.auditScore,
+        }));
       } catch (err) {
         console.error('Failed to load compliance insights:', err);
         setComplianceRequirements([]);

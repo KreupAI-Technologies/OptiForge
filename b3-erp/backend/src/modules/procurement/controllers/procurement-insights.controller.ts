@@ -46,6 +46,16 @@ export class ProcurementInsightsController {
     return this.service.getMarketplace();
   }
 
+  @Get('budget')
+  budget() {
+    return this.service.getBudget();
+  }
+
+  @Get('savings')
+  savings() {
+    return this.service.getSavings();
+  }
+
   @Get('collaboration')
   collaboration() {
     return this.service.getCollaboration();

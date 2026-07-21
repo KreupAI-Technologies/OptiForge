@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { procurementOperationsService } from '@/services/procurement-operations.service';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   DollarSign, TrendingUp, AlertCircle, Target, BarChart3, Plus,
   Edit, Download, RefreshCw, Settings, Calendar, FileText, CheckCircle,
@@ -96,23 +97,28 @@ const ProcurementBudget: React.FC = () => {
     reloadBudgets();
   }, [reloadBudgets]);
 
-  // Mock data - Monthly budget trend
-  const monthlyTrend = [
-    { month: 'Jul', budget: 377083, spent: 320000, committed: 35000, forecast: 355000 },
-    { month: 'Aug', budget: 377083, spent: 340000, committed: 40000, forecast: 380000 },
-    { month: 'Sep', budget: 377083, spent: 355000, committed: 42000, forecast: 397000 },
-    { month: 'Oct', budget: 377083, spent: 370000, committed: 45000, forecast: 415000 },
-    { month: 'Nov', budget: 377083, spent: 385000, committed: 48000, forecast: 433000 },
-    { month: 'Dec', budget: 377083, spent: 348000, committed: 38000, forecast: 386000 }
-  ];
+  // Monthly budget trend — sourced from procurement budget insights API
+  const [monthlyTrend, setMonthlyTrend] = useState<
+    { month: string; budget: number; spent: number; committed: number; forecast: number }[]
+  >([]);
 
-  // Mock data - Quarterly forecast
-  const quarterlyForecast = [
-    { quarter: 'Q1', budget: 1131250, actual: 1050000, forecast: 1050000, variance: -81250 },
-    { quarter: 'Q2', budget: 1131250, actual: 1105000, forecast: 1105000, variance: -26250 },
-    { quarter: 'Q3', budget: 1131250, actual: 1095000, forecast: 1095000, variance: -36250 },
-    { quarter: 'Q4', budget: 1131250, actual: 0, forecast: 1140000, variance: 8750 }
-  ];
+  // Quarterly forecast — sourced from procurement budget insights API
+  const [quarterlyForecast, setQuarterlyForecast] = useState<
+    { quarter: string; budget: number; actual: number; forecast: number; variance: number }[]
+  >([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await procurementPagesService.getBudgetInsights();
+        setMonthlyTrend(Array.isArray(data?.monthlyTrend) ? data.monthlyTrend : []);
+        setQuarterlyForecast(Array.isArray(data?.quarterlyForecast) ? data.quarterlyForecast : []);
+      } catch {
+        setMonthlyTrend([]);
+        setQuarterlyForecast([]);
+      }
+    })();
+  }, []);
 
   const getStatusColor = (status: string): string => {
     switch (status) {

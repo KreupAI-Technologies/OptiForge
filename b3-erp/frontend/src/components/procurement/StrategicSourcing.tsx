@@ -127,32 +127,39 @@ export default function StrategicSourcing() {
       try {
         const data = await procurementPagesService.getStrategicSourcingInsights()
         const events = Array.isArray(data?.events) ? data.events : []
-        if (events.length === 0) return
 
-        const validStatuses = ['active', 'planning', 'review', 'expired']
-        const mapped: SourcingStrategy[] = events.map((event: any) => {
-          const rawStatus = String(event?.status ?? '').toLowerCase()
-          const status = (validStatuses.includes(rawStatus)
-            ? rawStatus
-            : 'planning') as SourcingStrategy['status']
-          const savingsTarget = Number(event?.targetSavings) || 0
-          return {
-            id: String(event?.id ?? ''),
-            category: event?.category ?? event?.title ?? '',
-            status,
-            spend: Number(event?.estimatedValue) || 0,
-            savingsTarget,
-            actualSavings: 0,
-            suppliers: Number(event?.suppliersInvited) || 0,
-            leadSupplier: '',
-            riskLevel: 'medium',
-            nextReview: '',
-            strategy: event?.title ?? '',
-            owner: ''
-          }
-        })
+        // Populate insight arrays from API regardless of events length.
+        setCategorySpendData(Array.isArray(data?.categorySpendData) ? data.categorySpendData : [])
+        setSpendTrendData(Array.isArray(data?.spendTrendData) ? data.spendTrendData : [])
+        setOpportunities(Array.isArray(data?.opportunities) ? data.opportunities : [])
+        setRiskMatrixData(Array.isArray(data?.riskMatrixData) ? data.riskMatrixData : [])
 
-        setStrategies(mapped)
+        if (events.length > 0) {
+          const validStatuses = ['active', 'planning', 'review', 'expired']
+          const mapped: SourcingStrategy[] = events.map((event: any) => {
+            const rawStatus = String(event?.status ?? '').toLowerCase()
+            const status = (validStatuses.includes(rawStatus)
+              ? rawStatus
+              : 'planning') as SourcingStrategy['status']
+            const savingsTarget = Number(event?.targetSavings) || 0
+            return {
+              id: String(event?.id ?? ''),
+              category: event?.category ?? event?.title ?? '',
+              status,
+              spend: Number(event?.estimatedValue) || 0,
+              savingsTarget,
+              actualSavings: 0,
+              suppliers: Number(event?.suppliersInvited) || 0,
+              leadSupplier: '',
+              riskLevel: 'medium',
+              nextReview: '',
+              strategy: event?.title ?? '',
+              owner: ''
+            }
+          })
+
+          setStrategies(mapped)
+        }
       } catch (error) {
         console.error('Failed to load strategic sourcing insights:', error)
       }
@@ -161,59 +168,16 @@ export default function StrategicSourcing() {
     loadStrategies()
   }, [])
 
-  const categorySpendData: CategorySpend[] = [
-    { category: 'Raw Materials', current: 5200000, previous: 5500000, budget: 5000000, variance: -200000, trend: 'down' },
-    { category: 'IT Services', current: 2800000, previous: 2600000, budget: 3000000, variance: 200000, trend: 'up' },
-    { category: 'Logistics', current: 3500000, previous: 3200000, budget: 3400000, variance: -100000, trend: 'up' },
-    { category: 'MRO Supplies', current: 1200000, previous: 1300000, budget: 1250000, variance: 50000, trend: 'down' },
-    { category: 'Professional Services', current: 1800000, previous: 1700000, budget: 1900000, variance: 100000, trend: 'up' },
-    { category: 'Facilities', current: 950000, previous: 1000000, budget: 1000000, variance: 50000, trend: 'down' }
-  ]
+  // Category spend data — wired to real API (categorySpendData from getStrategicSourcingInsights)
+  const [categorySpendData, setCategorySpendData] = useState<CategorySpend[]>([])
 
-  const opportunities: SupplierOpportunity[] = [
-    {
-      id: 'OPP001',
-      supplier: 'Global Materials Inc',
-      category: 'Raw Materials',
-      opportunityType: 'Volume Discount',
-      potentialSavings: 250000,
-      implementation: 'Q2 2024',
-      risk: 'low',
-      priority: 'high',
-      status: 'evaluating'
-    },
-    {
-      id: 'OPP002',
-      supplier: 'TechPro Solutions',
-      category: 'IT Services',
-      opportunityType: 'Service Bundling',
-      potentialSavings: 180000,
-      implementation: 'Q1 2024',
-      risk: 'low',
-      priority: 'high',
-      status: 'implementing'
-    },
-    {
-      id: 'OPP003',
-      supplier: 'FastTrack Logistics',
-      category: 'Logistics',
-      opportunityType: 'Route Optimization',
-      potentialSavings: 320000,
-      implementation: 'Q3 2024',
-      risk: 'medium',
-      priority: 'medium',
-      status: 'identified'
-    }
-  ]
+  // Sourcing opportunities — wired to real API (opportunities from getStrategicSourcingInsights)
+  const [opportunities, setOpportunities] = useState<SupplierOpportunity[]>([])
 
-  const spendTrendData = [
-    { month: 'Jan', actual: 4200000, budget: 4500000, forecast: 4300000 },
-    { month: 'Feb', actual: 4100000, budget: 4500000, forecast: 4200000 },
-    { month: 'Mar', actual: 4300000, budget: 4500000, forecast: 4400000 },
-    { month: 'Apr', actual: 4150000, budget: 4500000, forecast: 4250000 },
-    { month: 'May', actual: 4280000, budget: 4500000, forecast: 4350000 },
-    { month: 'Jun', actual: 4380000, budget: 4500000, forecast: 4400000 }
-  ]
+  // Spend trend data — wired to real API (spendTrendData from getStrategicSourcingInsights)
+  const [spendTrendData, setSpendTrendData] = useState<
+    { month: string; actual: number; budget: number; forecast: number }[]
+  >([])
 
   const supplierConsolidationData = [
     { category: 'Raw Materials', before: 25, after: 12, reduction: 52 },
@@ -223,13 +187,10 @@ export default function StrategicSourcing() {
     { category: 'Professional Services', before: 30, after: 18, reduction: 40 }
   ]
 
-  const riskMatrixData = [
-    { category: 'Raw Materials', impact: 85, probability: 60, value: 5200000 },
-    { category: 'IT Services', impact: 70, probability: 30, value: 2800000 },
-    { category: 'Logistics', impact: 90, probability: 70, value: 3500000 },
-    { category: 'MRO Supplies', impact: 40, probability: 20, value: 1200000 },
-    { category: 'Professional Services', impact: 60, probability: 40, value: 1800000 }
-  ]
+  // Risk matrix data — wired to real API (riskMatrixData from getStrategicSourcingInsights)
+  const [riskMatrixData, setRiskMatrixData] = useState<
+    { category: string; impact: number; probability: number; value: number }[]
+  >([])
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
 

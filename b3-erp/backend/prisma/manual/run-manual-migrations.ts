@@ -118,6 +118,8 @@ const MIGRATION_ORDER: string[] = [
     'orphan_it_admin_two_factor.sql',
     // Per-check Installation Checklist subsystem (net-new, additive, idempotent)
     'orphan_installation_checklists.sql',
+    // Supplier Portal messages + documents (net-new, additive, idempotent)
+    'orphan_supplier_portal.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

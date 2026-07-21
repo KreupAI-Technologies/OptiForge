@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, MessageSquare, FileText, TrendingUp, CheckCircle, AlertCircle, Clock, Building2, RefreshCw, Settings, Download, Eye, Send, Package, Upload, BarChart3 } from 'lucide-react';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 
 export type SupplierStatus = 'active' | 'pending' | 'suspended' | 'inactive';
 export type CollaborationType = 'rfq' | 'po' | 'invoice' | 'quality' | 'general';
@@ -57,231 +58,79 @@ const SupplierPortal: React.FC = () => {
   const [activeView, setActiveView] = useState<'suppliers' | 'collaboration' | 'documents'>('suppliers');
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
 
-  // Mock data - Supplier profiles
-  const suppliers: SupplierProfile[] = [
-    {
-      id: 'SUP001',
-      name: 'Acme Manufacturing Co.',
-      code: 'ACM-001',
-      status: 'active',
-      category: 'Raw Materials',
-      rating: 4.8,
-      totalSpend: 2450000,
-      activeOrders: 12,
-      onTimeDelivery: 96.5,
-      qualityScore: 98.2,
-      paymentTerms: 'Net 30',
-      contact: { name: 'John Smith', email: 'john@acme.com', phone: '+1-555-0101' },
-      lastActivity: '2025-10-23',
-    },
-    {
-      id: 'SUP002',
-      name: 'Global Components Ltd.',
-      code: 'GCL-002',
-      status: 'active',
-      category: 'Electronic Components',
-      rating: 4.6,
-      totalSpend: 1850000,
-      activeOrders: 8,
-      onTimeDelivery: 94.2,
-      qualityScore: 96.8,
-      paymentTerms: 'Net 45',
-      contact: { name: 'Sarah Johnson', email: 'sarah@globalcomp.com', phone: '+1-555-0102' },
-      lastActivity: '2025-10-24',
-    },
-    {
-      id: 'SUP003',
-      name: 'Quality Steel Industries',
-      code: 'QSI-003',
-      status: 'active',
-      category: 'Metals & Alloys',
-      rating: 4.9,
-      totalSpend: 3200000,
-      activeOrders: 15,
-      onTimeDelivery: 98.1,
-      qualityScore: 99.5,
-      paymentTerms: 'Net 60',
-      contact: { name: 'Michael Chen', email: 'michael@qualitysteel.com', phone: '+1-555-0103' },
-      lastActivity: '2025-10-24',
-    },
-    {
-      id: 'SUP004',
-      name: 'Tech Solutions Inc.',
-      code: 'TSI-004',
-      status: 'pending',
-      category: 'IT Services',
-      rating: 4.3,
-      totalSpend: 980000,
-      activeOrders: 3,
-      onTimeDelivery: 91.5,
-      qualityScore: 93.7,
-      paymentTerms: 'Net 30',
-      contact: { name: 'Emily Davis', email: 'emily@techsol.com', phone: '+1-555-0104' },
-      lastActivity: '2025-10-22',
-    },
-    {
-      id: 'SUP005',
-      name: 'Precision Parts Manufacturing',
-      code: 'PPM-005',
-      status: 'active',
-      category: 'Machined Parts',
-      rating: 4.7,
-      totalSpend: 1650000,
-      activeOrders: 10,
-      onTimeDelivery: 95.8,
-      qualityScore: 97.4,
-      paymentTerms: 'Net 45',
-      contact: { name: 'Robert Wilson', email: 'robert@precisionparts.com', phone: '+1-555-0105' },
-      lastActivity: '2025-10-23',
-    },
-    {
-      id: 'SUP006',
-      name: 'Eco Packaging Solutions',
-      code: 'EPS-006',
-      status: 'suspended',
-      category: 'Packaging Materials',
-      rating: 3.8,
-      totalSpend: 450000,
-      activeOrders: 0,
-      onTimeDelivery: 87.3,
-      qualityScore: 89.2,
-      paymentTerms: 'Net 30',
-      contact: { name: 'Lisa Anderson', email: 'lisa@ecopack.com', phone: '+1-555-0106' },
-      lastActivity: '2025-10-15',
-    },
-  ];
+  // Supplier profiles derived from real vendor data (procurement/supplier-portal/suppliers).
+  const [suppliers, setSuppliers] = useState<SupplierProfile[]>([]);
 
-  // Mock data - Collaboration messages
-  const messages: CollaborationMessage[] = [
-    {
-      id: 'MSG001',
-      supplierId: 'SUP001',
-      supplierName: 'Acme Manufacturing Co.',
-      type: 'rfq',
-      subject: 'RFQ-2025-089 - Steel Rods Quotation Request',
-      message: 'Please provide quotation for 5000 units of steel rods (Grade A36, 12mm diameter) for delivery by Nov 15.',
-      status: 'unread',
-      priority: 'high',
-      createdAt: '2025-10-24 09:30',
-      attachments: 2,
-    },
-    {
-      id: 'MSG002',
-      supplierId: 'SUP002',
-      supplierName: 'Global Components Ltd.',
-      type: 'po',
-      subject: 'PO-2025-1245 - Delivery Date Confirmation',
-      message: 'Confirming delivery date for PO-2025-1245. Can you ship by October 30th as requested?',
-      status: 'responded',
-      priority: 'medium',
-      createdAt: '2025-10-23 14:15',
-      respondedAt: '2025-10-23 16:45',
-      attachments: 1,
-    },
-    {
-      id: 'MSG003',
-      supplierId: 'SUP003',
-      supplierName: 'Quality Steel Industries',
-      type: 'quality',
-      subject: 'Quality Issue - Batch QS-2025-456',
-      message: 'Minor surface defects detected in recent batch. Please review attached quality report and advise on corrective actions.',
-      status: 'read',
-      priority: 'high',
-      createdAt: '2025-10-23 11:20',
-      attachments: 3,
-    },
-    {
-      id: 'MSG004',
-      supplierId: 'SUP005',
-      supplierName: 'Precision Parts Manufacturing',
-      type: 'invoice',
-      subject: 'Invoice Discrepancy - INV-2025-789',
-      message: 'Noted pricing discrepancy in invoice INV-2025-789. Unit price should be $45.00, not $48.00 as invoiced.',
-      status: 'unread',
-      priority: 'medium',
-      createdAt: '2025-10-24 08:00',
-    },
-    {
-      id: 'MSG005',
-      supplierId: 'SUP001',
-      supplierName: 'Acme Manufacturing Co.',
-      type: 'general',
-      subject: 'New Product Catalog Available',
-      message: 'We have launched new eco-friendly material options. Would you like to schedule a presentation?',
-      status: 'read',
-      priority: 'low',
-      createdAt: '2025-10-22 16:30',
-      attachments: 1,
-    },
-  ];
+  // Collaboration messages (procurement/supplier-portal/messages).
+  const [messages, setMessages] = useState<CollaborationMessage[]>([]);
 
-  // Mock data - Supplier documents
-  const documents: SupplierDocument[] = [
-    {
-      id: 'DOC001',
-      supplierId: 'SUP001',
-      supplierName: 'Acme Manufacturing Co.',
-      documentType: 'ISO 9001 Certificate',
-      fileName: 'ISO9001_Certificate_2025.pdf',
-      uploadedAt: '2025-01-15',
-      expiryDate: '2026-01-14',
-      status: 'valid',
-      size: '2.4 MB',
-    },
-    {
-      id: 'DOC002',
-      supplierId: 'SUP001',
-      supplierName: 'Acme Manufacturing Co.',
-      documentType: 'Insurance Certificate',
-      fileName: 'Liability_Insurance_2025.pdf',
-      uploadedAt: '2025-03-10',
-      expiryDate: '2025-11-30',
-      status: 'expiring',
-      size: '1.8 MB',
-    },
-    {
-      id: 'DOC003',
-      supplierId: 'SUP002',
-      supplierName: 'Global Components Ltd.',
-      documentType: 'W9 Tax Form',
-      fileName: 'W9_Form_2025.pdf',
-      uploadedAt: '2025-01-05',
-      status: 'valid',
-      size: '450 KB',
-    },
-    {
-      id: 'DOC004',
-      supplierId: 'SUP003',
-      supplierName: 'Quality Steel Industries',
-      documentType: 'ISO 14001 Certificate',
-      fileName: 'ISO14001_Environmental.pdf',
-      uploadedAt: '2024-06-20',
-      expiryDate: '2025-10-15',
-      status: 'expired',
-      size: '3.1 MB',
-    },
-    {
-      id: 'DOC005',
-      supplierId: 'SUP003',
-      supplierName: 'Quality Steel Industries',
-      documentType: 'Material Safety Data Sheet',
-      fileName: 'MSDS_Steel_Alloys.pdf',
-      uploadedAt: '2025-02-28',
-      status: 'valid',
-      size: '5.2 MB',
-    },
-    {
-      id: 'DOC006',
-      supplierId: 'SUP005',
-      supplierName: 'Precision Parts Manufacturing',
-      documentType: 'Quality Assurance Plan',
-      fileName: 'QA_Plan_2025.pdf',
-      uploadedAt: '2025-01-20',
-      expiryDate: '2025-12-31',
-      status: 'valid',
-      size: '1.2 MB',
-    },
-  ];
+  // Supplier documents (procurement/supplier-portal/documents).
+  const [documents, setDocuments] = useState<SupplierDocument[]>([]);
+
+  const reloadPortal = React.useCallback(async () => {
+    try {
+      const [sup, msg, doc] = await Promise.all([
+        procurementPagesService.getSupplierPortalSuppliers(),
+        procurementPagesService.getSupplierPortalMessages(),
+        procurementPagesService.getSupplierPortalDocuments(),
+      ]);
+      setSuppliers(
+        (Array.isArray(sup) ? sup : []).map((s: any): SupplierProfile => ({
+          id: String(s?.id ?? ''),
+          name: String(s?.name ?? ''),
+          code: String(s?.code ?? ''),
+          status: (s?.status ?? 'inactive') as SupplierStatus,
+          category: String(s?.category ?? ''),
+          rating: Number(s?.rating) || 0,
+          totalSpend: Number(s?.totalSpend) || 0,
+          activeOrders: Number(s?.activeOrders) || 0,
+          onTimeDelivery: Number(s?.onTimeDelivery) || 0,
+          qualityScore: Number(s?.qualityScore) || 0,
+          paymentTerms: String(s?.paymentTerms ?? ''),
+          contact: {
+            name: String(s?.contact?.name ?? ''),
+            email: String(s?.contact?.email ?? ''),
+            phone: String(s?.contact?.phone ?? ''),
+          },
+          lastActivity: String(s?.lastActivity ?? ''),
+        })),
+      );
+      setMessages(
+        (Array.isArray(msg) ? msg : []).map((m: any): CollaborationMessage => ({
+          id: String(m?.id ?? ''),
+          supplierId: String(m?.supplierId ?? ''),
+          supplierName: String(m?.supplierName ?? ''),
+          type: (m?.type ?? 'general') as CollaborationType,
+          subject: String(m?.subject ?? ''),
+          message: String(m?.message ?? ''),
+          status: (m?.status ?? 'unread') as MessageStatus,
+          priority: (m?.priority ?? 'medium') as 'low' | 'medium' | 'high',
+          createdAt: m?.createdAt ? String(m.createdAt).slice(0, 16).replace("T", " ") : "",
+          respondedAt: m?.respondedAt ? String(m.respondedAt).slice(0, 16).replace("T", " ") : undefined,
+          attachments: Number(m?.attachments) || 0,
+        })),
+      );
+      setDocuments(
+        (Array.isArray(doc) ? doc : []).map((d: any): SupplierDocument => ({
+          id: String(d?.id ?? ''),
+          supplierId: String(d?.supplierId ?? ''),
+          supplierName: String(d?.supplierName ?? ''),
+          documentType: String(d?.documentType ?? ''),
+          fileName: String(d?.fileName ?? ''),
+          uploadedAt: d?.createdAt ? String(d.createdAt).slice(0, 10) : "",
+          expiryDate: d?.expiryDate ? String(d.expiryDate).slice(0, 10) : undefined,
+          status: (d?.status ?? 'valid') as SupplierDocument['status'],
+          size: String(d?.size ?? ''),
+        })),
+      );
+    } catch (err) {
+      console.error('Failed to load supplier portal data:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    reloadPortal();
+  }, [reloadPortal]);
 
   const getStatusColor = (status: SupplierStatus): string => {
     switch (status) {
@@ -361,10 +210,27 @@ const SupplierPortal: React.FC = () => {
 ).join('\n\n') : 'No documents on file'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT CATEGORIES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. COMPLIANCE CERTIFICATES:\n   - ISO certifications (9001, 14001, etc.)\n   - Industry-specific certifications\n   - Environmental compliance\n   - Safety certifications\n\n2. LEGAL & TAX:\n   - Business registration\n   - Tax forms (W9, VAT registration)\n   - Insurance certificates\n   - NDA/Contracts\n\n3. QUALITY DOCUMENTS:\n   - Quality assurance plans\n   - Material safety data sheets (MSDS)\n   - Product certifications\n   - Test reports & inspections\n\n4. OPERATIONAL:\n   - Product catalogs\n   - Price lists\n   - Technical specifications\n   - User manuals\n\n5. TRANSACTION DOCUMENTS:\n   - Purchase orders (PDFs)\n   - Invoices and receipts\n   - Shipping documents\n   - Delivery confirmations\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOWNLOAD OPTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSINGLE DOWNLOAD:\n□ Select document from list\n□ Click download icon\n□ File downloads immediately\n\nBULK DOWNLOAD:\n□ Select multiple documents (checkboxes)\n□ Click "Download Selected"\n□ ZIP file created and downloaded\n\nDOWNLOAD ALL:\n□ Download complete document package\n□ All supplier documents in one ZIP\n□ Organized by category folders\n\nSCHEDULED REPORTS:\n□ Weekly/monthly document summary\n□ Expiring certificates alert\n□ New documents notification\n□ Automated delivery via email\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nUPLOAD NEW DOCUMENTS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nEasily upload additional documents:\n1. Click "Upload Document"\n2. Select document type/category\n3. Add description and expiry date\n4. Choose file (PDF, max 20MB)\n5. Submit for review\n\nAuto-notifications:\n- Procurement team notified\n- Approval within 1-2 days\n- Certificate expiry reminders (30 days)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT STATUS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nValid Documents: ${supplierDocs.filter(d => d.status === 'valid').length}\nExpiring Soon: ${supplierDocs.filter(d => d.status === 'expiring').length}\nExpired: ${supplierDocs.filter(d => d.status === 'expired').length}\n\n${supplierDocs.filter(d => d.status === 'expiring' || d.status === 'expired').length > 0 ? `⚠️ ACTION REQUIRED:\n${supplierDocs.filter(d => d.status === 'expiring' || d.status === 'expired').map(d => `- ${d.documentType}: ${d.status === 'expired' ? 'EXPIRED' : 'Expires ' + d.expiryDate}`).join('\n')}\n\nPlease upload renewed certificates to maintain compliance status.` : '✓ All documents are current and valid.'}\n\nSelect documents to download?`);
   };
 
-  const handleMessageBuyer = (supplier: SupplierProfile) => {
-    console.log('Messaging buyer for:', supplier.id);
-
-    alert(`Send Message to Buyer: ${supplier.name}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMESSAGE COMPOSITION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nFROM:\nSupplier: ${supplier.name}\nContact: ${supplier.contact.name}\nEmail: ${supplier.contact.email}\n\nTO:\nCategory Buyer: Procurement Team\nBuyer: Sarah Thompson\nEmail: sarah.thompson@company.com\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMESSAGE DETAILS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nMESSAGE TYPE:\n□ General Inquiry\n□ RFQ Response\n□ PO Question/Clarification\n□ Invoice Issue\n□ Quality/Technical Issue\n□ Delivery Update\n□ Product Information\n□ Contract Discussion\n\nRELATED REFERENCE (Optional):\n- PO Number: ___________\n- RFQ Number: ___________\n- Invoice Number: ___________\n- Other Reference: ___________\n\nPRIORITY:\n○ Low (response in 2-3 days)\n● Medium (response in 1 business day)\n○ High (response within 4 hours)\n○ Urgent (immediate attention)\n\nSUBJECT LINE:\n[Enter subject - max 100 characters]\n\nMESSAGE BODY:\n[Compose your message - max 5000 characters]\n\nATTACHMENTS (Optional):\n□ Add files (PDF, Excel, Images)\n□ Max 5 files, 10MB each\n□ Supported: PDF, XLSX, DOC, JPG, PNG\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMESSAGE TEMPLATES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nQuick Start with Templates:\n\n1. DELIVERY DELAY NOTIFICATION:\n   "Regrettably, delivery for PO-XXXXX will be delayed by [X] days due to [reason]. New ETA: [date]. We apologize for inconvenience."\n\n2. PRODUCT AVAILABILITY UPDATE:\n   "Product [SKU] is back in stock. Lead time: [X] days. Please let us know if you'd like to proceed with your inquiry."\n\n3. PRICE QUOTE REQUEST FOLLOW-UP:\n   "Following up on RFQ-XXXXX submitted on [date]. Please let us know if you need additional information to complete evaluation."\n\n4. INVOICE CLARIFICATION:\n   "Regarding invoice INV-XXXXX: [specific question]. Please advise how to proceed for timely payment processing."\n\n5. QUALITY CONCERN RESPONSE:\n   "In reference to quality issue [ref], we have completed root cause analysis. Corrective actions: [summary]. Full report attached."\n\n6. NEW PRODUCT INTRODUCTION:\n   "We're excited to share our new [product line]. [Brief description]. Catalog attached. Available for sampling."\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCOMMUNICATION GUIDELINES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nBEST PRACTICES:\n✓ Be clear and concise\n✓ Include all relevant references (PO, RFQ, etc.)\n✓ Attach supporting documents\n✓ Suggest solutions, not just problems\n✓ Use professional tone\n✓ Respond to buyer messages within 24 hours\n\nAVOID:\n✗ Generic or vague messages\n✗ Multiple unrelated topics in one message\n✗ Aggressive or demanding language\n✗ Large unsolicited attachments\n✗ Sending duplicates\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRESPONSE EXPECTATIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTYPICAL RESPONSE TIMES:\n- Urgent issues: 2-4 hours\n- High priority: Same business day\n- Medium priority: 1 business day\n- Low priority: 2-3 business days\n\nBUSINESS HOURS:\nMonday - Friday: 8:00 AM - 6:00 PM EST\nAfter-hours: Emergency contact available\n\nMESSAGE TRACKING:\n- All messages logged in system\n- Email notifications for responses\n- View message history anytime\n- Escalation if no response in 48 hours\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPREVIOUS CONVERSATIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nRecent Messages:\n- Oct 20: PO-2025-1245 delivery confirmation ✓ Responded\n- Oct 15: New product catalog inquiry ✓ Responded\n- Oct 08: RFQ-2025-089 quotation ✓ Responded\n\nView complete message history →\n\nProceed to compose message?`);
+  const handleMessageBuyer = async (supplier: SupplierProfile) => {
+    const subject = window.prompt(`Message to buyer regarding ${supplier.name}\n\nSubject:`);
+    if (!subject) return;
+    const body = window.prompt('Message body:');
+    if (!body) return;
+    try {
+      await procurementPagesService.createSupplierPortalMessage({
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        type: 'general',
+        subject,
+        message: body,
+        status: 'unread',
+        priority: 'medium',
+      });
+      await reloadPortal();
+      setActiveView('collaboration');
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      alert('Failed to send message. Please try again.');
+    }
   };
 
   const handleViewSupplierProfile = (supplier: SupplierProfile) => {
@@ -374,8 +240,36 @@ const SupplierPortal: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    console.log('Refreshing supplier portal data...');
-    alert('Refreshing Supplier Portal Data...\n\nUpdating:\n- Supplier profiles and status\n- Purchase order information\n- Invoice status and payments\n- Messages and notifications\n- Document updates\n- Performance metrics\n- Catalog changes\n\nSyncing with:\n- ERP system\n- Procurement database\n- Payment processing\n- Document management\n- Messaging system\n\nEstimated time: 5-10 seconds\n\nData refresh completed ✓');
+    void reloadPortal();
+  };
+
+  // Real document register upload (metadata record) -> POST + reload.
+  const handleUploadDocument = async (supplier?: SupplierProfile) => {
+    const target = supplier ?? suppliers[0];
+    if (!target) {
+      alert('No supplier available to attach a document to.');
+      return;
+    }
+    const documentType = window.prompt('Document type (e.g. ISO 9001 Certificate):');
+    if (!documentType) return;
+    const fileName = window.prompt('File name (e.g. iso9001.pdf):');
+    if (!fileName) return;
+    const expiryDate = window.prompt('Expiry date (YYYY-MM-DD, optional):') || undefined;
+    try {
+      await procurementPagesService.createSupplierPortalDocument({
+        supplierId: target.id,
+        supplierName: target.name,
+        documentType,
+        fileName,
+        expiryDate,
+        status: 'valid',
+      });
+      await reloadPortal();
+      setActiveView('documents');
+    } catch (err) {
+      console.error('Failed to upload document:', err);
+      alert('Failed to upload document. Please try again.');
+    }
   };
 
   const handleSettings = () => {
@@ -674,6 +568,15 @@ const SupplierPortal: React.FC = () => {
 
   const renderDocuments = () => (
     <div className="space-y-2">
+      <div className="flex justify-end">
+        <button
+          onClick={() => handleUploadDocument()}
+          className="flex items-center px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          Upload Document
+        </button>
+      </div>
       {/* Document Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div className="bg-white p-3 rounded-lg shadow border-l-4 border-green-500">

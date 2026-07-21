@@ -8,6 +8,7 @@ import {
   Percent, Package, Clock, Filter, Search, Eye, Send, ArrowUpRight
 } from 'lucide-react';
 import { procurementSavingsService } from '@/services/procurement-savings.service';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import { exportToCsv } from '@/lib/export';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
@@ -74,34 +75,35 @@ const ProcurementSavings: React.FC = () => {
     loadInitiatives();
   }, [loadInitiatives]);
 
-  // Mock data - Monthly savings
-  const monthlySavings = [
-    { month: 'Jul', target: 40000, actual: 45000, cumulative: 320000 },
-    { month: 'Aug', target: 42000, actual: 48000, cumulative: 368000 },
-    { month: 'Sep', target: 40000, actual: 38000, cumulative: 406000 },
-    { month: 'Oct', target: 45000, actual: 52000, cumulative: 458000 },
-    { month: 'Nov', target: 43000, actual: 51000, cumulative: 509000 },
-    { month: 'Dec', target: 50000, actual: 0, cumulative: 509000 }
-  ];
+  // Monthly savings — sourced from procurement savings insights API
+  const [monthlySavings, setMonthlySavings] = useState<
+    { month: string; target: number; actual: number; cumulative: number }[]
+  >([]);
 
-  // Mock data - Savings by type
-  const savingsByType = [
-    { type: 'Price Reduction', savings: 125000, percentage: 28, initiatives: 8 },
-    { type: 'Volume Consolidation', savings: 110000, percentage: 25, initiatives: 6 },
-    { type: 'Supplier Negotiation', savings: 98000, percentage: 22, initiatives: 5 },
-    { type: 'Demand Management', savings: 75000, percentage: 17, initiatives: 7 },
-    { type: 'Process Improvement', savings: 42000, percentage: 8, initiatives: 4 }
-  ];
+  // Savings by type — sourced from procurement savings insights API
+  const [savingsByType, setSavingsByType] = useState<
+    { type: string; savings: number; percentage: number; initiatives: number }[]
+  >([]);
 
-  // Mock data - Savings by category
-  const savingsByCategory = [
-    { category: 'Electronic Components', savings: 92000, target: 85000, achievement: 108 },
-    { category: 'Raw Materials', savings: 98000, target: 120000, achievement: 82 },
-    { category: 'Professional Services', savings: 82000, target: 78000, achievement: 105 },
-    { category: 'IT Equipment', savings: 48000, target: 65000, achievement: 74 },
-    { category: 'Process Improvement', savings: 52000, target: 45000, achievement: 116 },
-    { category: 'Office Supplies', savings: 28000, target: 32000, achievement: 88 }
-  ];
+  // Savings by category — sourced from procurement savings insights API
+  const [savingsByCategory, setSavingsByCategory] = useState<
+    { category: string; savings: number; target: number; achievement: number }[]
+  >([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await procurementPagesService.getSavingsInsights();
+        setMonthlySavings(Array.isArray(data?.monthlySavings) ? data.monthlySavings : []);
+        setSavingsByType(Array.isArray(data?.savingsByType) ? data.savingsByType : []);
+        setSavingsByCategory(Array.isArray(data?.savingsByCategory) ? data.savingsByCategory : []);
+      } catch {
+        setMonthlySavings([]);
+        setSavingsByType([]);
+        setSavingsByCategory([]);
+      }
+    })();
+  }, []);
 
   const getStatusColor = (status: string): string => {
     switch (status) {
@@ -891,7 +893,7 @@ const ProcurementSavings: React.FC = () => {
                 <ArrowUpRight className="h-5 w-5 text-blue-500 mr-3 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Monthly target exceeded</p>
-                  <p className="text-xs text-gray-500 mt-1">{monthlySavings[monthlySavings.length - 2].month}: ${monthlySavings[monthlySavings.length - 2].actual.toLocaleString()} (Target: ${monthlySavings[monthlySavings.length - 2].target.toLocaleString()})</p>
+                  <p className="text-xs text-gray-500 mt-1">{monthlySavings[monthlySavings.length - 2]?.month ?? '—'}: ${(monthlySavings[monthlySavings.length - 2]?.actual ?? 0).toLocaleString()} (Target: ${(monthlySavings[monthlySavings.length - 2]?.target ?? 0).toLocaleString()})</p>
                 </div>
               </div>
               <div className="flex items-start p-3 bg-gray-50 rounded-lg">

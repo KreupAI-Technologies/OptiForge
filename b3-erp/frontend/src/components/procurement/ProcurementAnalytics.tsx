@@ -57,25 +57,15 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
     complianceTarget: 0
   });
 
-  // Mock spend analysis data
-  const spendByCategory = [
-    { category: 'Raw Materials', amount: 850000, percentage: 34.7, trend: 'up' },
-    { category: 'Electronics', amount: 620000, percentage: 25.3, trend: 'up' },
-    { category: 'MRO Supplies', amount: 380000, percentage: 15.5, trend: 'down' },
-    { category: 'Services', amount: 290000, percentage: 11.8, trend: 'stable' },
-    { category: 'Packaging', amount: 180000, percentage: 7.3, trend: 'up' },
-    { category: 'Others', amount: 130000, percentage: 5.4, trend: 'down' }
-  ];
+  // Spend analysis data — wired to real API (spendByCategory from getAnalyticsInsights)
+  const [spendByCategory, setSpendByCategory] = useState<
+    { category: string; amount: number; percentage: number; trend: string }[]
+  >([]);
 
-  // Mock monthly spend trend
-  const monthlySpendTrend = [
-    { month: 'Jan', spend: 1950000, orders: 95, avgValue: 20526 },
-    { month: 'Feb', spend: 2100000, orders: 102, avgValue: 20588 },
-    { month: 'Mar', spend: 2250000, orders: 108, avgValue: 20833 },
-    { month: 'Apr', spend: 2180000, orders: 112, avgValue: 19464 },
-    { month: 'May', spend: 2350000, orders: 118, avgValue: 19915 },
-    { month: 'Jun', spend: 2450000, orders: 125, avgValue: 19600 }
-  ];
+  // Monthly spend trend — wired to real API (monthlySpendTrend from getAnalyticsInsights)
+  const [monthlySpendTrend, setMonthlySpendTrend] = useState<
+    { month: string; spend: number; orders: number; avgValue: number }[]
+  >([]);
 
   // Supplier performance data — wired to real API (topVendors from getAnalyticsInsights)
   const [supplierPerformance, setSupplierPerformance] = useState<any[]>([]);
@@ -101,40 +91,38 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
           totalOrders: Number(k.orderCount) || 0,
           activeSuppliers: Number(k.activeVendors) || 0,
           avgOrderValue: Number(k.avgOrderValue) || 0,
+          spendChange: k.spendChange != null ? Number(k.spendChange) || 0 : prev.spendChange,
+          ordersChange: k.ordersChange != null ? Number(k.ordersChange) || 0 : prev.ordersChange,
+          orderValueChange: k.avgOrderValueChange != null ? Number(k.avgOrderValueChange) || 0 : prev.orderValueChange,
+          savingsAchieved: k.savingsAchieved != null ? Number(k.savingsAchieved) || 0 : prev.savingsAchieved,
+          savingsTarget: k.savingsTarget != null ? Number(k.savingsTarget) || 0 : prev.savingsTarget,
+          contractCompliance: k.contractCompliance != null ? Number(k.contractCompliance) || 0 : prev.contractCompliance,
         }));
+        setSpendByCategory(Array.isArray(insights?.spendByCategory) ? insights.spendByCategory : []);
+        setMonthlySpendTrend(Array.isArray(insights?.monthlySpendTrend) ? insights.monthlySpendTrend : []);
+        setCycleTimeAnalysis(Array.isArray(insights?.cycleTimeAnalysis) ? insights.cycleTimeAnalysis : []);
+        setSavingsOpportunities(Array.isArray(insights?.savingsOpportunities) ? insights.savingsOpportunities : []);
+        setComplianceMetrics(Array.isArray(insights?.complianceMetrics) ? insights.complianceMetrics : []);
       } catch {
         setSupplierPerformance([]);
       }
     })();
   }, []);
 
-  // Mock procurement cycle time data
-  const cycleTimeAnalysis = [
-    { stage: 'Requisition', avgDays: 2.5, target: 2, efficiency: 80 },
-    { stage: 'Approval', avgDays: 1.8, target: 1, efficiency: 55 },
-    { stage: 'RFQ Process', avgDays: 5.2, target: 4, efficiency: 70 },
-    { stage: 'PO Creation', avgDays: 1.3, target: 1, efficiency: 77 },
-    { stage: 'Delivery', avgDays: 8.5, target: 7, efficiency: 82 },
-    { stage: 'Payment', avgDays: 3.2, target: 3, efficiency: 94 }
-  ];
+  // Procurement cycle time data — wired to real API (cycleTimeAnalysis from getAnalyticsInsights)
+  const [cycleTimeAnalysis, setCycleTimeAnalysis] = useState<
+    { stage: string; avgDays: number; target: number; efficiency: number }[]
+  >([]);
 
-  // Mock cost savings opportunities
-  const savingsOpportunities = [
-    { opportunity: 'Volume Consolidation', potential: 45000, difficulty: 'low', timeline: 'Q1 2025' },
-    { opportunity: 'Contract Renegotiation', potential: 38000, difficulty: 'medium', timeline: 'Q2 2025' },
-    { opportunity: 'Supplier Rationalization', potential: 32000, difficulty: 'high', timeline: 'Q2 2025' },
-    { opportunity: 'Process Automation', potential: 28000, difficulty: 'medium', timeline: 'Q1 2025' },
-    { opportunity: 'Payment Terms Optimization', potential: 22000, difficulty: 'low', timeline: 'Q1 2025' }
-  ];
+  // Cost savings opportunities — wired to real API (savingsOpportunities from getAnalyticsInsights)
+  const [savingsOpportunities, setSavingsOpportunities] = useState<
+    { opportunity: string; potential: number; difficulty: 'low' | 'medium' | 'high'; timeline: string }[]
+  >([]);
 
-  // Mock compliance metrics
-  const complianceMetrics = [
-    { metric: 'Contract Compliance', score: 94.5, target: 95, status: 'warning' },
-    { metric: 'PO Accuracy', score: 98.2, target: 98, status: 'good' },
-    { metric: 'Maverick Spending', score: 8.5, target: 5, status: 'critical' },
-    { metric: 'Supplier Compliance', score: 92.3, target: 90, status: 'good' },
-    { metric: 'Policy Adherence', score: 96.7, target: 95, status: 'good' }
-  ];
+  // Compliance metrics — wired to real API (complianceMetrics from getAnalyticsInsights)
+  const [complianceMetrics, setComplianceMetrics] = useState<
+    { metric: string; score: number; target: number; status: 'good' | 'warning' | 'critical' }[]
+  >([]);
 
   const handleRefresh = () => {
     setRefreshing(true);

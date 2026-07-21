@@ -145,11 +145,21 @@ export default function ProcurementAutomation() {
 
   // Mock data
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([])
+  const [aiInsights, setAiInsights] = useState<AIInsight[]>([])
+  const [processMetrics, setProcessMetrics] = useState<ProcessMetric[]>([])
+  const [automationTrend, setAutomationTrend] = useState<{ month: string; manual: number; automated: number; ai: number }[]>([])
+  const [workflowStages, setWorkflowStages] = useState<{ stage: string; automated: number; time: string; previousTime: string }[]>([])
 
   useEffect(() => {
     const loadAutomationRules = async () => {
       try {
         const insights = await procurementPagesService.getAutomationInsights()
+
+        setAutomationTrend(Array.isArray(insights?.automationTrend) ? insights.automationTrend : [])
+        setProcessMetrics(Array.isArray(insights?.processMetrics) ? insights.processMetrics : [])
+        setWorkflowStages(Array.isArray(insights?.workflowStages) ? insights.workflowStages : [])
+        setAiInsights(Array.isArray(insights?.aiInsights) ? insights.aiInsights : [])
+
         const rules: any[] = Array.isArray(insights?.rules) ? insights.rules : []
         if (rules.length === 0) return
         const mapped: AutomationRule[] = rules.map((r: any) => ({
@@ -172,64 +182,6 @@ export default function ProcurementAutomation() {
     loadAutomationRules()
   }, [])
 
-  const aiInsights: AIInsight[] = [
-    {
-      id: 'AI001',
-      category: 'Cost Optimization',
-      insight: 'Detected 15% price increase pattern in IT supplies category',
-      impact: 'high',
-      confidence: 92,
-      recommendation: 'Consider bulk ordering before Q2 price adjustment',
-      potentialSavings: 125000,
-      status: 'new'
-    },
-    {
-      id: 'AI002',
-      category: 'Supplier Risk',
-      insight: 'Supplier delivery performance declining for 3 consecutive months',
-      impact: 'high',
-      confidence: 88,
-      recommendation: 'Initiate supplier performance review and identify alternatives',
-      status: 'reviewing'
-    },
-    {
-      id: 'AI003',
-      category: 'Process Efficiency',
-      insight: 'Manual approval bottleneck detected in engineering requisitions',
-      impact: 'medium',
-      confidence: 95,
-      recommendation: 'Implement auto-approval for requisitions under $5,000',
-      potentialSavings: 45000,
-      status: 'new'
-    },
-    {
-      id: 'AI004',
-      category: 'Demand Pattern',
-      insight: 'Seasonal demand spike predicted for Q2 raw materials',
-      impact: 'medium',
-      confidence: 85,
-      recommendation: 'Increase safety stock levels by 20% before March',
-      status: 'implemented'
-    }
-  ]
-
-  const processMetrics: ProcessMetric[] = [
-    { process: 'Purchase Orders', manual: 15, automated: 65, aiOptimized: 20, efficiency: 85 },
-    { process: 'Invoice Processing', manual: 10, automated: 70, aiOptimized: 20, efficiency: 90 },
-    { process: 'Supplier Selection', manual: 40, automated: 35, aiOptimized: 25, efficiency: 60 },
-    { process: 'Contract Management', manual: 30, automated: 50, aiOptimized: 20, efficiency: 70 },
-    { process: 'Spend Analysis', manual: 20, automated: 40, aiOptimized: 40, efficiency: 80 }
-  ]
-
-  const automationTrend = [
-    { month: 'Jan', manual: 1200, automated: 800, ai: 200 },
-    { month: 'Feb', manual: 1100, automated: 900, ai: 300 },
-    { month: 'Mar', manual: 1000, automated: 1000, ai: 400 },
-    { month: 'Apr', manual: 900, automated: 1100, ai: 500 },
-    { month: 'May', manual: 800, automated: 1200, ai: 600 },
-    { month: 'Jun', manual: 700, automated: 1300, ai: 700 }
-  ]
-
   const aiPredictions = [
     { metric: 'Demand Forecast', accuracy: 87, improvement: 12 },
     { metric: 'Price Prediction', accuracy: 82, improvement: 8 },
@@ -243,14 +195,6 @@ export default function ProcurementAutomation() {
     { area: 'AI Optimization', savings: 320000, hours: 1200 },
     { area: 'Error Reduction', savings: 180000, hours: 800 },
     { area: 'Cycle Time', savings: 150000, hours: 600 }
-  ]
-
-  const workflowStages = [
-    { stage: 'Requisition', automated: 85, time: '2 mins', previousTime: '30 mins' },
-    { stage: 'Approval', automated: 70, time: '5 mins', previousTime: '2 days' },
-    { stage: 'PO Creation', automated: 95, time: '1 min', previousTime: '45 mins' },
-    { stage: 'Receipt', automated: 60, time: '10 mins', previousTime: '1 hour' },
-    { stage: 'Invoice', automated: 90, time: '3 mins', previousTime: '1 day' }
   ]
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']

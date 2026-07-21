@@ -101,6 +101,10 @@ export default function ProcurementRiskManagement() {
       try {
         const data = await procurementPagesService.getRiskInsights();
         const assessments: any[] = data?.assessments ?? [];
+
+        setRiskTrends(Array.isArray(data?.riskTrends) ? data.riskTrends : []);
+        setMitigationProgress(Array.isArray(data?.mitigationProgress) ? data.mitigationProgress : []);
+
         if (!assessments.length) return;
 
         const validCategories: Risk['category'][] = [
@@ -181,22 +185,21 @@ export default function ProcurementRiskManagement() {
     })();
   }, []);
 
-  const riskTrends = [
-    { month: 'Jan', critical: 2, high: 5, medium: 8, low: 3 },
-    { month: 'Feb', critical: 1, high: 6, medium: 7, low: 4 },
-    { month: 'Mar', critical: 1, high: 5, medium: 9, low: 5 },
-    { month: 'Apr', critical: 2, high: 4, medium: 8, low: 6 },
-    { month: 'May', critical: 1, high: 5, medium: 7, low: 7 },
-    { month: 'Jun', critical: 1, high: 4, medium: 8, low: 8 }
-  ];
+  // Risk trends (loaded from backend getRiskInsights().riskTrends)
+  const [riskTrends, setRiskTrends] = useState<Array<{
+    month: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }>>([]);
 
-  const mitigationProgress = [
-    { name: 'RISK001', completion: 65, onTrack: true },
-    { name: 'RISK002', completion: 80, onTrack: true },
-    { name: 'RISK003', completion: 45, onTrack: false },
-    { name: 'RISK004', completion: 90, onTrack: true },
-    { name: 'RISK005', completion: 70, onTrack: true }
-  ];
+  // Mitigation progress (loaded from backend getRiskInsights().mitigationProgress)
+  const [mitigationProgress, setMitigationProgress] = useState<Array<{
+    name: string;
+    completion: number;
+    onTrack: boolean;
+  }>>([]);
 
   const COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899'];
 
