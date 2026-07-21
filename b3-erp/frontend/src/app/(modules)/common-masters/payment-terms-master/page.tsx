@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, CreditCard, Users, TrendingUp, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { PaymentTerm, getPaymentTermStats } from '@/data/common-masters/payment-terms';
+import { PaymentTerm } from '@/data/common-masters/payment-terms';
 import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
@@ -19,63 +19,69 @@ export default function PaymentTermsMasterPage() {
   const [filterMethod, setFilterMethod] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    termCode: '',
+    termName: '',
+    description: '',
+    paymentType: 'credit' as PaymentTerm['paymentMethod'],
+    creditDays: 0,
+    isActive: true,
+  });
 
   // Fetch payment terms from the live backend, mapping the raw API shape into the page's model.
-  useEffect(() => {
-    let cancelled = false;
+  const fetchPaymentTerms = async () => {
     const applicableToMap: Record<string, PaymentTerm['applicableFor']> = {
       customer: 'customers', customers: 'customers',
       vendor: 'vendors', vendors: 'vendors',
       both: 'both', all: 'both',
     };
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await commonMastersService.getAllPaymentTerms(DEFAULT_COMPANY_ID)) as any[];
-        const mapped: PaymentTerm[] = raw.map((t) => ({
-          id: String(t.id ?? ''),
-          termCode: t.termCode ?? '',
-          termName: t.termName ?? '',
-          description: t.description ?? '',
-          daysAfterInvoice: Number(t.dueDays ?? t.daysAfterInvoice ?? 0),
-          daysAfterDelivery: Number(t.daysAfterDelivery ?? 0),
-          creditPeriod: Number(t.creditPeriod ?? t.dueDays ?? 0),
-          paymentMethod: (t.paymentType ?? t.paymentMethod ?? 'credit') as PaymentTerm['paymentMethod'],
-          advancePercentage: t.advancePercentage !== null && t.advancePercentage !== undefined ? Number(t.advancePercentage) : undefined,
-          earlyPaymentDiscount: t.discountTerms?.earlyPaymentDiscount !== undefined && t.discountTerms?.earlyPaymentDiscount !== null ? Number(t.discountTerms.earlyPaymentDiscount) : undefined,
-          earlyPaymentDays: t.discountTerms?.earlyPaymentDays !== undefined && t.discountTerms?.earlyPaymentDays !== null ? Number(t.discountTerms.earlyPaymentDays) : undefined,
-          cashDiscountPercentage: t.discountTerms?.cashDiscountPercentage !== undefined && t.discountTerms?.cashDiscountPercentage !== null ? Number(t.discountTerms.cashDiscountPercentage) : undefined,
-          lateFeePercentage: t.penaltyTerms?.lateFeePercentage !== undefined && t.penaltyTerms?.lateFeePercentage !== null ? Number(t.penaltyTerms.lateFeePercentage) : undefined,
-          lateFeeStartsAfter: t.penaltyTerms?.lateFeeStartsAfter !== undefined && t.penaltyTerms?.lateFeeStartsAfter !== null ? Number(t.penaltyTerms.lateFeeStartsAfter) : undefined,
-          interestRate: t.penaltyTerms?.interestRate !== undefined && t.penaltyTerms?.interestRate !== null ? Number(t.penaltyTerms.interestRate) : undefined,
-          applicableFor: applicableToMap[t.applicableTo] ?? (t.applicableFor ?? 'both') as PaymentTerm['applicableFor'],
-          isDefault: t.isDefault ?? false,
-          priority: Number(t.priority ?? 0),
-          customersUsing: Number(t.customersUsing ?? 0),
-          vendorsUsing: Number(t.vendorsUsing ?? 0),
-          transactionsCount: Number(t.transactionsCount ?? 0),
-          totalAmount: Number(t.totalAmount ?? 0),
-          isActive: t.isActive ?? (t.status ? t.status === 'active' : true),
-          createdBy: t.createdBy ?? '',
-          createdDate: t.createdDate ?? t.createdAt ?? '',
-          modifiedBy: t.modifiedBy ?? '',
-          modifiedDate: t.modifiedDate ?? t.updatedAt ?? '',
-        }));
-        if (!cancelled) setTerms(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load payment terms');
-          setTerms([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await commonMastersService.getAllPaymentTerms(DEFAULT_COMPANY_ID)) as any[];
+      const mapped: PaymentTerm[] = raw.map((t) => ({
+        id: String(t.id ?? ''),
+        termCode: t.termCode ?? '',
+        termName: t.termName ?? '',
+        description: t.description ?? '',
+        daysAfterInvoice: Number(t.dueDays ?? t.daysAfterInvoice ?? 0),
+        daysAfterDelivery: Number(t.daysAfterDelivery ?? 0),
+        creditPeriod: Number(t.creditPeriod ?? t.dueDays ?? 0),
+        paymentMethod: (t.paymentType ?? t.paymentMethod ?? 'credit') as PaymentTerm['paymentMethod'],
+        advancePercentage: t.advancePercentage !== null && t.advancePercentage !== undefined ? Number(t.advancePercentage) : undefined,
+        earlyPaymentDiscount: t.discountTerms?.earlyPaymentDiscount !== undefined && t.discountTerms?.earlyPaymentDiscount !== null ? Number(t.discountTerms.earlyPaymentDiscount) : undefined,
+        earlyPaymentDays: t.discountTerms?.earlyPaymentDays !== undefined && t.discountTerms?.earlyPaymentDays !== null ? Number(t.discountTerms.earlyPaymentDays) : undefined,
+        cashDiscountPercentage: t.discountTerms?.cashDiscountPercentage !== undefined && t.discountTerms?.cashDiscountPercentage !== null ? Number(t.discountTerms.cashDiscountPercentage) : undefined,
+        lateFeePercentage: t.penaltyTerms?.lateFeePercentage !== undefined && t.penaltyTerms?.lateFeePercentage !== null ? Number(t.penaltyTerms.lateFeePercentage) : undefined,
+        lateFeeStartsAfter: t.penaltyTerms?.lateFeeStartsAfter !== undefined && t.penaltyTerms?.lateFeeStartsAfter !== null ? Number(t.penaltyTerms.lateFeeStartsAfter) : undefined,
+        interestRate: t.penaltyTerms?.interestRate !== undefined && t.penaltyTerms?.interestRate !== null ? Number(t.penaltyTerms.interestRate) : undefined,
+        applicableFor: applicableToMap[t.applicableTo] ?? (t.applicableFor ?? 'both') as PaymentTerm['applicableFor'],
+        isDefault: t.isDefault ?? false,
+        priority: Number(t.priority ?? 0),
+        customersUsing: Number(t.customersUsing ?? 0),
+        vendorsUsing: Number(t.vendorsUsing ?? 0),
+        transactionsCount: Number(t.transactionsCount ?? 0),
+        totalAmount: Number(t.totalAmount ?? 0),
+        isActive: t.isActive ?? (t.status ? t.status === 'active' : true),
+        createdBy: t.createdBy ?? '',
+        createdDate: t.createdDate ?? t.createdAt ?? '',
+        modifiedBy: t.modifiedBy ?? '',
+        modifiedDate: t.modifiedDate ?? t.updatedAt ?? '',
+      }));
+      setTerms(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load payment terms');
+      setTerms([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPaymentTerms();
   }, []);
 
   // Auto-dismiss toast after 3 seconds
@@ -95,8 +101,73 @@ export default function PaymentTermsMasterPage() {
     showToast('Exporting payment terms data...', 'success');
   };
 
+  const openCreateModal = () => {
+    setForm({ termCode: '', termName: '', description: '', paymentType: 'credit', creditDays: 0, isActive: true });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
   const handleAddTerm = () => {
-    showToast('Opening add payment term form...', 'info');
+    openCreateModal();
+  };
+
+  const handleEditTerm = (term: PaymentTerm) => {
+    setForm({
+      termCode: term.termCode,
+      termName: term.termName,
+      description: term.description ?? '',
+      paymentType: term.paymentMethod,
+      creditDays: term.creditPeriod,
+      isActive: term.isActive,
+    });
+    setEditingId(term.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveTerm = async () => {
+    if (!form.termCode.trim() || !form.termName.trim()) {
+      showToast('Term Code and Term Name are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const payload = {
+        termCode: form.termCode,
+        termName: form.termName,
+        description: form.description,
+        paymentType: form.paymentType,
+        dueDays: Number(form.creditDays) || 0,
+        status: form.isActive ? 'active' : 'inactive',
+        companyId: DEFAULT_COMPANY_ID,
+      };
+      if (editingId) {
+        await commonMastersService.updatePaymentTerm(editingId, payload);
+      } else {
+        await commonMastersService.createPaymentTerm(payload);
+      }
+      setIsModalOpen(false);
+      await fetchPaymentTerms();
+      showToast(editingId ? 'Payment term updated successfully' : 'Payment term created successfully', 'success');
+    } catch (error) {
+      console.error('Error saving payment term:', error);
+      showToast('Failed to save payment term', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTerm = async (term: PaymentTerm) => {
+    if (!confirm(`Delete payment term "${term.termName}"?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deletePaymentTerm(term.id);
+      await fetchPaymentTerms();
+      showToast('Payment term deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting payment term:', error);
+      showToast('Failed to delete payment term', 'error');
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -234,8 +305,8 @@ export default function PaymentTermsMasterPage() {
       align: 'right',
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
-          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium" onClick={(e) => { e.stopPropagation(); }}>View</button>
-          <button className="text-green-600 hover:text-green-800 text-sm font-medium" onClick={(e) => { e.stopPropagation(); }}>Edit</button>
+          <button className="text-green-600 hover:text-green-800 text-sm font-medium" onClick={(e) => { e.stopPropagation(); handleEditTerm(row); }}>Edit</button>
+          <button className="text-red-600 hover:text-red-800 text-sm font-medium" onClick={(e) => { e.stopPropagation(); handleDeleteTerm(row); }}>Delete</button>
         </div>
       )
     }
@@ -248,7 +319,21 @@ export default function PaymentTermsMasterPage() {
   };
 
   const activeFilterCount = [filterApplicability !== 'all', filterMethod !== 'all', searchTerm !== ''].filter(Boolean).length;
-  const stats = useMemo(() => getPaymentTermStats(), [terms]);
+  const stats = useMemo(() => {
+    const activeTerms = terms.filter(t => t.isActive);
+    return {
+      total: terms.length,
+      active: activeTerms.length,
+      forCustomers: activeTerms.filter(t => t.applicableFor === 'customers' || t.applicableFor === 'both').length,
+      forVendors: activeTerms.filter(t => t.applicableFor === 'vendors' || t.applicableFor === 'both').length,
+      withEarlyDiscount: activeTerms.filter(t => t.earlyPaymentDiscount && t.earlyPaymentDiscount > 0).length,
+      totalTransactions: activeTerms.reduce((sum, t) => sum + t.transactionsCount, 0),
+      totalAmount: activeTerms.reduce((sum, t) => sum + t.totalAmount, 0),
+      avgCreditPeriod: activeTerms.length
+        ? Math.round(activeTerms.reduce((sum, t) => sum + t.creditPeriod, 0) / activeTerms.length)
+        : 0,
+    };
+  }, [terms]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-emerald-50 to-teal-50">
@@ -400,6 +485,101 @@ export default function PaymentTermsMasterPage() {
       </div>
         </div>
       </div>
+
+      {/* Add/Edit Payment Term Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Payment Term' : 'Add Payment Term'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Term Code</label>
+                <input
+                  type="text"
+                  value={form.termCode}
+                  onChange={(e) => setForm({ ...form, termCode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Term Name</label>
+                <input
+                  type="text"
+                  value={form.termName}
+                  onChange={(e) => setForm({ ...form, termName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type</label>
+                <select
+                  value={form.paymentType}
+                  onChange={(e) => setForm({ ...form, paymentType: e.target.value as PaymentTerm['paymentMethod'] })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="immediate">Immediate</option>
+                  <option value="advance">Advance</option>
+                  <option value="partial">Partial</option>
+                  <option value="on_delivery">On Delivery</option>
+                  <option value="credit">Credit</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Credit Days</label>
+                <input
+                  type="number"
+                  value={form.creditDays}
+                  onChange={(e) => setForm({ ...form, creditDays: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="md:col-span-2 flex items-center gap-2">
+                <input
+                  id="pt-active"
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="pt-active" className="text-sm font-medium text-gray-700">Active</label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTerm}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

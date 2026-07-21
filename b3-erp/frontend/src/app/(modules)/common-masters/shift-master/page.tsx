@@ -5,10 +5,25 @@ import { Plus, Search, Download, Filter, X, Clock, Sun, Moon, CalendarDays, Doll
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Shift } from '@/data/common-masters/shifts';
-import { hrMastersService } from '@/services/hr-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
+
+// Derive the shift duration (in hours) from HH:mm start/end times, wrapping past midnight.
+const computeDuration = (startTime: string, endTime: string): number => {
+  const parse = (t: string) => {
+    const [h, m] = (t || '').split(':').map((n) => Number(n));
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  };
+  const start = parse(startTime);
+  const end = parse(endTime);
+  if (start === null || end === null) return 0;
+  let diff = end - start;
+  if (diff < 0) diff += 24 * 60;
+  return Math.round((diff / 60) * 100) / 100;
+};
 
 export default function ShiftMasterPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -19,61 +34,65 @@ export default function ShiftMasterPage() {
   const [filterApplicable, setFilterApplicable] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    code: '',
+    name: '',
+    startTime: '',
+    endTime: '',
+  });
 
   // Fetch shifts from the live backend, mapping the flat API shape into the page's nested Shift model.
+  const fetchShifts = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await commonMastersService.getAllShifts(DEFAULT_COMPANY_ID);
+      const mapped: Shift[] = raw.map((s) => {
+        const startTime = s.startTime ?? '';
+        const endTime = s.endTime ?? '';
+        return {
+          id: String(s.id ?? ''),
+          shiftCode: s.code ?? '',
+          shiftName: s.name ?? '',
+          shiftType: 'general' as Shift['shiftType'],
+          timing: {
+            startTime,
+            endTime,
+            duration: computeDuration(startTime, endTime),
+          },
+          breaks: [],
+          workingDays: [],
+          applicableFor: 'all' as Shift['applicableFor'],
+          allowances: {
+            shiftAllowance: 0,
+            nightAllowance: undefined,
+            overtimeMultiplier: 1,
+          },
+          attendance: {
+            graceTime: 0,
+            minimumHours: 0,
+            halfDayThreshold: 0,
+          },
+          color: '#6b7280',
+          isActive: s.isActive ?? true,
+          effectiveFrom: '',
+          notes: undefined,
+        };
+      });
+      setShifts(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load shifts');
+      setShifts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await hrMastersService.getAllShifts(DEFAULT_COMPANY_ID)) as any[];
-        const mapped: Shift[] = raw.map((s) => {
-          const startTime = s.startTime ?? s.timing?.startTime ?? '';
-          const endTime = s.endTime ?? s.timing?.endTime ?? '';
-          return {
-            id: String(s.id ?? ''),
-            shiftCode: s.code ?? s.shiftCode ?? '',
-            shiftName: s.name ?? s.shiftName ?? '',
-            shiftType: (s.shiftType ?? 'general') as Shift['shiftType'],
-            timing: {
-              startTime,
-              endTime,
-              duration: Number(s.timing?.duration ?? 0),
-            },
-            breaks: Array.isArray(s.breaks) ? s.breaks : [],
-            workingDays: Array.isArray(s.workingDays) ? s.workingDays : [],
-            applicableFor: (s.applicableFor ?? 'all') as Shift['applicableFor'],
-            allowances: {
-              shiftAllowance: Number(s.allowances?.shiftAllowance ?? 0),
-              nightAllowance: s.allowances?.nightAllowance !== null && s.allowances?.nightAllowance !== undefined ? Number(s.allowances.nightAllowance) : undefined,
-              overtimeMultiplier: Number(s.allowances?.overtimeMultiplier ?? 1),
-            },
-            attendance: {
-              graceTime: Number(s.attendance?.graceTime ?? 0),
-              minimumHours: Number(s.attendance?.minimumHours ?? 0),
-              halfDayThreshold: Number(s.attendance?.halfDayThreshold ?? 0),
-            },
-            color: s.color ?? '#6b7280',
-            isActive: s.isActive ?? true,
-            effectiveFrom: s.effectiveFrom ?? '',
-            notes: s.notes ?? undefined,
-          };
-        });
-        if (!cancelled) setShifts(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load shifts');
-          setShifts([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    fetchShifts();
   }, []);
 
   useEffect(() => {
@@ -87,12 +106,70 @@ export default function ShiftMasterPage() {
     setToast({ message, type });
   };
 
-  const handleAddShift = () => showToast('Add shift functionality will be implemented', 'info');
-  const handleEditShift = (shift: Shift) => showToast(`Editing shift: ${shift.shiftName}`, 'info');
-  const handleDeleteShift = (shift: Shift) => {
-    if (confirm(`Are you sure you want to delete ${shift.shiftName}?`)) {
-      setShifts(prev => prev.filter(s => s.id !== shift.id));
+  const openCreateModal = () => {
+    setForm({ code: '', name: '', startTime: '', endTime: '' });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleAddShift = () => openCreateModal();
+
+  const handleEditShift = (shift: Shift) => {
+    setForm({
+      code: shift.shiftCode,
+      name: shift.shiftName,
+      startTime: shift.timing.startTime,
+      endTime: shift.timing.endTime,
+    });
+    setEditingId(shift.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveShift = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      showToast('Code and Name are required', 'error');
+      return;
+    }
+    if (!form.startTime || !form.endTime) {
+      showToast('Start and End time are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const payload = {
+        code: form.code.trim(),
+        name: form.name.trim(),
+        startTime: form.startTime,
+        endTime: form.endTime,
+        companyId: DEFAULT_COMPANY_ID,
+      };
+      if (editingId) {
+        await commonMastersService.updateShift(editingId, payload);
+      } else {
+        await commonMastersService.createShift(payload);
+      }
+      setIsModalOpen(false);
+      await fetchShifts();
+      showToast(editingId ? 'Shift updated successfully' : 'Shift created successfully', 'success');
+    } catch (error) {
+      console.error('Error saving shift:', error);
+      showToast('Failed to save shift', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteShift = async (shift: Shift) => {
+    if (!confirm(`Are you sure you want to delete ${shift.shiftName}?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deleteShift(shift.id);
+      await fetchShifts();
       showToast(`${shift.shiftName} deleted successfully`, 'success');
+    } catch (error) {
+      console.error('Error deleting shift:', error);
+      showToast('Failed to delete shift', 'error');
     }
   };
   const handleExport = () => {
@@ -537,6 +614,91 @@ export default function ShiftMasterPage() {
       </div>
         </div>
       </div>
+
+      {/* Add/Edit Shift Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Shift' : 'Add Shift'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Shift Code
+                </label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Shift Name
+                </label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveShift}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

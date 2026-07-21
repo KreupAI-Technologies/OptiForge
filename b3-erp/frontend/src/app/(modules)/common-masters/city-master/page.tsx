@@ -5,11 +5,13 @@ import { Plus, Search, Download, Filter, X, MapPin, CheckCircle, XCircle, AlertC
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { City } from '@/data/common-masters/cities';
+import type { State } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 import { commonMastersService } from '@/services/common-masters.service';
 
 export default function CityMasterPage() {
   const [cities, setCities] = useState<City[]>([]);
+  const [statesList, setStatesList] = useState<State[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +21,14 @@ export default function CityMasterPage() {
   const [filterMetro, setFilterMetro] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState<{ name: string; stateId: string; pincode: string }>({
+    name: '',
+    stateId: '',
+    pincode: '',
+  });
 
   // Toast notification effect
   useEffect(() => {
@@ -28,41 +38,48 @@ export default function CityMasterPage() {
     }
   }, [toast]);
 
-  // Load cities from the backend
+  // Reusable fetch — callable after mutations
+  const fetchCities = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await commonMastersService.getAllCities();
+      const mapped: City[] = raw.map((c: any) => ({
+        id: c.id,
+        code: c.code ?? '',
+        name: c.name,
+        stateCode: c.state?.code ?? '',
+        stateName: c.state?.name ?? '',
+        countryCode: c.state?.country?.code ?? '',
+        countryName: c.state?.country?.name ?? '',
+        tier: undefined,
+        isMetro: false,
+        isActive: c.isActive ?? true,
+        population: undefined,
+        timezone: undefined,
+        createdAt: c.createdAt ?? '',
+        updatedAt: c.updatedAt ?? '',
+      }));
+      setCities(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load cities');
+      setCities([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load cities + states from the backend
   useEffect(() => {
-    let cancelled = false;
+    fetchCities();
     (async () => {
-      setIsLoading(true);
-      setLoadError(null);
       try {
-        const raw = await commonMastersService.getAllCities();
-        const mapped: City[] = raw.map((c: any) => ({
-          id: c.id,
-          code: c.code ?? '',
-          name: c.name,
-          stateCode: c.state?.code ?? '',
-          stateName: c.state?.name ?? '',
-          countryCode: c.state?.country?.code ?? '',
-          countryName: c.state?.country?.name ?? '',
-          tier: undefined,
-          isMetro: false,
-          isActive: c.isActive ?? true,
-          population: undefined,
-          timezone: undefined,
-          createdAt: c.createdAt ?? '',
-          updatedAt: c.updatedAt ?? '',
-        }));
-        if (!cancelled) setCities(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load cities');
-          setCities([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
+        const states = await commonMastersService.getAllStates();
+        setStatesList(states);
+      } catch {
+        setStatesList([]);
       }
     })();
-    return () => { cancelled = true; };
   }, []);
 
   // Show toast notification
@@ -71,18 +88,65 @@ export default function CityMasterPage() {
   };
 
   // Action handlers
+  const openCreateModal = () => {
+    setForm({ name: '', stateId: '', pincode: '' });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
   const handleAddCity = () => {
-    showToast('Add city functionality will be implemented', 'info');
+    openCreateModal();
   };
 
   const handleEditCity = (city: City) => {
-    showToast(`Editing city: ${city.name}`, 'info');
+    // Resolve the stateId from the loaded states list by matching state name.
+    const matchedState = statesList.find(s => s.name === city.stateName);
+    setForm({ name: city.name, stateId: matchedState?.id ?? '', pincode: '' });
+    setEditingId(city.id);
+    setIsModalOpen(true);
   };
 
-  const handleDeleteCity = (city: City) => {
-    if (confirm(`Are you sure you want to delete ${city.name}?`)) {
-      setCities(prev => prev.filter(c => c.id !== city.id));
+  const handleSaveCity = async () => {
+    if (!form.name.trim() || !form.stateId) {
+      showToast('Name and State are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      if (editingId) {
+        await commonMastersService.updateCity(editingId, {
+          name: form.name.trim(),
+          stateId: form.stateId,
+        });
+      } else {
+        await commonMastersService.createCity({
+          name: form.name.trim(),
+          stateId: form.stateId,
+          pincode: form.pincode.trim() || undefined,
+        });
+      }
+      setIsModalOpen(false);
+      await fetchCities();
+      showToast(editingId ? 'City updated successfully' : 'City created successfully', 'success');
+    } catch (err) {
+      console.error('Error saving city:', err);
+      showToast('Failed to save city', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCity = async (city: City) => {
+    if (!confirm(`Are you sure you want to delete ${city.name}?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deleteCity(city.id);
+      await fetchCities();
       showToast(`${city.name} deleted successfully`, 'success');
+    } catch (err) {
+      console.error('Error deleting city:', err);
+      showToast('Failed to delete city', 'error');
     }
   };
 
@@ -494,6 +558,86 @@ export default function CityMasterPage() {
       </div>
         </div>
       </div>
+
+      {/* Add/Edit City Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit City' : 'Add City'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  City Name
+                </label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  State/Province
+                </label>
+                <select
+                  value={form.stateId}
+                  onChange={(e) => setForm({ ...form, stateId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select a state…</option>
+                  {statesList.map((state) => (
+                    <option key={state.id} value={state.id}>
+                      {state.name}{state.country?.name ? ` (${state.country.name})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pincode <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.pincode}
+                  onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveCity}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

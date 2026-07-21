@@ -95,6 +95,20 @@ export default function ExchangeRateMasterPage() {
     }
   };
 
+  const handleDeleteExchangeRate = async (rate: ExchangeRate) => {
+    if (!confirm(`Delete exchange rate "${rate.fromCurrencyCode} → ${rate.toCurrencyCode}"?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deleteExchangeRate(rate.id);
+      await loadExchangeRates();
+      showToast('Exchange rate deleted.', 'success');
+    } catch (error) {
+      console.error('Failed to delete exchange rate:', error);
+      showToast('Failed to delete exchange rate.', 'error');
+    }
+  };
+
   const handleRefreshRate = async (rate: ExchangeRate) => {
     try {
       await loadExchangeRates();
@@ -429,6 +443,15 @@ export default function ExchangeRateMasterPage() {
               Refresh
             </button>
           )}
+          <button
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteExchangeRate(row);
+            }}
+          >
+            Delete
+          </button>
         </div>
       )
     }

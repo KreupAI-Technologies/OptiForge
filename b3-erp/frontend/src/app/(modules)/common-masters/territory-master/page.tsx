@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, MapPin, TrendingUp, Users, Target, ChevronRight, ChevronDown, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Territory, getTerritoryStats, getChildTerritories } from '@/data/common-masters/territories';
+import { Territory, getChildTerritories } from '@/data/common-masters/territories';
 import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
@@ -18,6 +18,10 @@ export default function TerritoryMasterPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [expandedTerritories, setExpandedTerritories] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({ code: '', name: '' });
 
   useEffect(() => {
     if (toast) {
@@ -26,77 +30,116 @@ export default function TerritoryMasterPage() {
     }
   }, [toast]);
 
+  const fetchTerritories = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await commonMastersService.getAllTerritories('1');
+
+      const mapped: Territory[] = rows.map((row) => ({
+        id: row.id,
+        territoryCode: row.code,
+        territoryName: row.name,
+        territoryType: 'area' as any,
+        parentTerritoryId: null,
+        parentTerritoryName: null,
+        level: 0,
+        country: '',
+        cities: [],
+        pincodes: [],
+        coverageArea: '',
+        salesManager: '',
+        salesTeam: [],
+        totalCustomers: 0,
+        activeCustomers: 0,
+        currentMonthSales: 0,
+        currentYearSales: 0,
+        lastYearSales: 0,
+        salesTarget: 0,
+        targetAchievement: 0,
+        marketPotential: 'medium' as any,
+        competitionLevel: 'moderate' as any,
+        growthRate: 0,
+        avgDeliveryDays: 0,
+        transportCost: 0,
+        currency: '',
+        taxRegion: '',
+        allowCreditSales: false,
+        defaultPaymentTerms: '',
+        isActive: row.isActive,
+        createdBy: '',
+        createdDate: '',
+        modifiedBy: '',
+        modifiedDate: '',
+      }));
+
+      setTerritories(mapped);
+    } catch (err) {
+      setLoadError('Failed to load territories. Please try again.');
+      setTerritories([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-
-    const loadTerritories = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await commonMastersService.getAllTerritories();
-        if (cancelled) return;
-
-        const mapped: Territory[] = rows.map((row) => ({
-          id: row.id,
-          territoryCode: row.code,
-          territoryName: row.name,
-          territoryType: 'area' as any,
-          parentTerritoryId: null,
-          parentTerritoryName: null,
-          level: 0,
-          country: '',
-          cities: [],
-          pincodes: [],
-          coverageArea: '',
-          salesManager: '',
-          salesTeam: [],
-          totalCustomers: 0,
-          activeCustomers: 0,
-          currentMonthSales: 0,
-          currentYearSales: 0,
-          lastYearSales: 0,
-          salesTarget: 0,
-          targetAchievement: 0,
-          marketPotential: 'medium' as any,
-          competitionLevel: 'moderate' as any,
-          growthRate: 0,
-          avgDeliveryDays: 0,
-          transportCost: 0,
-          currency: '',
-          taxRegion: '',
-          allowCreditSales: false,
-          defaultPaymentTerms: '',
-          isActive: row.isActive,
-          createdBy: '',
-          createdDate: '',
-          modifiedBy: '',
-          modifiedDate: '',
-        }));
-
-        setTerritories(mapped);
-      } catch (err) {
-        if (cancelled) return;
-        setLoadError('Failed to load territories. Please try again.');
-        setTerritories([]);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    loadTerritories();
-
-    return () => {
-      cancelled = true;
-    };
+    fetchTerritories();
   }, []);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ message, type });
   };
 
-  const handleAddTerritory = () => showToast('Add territory functionality will be implemented', 'info');
   const handleViewTerritory = (territory: Territory) => showToast(`Viewing territory: ${territory.territoryName}`, 'info');
-  const handleEditTerritory = (territory: Territory) => showToast(`Editing territory: ${territory.territoryName}`, 'info');
+
+  const openCreateModal = () => {
+    setForm({ code: '', name: '' });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleAddTerritory = () => openCreateModal();
+
+  const handleEditTerritory = (territory: Territory) => {
+    setForm({ code: territory.territoryCode, name: territory.territoryName });
+    setEditingId(territory.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveTerritory = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      showToast('Code and Name are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      if (editingId) {
+        await commonMastersService.updateTerritory(editingId, { code: form.code, name: form.name });
+      } else {
+        await commonMastersService.createTerritory({ code: form.code, name: form.name, companyId: '1' });
+      }
+      setIsModalOpen(false);
+      await fetchTerritories();
+      showToast(editingId ? 'Territory updated successfully' : 'Territory created successfully', 'success');
+    } catch (error) {
+      showToast('Failed to save territory', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTerritory = async (territory: Territory) => {
+    if (!confirm(`Delete territory "${territory.territoryName}"?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deleteTerritory(territory.id);
+      await fetchTerritories();
+      showToast('Territory deleted successfully', 'success');
+    } catch (error) {
+      showToast('Failed to delete territory', 'error');
+    }
+  };
   const handleExport = () => {
     exportToCsv('territory-master', filteredData as unknown as Record<string, unknown>[]);
     showToast('Exporting territories data...', 'success');
@@ -333,6 +376,15 @@ export default function TerritoryMasterPage() {
           >
             Edit
           </button>
+          <button
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteTerritory(row);
+            }}
+          >
+            Delete
+          </button>
         </div>
       )
     }
@@ -350,8 +402,21 @@ export default function TerritoryMasterPage() {
     searchTerm !== ''
   ].filter(Boolean).length;
 
-  // Statistics
-  const stats = useMemo(() => getTerritoryStats(), [territories]);
+  // Statistics computed from the fetched list
+  const stats = useMemo(() => {
+    const total = territories.length;
+    return {
+      total,
+      totalCustomers: territories.reduce((sum, t) => sum + t.totalCustomers, 0),
+      activeCustomers: territories.reduce((sum, t) => sum + t.activeCustomers, 0),
+      totalSales: territories.reduce((sum, t) => sum + t.currentYearSales, 0),
+      avgTargetAchievement: total
+        ? Math.round(territories.reduce((sum, t) => sum + t.targetAchievement, 0) / total)
+        : 0,
+      regions: territories.filter(t => t.territoryType === 'region').length,
+      states: territories.filter(t => t.territoryType === 'state').length,
+    };
+  }, [territories]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-teal-50 to-emerald-50">
@@ -559,6 +624,69 @@ export default function TerritoryMasterPage() {
       </div>
         </div>
       </div>
+
+      {/* Add/Edit Territory Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Territory' : 'Add Territory'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Code
+                </label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTerritory}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

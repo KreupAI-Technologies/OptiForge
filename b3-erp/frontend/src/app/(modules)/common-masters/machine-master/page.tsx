@@ -4,8 +4,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Settings, Activity, AlertCircle, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Machine, getMachineStats } from '@/data/common-masters/machines';
-import { manufacturingMastersService } from '@/services/manufacturing-masters.service';
+import { Machine } from '@/data/common-masters/machines';
+import { manufacturingMastersService, Machine as BackendMachine } from '@/services/manufacturing-masters.service';
 import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
@@ -20,20 +20,30 @@ export default function MachineMasterPage() {
   const [filterLocation, setFilterLocation] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    machineCode: '',
+    machineName: '',
+    machineType: 'cutting',
+    manufacturer: '',
+    model: '',
+    capacity: '',
+    status: 'running',
+  });
 
   // Fetch machines from the live backend, mapping the flat API shape into the page's nested Machine model.
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await manufacturingMastersService.getAllMachines(DEFAULT_COMPANY_ID)) as any[];
-        const statusToOperational: Record<string, Machine['operationalStatus']> = {
-          running: 'running', idle: 'idle', maintenance: 'maintenance',
-          breakdown: 'breakdown', retired: 'retired',
-        };
-        const mapped: Machine[] = raw.map((m) => ({
+  const fetchMachines = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await manufacturingMastersService.getAllMachines(DEFAULT_COMPANY_ID)) as any[];
+      const statusToOperational: Record<string, Machine['operationalStatus']> = {
+        running: 'running', idle: 'idle', maintenance: 'maintenance',
+        breakdown: 'breakdown', retired: 'retired',
+      };
+      const mapped: Machine[] = raw.map((m) => ({
           id: String(m.id ?? ''),
           machineCode: m.machineCode ?? m.code ?? '',
           machineName: m.machineName ?? m.name ?? '',
@@ -87,20 +97,17 @@ export default function MachineMasterPage() {
           updatedAt: m.updatedAt ?? '',
           notes: m.notes ?? undefined,
         }));
-        if (!cancelled) setMachines(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load machines');
-          setMachines([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+        setMachines(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load machines');
+      setMachines([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMachines();
   }, []);
 
   // Auto-dismiss toast after 3 seconds
@@ -119,8 +126,81 @@ export default function MachineMasterPage() {
     showToast(`Viewing machine: ${machine.machineName}`, 'info');
   };
 
+  const openCreateModal = () => {
+    setForm({
+      machineCode: '',
+      machineName: '',
+      machineType: 'cutting',
+      manufacturer: '',
+      model: '',
+      capacity: '',
+      status: 'running',
+    });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
   const handleEditMachine = (machine: Machine) => {
-    showToast(`Editing machine: ${machine.machineName}`, 'info');
+    setForm({
+      machineCode: machine.machineCode,
+      machineName: machine.machineName,
+      machineType: machine.machineType,
+      manufacturer: machine.manufacturer,
+      model: machine.model,
+      capacity: machine.capacity?.unit ?? '',
+      status: machine.operationalStatus,
+    });
+    setEditingId(machine.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveMachine = async () => {
+    if (!form.machineCode.trim() || !form.machineName.trim()) {
+      showToast('Machine Code and Name are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const base: Partial<BackendMachine> = {
+        machineName: form.machineName,
+        manufacturer: form.manufacturer,
+        model: form.model,
+        capacity: form.capacity,
+        status: form.status,
+      };
+      if (editingId) {
+        await manufacturingMastersService.updateMachine(editingId, base);
+      } else {
+        await manufacturingMastersService.createMachine({
+          ...base,
+          machineCode: form.machineCode,
+          machineName: form.machineName,
+          companyId: DEFAULT_COMPANY_ID,
+        });
+      }
+      setIsModalOpen(false);
+      await fetchMachines();
+      showToast(editingId ? 'Machine updated successfully' : 'Machine created successfully', 'success');
+    } catch (error) {
+      console.error('Error saving machine:', error);
+      showToast('Failed to save machine', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteMachine = async (machine: Machine) => {
+    if (!confirm(`Delete machine "${machine.machineName}"?`)) {
+      return;
+    }
+    try {
+      await manufacturingMastersService.deleteMachine(machine.id);
+      await fetchMachines();
+      showToast('Machine deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting machine:', error);
+      showToast('Failed to delete machine', 'error');
+    }
   };
 
   const handleScheduleMaintenance = (machine: Machine) => {
@@ -133,7 +213,7 @@ export default function MachineMasterPage() {
   };
 
   const handleAddMachine = () => {
-    showToast('Opening add machine form...', 'info');
+    openCreateModal();
   };
 
   // Get unique locations
@@ -325,6 +405,15 @@ export default function MachineMasterPage() {
           >
             Maintain
           </button>
+          <button
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteMachine(row);
+            }}
+          >
+            Delete
+          </button>
         </div>
       )
     }
@@ -344,8 +433,26 @@ export default function MachineMasterPage() {
     searchTerm !== ''
   ].filter(Boolean).length;
 
-  // Statistics
-  const stats = useMemo(() => getMachineStats(), [machines]);
+  // Statistics — computed from the fetched machine list
+  const stats = useMemo(() => {
+    const runningMachines = machines.filter(m => m.operationalStatus === 'running');
+    const avgOEE = runningMachines.length
+      ? runningMachines.reduce((sum, m) => sum + m.oee, 0) / runningMachines.length
+      : 0;
+    const avgUtilization = machines.length
+      ? machines.reduce((sum, m) => sum + m.utilizationRate, 0) / machines.length
+      : 0;
+    return {
+      total: machines.length,
+      running: runningMachines.length,
+      idle: machines.filter(m => m.operationalStatus === 'idle').length,
+      maintenance: machines.filter(m => m.operationalStatus === 'maintenance').length,
+      breakdown: machines.filter(m => m.operationalStatus === 'breakdown').length,
+      avgOEE: Math.round(avgOEE * 10) / 10,
+      avgUtilization: Math.round(avgUtilization * 10) / 10,
+      totalValue: machines.reduce((sum, m) => sum + m.currentValue, 0),
+    };
+  }, [machines]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50">
@@ -576,6 +683,124 @@ export default function MachineMasterPage() {
       </div>
         </div>
       </div>
+
+      {/* Add/Edit Machine Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Machine' : 'Add Machine'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Machine Code</label>
+                <input
+                  type="text"
+                  value={form.machineCode}
+                  disabled={!!editingId}
+                  onChange={(e) => setForm({ ...form, machineCode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Machine Name</label>
+                <input
+                  type="text"
+                  value={form.machineName}
+                  onChange={(e) => setForm({ ...form, machineName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Machine Type</label>
+                <select
+                  value={form.machineType}
+                  onChange={(e) => setForm({ ...form, machineType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="cutting">Cutting</option>
+                  <option value="bending">Bending</option>
+                  <option value="welding">Welding</option>
+                  <option value="finishing">Finishing</option>
+                  <option value="assembly">Assembly</option>
+                  <option value="cnc">CNC</option>
+                  <option value="laser">Laser</option>
+                  <option value="press">Press</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="running">Running</option>
+                  <option value="idle">Idle</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="breakdown">Breakdown</option>
+                  <option value="retired">Retired</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Manufacturer</label>
+                <input
+                  type="text"
+                  value={form.manufacturer}
+                  onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                <input
+                  type="text"
+                  value={form.model}
+                  onChange={(e) => setForm({ ...form, model: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Capacity</label>
+                <input
+                  type="text"
+                  value={form.capacity}
+                  onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveMachine}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

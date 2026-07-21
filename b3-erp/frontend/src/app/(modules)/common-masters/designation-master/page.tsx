@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Designation } from '@/data/common-masters/designations';
 import { hrMastersService } from '@/services/hr-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
@@ -20,45 +21,44 @@ export default function DesignationMasterPage() {
   const [filterGrade, setFilterGrade] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({ code: '', name: '' });
 
   // Fetch designations from the live backend, mapping the raw API shape to the page's Designation model.
+  const fetchDesignations = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await hrMastersService.getAllDesignations(DEFAULT_COMPANY_ID)) as any[];
+      const mapped: Designation[] = raw.map((d) => ({
+        id: String(d.id ?? ''),
+        code: d.code ?? '',
+        name: d.name ?? '',
+        level: Number(d.level ?? 0),
+        grade: d.grade ?? '',
+        department: d.department ?? d.departmentName ?? '',
+        parentDesignation: d.parentDesignation ?? undefined,
+        reportingTo: d.reportingTo ?? undefined,
+        isActive: d.isActive ?? true,
+        minSalary: d.minSalary !== null && d.minSalary !== undefined ? Number(d.minSalary) : undefined,
+        maxSalary: d.maxSalary !== null && d.maxSalary !== undefined ? Number(d.maxSalary) : undefined,
+        headCount: d.headCount !== null && d.headCount !== undefined ? Number(d.headCount) : undefined,
+        createdAt: d.createdAt ?? '',
+        updatedAt: d.updatedAt ?? '',
+      }));
+      setDesignations(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load designations');
+      setDesignations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await hrMastersService.getAllDesignations(DEFAULT_COMPANY_ID)) as any[];
-        const mapped: Designation[] = raw.map((d) => ({
-          id: String(d.id ?? ''),
-          code: d.code ?? '',
-          name: d.name ?? '',
-          level: Number(d.level ?? 0),
-          grade: d.grade ?? '',
-          department: d.department ?? d.departmentName ?? '',
-          parentDesignation: d.parentDesignation ?? undefined,
-          reportingTo: d.reportingTo ?? undefined,
-          isActive: d.isActive ?? true,
-          minSalary: d.minSalary !== null && d.minSalary !== undefined ? Number(d.minSalary) : undefined,
-          maxSalary: d.maxSalary !== null && d.maxSalary !== undefined ? Number(d.maxSalary) : undefined,
-          headCount: d.headCount !== null && d.headCount !== undefined ? Number(d.headCount) : undefined,
-          createdAt: d.createdAt ?? '',
-          updatedAt: d.updatedAt ?? '',
-        }));
-        if (!cancelled) setDesignations(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load designations');
-          setDesignations([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    fetchDesignations();
   }, []);
 
   useEffect(() => {
@@ -72,12 +72,55 @@ export default function DesignationMasterPage() {
     setToast({ message, type });
   };
 
-  const handleAddDesignation = () => showToast('Add designation functionality will be implemented', 'info');
-  const handleEditDesignation = (designation: Designation) => showToast(`Editing designation: ${designation.name}`, 'info');
-  const handleDeleteDesignation = (designation: Designation) => {
-    if (confirm(`Are you sure you want to delete ${designation.name}?`)) {
-      setDesignations(prev => prev.filter(d => d.id !== designation.id));
+  const openCreateModal = () => {
+    setForm({ code: '', name: '' });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleAddDesignation = () => openCreateModal();
+
+  const handleEditDesignation = (designation: Designation) => {
+    setForm({ code: designation.code, name: designation.name });
+    setEditingId(designation.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveDesignation = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      showToast('Code and Name are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const payload = { code: form.code, name: form.name, companyId: DEFAULT_COMPANY_ID };
+      if (editingId) {
+        await commonMastersService.updateDesignation(editingId, payload);
+      } else {
+        await commonMastersService.createDesignation(payload);
+      }
+      setIsModalOpen(false);
+      await fetchDesignations();
+      showToast(editingId ? 'Designation updated successfully' : 'Designation created successfully', 'success');
+    } catch (err) {
+      console.error('Error saving designation:', err);
+      showToast('Failed to save designation', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteDesignation = async (designation: Designation) => {
+    if (!confirm(`Are you sure you want to delete ${designation.name}?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deleteDesignation(designation.id);
+      await fetchDesignations();
       showToast(`${designation.name} deleted successfully`, 'success');
+    } catch (err) {
+      console.error('Error deleting designation:', err);
+      showToast('Failed to delete designation', 'error');
     }
   };
   const handleExport = () => {
@@ -462,6 +505,69 @@ export default function DesignationMasterPage() {
       </div>
         </div>
       </div>
+
+      {/* Add/Edit Designation Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Designation' : 'Add Designation'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Code
+                </label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDesignation}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

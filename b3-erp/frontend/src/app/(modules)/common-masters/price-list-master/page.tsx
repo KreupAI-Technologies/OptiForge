@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Download, Filter, X, DollarSign, Calendar, Tag, TrendingUp, Copy, CheckCircle, XCircle, AlertCircle, Eye, BarChart3, Users, Package } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { PriceList, getPriceListStats } from '@/data/common-masters/price-lists';
+import { PriceList } from '@/data/common-masters/price-lists';
 import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
@@ -23,32 +23,52 @@ export default function PriceListMasterPage() {
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
 
+  // Create/Edit modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    priceListCode: '',
+    priceListName: '',
+    description: '',
+    priceListType: 'standard',
+    currency: 'INR',
+    effectiveFrom: '',
+    effectiveTo: '',
+    isActive: true,
+  });
+
+  const pricingMethodMap: Record<string, PriceList['pricingMethod']> = {
+    fixed: 'fixed', markup: 'markup',
+    discount_from_mrp: 'discount_from_mrp', discount: 'discount_from_mrp',
+  };
+
   // Fetch price lists from the live backend, mapping the raw API shape into the page's model.
-  useEffect(() => {
-    let cancelled = false;
-    const pricingMethodMap: Record<string, PriceList['pricingMethod']> = {
-      fixed: 'fixed', markup: 'markup',
-      discount_from_mrp: 'discount_from_mrp', discount: 'discount_from_mrp',
-    };
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await commonMastersService.getAllPriceLists(DEFAULT_COMPANY_ID)) as any[];
-        const mapped: PriceList[] = raw.map((p) => ({
+  const fetchPriceLists = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await commonMastersService.getAllPriceLists(DEFAULT_COMPANY_ID)) as any[];
+      const mapped: PriceList[] = raw.map((p) => {
+        const effectiveFrom = p.effectiveFrom ?? '';
+        const effectiveTo = p.effectiveTo ?? null;
+        return {
           id: String(p.id ?? ''),
           priceListCode: p.priceListCode ?? '',
           priceListName: p.priceListName ?? '',
           description: p.description ?? '',
           pricingMethod: pricingMethodMap[p.pricingMethod] ?? 'fixed',
           basePrice: (p.basePrice ?? 'cost') as PriceList['basePrice'],
+          priceListType: p.priceListType ?? 'standard',
           markupPercentage: p.markupPercentage !== null && p.markupPercentage !== undefined ? Number(p.markupPercentage) : undefined,
           discountPercentage: p.discountPercentage !== null && p.discountPercentage !== undefined ? Number(p.discountPercentage) : undefined,
           applicableFor: (p.applicableFor === 'purchase' ? 'purchase' : 'sales') as PriceList['applicableFor'],
           customerCategory: p.customerCategory ?? undefined,
           currency: p.currency ?? 'INR',
-          effectiveFrom: p.effectiveFrom ?? '',
-          effectiveTo: p.effectiveTo ?? null,
+          effectiveFrom,
+          validFrom: effectiveFrom,
+          effectiveTo,
+          validTo: effectiveTo,
           autoUpdate: p.autoUpdate ?? false,
           itemsCount: Number(p.itemsCount ?? (Array.isArray(p.items) ? p.items.length : 0)),
           minPrice: Number(p.minPrice ?? 0),
@@ -62,22 +82,20 @@ export default function PriceListMasterPage() {
           isActive: p.isActive ?? (p.status ? p.status === 'active' : true),
           createdBy: p.createdBy ?? '',
           createdDate: p.createdDate ?? p.createdAt ?? '',
-        }));
-        if (!cancelled) setPriceLists(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load price lists');
-          setPriceLists([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+        };
+      });
+      setPriceLists(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load price lists');
+      setPriceLists([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchPriceLists();
+  }, [fetchPriceLists]);
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -95,8 +113,86 @@ export default function PriceListMasterPage() {
     showToast(`Cloning price list: ${priceList.priceListName}`, 'info');
   };
 
+  const openCreateModal = () => {
+    setForm({
+      priceListCode: '',
+      priceListName: '',
+      description: '',
+      priceListType: 'standard',
+      currency: 'INR',
+      effectiveFrom: '',
+      effectiveTo: '',
+      isActive: true,
+    });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
   const handleEditPriceList = (priceList: PriceList) => {
-    showToast(`Editing price list: ${priceList.priceListName}`, 'info');
+    setForm({
+      priceListCode: priceList.priceListCode,
+      priceListName: priceList.priceListName,
+      description: priceList.description || '',
+      priceListType: priceList.priceListType || 'standard',
+      currency: priceList.currency || 'INR',
+      effectiveFrom: (priceList.effectiveFrom || '').slice(0, 10),
+      effectiveTo: (priceList.effectiveTo || '').slice(0, 10),
+      isActive: priceList.isActive,
+    });
+    setEditingId(priceList.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSavePriceList = async () => {
+    if (!form.priceListCode.trim() || !form.priceListName.trim()) {
+      showToast('Code and Name are required', 'error');
+      return;
+    }
+    if (!form.effectiveFrom) {
+      showToast('Effective From date is required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const payload = {
+        priceListCode: form.priceListCode.trim(),
+        priceListName: form.priceListName.trim(),
+        description: form.description,
+        priceListType: form.priceListType,
+        currency: form.currency,
+        effectiveFrom: form.effectiveFrom,
+        effectiveTo: form.effectiveTo || undefined,
+        status: form.isActive ? 'active' : 'inactive',
+        companyId: DEFAULT_COMPANY_ID,
+      };
+      if (editingId) {
+        await commonMastersService.updatePriceList(editingId, payload);
+      } else {
+        await commonMastersService.createPriceList(payload);
+      }
+      setIsModalOpen(false);
+      await fetchPriceLists();
+      showToast(editingId ? 'Price list updated successfully' : 'Price list created successfully', 'success');
+    } catch (error) {
+      console.error('Error saving price list:', error);
+      showToast('Failed to save price list', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeletePriceList = async (priceList: PriceList) => {
+    if (!confirm(`Delete ${priceList.priceListName}?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deletePriceList(priceList.id);
+      await fetchPriceLists();
+      showToast(`Deleted ${priceList.priceListName}`, 'success');
+    } catch (error) {
+      console.error('Error deleting price list:', error);
+      showToast('Failed to delete price list', 'error');
+    }
   };
 
   const handleExport = () => {
@@ -105,7 +201,7 @@ export default function PriceListMasterPage() {
   };
 
   const handleAddPriceList = () => {
-    showToast('Opening add price list form...', 'info');
+    openCreateModal();
   };
 
   const handleViewDetails = (priceList: PriceList) => {
@@ -370,10 +466,7 @@ export default function PriceListMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete ${row.priceListName}?`)) {
-                setPriceLists(prev => prev.filter(p => p.id !== row.id));
-                showToast(`Deleted ${row.priceListName}`, 'success');
-              }
+              handleDeletePriceList(row);
             }}
           >
             Delete
@@ -395,7 +488,18 @@ export default function PriceListMasterPage() {
     searchTerm !== ''
   ].filter(Boolean).length;
 
-  const stats = useMemo(() => getPriceListStats(), [priceLists]);
+  const stats = useMemo(() => {
+    const total = priceLists.length;
+    const active = priceLists.filter(p => p.isActive).length;
+    const totalItems = priceLists.reduce((sum, p) => sum + (p.itemsCount || 0), 0);
+    const totalTransactions = priceLists.reduce((sum, p) => sum + (p.transactionsCount || 0), 0);
+    const totalRevenue = priceLists.reduce((sum, p) => sum + (p.totalRevenue || p.totalAmount || 0), 0);
+    const markupLists = priceLists.filter(p => p.markupPercentage);
+    const avgMarkup = markupLists.length > 0
+      ? Math.round(markupLists.reduce((sum, p) => sum + (p.markupPercentage || 0), 0) / markupLists.length)
+      : 0;
+    return { total, active, totalItems, totalTransactions, totalRevenue, avgMarkup };
+  }, [priceLists]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-lime-50 to-green-50">
@@ -1146,6 +1250,146 @@ export default function PriceListMasterPage() {
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Price List Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Price List' : 'Add Price List'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Code
+                </label>
+                <input
+                  type="text"
+                  value={form.priceListCode}
+                  onChange={(e) => setForm({ ...form, priceListCode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={form.priceListName}
+                  onChange={(e) => setForm({ ...form, priceListName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type
+                </label>
+                <select
+                  value={form.priceListType}
+                  onChange={(e) => setForm({ ...form, priceListType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="standard">Standard</option>
+                  <option value="promotional">Promotional</option>
+                  <option value="seasonal">Seasonal</option>
+                  <option value="contract">Contract</option>
+                  <option value="wholesale">Wholesale</option>
+                  <option value="retail">Retail</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Currency
+                </label>
+                <select
+                  value={form.currency}
+                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="INR">INR - Indian Rupee</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="GBP">GBP - British Pound</option>
+                  <option value="AED">AED - UAE Dirham</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Effective From
+                </label>
+                <input
+                  type="date"
+                  value={form.effectiveFrom}
+                  onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Effective To
+                </label>
+                <input
+                  type="date"
+                  value={form.effectiveTo}
+                  onChange={(e) => setForm({ ...form, effectiveTo: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  Active
+                </label>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePriceList}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

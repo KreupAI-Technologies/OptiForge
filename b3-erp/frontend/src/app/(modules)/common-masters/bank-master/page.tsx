@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Building2, CreditCard, TrendingUp, RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Bank, getBankStats } from '@/data/common-masters/banks';
+import { Bank } from '@/data/common-masters/banks';
 import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
@@ -19,16 +19,27 @@ export default function BankMasterPage() {
   const [filterPurpose, setFilterPurpose] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    bankName: '',
+    branchName: '',
+    accountNumber: '',
+    accountType: 'current' as Bank['accountType'],
+    accountHolderName: '',
+    ifscCode: '',
+    accountPurpose: 'operations' as Bank['accountPurpose'],
+    isActive: true,
+  });
 
   // Fetch bank accounts from the live backend, mapping the raw API shape into the page's Bank model.
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await commonMastersService.getAllBankAccounts(DEFAULT_COMPANY_ID)) as any[];
-        const mapped: Bank[] = raw.map((b) => ({
+  const fetchBanks = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await commonMastersService.getAllBankAccounts(DEFAULT_COMPANY_ID)) as any[];
+      const mapped: Bank[] = raw.map((b) => ({
           id: String(b.id ?? ''),
           bankCode: b.bankCode ?? '',
           bankName: b.bankName ?? '',
@@ -80,21 +91,18 @@ export default function BankMasterPage() {
           createdDate: b.createdDate ?? b.createdAt ?? '',
           modifiedBy: b.modifiedBy ?? '',
           modifiedDate: b.modifiedDate ?? b.updatedAt ?? '',
-        }));
-        if (!cancelled) setBanks(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load bank accounts');
-          setBanks([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+      }));
+      setBanks(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load bank accounts');
+      setBanks([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBanks();
   }, []);
 
   useEffect(() => {
@@ -108,9 +116,86 @@ export default function BankMasterPage() {
     setToast({ message, type });
   };
 
-  const handleAddBank = () => showToast('Add bank functionality will be implemented', 'info');
+  const openCreateModal = () => {
+    setForm({
+      bankName: '',
+      branchName: '',
+      accountNumber: '',
+      accountType: 'current',
+      accountHolderName: '',
+      ifscCode: '',
+      accountPurpose: 'operations',
+      isActive: true,
+    });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleAddBank = () => openCreateModal();
   const handleViewBank = (bank: Bank) => showToast(`Viewing bank: ${bank.bankName}`, 'info');
-  const handleEditBank = (bank: Bank) => showToast(`Editing bank: ${bank.bankName}`, 'info');
+
+  const handleEditBank = (bank: Bank) => {
+    setForm({
+      bankName: bank.bankName,
+      branchName: bank.branchName,
+      accountNumber: bank.accountNumber,
+      accountType: bank.accountType,
+      accountHolderName: bank.accountHolderName,
+      ifscCode: bank.ifscCode,
+      accountPurpose: bank.accountPurpose,
+      isActive: bank.isActive,
+    });
+    setEditingId(bank.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveBank = async () => {
+    if (!form.bankName.trim() || !form.accountNumber.trim() || !form.ifscCode.trim() || !form.accountHolderName.trim()) {
+      showToast('Bank Name, Account Number, IFSC Code and Account Holder Name are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const payload = {
+        bankName: form.bankName,
+        branchName: form.branchName,
+        accountNumber: form.accountNumber,
+        accountType: form.accountType,
+        accountHolderName: form.accountHolderName,
+        ifscCode: form.ifscCode,
+        accountPurpose: form.accountPurpose,
+        isActive: form.isActive,
+        companyId: DEFAULT_COMPANY_ID,
+      };
+      if (editingId) {
+        await commonMastersService.updateBankAccount(editingId, payload);
+      } else {
+        await commonMastersService.createBankAccount(payload);
+      }
+      setIsModalOpen(false);
+      await fetchBanks();
+      showToast(editingId ? 'Bank account updated successfully' : 'Bank account created successfully', 'success');
+    } catch (error) {
+      console.error('Error saving bank account:', error);
+      showToast('Failed to save bank account', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteBank = async (bank: Bank) => {
+    if (!confirm(`Delete bank account "${bank.bankName}"?`)) {
+      return;
+    }
+    try {
+      await commonMastersService.deleteBankAccount(bank.id);
+      await fetchBanks();
+      showToast('Bank account deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting bank account:', error);
+      showToast('Failed to delete bank account', 'error');
+    }
+  };
   const handleExport = () => {
     exportToCsv('bank-master', filteredData);
     showToast('Exporting banks data...', 'success');
@@ -258,6 +343,9 @@ export default function BankMasterPage() {
           <button className="text-green-600 hover:text-green-800 text-sm font-medium" onClick={(e) => { e.stopPropagation(); handleEditBank(row); }}>
             Edit
           </button>
+          <button className="text-red-600 hover:text-red-800 text-sm font-medium" onClick={(e) => { e.stopPropagation(); handleDeleteBank(row); }}>
+            Delete
+          </button>
         </div>
       )
     }
@@ -270,7 +358,18 @@ export default function BankMasterPage() {
   };
 
   const activeFilterCount = [filterType !== 'all', filterPurpose !== 'all', searchTerm !== ''].filter(Boolean).length;
-  const stats = useMemo(() => getBankStats(), [banks]);
+  const stats = useMemo(() => {
+    const activeBanks = banks.filter((b) => b.isActive);
+    return {
+      total: banks.length,
+      active: activeBanks.length,
+      totalBalance: activeBanks.reduce((sum, b) => sum + b.currentBalance, 0),
+      totalAvailableBalance: activeBanks.reduce((sum, b) => sum + b.availableBalance, 0),
+      totalDeposits: activeBanks.reduce((sum, b) => sum + b.totalDeposits, 0),
+      totalWithdrawals: activeBanks.reduce((sum, b) => sum + b.totalWithdrawals, 0),
+      withIntegration: activeBanks.filter((b) => b.bankIntegrationEnabled).length,
+    };
+  }, [banks]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-green-50 to-emerald-50">
@@ -432,6 +531,125 @@ export default function BankMasterPage() {
       </div>
         </div>
       </div>
+
+      {/* Add/Edit Bank Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Bank Account' : 'Add Bank Account'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                <input
+                  type="text"
+                  value={form.bankName}
+                  onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name</label>
+                <input
+                  type="text"
+                  value={form.branchName}
+                  onChange={(e) => setForm({ ...form, branchName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
+                <input
+                  type="text"
+                  value={form.accountNumber}
+                  onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
+                <select
+                  value={form.accountType}
+                  onChange={(e) => setForm({ ...form, accountType: e.target.value as Bank['accountType'] })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="savings">Savings</option>
+                  <option value="current">Current</option>
+                  <option value="cash_credit">Cash Credit</option>
+                  <option value="overdraft">Overdraft</option>
+                  <option value="fixed_deposit">Fixed Deposit</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Holder Name</label>
+                <input
+                  type="text"
+                  value={form.accountHolderName}
+                  onChange={(e) => setForm({ ...form, accountHolderName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">IFSC Code</label>
+                <input
+                  type="text"
+                  value={form.ifscCode}
+                  onChange={(e) => setForm({ ...form, ifscCode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Purpose</label>
+                <select
+                  value={form.accountPurpose}
+                  onChange={(e) => setForm({ ...form, accountPurpose: e.target.value as Bank['accountPurpose'] })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="operations">Operations</option>
+                  <option value="payroll">Payroll</option>
+                  <option value="tax">Tax</option>
+                  <option value="vendor_payments">Vendor Payments</option>
+                  <option value="customer_receipts">Customer Receipts</option>
+                  <option value="multi_purpose">Multi Purpose</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 mt-8">
+                <input
+                  id="bank-active"
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="bank-active" className="text-sm font-medium text-gray-700">Active</label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveBank}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

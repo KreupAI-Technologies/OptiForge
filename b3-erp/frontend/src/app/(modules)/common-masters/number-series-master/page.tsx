@@ -115,6 +115,19 @@ export default function NumberSeriesMasterPage() {
     setIsFormOpen(true);
   };
 
+  const handleDeleteSeries = async (row: NumberSeries) => {
+    if (!confirm(`Delete number series "${row.seriesName}"?`)) {
+      return;
+    }
+    try {
+      await systemMastersService.deleteNumberSeries(row.id);
+      await fetchSeries();
+      showToast('Number series deleted', 'success');
+    } catch (error) {
+      showToast('Failed to delete number series', 'error');
+    }
+  };
+
   const handleSaveSeries = async () => {
     if (!formData.seriesName.trim()) {
       showToast('Series name is required', 'error');
@@ -330,6 +343,15 @@ export default function NumberSeriesMasterPage() {
             }}
           >
             Edit
+          </button>
+          <button
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteSeries(row);
+            }}
+          >
+            Delete
           </button>
         </div>
       )
