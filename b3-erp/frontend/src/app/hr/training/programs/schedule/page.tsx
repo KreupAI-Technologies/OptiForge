@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Users, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
-import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
 
 interface Session {
   id: string;
@@ -18,44 +18,74 @@ interface Session {
 
 export default function ProgramSchedulePage() {
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
-  const [currentMonth, setCurrentMonth] = useState('April 2024');
+  const [currentMonth] = useState('April 2024');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [rescheduleId, setRescheduleId] = useState<string | null>(null);
+  const [rescheduleForm, setRescheduleForm] = useState({ startDate: '', endDate: '', location: '' });
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const { data } = await TrainingDevelopmentService.getTrainingSchedules();
+      const mapped: Session[] = (Array.isArray(data) ? data : []).map((r: any) => ({
+        id: String(r.id ?? ''),
+        title: r.title ?? r.batchName ?? '',
+        trainer: r.trainer ?? r.instructorName ?? '',
+        date: r.startDate ?? '',
+        time: r.time ?? '',
+        location: r.location ?? '',
+        attendees: Number(r.enrolled ?? r.enrolledCount ?? 0),
+        type: r.type === 'webinar' ? 'webinar' : 'workshop',
+        conflict: Boolean(r.conflict),
+      }));
+      setSessions(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load sessions');
+      setSessions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.trainingPrograms()) as any[];
-        const mapped: Session[] = (Array.isArray(raw) ? raw : []).map((r) => ({
-          id: String(r.id ?? ''),
-          title: r.title ?? '',
-          trainer: r.trainer ?? '',
-          date: r.date ?? '',
-          time: r.time ?? '',
-          location: r.location ?? '',
-          attendees: Number(r.attendees ?? 0),
-          type: r.type === 'webinar' ? 'webinar' : 'workshop',
-          conflict: Boolean(r.conflict),
-        }));
-        if (!cancelled) setSessions(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load sessions');
-          setSessions([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const openReschedule = (session: Session) => {
+    setActionError(null);
+    setActionSuccess(null);
+    setRescheduleForm({ startDate: session.date, endDate: '', location: session.location });
+    setRescheduleId(session.id);
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleId) return;
+    setSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await TrainingDevelopmentService.updateTrainingSchedule(rescheduleId, {
+        startDate: rescheduleForm.startDate || undefined,
+        endDate: rescheduleForm.endDate || undefined,
+        location: rescheduleForm.location || undefined,
+      });
+      setActionSuccess('Session rescheduled.');
+      setRescheduleId(null);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to reschedule session.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const calendarDays = Array.from({ length: 30 }, (_, i) => i + 1);
 
@@ -98,6 +128,12 @@ export default function ProgramSchedulePage() {
           <AlertCircle className="h-4 w-4" />
           {loadError}
         </div>
+      )}
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+      )}
+      {actionSuccess && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</div>
       )}
 
       {view === 'calendar' && (
@@ -183,12 +219,68 @@ export default function ProgramSchedulePage() {
                     </div>
                     <span className="text-xs text-gray-500">Attendees</span>
                   </div>
-                  <button className="px-4 py-2 border border-gray-200 hover:border-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors bg-white">
+                  <button
+                    onClick={() => openReschedule(session)}
+                    className="px-4 py-2 border border-gray-200 hover:border-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors bg-white"
+                  >
                     Reschedule
                   </button>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {rescheduleId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Reschedule Session</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={rescheduleForm.startDate}
+                  onChange={(e) => setRescheduleForm({ ...rescheduleForm, startDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={rescheduleForm.endDate}
+                  onChange={(e) => setRescheduleForm({ ...rescheduleForm, endDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={rescheduleForm.location}
+                  onChange={(e) => setRescheduleForm({ ...rescheduleForm, location: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setRescheduleId(null)}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReschedule}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                {saving ? 'Saving…' : 'Reschedule'}
+              </button>
+            </div>
           </div>
         </div>
       )}

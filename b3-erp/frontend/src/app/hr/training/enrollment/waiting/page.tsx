@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { HrPagesService } from '@/services/hr-pages.service';
-import { Clock, UserPlus, Mail, AlertCircle, ArrowUpCircle } from 'lucide-react';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
+import { Clock, Mail, AlertCircle, ArrowUpCircle } from 'lucide-react';
 
 interface WaitlistEntry {
   id: string;
@@ -25,8 +25,16 @@ export default function WaitingListPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const rows = await HrPagesService.trainingEnrollments<any[]>();
-      setWaitlist(Array.isArray(rows) ? (rows as any) : []);
+      const rows = await TrainingDevelopmentService.getWaitlist('');
+      const mapped: WaitlistEntry[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+        id: String(r.id ?? ''),
+        name: r.employeeName ?? '',
+        program: r.programId ?? r.scheduleId ?? '',
+        dateAdded: (r.createdAt ?? '').toString().split('T')[0] ?? '',
+        priority: 'Normal',
+        position: Number(r.position ?? 0),
+      }));
+      setWaitlist(mapped);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load data');
       setWaitlist([]);
@@ -46,7 +54,7 @@ export default function WaitingListPage() {
     setActionError(null);
     setActionSuccess(null);
     try {
-      await HrPagesService.updateTrainingEnrollment(id, { status: 'enrolled' });
+      await TrainingDevelopmentService.updateWaitlistEntry(id, { status: 'enrolled' });
       setActionSuccess(`${name} has been promoted to the main list.`);
       await load();
     } catch (err) {
@@ -56,10 +64,19 @@ export default function WaitingListPage() {
     }
   };
 
-  // No dedicated waitlist-notification endpoint exists yet (NEEDS BACKEND).
-  const handleNotify = (name: string) => {
+  const handleNotify = async (id: string, name: string) => {
+    setActionId(id);
     setActionError(null);
-    setActionSuccess(`Notification queued for ${name}. (Delivery pending backend support.)`);
+    setActionSuccess(null);
+    try {
+      await TrainingDevelopmentService.notifyWaitlist(id);
+      setActionSuccess(`${name} has been notified.`);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to notify ${name}.`);
+    } finally {
+      setActionId(null);
+    }
   };
 
   return (
@@ -126,8 +143,9 @@ export default function WaitingListPage() {
                     <td className="py-4 pr-6 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleNotify(entry.name)}
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          onClick={() => handleNotify(entry.id, entry.name)}
+                          disabled={actionId === entry.id}
+                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                           title="Notify Employee"
                         >
                           <Mail className="h-4 w-4" />

@@ -13,7 +13,6 @@ import {
   ArrowUpRight,
   AlertCircle
 } from 'lucide-react';
-import { HrPagesService } from '@/services/hr-pages.service';
 import { TrainingDevelopmentService } from '@/services/training-development.service';
 import {
   BarChart,
@@ -41,27 +40,53 @@ const topPerformers = [
   { id: 4, name: 'James Rodriguez', role: 'Sales Lead', avgScore: 94, assessments: 15 },
 ];
 
-interface AssessmentResult {
+interface AssessmentRow {
   id: number | string;
-  employee: string;
-  test: string;
-  date: string;
-  score: number;
-  status: string;
+  title: string;
+  assessmentType: string;
+  totalMarks: number;
+  passingMarks: number;
+  isActive: boolean;
 }
 
 export default function AssessmentsPage() {
   const [timeRange, setTimeRange] = useState('This Month');
-  const [recentResults, setRecentResults] = useState<AssessmentResult[]>([]);
+  const [assessments, setAssessments] = useState<AssessmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [selectedResult, setSelectedResult] = useState<AssessmentResult | null>(null);
+  const [selectedResult, setSelectedResult] = useState<AssessmentRow | null>(null);
   const [form, setForm] = useState({ title: '', assessmentType: 'quiz', passingMarks: 70, totalMarks: 100 });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await TrainingDevelopmentService.getTrainingAssessments()) as any[];
+      const mapped: AssessmentRow[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+        id: r.id ?? '',
+        title: r.assessmentName ?? r.title ?? '',
+        assessmentType: r.assessmentType ?? 'quiz',
+        totalMarks: Number(r.totalMarks ?? 0),
+        passingMarks: Number(r.passingMarks ?? 0),
+        isActive: Boolean(r.isActive),
+      }));
+      setAssessments(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load assessments');
+      setAssessments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleCreateTest = async () => {
     setSaving(true);
@@ -75,6 +100,7 @@ export default function AssessmentsPage() {
       } as any);
       setShowCreate(false);
       setForm({ title: '', assessmentType: 'quiz', passingMarks: 70, totalMarks: 100 });
+      await load();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to create test');
     } finally {
@@ -82,35 +108,42 @@ export default function AssessmentsPage() {
     }
   };
 
+  const handleStartAttempt = async (row: AssessmentRow) => {
+    setActionError(null);
+    setActionSuccess(null);
+    setAttemptId(String(row.id));
+    try {
+      const attempt = await TrainingDevelopmentService.startAssessmentAttempt(
+        String(row.id),
+        '',
+        '',
+      );
+      setActionSuccess(`Attempt started for "${row.title}" (attempt #${attempt.attemptNumber}).`);
+      setAttemptId(attempt.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to start attempt.');
+      setAttemptId(null);
+    }
+  };
+
+  const handleSubmitAttempt = async () => {
+    if (!attemptId) return;
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const result = await TrainingDevelopmentService.submitAssessmentAttempt(attemptId, []);
+      setActionSuccess(
+        `Attempt submitted — ${result.obtainedMarks}/${result.totalMarks} (${result.isPassed ? 'Passed' : 'Not passed'}).`,
+      );
+      setAttemptId(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to submit attempt.');
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.skillAssessments()) as any[];
-        const mapped: AssessmentResult[] = (Array.isArray(raw) ? raw : []).map((r) => ({
-          id: r.id ?? '',
-          employee: r.employee ?? r.employeeName ?? '',
-          test: r.test ?? r.testName ?? r.assessmentName ?? '',
-          date: r.date ?? r.completedDate ?? '',
-          score: Number(r.score ?? 0),
-          status: r.status ?? (Number(r.score ?? 0) >= 70 ? 'Pass' : 'Fail'),
-        }));
-        if (!cancelled) setRecentResults(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load assessment results');
-          setRecentResults([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -153,6 +186,22 @@ export default function AssessmentsPage() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+      )}
+      {actionSuccess && (
+        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <span>{actionSuccess}</span>
+          {attemptId && (
+            <button
+              onClick={handleSubmitAttempt}
+              className="ml-3 rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700"
+            >
+              Submit Attempt
+            </button>
+          )}
         </div>
       )}
 
@@ -237,12 +286,12 @@ export default function AssessmentsPage() {
       {/* Recent Results Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h2 className="text-lg font-bold text-gray-900">Recent Test Results</h2>
+          <h2 className="text-lg font-bold text-gray-900">Assessments</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search employees or tests..."
+              placeholder="Search tests..."
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full sm:w-64"
             />
           </div>
@@ -251,39 +300,51 @@ export default function AssessmentsPage() {
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
               <tr>
-                <th className="px-3 py-2">Employee</th>
                 <th className="px-3 py-2">Test Name</th>
-                <th className="px-3 py-2">Date Completed</th>
-                <th className="px-3 py-2">Score</th>
+                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Passing / Total</th>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {recentResults.map((result) => (
-                <tr key={result.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-3 py-2 font-medium text-gray-900">{result.employee}</td>
-                  <td className="px-3 py-2">{result.test}</td>
-                  <td className="px-3 py-2">{result.date}</td>
-                  <td className="px-3 py-2 font-semibold">{result.score}%</td>
-                  <td className="px-3 py-2">
-                    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${result.status === 'Pass' ? 'text-green-700 bg-green-50 ring-green-600/20' :
-                        'text-red-700 bg-red-50 ring-red-600/20'
-                      }`}>
-                      {result.status === 'Pass' ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
-                      {result.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      onClick={() => setSelectedResult(result)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </td>
+              {assessments.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-8 text-center text-gray-500">No assessments yet.</td>
                 </tr>
-              ))}
+              ) : (
+                assessments.map((row) => (
+                  <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-3 py-2 font-medium text-gray-900">{row.title}</td>
+                    <td className="px-3 py-2 capitalize">{row.assessmentType}</td>
+                    <td className="px-3 py-2 font-semibold">{row.passingMarks} / {row.totalMarks}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${row.isActive ? 'text-green-700 bg-green-50 ring-green-600/20' :
+                          'text-gray-700 bg-gray-50 ring-gray-600/20'
+                        }`}>
+                        {row.isActive ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+                        {row.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => handleStartAttempt(row)}
+                          className="text-xs font-medium text-purple-600 hover:text-purple-800"
+                        >
+                          Start Attempt
+                        </button>
+                        <button
+                          onClick={() => setSelectedResult(row)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -391,17 +452,17 @@ export default function AssessmentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Result Details</h3>
+              <h3 className="text-lg font-bold text-gray-900">Assessment Details</h3>
               <button onClick={() => setSelectedResult(null)} className="text-gray-400 hover:text-gray-600">
                 <XCircle className="h-5 w-5" />
               </button>
             </div>
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between"><dt className="text-gray-500">Employee</dt><dd className="font-medium text-gray-900">{selectedResult.employee}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-500">Test</dt><dd className="font-medium text-gray-900">{selectedResult.test}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-500">Date</dt><dd className="font-medium text-gray-900">{selectedResult.date}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-500">Score</dt><dd className="font-medium text-gray-900">{selectedResult.score}%</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-500">Status</dt><dd className="font-medium text-gray-900">{selectedResult.status}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Title</dt><dd className="font-medium text-gray-900">{selectedResult.title}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Type</dt><dd className="font-medium text-gray-900 capitalize">{selectedResult.assessmentType}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Passing Marks</dt><dd className="font-medium text-gray-900">{selectedResult.passingMarks}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Total Marks</dt><dd className="font-medium text-gray-900">{selectedResult.totalMarks}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Status</dt><dd className="font-medium text-gray-900">{selectedResult.isActive ? 'Active' : 'Inactive'}</dd></div>
             </dl>
           </div>
         </div>

@@ -367,6 +367,37 @@ import { DocumentManagementService } from './services/document-management.servic
 import { PerformanceManagementService } from './services/performance-management.service';
 import { TrainingDevelopmentService } from './services/training-development.service';
 import { HRComplianceService } from './services/hr-compliance.service';
+
+// Net-new HR Training subsystem (schedules, attendance, waitlist, certifications,
+// feedback, assessments+attempts, e-learning progress, computed reports)
+import { TrainingSchedule } from './entities/training-schedule.entity';
+import { TrainingAttendance } from './entities/training-attendance.entity';
+import { TrainingWaitlist } from './entities/training-waitlist.entity';
+import { CertificationTracking } from './entities/certification-tracking.entity';
+import { TrainingFeedback } from './entities/training-feedback.entity';
+import { TrainingAssessment } from './entities/training-assessment.entity';
+import { TrainingAssessmentAttempt } from './entities/training-assessment-attempt.entity';
+import { CourseProgress } from './entities/course-progress.entity';
+import { TrainingScheduleController } from './controllers/training-schedule.controller';
+import { TrainingAttendanceController } from './controllers/training-attendance.controller';
+import { TrainingWaitlistController } from './controllers/training-waitlist.controller';
+import { CertificationTrackingController } from './controllers/certification-tracking.controller';
+import { TrainingFeedbackController } from './controllers/training-feedback.controller';
+import {
+  TrainingAssessmentController,
+  TrainingAssessmentAttemptController,
+} from './controllers/training-assessment.controller';
+import { CourseProgressController } from './controllers/course-progress.controller';
+import { TrainingReportController } from './controllers/training-report.controller';
+import { TrainingScheduleService } from './services/training-schedule.service';
+import { TrainingAttendanceService } from './services/training-attendance.service';
+import { TrainingWaitlistService } from './services/training-waitlist.service';
+import { CertificationTrackingService } from './services/certification-tracking.service';
+import { TrainingFeedbackService } from './services/training-feedback.service';
+import { TrainingAssessmentService } from './services/training-assessment.service';
+import { CourseProgressService } from './services/course-progress.service';
+import { TrainingReportService } from './services/training-report.service';
+
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
@@ -422,6 +453,15 @@ import { PrismaModule } from '../prisma/prisma.module';
       KpiMaster,
       TrainingBudget,
       ReviewCycle,
+      // Net-new HR Training subsystem
+      TrainingSchedule,
+      TrainingAttendance,
+      TrainingWaitlist,
+      CertificationTracking,
+      TrainingFeedback,
+      TrainingAssessment,
+      TrainingAssessmentAttempt,
+      CourseProgress,
       // HR Asset Management
       AssetItem,
       AssetRequest,
@@ -542,6 +582,16 @@ import { PrismaModule } from '../prisma/prisma.module';
     KpiMasterController,
     TrainingBudgetController,
     ReviewCycleController,
+    // Net-new HR Training subsystem
+    TrainingScheduleController,
+    TrainingAttendanceController,
+    TrainingWaitlistController,
+    CertificationTrackingController,
+    TrainingFeedbackController,
+    TrainingAssessmentController,
+    TrainingAssessmentAttemptController,
+    CourseProgressController,
+    TrainingReportController,
     // HR Asset Management
     AssetItemController,
     AssetRequestController,
@@ -655,6 +705,15 @@ import { PrismaModule } from '../prisma/prisma.module';
     KpiMasterService,
     TrainingBudgetService,
     ReviewCycleService,
+    // Net-new HR Training subsystem
+    TrainingScheduleService,
+    TrainingAttendanceService,
+    TrainingWaitlistService,
+    CertificationTrackingService,
+    TrainingFeedbackService,
+    TrainingAssessmentService,
+    CourseProgressService,
+    TrainingReportService,
     // HR Asset Management
     AssetItemService,
     AssetRequestService,

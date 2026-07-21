@@ -120,6 +120,15 @@ const MIGRATION_ORDER: string[] = [
     'orphan_installation_checklists.sql',
     // Supplier Portal messages + documents (net-new, additive, idempotent)
     'orphan_supplier_portal.sql',
+    // Net-new HR Training subsystem (schedules, attendance, waitlist,
+    // certifications, feedback, assessments+attempts, e-learning progress)
+    'orphan_hr_training_schedules.sql',
+    'orphan_hr_training_attendance.sql',
+    'orphan_hr_training_waitlist.sql',
+    'orphan_hr_certification_tracking.sql',
+    'orphan_hr_training_feedback.sql',
+    'orphan_hr_training_assessments.sql',
+    'orphan_hr_course_progress.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

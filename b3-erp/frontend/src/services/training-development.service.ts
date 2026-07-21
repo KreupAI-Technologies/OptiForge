@@ -1034,14 +1034,15 @@ export class TrainingDevelopmentService {
       if (options?.status) filtered = filtered.filter(s => s.status === options.status);
       return { data: filtered, total: filtered.length };
     }
-    // TODO(needs-backend): no NestJS route for training schedules (hr/training-schedules).
+    // NestJS: GET /hr/training-schedules?companyId&programId&status -> bare rows.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.programId) params.append('programId', options.programId);
     if (options?.status) params.append('status', options.status);
-    if (options?.fromDate) params.append('fromDate', options.fromDate);
-    if (options?.toDate) params.append('toDate', options.toDate);
-    const response = await fetch(`/api/hr/training/schedules?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/training-schedules?${params.toString()}`);
+    const rows = await response.json();
+    const arr: TrainingSchedule[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async createTrainingSchedule(data: Partial<TrainingSchedule>): Promise<TrainingSchedule> {
@@ -1065,12 +1066,48 @@ export class TrainingDevelopmentService {
       mockSchedules.push(newSchedule);
       return newSchedule;
     }
-    // TODO(needs-backend): no NestJS route for training schedules (hr/training-schedules).
-    const response = await fetch('/api/hr/training/schedules', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-schedules (companyId in body). Map the FE
+    // view-model onto the entity columns (title/trainer/startDate/…).
+    const response = await trainFetch('/hr/training-schedules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        companyId: COMPANY_ID,
+        programId: data.programId,
+        title: data.batchName,
+        trainer: data.instructorName,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        location: data.location,
+        capacity: data.maxParticipants,
+        status: data.status || 'scheduled',
+      }),
+    });
+    return response.json();
+  }
+
+  static async updateTrainingSchedule(id: string, data: Partial<TrainingSchedule>): Promise<TrainingSchedule> {
+    if (USE_MOCK_DATA) {
+      const index = mockSchedules.findIndex(s => s.id === id);
+      if (index !== -1) {
+        mockSchedules[index] = { ...mockSchedules[index], ...data };
+        return mockSchedules[index];
+      }
+      throw new Error('Training schedule not found');
+    }
+    // NestJS: PUT /hr/training-schedules/:id. Map the FE view-model onto columns.
+    const body: Record<string, any> = {};
+    if (data.batchName != null) body.title = data.batchName;
+    if (data.instructorName != null) body.trainer = data.instructorName;
+    if (data.startDate != null) body.startDate = data.startDate;
+    if (data.endDate != null) body.endDate = data.endDate;
+    if (data.location != null) body.location = data.location;
+    if (data.maxParticipants != null) body.capacity = data.maxParticipants;
+    if (data.status != null) body.status = data.status;
+    const response = await trainFetch(`/hr/training-schedules/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
     return response.json();
   }
@@ -1249,13 +1286,15 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
-    // TODO(needs-backend): no NestJS route for training attendance (hr/training-attendance).
+    // NestJS: GET /hr/training-attendance?companyId&scheduleId&enrollmentId&date.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.enrollmentId) params.append('enrollmentId', options.enrollmentId);
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
-    if (options?.sessionId) params.append('sessionId', options.sessionId);
-    const response = await fetch(`/api/hr/training/attendance?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    if (options?.date) params.append('date', options.date);
+    const response = await trainFetch(`/hr/training-attendance?${params.toString()}`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as TrainingAttendance[];
   }
 
   static async markAttendance(data: Partial<TrainingAttendance>): Promise<TrainingAttendance> {
@@ -1271,12 +1310,24 @@ export class TrainingDevelopmentService {
         ...data,
       } as TrainingAttendance;
     }
-    // TODO(needs-backend): no NestJS route for training attendance (hr/training-attendance).
-    const response = await fetch('/api/hr/training/attendance', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-attendance (companyId in body).
+    const response = await trainFetch('/hr/training-attendance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
+    });
+    return response.json();
+  }
+
+  static async addAttendanceNote(id: string, note: string): Promise<TrainingAttendance> {
+    if (USE_MOCK_DATA) {
+      return { id, note } as unknown as TrainingAttendance;
+    }
+    // NestJS: POST /hr/training-attendance/:id/note
+    const response = await trainFetch(`/hr/training-attendance/${id}/note`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
     });
     return response.json();
   }
@@ -1287,9 +1338,13 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
-    // TODO(needs-backend): no NestJS route for training waitlist (hr/training-waitlist).
-    const response = await fetch(`/api/hr/training/schedules/${scheduleId}/waitlist`, { credentials: 'include' });
-    return response.json();
+    // NestJS: GET /hr/training-waitlist?companyId&scheduleId -> bare rows.
+    const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
+    if (scheduleId) params.append('scheduleId', scheduleId);
+    const response = await trainFetch(`/hr/training-waitlist?${params.toString()}`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as TrainingWaitlist[];
   }
 
   static async addToWaitlist(data: {
@@ -1313,12 +1368,36 @@ export class TrainingDevelopmentService {
         status: 'waiting',
       };
     }
-    // TODO(needs-backend): no NestJS route for training waitlist (hr/training-waitlist).
-    const response = await fetch('/api/hr/training/waitlist', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-waitlist (companyId in body).
+    const response = await trainFetch('/hr/training-waitlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
+    });
+    return response.json();
+  }
+
+  static async updateWaitlistEntry(id: string, data: Partial<TrainingWaitlist>): Promise<TrainingWaitlist> {
+    if (USE_MOCK_DATA) {
+      return { id, ...data } as unknown as TrainingWaitlist;
+    }
+    // NestJS: PUT /hr/training-waitlist/:id
+    const response = await trainFetch(`/hr/training-waitlist/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  static async notifyWaitlist(id: string): Promise<TrainingWaitlist> {
+    if (USE_MOCK_DATA) {
+      return { id, status: 'notified' } as unknown as TrainingWaitlist;
+    }
+    // NestJS: POST /hr/training-waitlist/:id/notify
+    const response = await trainFetch(`/hr/training-waitlist/${id}/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
     });
     return response.json();
   }
@@ -1415,13 +1494,22 @@ export class TrainingDevelopmentService {
       if (options?.status) filtered = filtered.filter(c => c.status === options.status);
       return { data: filtered, total: filtered.length };
     }
-    // TODO(needs-backend): no NestJS route for certification tracking (hr/training-certifications).
+    // NestJS: GET /hr/certifications?companyId&employeeId&status -> bare rows.
+    // Map the entity columns (name/issuer) onto the FE view model.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
-    if (options?.expiringWithinDays) params.append('expiringWithinDays', String(options.expiringWithinDays));
-    const response = await fetch(`/api/hr/training/certifications?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/certifications?${params.toString()}`);
+    const rows = await response.json();
+    const arr: any[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    const data = arr.map((r) => ({
+      ...r,
+      certificationName: r.certificationName ?? r.name,
+      issuingAuthority: r.issuingAuthority ?? r.issuer,
+      documentPath: r.documentPath ?? r.fileUrl,
+    })) as CertificationTracking[];
+    return { data, total: data.length };
   }
 
   static async createCertification(data: Partial<CertificationTracking>): Promise<CertificationTracking> {
@@ -1441,12 +1529,23 @@ export class TrainingDevelopmentService {
       mockCertifications.push(newCert);
       return newCert;
     }
-    // TODO(needs-backend): no NestJS route for certification tracking (hr/training-certifications).
-    const response = await fetch('/api/hr/training/certifications', {
-      credentials: 'include',
+    // NestJS: POST /hr/certifications (companyId in body). Map the FE view-model
+    // fields (certificationName/issuingAuthority/documentPath) onto entity columns.
+    const response = await trainFetch('/hr/certifications', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        companyId: COMPANY_ID,
+        employeeId: data.employeeId,
+        employeeName: data.employeeName,
+        employeeCode: data.employeeCode,
+        name: data.certificationName,
+        issuer: data.issuingAuthority,
+        issueDate: data.issueDate,
+        expiryDate: data.expiryDate,
+        status: data.status,
+        fileUrl: data.documentPath,
+      }),
     });
     return response.json();
   }
@@ -1472,12 +1571,24 @@ export class TrainingDevelopmentService {
       }
       return cert!;
     }
-    // TODO(needs-backend): no NestJS route for certification tracking (hr/training-certifications/:id/renew).
-    const response = await fetch(`/api/hr/training/certifications/${id}/renew`, {
-      credentials: 'include',
+    // NestJS: POST /hr/certifications/:id/renew
+    const response = await trainFetch(`/hr/certifications/${id}/renew`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  static async uploadCertificate(id: string, fileUrl: string): Promise<CertificationTracking> {
+    if (USE_MOCK_DATA) {
+      return { id, documentPath: fileUrl } as unknown as CertificationTracking;
+    }
+    // NestJS: POST /hr/certifications/:id/upload (stores fileUrl on the record).
+    const response = await trainFetch(`/hr/certifications/${id}/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileUrl }),
     });
     return response.json();
   }
@@ -1492,13 +1603,20 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
-    // TODO(needs-backend): no NestJS route for training feedback (hr/training-feedback).
+    // NestJS: GET /hr/training-feedback?companyId&scheduleId&programId&employeeId.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
     if (options?.programId) params.append('programId', options.programId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
-    const response = await fetch(`/api/hr/training/feedback?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/training-feedback?${params.toString()}`);
+    const rows = await response.json();
+    const arr: any[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    // Map entity `rating` onto the FE view-model `overallRating`.
+    return arr.map((r) => ({
+      ...r,
+      overallRating: r.overallRating ?? r.rating,
+    })) as TrainingFeedback[];
   }
 
   static async submitTrainingFeedback(data: Partial<TrainingFeedback>): Promise<TrainingFeedback> {
@@ -1520,12 +1638,29 @@ export class TrainingDevelopmentService {
         ...data,
       } as TrainingFeedback;
     }
-    // TODO(needs-backend): no NestJS route for training feedback (hr/training-feedback).
-    const response = await fetch('/api/hr/training/feedback', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-feedback (companyId in body). Map overallRating
+    // onto the entity `rating` column.
+    const response = await trainFetch('/hr/training-feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        companyId: COMPANY_ID,
+        scheduleId: data.scheduleId,
+        programId: data.programId,
+        enrollmentId: data.enrollmentId,
+        employeeId: data.employeeId,
+        employeeName: data.employeeName,
+        rating: data.overallRating,
+        contentRating: data.contentRating,
+        instructorRating: data.instructorRating,
+        relevanceRating: data.relevanceRating,
+        paceRating: data.paceRating,
+        comments: data.additionalComments,
+        strengths: data.strengths,
+        improvements: data.improvements,
+        isAnonymous: data.isAnonymous,
+        wouldRecommend: data.wouldRecommend,
+      }),
     });
     return response.json();
   }
@@ -1540,13 +1675,20 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
-    // TODO(needs-backend): no NestJS route for training assessments (hr/training-assessments).
+    // NestJS: GET /hr/training-assessments?companyId&programId&scheduleId&assessmentType.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.programId) params.append('programId', options.programId);
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
     if (options?.assessmentType) params.append('assessmentType', options.assessmentType);
-    const response = await fetch(`/api/hr/training/assessments?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/training-assessments?${params.toString()}`);
+    const rows = await response.json();
+    const arr: any[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    // Map entity `title` onto the FE view-model `assessmentName`.
+    return arr.map((r) => ({
+      ...r,
+      assessmentName: r.assessmentName ?? r.title,
+    })) as TrainingAssessment[];
   }
 
   static async createTrainingAssessment(data: Partial<TrainingAssessment>): Promise<TrainingAssessment> {
@@ -1556,12 +1698,24 @@ export class TrainingDevelopmentService {
         ...data,
       } as TrainingAssessment;
     }
-    // TODO(needs-backend): no NestJS route for training assessments (hr/training-assessments).
-    const response = await fetch('/api/hr/training/assessments', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-assessments (companyId in body). The entity uses
+    // `title`; accept both `title` and `assessmentName` from callers.
+    const d = data as Partial<TrainingAssessment> & { title?: string };
+    const response = await trainFetch('/hr/training-assessments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        companyId: COMPANY_ID,
+        programId: data.programId,
+        scheduleId: data.scheduleId,
+        title: d.title ?? data.assessmentName,
+        assessmentType: data.assessmentType,
+        description: data.description,
+        totalMarks: data.totalMarks,
+        passingMarks: data.passingMarks,
+        durationMinutes: data.durationMinutes,
+        attemptsAllowed: data.attemptsAllowed,
+      }),
     });
     return response.json();
   }
@@ -1583,12 +1737,11 @@ export class TrainingDevelopmentService {
         isPassed: false,
       };
     }
-    // TODO(needs-backend): no NestJS route for training assessment attempts (hr/training-assessments/:id/attempt).
-    const response = await fetch(`/api/hr/training/assessments/${assessmentId}/attempt`, {
-      credentials: 'include',
+    // NestJS: POST /hr/training-assessments/:id/attempt (companyId in body).
+    const response = await trainFetch(`/hr/training-assessments/${assessmentId}/attempt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enrollmentId, employeeId }),
+      body: JSON.stringify({ companyId: COMPANY_ID, enrollmentId, employeeId }),
     });
     return response.json();
   }
@@ -1612,9 +1765,8 @@ export class TrainingDevelopmentService {
         isPassed: true,
       };
     }
-    // TODO(needs-backend): no NestJS route for training assessment attempts (hr/training-assessment-attempts/:id/submit).
-    const response = await fetch(`/api/hr/training/assessment-attempts/${attemptId}/submit`, {
-      credentials: 'include',
+    // NestJS: POST /hr/training-assessment-attempts/:id/submit
+    const response = await trainFetch(`/hr/training-assessment-attempts/${attemptId}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers }),
@@ -1697,13 +1849,11 @@ export class TrainingDevelopmentService {
         certificateIssued: false,
       };
     }
-    // TODO(needs-backend): no NestJS route for e-learning course enrollment/progress
-    // (hr/elearning-courses exists for the catalogue, but not course-progress).
-    const response = await fetch(`/api/hr/training/e-learning/courses/${courseId}/enroll`, {
-      credentials: 'include',
+    // NestJS: POST /hr/elearning-progress/enroll/:courseId (companyId in body).
+    const response = await trainFetch(`/hr/elearning-progress/enroll/${courseId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employeeId }),
+      body: JSON.stringify({ companyId: COMPANY_ID, employeeId }),
     });
     return response.json();
   }
@@ -1716,13 +1866,21 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return { data: [], total: 0 };
     }
-    // TODO(needs-backend): no NestJS route for e-learning course progress (hr/elearning-course-progress).
+    // NestJS: GET /hr/elearning-progress?companyId&courseId&employeeId&status.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.courseId) params.append('courseId', options.courseId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/training/e-learning/progress?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/elearning-progress?${params.toString()}`);
+    const rows = await response.json();
+    const arr: any[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    // Map entity `progressPct` onto the FE view-model `progressPercentage`.
+    const data = arr.map((r) => ({
+      ...r,
+      progressPercentage: r.progressPercentage ?? Number(r.progressPct ?? 0),
+    })) as CourseProgress[];
+    return { data, total: data.length };
   }
 
   static async updateLessonProgress(progressId: string, lessonId: string, data: {
@@ -1750,9 +1908,8 @@ export class TrainingDevelopmentService {
         certificateIssued: false,
       };
     }
-    // TODO(needs-backend): no NestJS route for e-learning lesson progress (hr/elearning-course-progress/:id/lesson/:lessonId).
-    const response = await fetch(`/api/hr/training/e-learning/progress/${progressId}/lesson/${lessonId}`, {
-      credentials: 'include',
+    // NestJS: PUT /hr/elearning-progress/:id/lesson/:lessonId
+    const response = await trainFetch(`/hr/elearning-progress/${progressId}/lesson/${lessonId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1975,12 +2132,10 @@ export class TrainingDevelopmentService {
         ],
       };
     }
+    // NestJS: GET /hr/training-reports/summary?companyId (computed aggregate).
     const params = new URLSearchParams();
-    if (options?.fromDate) params.append('fromDate', options.fromDate);
-    if (options?.toDate) params.append('toDate', options.toDate);
-    if (options?.departmentId) params.append('departmentId', options.departmentId);
-    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/summary).
-    const response = await fetch(`/api/hr/training/reports/summary?${params.toString()}`, { credentials: 'include' });
+    params.append('companyId', COMPANY_ID);
+    const response = await trainFetch(`/hr/training-reports/summary?${params.toString()}`);
     return response.json();
   }
 
@@ -2009,8 +2164,8 @@ export class TrainingDevelopmentService {
         })),
       };
     }
-    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/employee/:id).
-    const response = await fetch(`/api/hr/training/reports/employee/${employeeId}`, { credentials: 'include' });
+    // NestJS: GET /hr/training-reports/employee/:id?companyId (computed).
+    const response = await trainFetch(`/hr/training-reports/employee/${employeeId}?companyId=${COMPANY_ID}`);
     return response.json();
   }
 
@@ -2045,8 +2200,8 @@ export class TrainingDevelopmentService {
         ],
       };
     }
-    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/department/:id).
-    const response = await fetch(`/api/hr/training/reports/department/${departmentId}`, { credentials: 'include' });
+    // NestJS: GET /hr/training-reports/department/:id?companyId (computed).
+    const response = await trainFetch(`/hr/training-reports/department/${departmentId}?companyId=${COMPANY_ID}`);
     return response.json();
   }
 
@@ -2070,12 +2225,10 @@ export class TrainingDevelopmentService {
         { month: 'Nov 2024', hours: 640, employees: 80 },
       ];
     }
+    // NestJS: GET /hr/training-reports/hours?companyId (computed, grouped by month).
     const params = new URLSearchParams();
-    if (options?.fromDate) params.append('fromDate', options.fromDate);
-    if (options?.toDate) params.append('toDate', options.toDate);
-    if (options?.departmentId) params.append('departmentId', options.departmentId);
-    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/hours).
-    const response = await fetch(`/api/hr/training/reports/hours?${params.toString()}`, { credentials: 'include' });
+    params.append('companyId', COMPANY_ID);
+    const response = await trainFetch(`/hr/training-reports/hours?${params.toString()}`);
     return response.json();
   }
 }

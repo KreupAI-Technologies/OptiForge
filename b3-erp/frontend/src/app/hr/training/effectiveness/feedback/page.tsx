@@ -15,7 +15,6 @@ import {
   Plus,
   AlertCircle
 } from 'lucide-react';
-import { HrPagesService } from '@/services/hr-pages.service';
 import { TrainingDevelopmentService } from '@/services/training-development.service';
 import {
   AreaChart,
@@ -73,16 +72,16 @@ export default function FeedbackPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const raw = (await HrPagesService.trainingEnrollments()) as any[];
+      const raw = (await TrainingDevelopmentService.getTrainingFeedback()) as any[];
       const mapped: Review[] = (Array.isArray(raw) ? raw : []).map((r) => ({
         id: r.id ?? '',
-        employee: r.employee ?? r.employeeName ?? '',
-        role: r.role ?? '',
-        course: r.course ?? r.courseName ?? r.programName ?? '',
-        rating: Number(r.rating ?? 0),
-        date: r.date ?? r.createdAt ?? '',
-        comment: r.comment ?? r.feedback ?? '',
-        sentiment: r.sentiment ?? 'neutral',
+        employee: r.employeeName ?? '',
+        role: '',
+        course: r.programId ?? r.scheduleId ?? '',
+        rating: Number(r.overallRating ?? r.rating ?? 0),
+        date: (r.createdAt ?? '').toString().split('T')[0] ?? '',
+        comment: r.comments ?? r.strengths ?? '',
+        sentiment: 'neutral',
       }));
       setReviews(mapped);
     } catch (err) {

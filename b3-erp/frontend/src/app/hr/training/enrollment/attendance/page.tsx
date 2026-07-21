@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService, AttendanceStatus } from '@/services/training-development.service';
 import { CheckSquare, Calendar, Search, UserCheck, UserX, Clock, Save } from 'lucide-react';
 
 interface Attendee {
@@ -20,6 +21,11 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+
+  const [noteFor, setNoteFor] = useState<Attendee | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -49,6 +55,40 @@ export default function AttendancePage() {
 
   const updateStatus = (id: string, status: 'Present' | 'Absent' | 'Late') => {
     setAttendees(attendees.map(a => a.id === id ? { ...a, status } : a));
+  };
+
+  const openNote = (attendee: Attendee) => {
+    setNoteError(null);
+    setNoteText('');
+    setNoteFor(attendee);
+  };
+
+  const handleSaveNote = async () => {
+    if (!noteFor) return;
+    setNoteSaving(true);
+    setNoteError(null);
+    try {
+      // The rows here are enrollments; record an attendance entry carrying the note.
+      await TrainingDevelopmentService.markAttendance({
+        enrollmentId: noteFor.id,
+        employeeId: noteFor.id,
+        employeeName: noteFor.name,
+        status:
+          noteFor.status === 'Absent'
+            ? AttendanceStatus.ABSENT
+            : noteFor.status === 'Late'
+              ? AttendanceStatus.PARTIAL
+              : AttendanceStatus.PRESENT,
+        note: noteText,
+        date: new Date().toISOString().split('T')[0],
+      } as any);
+      setNoteFor(null);
+      setSaveSuccess(`Note saved for ${noteFor.name}.`);
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : 'Failed to save note.');
+    } finally {
+      setNoteSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -203,7 +243,12 @@ export default function AttendancePage() {
                         </div>
                       </td>
                       <td className="py-4 text-right">
-                        <button className="text-sm text-purple-600 font-medium hover:text-purple-700">Add Note</button>
+                        <button
+                          onClick={() => openNote(attendee)}
+                          className="text-sm text-purple-600 font-medium hover:text-purple-700"
+                        >
+                          Add Note
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -213,6 +258,41 @@ export default function AttendancePage() {
           </div>
         </div>
       </div>
+
+      {noteFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Add Note</h3>
+            <p className="text-sm text-gray-500 mb-4">{noteFor.name} • {noteFor.status}</p>
+            {noteError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{noteError}</div>
+            )}
+            <textarea
+              rows={4}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Attendance note…"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setNoteFor(null)}
+                disabled={noteSaving}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveNote}
+                disabled={noteSaving || !noteText.trim()}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                {noteSaving ? 'Saving…' : 'Save Note'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,12 +8,11 @@ import {
   AlertTriangle,
   AlertCircle,
   CheckCircle2,
-  Calendar,
   Download,
-  MoreVertical,
+  RefreshCw,
+  Upload,
   Plus
 } from 'lucide-react';
-import { HrPagesService } from '@/services/hr-pages.service';
 import { TrainingDevelopmentService } from '@/services/training-development.service';
 import {
   PieChart,
@@ -40,6 +39,11 @@ interface CertificationRecord {
   issued: string;
   expires: string;
   status: string;
+}
+
+function toDisplayStatus(s?: string): string {
+  if (!s) return 'Active';
+  return s === 'active' ? 'Active' : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 const complianceData = [
@@ -69,16 +73,16 @@ export default function CertificationsPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const raw = (await HrPagesService.skillAssessments()) as any[];
-      const mapped: CertificationRecord[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+      const { data } = await TrainingDevelopmentService.getCertifications();
+      const mapped: CertificationRecord[] = (Array.isArray(data) ? data : []).map((r: any) => ({
         id: r.id ?? '',
-        employee: r.employee ?? '',
-        role: r.role ?? '',
-        cert: r.cert ?? r.certification ?? '',
-        provider: r.provider ?? '',
-        issued: r.issued ?? '',
-        expires: r.expires ?? '',
-        status: r.status ?? 'Active',
+        employee: r.employeeName ?? '',
+        role: r.employeeCode ?? '',
+        cert: r.certificationName ?? r.name ?? '',
+        provider: r.issuingAuthority ?? r.issuer ?? '',
+        issued: r.issueDate ?? '',
+        expires: r.expiryDate ?? '',
+        status: toDisplayStatus(r.status),
       }));
       setCertifications(mapped);
     } catch (err) {
@@ -86,6 +90,58 @@ export default function CertificationsPage() {
       setCertifications([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [renewFor, setRenewFor] = useState<CertificationRecord | null>(null);
+  const [renewDate, setRenewDate] = useState('');
+  const [renewSaving, setRenewSaving] = useState(false);
+  const [uploadFor, setUploadFor] = useState<CertificationRecord | null>(null);
+  const [uploadUrl, setUploadUrl] = useState('');
+  const [uploadSaving, setUploadSaving] = useState(false);
+
+  const handleRenew = async () => {
+    if (!renewFor || !renewDate) return;
+    setRenewSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await TrainingDevelopmentService.renewCertification(String(renewFor.id), { newExpiryDate: renewDate });
+      setRenewFor(null);
+      setRenewDate('');
+      setActionSuccess('Certification renewed.');
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to renew certification.');
+    } finally {
+      setRenewSaving(false);
+    }
+  };
+
+  const openUpload = (cert: CertificationRecord) => {
+    setActionError(null);
+    setActionSuccess(null);
+    setUploadUrl('');
+    setUploadFor(cert);
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFor || !uploadUrl.trim()) return;
+    setUploadSaving(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      await TrainingDevelopmentService.uploadCertificate(String(uploadFor.id), uploadUrl.trim());
+      setActionSuccess(`Certificate attached for ${uploadFor.employee}.`);
+      setUploadFor(null);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to upload certificate.');
+    } finally {
+      setUploadSaving(false);
     }
   };
 
@@ -164,6 +220,12 @@ export default function CertificationsPage() {
           <AlertCircle className="h-4 w-4" />
           {loadError}
         </div>
+      )}
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+      )}
+      {actionSuccess && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</div>
       )}
 
       {/* Expiry Alerts & Compliance */}
@@ -287,9 +349,21 @@ export default function CertificationsPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => { setRenewFor(cert); setRenewDate(''); setActionError(null); setActionSuccess(null); }}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
+                      >
+                        <RefreshCw className="h-3 w-3" /> Renew
+                      </button>
+                      <button
+                        onClick={() => openUpload(cert)}
+                        disabled={actionId === String(cert.id)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50"
+                      >
+                        <Upload className="h-3 w-3" /> Upload
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -394,6 +468,73 @@ export default function CertificationsPage() {
                 className="px-4 py-2 bg-purple-600 rounded-lg text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
               >
                 {submitting ? 'Saving…' : 'Add Certification'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Renew Certification Modal */}
+      {renewFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 m-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Renew Certification</h2>
+            <p className="text-sm text-gray-500 mb-4">{renewFor.cert} • {renewFor.employee}</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Expiry Date</label>
+            <input
+              type="date"
+              value={renewDate}
+              onChange={(e) => setRenewDate(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setRenewFor(null)}
+                disabled={renewSaving}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenew}
+                disabled={renewSaving || !renewDate}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                {renewSaving ? 'Renewing…' : 'Renew'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Certificate Modal */}
+      {uploadFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 m-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Upload Certificate</h2>
+            <p className="text-sm text-gray-500 mb-4">{uploadFor.cert} • {uploadFor.employee}</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Document URL</label>
+            <input
+              type="text"
+              value={uploadUrl}
+              onChange={(e) => setUploadUrl(e.target.value)}
+              placeholder="https://…/certificate.pdf"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setUploadFor(null)}
+                disabled={uploadSaving}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpload}
+                disabled={uploadSaving || !uploadUrl.trim()}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                {uploadSaving ? 'Uploading…' : 'Upload'}
               </button>
             </div>
           </div>
