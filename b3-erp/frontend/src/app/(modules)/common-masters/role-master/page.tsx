@@ -6,7 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ModalWrapper } from '@/components/ui/ModalWrapper';
 import { systemMastersService, Role } from '@/services/system-masters.service';
-import { roleService } from '@/services/role.service';
+import { roleService, RoleStatus } from '@/services/role.service';
 import { exportToCsv } from '@/lib/export';
 
 export default function RoleMasterPage() {
@@ -17,18 +17,21 @@ export default function RoleMasterPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  const COMPANY_ID = '123e4567-e89b-12d3-a456-426614174000';
+
+  const fetchRoles = async () => {
+    setIsLoading(true);
+    try {
+      const data = await systemMastersService.getAllRoles(COMPANY_ID);
+      setRoles(data);
+    } catch (error) {
+      showToast('Failed to fetch roles', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchRoles = async () => {
-      setIsLoading(true);
-      try {
-        const data = await systemMastersService.getAllRoles('123e4567-e89b-12d3-a456-426614174000');
-        setRoles(data);
-      } catch (error) {
-        showToast('Failed to fetch roles', 'error');
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchRoles();
   }, []);
 
@@ -46,9 +49,67 @@ export default function RoleMasterPage() {
 
   const [viewRole, setViewRole] = useState<Role | null>(null);
 
+  // Add/Edit form modal state
+  const emptyForm = {
+    code: '',
+    name: '',
+    description: '',
+    category: 'system',
+    status: RoleStatus.ACTIVE,
+  };
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ ...emptyForm });
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleEditRole = (role: Role) => {
-    // Open a read/edit modal with the row data (real UX, no fake toast).
-    setViewRole(role);
+    setFormMode('edit');
+    setEditingRoleId(role.id);
+    setFormData({
+      code: role.roleCode,
+      name: role.roleName,
+      description: role.description || '',
+      category: role.category || 'system',
+      status: role.isActive ? RoleStatus.ACTIVE : RoleStatus.INACTIVE,
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleSaveRole = async () => {
+    if (!formData.name.trim()) {
+      showToast('Role name is required', 'error');
+      return;
+    }
+    if (formMode === 'create' && !formData.code.trim()) {
+      showToast('Role code is required', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      if (formMode === 'edit' && editingRoleId) {
+        await roleService.updateRole(editingRoleId, {
+          name: formData.name,
+          description: formData.description,
+          status: formData.status,
+        });
+        showToast('Role updated', 'success');
+      } else {
+        await roleService.createRole({
+          code: formData.code,
+          name: formData.name,
+          description: formData.description,
+          permissionIds: [],
+        });
+        showToast('Role created', 'success');
+      }
+      setIsFormOpen(false);
+      await fetchRoles();
+    } catch (error) {
+      showToast(formMode === 'edit' ? 'Failed to update role' : 'Failed to create role', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteRole = async (role: Role) => {
@@ -71,7 +132,10 @@ export default function RoleMasterPage() {
   };
 
   const handleAddRole = () => {
-    showToast('Opening add role form...', 'info');
+    setFormMode('create');
+    setEditingRoleId(null);
+    setFormData({ ...emptyForm });
+    setIsFormOpen(true);
   };
 
   const filteredData = useMemo(() => {
@@ -387,6 +451,85 @@ export default function RoleMasterPage() {
             </div>
           </div>
         )}
+      </ModalWrapper>
+
+      {/* Add / Edit role form modal */}
+      <ModalWrapper
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={formMode === 'edit' ? 'Edit Role' : 'Add Role'}
+        size="md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveRole();
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role Code</label>
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent disabled:bg-gray-100"
+                required={formMode === 'create'}
+                disabled={formMode === 'edit'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              />
+            </div>
+            {formMode === 'edit' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as RoleStatus })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                >
+                  <option value={RoleStatus.ACTIVE}>Active</option>
+                  <option value={RoleStatus.INACTIVE}>Inactive</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setIsFormOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : formMode === 'edit' ? 'Save Changes' : 'Create Role'}
+            </button>
+          </div>
+        </form>
       </ModalWrapper>
     </div>
   );

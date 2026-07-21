@@ -65,6 +65,7 @@ interface ItemGroup {
 const ItemGroupMaster: React.FC = () => {
   const [groups, setGroups] = useState<ItemGroup[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<ItemGroup[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<ItemGroup | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
@@ -192,6 +193,7 @@ const ItemGroupMaster: React.FC = () => {
         ...g,
         groupCode: g.id.substring(0, 8).toUpperCase(),
         groupName: g.name,
+        categoryId: g.categoryId,
         category: g.category?.name || 'Uncategorized',
         status: g.isActive ? 'active' : 'inactive',
         statistics: { itemCount: 0, activeItemsCount: 0 }
@@ -203,7 +205,74 @@ const ItemGroupMaster: React.FC = () => {
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const data = await commonMastersService.getAllItemCategories();
+      setCategories(data.map(c => ({ id: c.id, name: c.name })));
+    } catch (error) {
+      console.error('Failed to load item categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
   const companyId = 'MAIN_COMPANY_ID';
+
+  const handleAddGroup = () => {
+    setSelectedGroup(null);
+    setModalMode('create');
+    setIsModalOpen(true);
+  };
+
+  const handleEditGroup = (group: ItemGroup) => {
+    setSelectedGroup(group);
+    setModalMode('edit');
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this item group?')) return;
+    try {
+      await commonMastersService.deleteItemGroup(id);
+      await loadItemGroups();
+    } catch (error) {
+      console.error('Failed to delete item group:', error);
+      alert('Failed to delete item group.');
+    }
+  };
+
+  const handleSaveGroup = async (form: { name: string; categoryId: string; isActive: boolean }) => {
+    if (!form.name.trim()) {
+      alert('Group name is required.');
+      return;
+    }
+    if (!form.categoryId) {
+      alert('Category is required.');
+      return;
+    }
+    try {
+      if (modalMode === 'edit' && selectedGroup) {
+        await commonMastersService.updateItemGroup(selectedGroup.id, {
+          name: form.name,
+          categoryId: form.categoryId,
+          isActive: form.isActive,
+        });
+      } else {
+        await commonMastersService.createItemGroup({
+          name: form.name,
+          categoryId: form.categoryId,
+          companyId,
+        });
+      }
+      setIsModalOpen(false);
+      await loadItemGroups();
+    } catch (error) {
+      console.error('Failed to save item group:', error);
+      alert('Failed to save item group.');
+    }
+  };
 
   const handleImport = async () => {
     try {
@@ -259,7 +328,7 @@ const ItemGroupMaster: React.FC = () => {
                 <Download className="w-4 h-4" />
                 Export
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+              <button onClick={handleAddGroup} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Add Group
               </button>
@@ -385,13 +454,13 @@ const ItemGroupMaster: React.FC = () => {
                   )}
                 </div>
                 <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
-                  <button className="flex-1 px-3 py-2 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2">
-                    <Eye className="w-4 h-4" />
-                    View
-                  </button>
-                  <button className="flex-1 px-3 py-2 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 flex items-center justify-center gap-2">
+                  <button onClick={() => handleEditGroup(group)} className="flex-1 px-3 py-2 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 flex items-center justify-center gap-2">
                     <Edit3 className="w-4 h-4" />
                     Edit
+                  </button>
+                  <button onClick={() => handleDeleteGroup(group.id)} className="flex-1 px-3 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2">
+                    <Trash2 className="w-4 h-4" />
+                    Delete
                   </button>
                 </div>
               </div>
@@ -431,13 +500,13 @@ const ItemGroupMaster: React.FC = () => {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-2">
-                        <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                          <Eye className="w-4 h-4 text-gray-600" />
-                          <span className="text-gray-700">View</span>
-                        </button>
-                        <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                        <button onClick={() => handleEditGroup(group)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
                           <Edit3 className="w-4 h-4 text-gray-600" />
                           <span className="text-gray-700">Edit</span>
+                        </button>
+                        <button onClick={() => handleDeleteGroup(group.id)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <span className="text-red-600">Delete</span>
                         </button>
                       </div>
                     </td>
@@ -448,8 +517,112 @@ const ItemGroupMaster: React.FC = () => {
           </div>
         )}
       </div>
+
+      {isModalOpen && (
+        <ItemGroupModal
+          group={selectedGroup}
+          categories={categories}
+          onSave={handleSaveGroup}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
+
+interface ItemGroupModalProps {
+  group: ItemGroup | null;
+  categories: { id: string; name: string }[];
+  onSave: (form: { name: string; categoryId: string; isActive: boolean }) => void;
+  onClose: () => void;
+}
+
+function ItemGroupModal({ group, categories, onSave, onClose }: ItemGroupModalProps) {
+  const [formData, setFormData] = useState({
+    name: group?.groupName || '',
+    categoryId: (group as any)?.categoryId || '',
+    status: group?.status || 'active',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      name: formData.name,
+      categoryId: formData.categoryId,
+      isActive: formData.status === 'active',
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {group ? 'Edit Item Group' : 'Add Item Group'}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="px-4 py-3 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <select
+                value={formData.categoryId}
+                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                <option value="">Select Category</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              {group ? 'Update Group' : 'Create Group'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default ItemGroupMaster;

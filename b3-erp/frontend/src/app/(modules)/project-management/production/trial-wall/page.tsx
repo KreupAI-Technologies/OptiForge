@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -16,13 +16,19 @@ import {
   Upload
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { ProductionJobService } from '@/services/ProductionJobService';
+import { AttachmentsService } from '@/services/attachments.service';
+
+const TRIAL_PHOTO_ENTITY_TYPE = 'production-trial';
 
 interface TrialJob {
   id: string;
+  jobCode: string;
   unitName: string;
   modules: number;
   status: 'Pending' | 'Assembled' | 'Verified';
   photoUploaded: boolean;
+  extra: Record<string, any>;
 }
 
 export default function TrialWallPage() {
@@ -36,6 +42,8 @@ export default function TrialWallPage() {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<TrialJob[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     if (projectId) {
@@ -62,11 +70,16 @@ export default function TrialWallPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setJobs([
-        { id: 'TJ-001', unitName: 'Kitchen Wall A', modules: 6, status: 'Pending', photoUploaded: false },
-        { id: 'TJ-002', unitName: 'Kitchen Island', modules: 4, status: 'Assembled', photoUploaded: true },
-        { id: 'TJ-003', unitName: 'Master Wardrobe', modules: 3, status: 'Verified', photoUploaded: true },
-      ]);
+      const rows = await ProductionJobService.listJobs(id, 'trial');
+      setJobs(rows.map((r) => ({
+        id: r.id,
+        jobCode: r.jobCode || r.id,
+        unitName: r.partName || '',
+        modules: r.extra?.modules ?? 0,
+        status: (r.status as TrialJob['status']) || 'Pending',
+        photoUploaded: !!r.extra?.photoUploaded,
+        extra: r.extra || {},
+      })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/production/trial-wall');
@@ -77,22 +90,34 @@ export default function TrialWallPage() {
 
   const handleStatusChange = async (id: string, newStatus: TrialJob['status']) => {
     const prev = jobs;
+    const current = jobs.find(job => job.id === id);
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
-    // Persist a trial-report result once the unit is Verified.
+    // Persist the intermediate Pending→Assembled transition so it survives reload.
     if (newStatus !== 'Verified' || !projectId) {
-      toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+      setSavingId(id);
+      try {
+        await ProductionJobService.updateStatus(id, { status: newStatus });
+        toast({ title: 'Status Updated', description: `Job ${current?.jobCode || id} status changed to ${newStatus}` });
+      } catch (error) {
+        setJobs(prev);
+        toast({ variant: 'destructive', title: 'Could not update status', description: error instanceof Error ? error.message : 'Failed to update job status.' });
+      } finally {
+        setSavingId(null);
+      }
       return;
     }
     setSavingId(id);
     try {
+      // Persist the job's own Verified status, plus the trial-report result.
+      await ProductionJobService.updateStatus(id, { status: 'Verified' });
       const report = await projectManagementService.createProductionTrial(projectId, 'Trial Wall Inspector');
       if (report?.id) {
         await projectManagementService.updateProductionTrial(report.id, {
           result: 'PASS',
-          notes: `Trial wall ${id} verified for fit and alignment.`,
+          notes: `Trial wall ${current?.jobCode || id} verified for fit and alignment.`,
         });
       }
-      toast({ title: 'Trial Verified', description: `${id} verification recorded to production.` });
+      toast({ title: 'Trial Verified', description: `${current?.jobCode || id} verification recorded to production.` });
     } catch (error) {
       setJobs(prev);
       toast({ variant: 'destructive', title: 'Could not record trial', description: error instanceof Error ? error.message : 'Failed to record trial result.' });
@@ -101,14 +126,28 @@ export default function TrialWallPage() {
     }
   };
 
-  const handlePhotoUpload = (id: string) => {
-    setJobs(jobs.map(job => {
-      if (job.id === id) {
-        toast({ title: 'Photo Uploaded', description: `Trial wall photo uploaded for ${job.unitName}.` });
-        return { ...job, photoUploaded: true };
-      }
-      return job;
-    }));
+  const handlePhotoChosen = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so choosing the same file again re-triggers change.
+    e.target.value = '';
+    if (!file) return;
+    const prev = jobs;
+    const current = jobs.find(job => job.id === id);
+    if (!current) return;
+    setUploadingId(id);
+    try {
+      await AttachmentsService.upload(file, TRIAL_PHOTO_ENTITY_TYPE, id);
+      // Persist the photo-uploaded flag on the job so it survives reload.
+      const newExtra = { ...current.extra, photoUploaded: true };
+      await ProductionJobService.updateStatus(id, { extra: newExtra });
+      setJobs(jobs.map(job => job.id === id ? { ...job, photoUploaded: true, extra: newExtra } : job));
+      toast({ title: 'Photo Uploaded', description: `Trial wall photo uploaded for ${current.unitName}.` });
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Upload Failed', description: error instanceof Error ? error.message : 'Failed to upload trial wall photo.' });
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   // View 1: Project Selection
@@ -224,7 +263,7 @@ export default function TrialWallPage() {
               <tbody>
                 {jobs.map((job) => (
                   <tr key={job.id} className="border-t hover:bg-blue-50/20 transition-colors">
-                    <td className="p-4 font-bold text-gray-900">{job.id}</td>
+                    <td className="p-4 font-bold text-gray-900">{job.jobCode}</td>
                     <td className="p-4 font-medium">{job.unitName}</td>
                     <td className="p-4 font-medium">{job.modules} Units</td>
                     <td className="p-4">
@@ -249,10 +288,19 @@ export default function TrialWallPage() {
                     <td className="p-4 text-right pr-6">
                       <div className="flex justify-end gap-2">
                         {!job.photoUploaded && (
-                          <Button size="sm" variant="outline" className="h-8 text-xs font-bold"
-                            onClick={() => handlePhotoUpload(job.id)}>
-                            <Upload className="h-3 w-3 mr-1" /> Photo
-                          </Button>
+                          <>
+                            <input
+                              ref={(el) => { fileInputRefs.current[job.id] = el; }}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handlePhotoChosen(job.id, e)}
+                            />
+                            <Button size="sm" variant="outline" className="h-8 text-xs font-bold" disabled={uploadingId === job.id}
+                              onClick={() => fileInputRefs.current[job.id]?.click()}>
+                              <Upload className="h-3 w-3 mr-1" /> {uploadingId === job.id ? 'Uploading…' : 'Photo'}
+                            </Button>
+                          </>
                         )}
                         {job.status !== 'Verified' && (
                           <Button size="sm" variant="outline" className="h-8 text-xs font-bold" disabled={savingId === job.id}

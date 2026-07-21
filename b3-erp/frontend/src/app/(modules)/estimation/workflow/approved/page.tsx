@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import { costEstimateService } from '@/services/estimation-cost-estimate.service'
 import {
   CheckCircle,
@@ -45,6 +46,43 @@ export default function EstimateWorkflowApprovedPage() {
 
   const [approvedEstimates, setApprovedEstimates] = useState<ApprovedEstimate[]>([])
   const [loading, setLoading] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  const fetchApproved = async (): Promise<ApprovedEstimate[]> => {
+    const data = await costEstimateService.findAll(companyId, { status: 'Approved' })
+    const list = Array.isArray(data) ? data : []
+    return list.map((e) => {
+      const validUntil = e.validUntil || ''
+      let daysToExpiry = 0
+      if (validUntil) {
+        daysToExpiry = Math.max(
+          0,
+          Math.ceil((new Date(validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        )
+      }
+      const approvedAt = e.approvedAt ? new Date(e.approvedAt) : null
+      return {
+        id: e.id,
+        estimateNumber: e.estimateNumber,
+        projectName: e.title,
+        customerName: e.customerName || '',
+        contactPerson: e.customerName || '',
+        category: e.estimateType || '',
+        estimatedValue: e.totalCost || 0,
+        items: 0,
+        submittedBy: e.submittedBy || '',
+        submittedDate: e.submittedAt ? e.submittedAt.slice(0, 10) : '',
+        approvedBy: e.approvedBy || '',
+        approvedDate: approvedAt ? approvedAt.toISOString().slice(0, 10) : '',
+        approvalTime: approvedAt ? approvedAt.toISOString().slice(11, 16) : '',
+        validUntil,
+        daysToExpiry,
+        status: 'valid',
+        responseReceived: false,
+      }
+    })
+  }
 
   useEffect(() => {
     let mounted = true
@@ -97,6 +135,56 @@ export default function EstimateWorkflowApprovedPage() {
     }
   }, [])
 
+  const handleView = (estimateId: string) => {
+    router.push(`/estimation/pricing/view/${estimateId}`)
+  }
+
+  const handleExportRow = async (estimateId: string) => {
+    try {
+      const { blob, filename } = await costEstimateService.downloadExport(companyId, estimateId, 'pdf')
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to export estimate.')
+    }
+  }
+
+  const handleSend = async (estimate: ApprovedEstimate) => {
+    if (!confirm(`Send estimate "${estimate.estimateNumber}" to ${estimate.customerName || 'the customer'}?`)) return
+    try {
+      await costEstimateService.sendToCustomer(companyId, estimate.id, {
+        channel: 'email',
+        recipient: estimate.contactPerson || undefined,
+        validityDays: estimate.daysToExpiry || undefined,
+        includeTerms: true,
+        sentBy: 'Current User',
+      })
+      // Reflect sent status without a full reload, then refetch to stay in sync.
+      setApprovedEstimates((prev) =>
+        prev.map((e) => (e.id === estimate.id ? { ...e, status: 'sent-to-customer' } : e))
+      )
+      alert('Estimate sent to customer.')
+      try {
+        const refreshed = await fetchApproved()
+        setApprovedEstimates(refreshed)
+      } catch {
+        // Non-fatal: optimistic update already applied.
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to send estimate.')
+    }
+  }
+
+  const handleExport = () => {
+    exportToCsv('approved-estimates', filteredEstimates)
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'sent-to-customer':
@@ -118,26 +206,58 @@ export default function EstimateWorkflowApprovedPage() {
     return 'text-green-600'
   }
 
-  const totalApproved = approvedEstimates.length
-  const totalValue = approvedEstimates.reduce((sum, e) => sum + e.estimatedValue, 0)
-  const sentToCustomer = approvedEstimates.filter(e => e.status === 'sent-to-customer').length
-  const underNegotiation = approvedEstimates.filter(e => e.status === 'under-negotiation').length
+  const filteredEstimates =
+    statusFilter === 'all'
+      ? approvedEstimates
+      : approvedEstimates.filter((e) => e.status === statusFilter)
+
+  const totalApproved = filteredEstimates.length
+  const totalValue = filteredEstimates.reduce((sum, e) => sum + e.estimatedValue, 0)
+  const sentToCustomer = filteredEstimates.filter(e => e.status === 'sent-to-customer').length
+  const underNegotiation = filteredEstimates.filter(e => e.status === 'under-negotiation').length
 
   return (
     <div className="w-full h-full px-4 py-2">
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              showFilters
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All</option>
+            <option value="valid">Valid</option>
+            <option value="sent-to-customer">Sent to Customer</option>
+            <option value="awaiting-response">Awaiting Response</option>
+            <option value="under-negotiation">Under Negotiation</option>
+          </select>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -221,14 +341,14 @@ export default function EstimateWorkflowApprovedPage() {
                     Loading approved estimates...
                   </td>
                 </tr>
-              ) : approvedEstimates.length === 0 ? (
+              ) : filteredEstimates.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
                     No approved estimates found.
                   </td>
                 </tr>
               ) : (
-                approvedEstimates.map((estimate) => (
+                filteredEstimates.map((estimate) => (
                 <tr key={estimate.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>
@@ -275,13 +395,25 @@ export default function EstimateWorkflowApprovedPage() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                      <button
+                        onClick={() => handleView(estimate.id)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                        title="View Details"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
+                      <button
+                        onClick={() => handleExportRow(estimate.id)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                        title="Export PDF"
+                      >
                         <FileText className="h-4 w-4" />
                       </button>
-                      <button className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg">
+                      <button
+                        onClick={() => handleSend(estimate)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                        title="Send to Customer"
+                      >
                         <Send className="h-4 w-4" />
                       </button>
                     </div>

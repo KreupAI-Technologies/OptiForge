@@ -20,6 +20,7 @@ import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface BendingJob {
   id: string;
+  jobCode: string;
   partName: string;
   material: string;
   bends: number;
@@ -66,7 +67,8 @@ export default function BendingPage() {
       setSelectedProject(project);
       const rows = await ProductionJobService.listJobs(id, 'bending');
       setJobs(rows.map((r) => ({
-        id: r.jobCode || r.id,
+        id: r.id,
+        jobCode: r.jobCode || r.id,
         partName: r.partName || '',
         material: r.material || '',
         bends: r.extra?.bends ?? 0,
@@ -83,14 +85,26 @@ export default function BendingPage() {
 
   const handleStatusChange = async (id: string, newStatus: BendingJob['status']) => {
     const prev = jobs;
+    const current = jobs.find(job => job.id === id);
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
     // Persist a production log only when the operation completes.
     if (newStatus !== 'Completed' || !projectId) {
-      toast({ title: 'Status Updated', description: `Job ${id} marked as ${newStatus}` });
+      // Persist the Pending→In Progress transition so job status survives reload.
+      setSavingId(id);
+      try {
+        await ProductionJobService.updateStatus(id, { status: newStatus });
+        toast({ title: 'Status Updated', description: `Job ${current?.jobCode || id} marked as ${newStatus}` });
+      } catch (error) {
+        setJobs(prev);
+        toast({ variant: 'destructive', title: 'Could not update status', description: error instanceof Error ? error.message : 'Failed to update job status.' });
+      } finally {
+        setSavingId(null);
+      }
       return;
     }
     setSavingId(id);
     try {
+      await ProductionJobService.updateStatus(id, { status: 'Completed' });
       await projectManagementService.logProductionOperation({
         projectId,
         operationType: 'bending',
@@ -98,7 +112,7 @@ export default function BendingPage() {
         endTime: new Date().toISOString(),
         yieldCount: 1,
       });
-      toast({ title: 'Bending Logged', description: `Job ${id} completed and logged to production.` });
+      toast({ title: 'Bending Logged', description: `Job ${current?.jobCode || id} completed and logged to production.` });
     } catch (error) {
       setJobs(prev);
       toast({
@@ -204,7 +218,7 @@ export default function BendingPage() {
           {jobs.map((job) => (
             <Card key={job.id} className="hover:shadow-md transition-shadow border-none shadow-sm ring-1 ring-gray-200 overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50/50 border-b">
-                <CardTitle className="text-sm font-bold text-gray-900">{job.id}</CardTitle>
+                <CardTitle className="text-sm font-bold text-gray-900">{job.jobCode}</CardTitle>
                 <Badge variant={
                   job.status === 'Completed' ? 'default' :
                     job.status === 'In Progress' ? 'secondary' : 'outline'

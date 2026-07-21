@@ -16,18 +16,21 @@ export default function NumberSeriesMasterPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  const COMPANY_ID = '123e4567-e89b-12d3-a456-426614174000';
+
+  const fetchSeries = async () => {
+    setIsLoading(true);
+    try {
+      const data = await systemMastersService.getAllNumberSeries(COMPANY_ID);
+      setNumberSeries(data);
+    } catch (error) {
+      showToast('Failed to fetch number series', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchSeries = async () => {
-      setIsLoading(true);
-      try {
-        const data = await systemMastersService.getAllNumberSeries('123e4567-e89b-12d3-a456-426614174000');
-        setNumberSeries(data);
-      } catch (error) {
-        showToast('Failed to fetch number series', 'error');
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchSeries();
   }, []);
 
@@ -43,7 +46,32 @@ export default function NumberSeriesMasterPage() {
   };
 
   const [viewSeries, setViewSeries] = useState<NumberSeries | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
+
+  // Add/Edit form modal state
+  const emptyForm = {
+    seriesCode: '',
+    seriesName: '',
+    documentType: '',
+    module: 'sales',
+    prefix: '',
+    suffix: '',
+    separator: '-',
+    paddingLength: 4,
+    startingNumber: 1,
+    endingNumber: 999999,
+    currentNumber: 1,
+    incrementBy: 1,
+    resetFrequency: 'never',
+    allowManualEntry: false,
+    validateSequence: true,
+    defaultSeries: false,
+    isActive: true,
+  };
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ ...emptyForm });
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleViewSeries = (row: NumberSeries) => {
     // Open a details modal with the row data (real UX, no fake toast).
@@ -51,7 +79,28 @@ export default function NumberSeriesMasterPage() {
   };
 
   const handleEditSeries = (row: NumberSeries) => {
-    setViewSeries(row);
+    setFormMode('edit');
+    setEditingId(row.id);
+    setFormData({
+      seriesCode: row.seriesCode,
+      seriesName: row.seriesName,
+      documentType: row.documentType,
+      module: row.module,
+      prefix: row.prefix || '',
+      suffix: row.suffix || '',
+      separator: row.separator || '-',
+      paddingLength: row.paddingLength,
+      startingNumber: row.startingNumber,
+      endingNumber: row.endingNumber,
+      currentNumber: row.currentNumber,
+      incrementBy: row.incrementBy,
+      resetFrequency: row.resetFrequency,
+      allowManualEntry: row.allowManualEntry,
+      validateSequence: row.validateSequence,
+      defaultSeries: row.defaultSeries,
+      isActive: row.isActive,
+    });
+    setIsFormOpen(true);
   };
 
   const handleExport = () => {
@@ -60,9 +109,59 @@ export default function NumberSeriesMasterPage() {
   };
 
   const handleAddSeries = () => {
-    // No create endpoint exists yet; open a modal that explains the gap
-    // instead of a misleading success toast.
-    setShowAdd(true);
+    setFormMode('create');
+    setEditingId(null);
+    setFormData({ ...emptyForm });
+    setIsFormOpen(true);
+  };
+
+  const handleSaveSeries = async () => {
+    if (!formData.seriesName.trim()) {
+      showToast('Series name is required', 'error');
+      return;
+    }
+    if (formMode === 'create' && !formData.seriesCode.trim()) {
+      showToast('Series code is required', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const payload = {
+        seriesName: formData.seriesName,
+        documentType: formData.documentType,
+        module: formData.module,
+        prefix: formData.prefix,
+        suffix: formData.suffix,
+        separator: formData.separator,
+        paddingLength: Number(formData.paddingLength),
+        startingNumber: Number(formData.startingNumber),
+        endingNumber: Number(formData.endingNumber),
+        currentNumber: Number(formData.currentNumber),
+        incrementBy: Number(formData.incrementBy),
+        resetFrequency: formData.resetFrequency,
+        allowManualEntry: formData.allowManualEntry,
+        validateSequence: formData.validateSequence,
+        defaultSeries: formData.defaultSeries,
+        isActive: formData.isActive,
+      };
+      if (formMode === 'edit' && editingId) {
+        await systemMastersService.updateNumberSeries(editingId, payload);
+        showToast('Number series updated', 'success');
+      } else {
+        await systemMastersService.createNumberSeries({
+          ...payload,
+          seriesCode: formData.seriesCode,
+          companyId: COMPANY_ID,
+        });
+        showToast('Number series created', 'success');
+      }
+      setIsFormOpen(false);
+      await fetchSeries();
+    } catch (error) {
+      showToast(formMode === 'edit' ? 'Failed to update number series' : 'Failed to create number series', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Filtered data
@@ -481,39 +580,211 @@ export default function NumberSeriesMasterPage() {
               {viewSeries.validateSequence && <span className="text-purple-600">✓ Validate Sequence</span>}
               {viewSeries.allowDuplicates && <span className="text-orange-600">✓ Allow Duplicates</span>}
             </div>
-            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800">
-                Editing and saving number series is not yet available — the
-                common-masters number-series API is read-only.
-              </p>
-            </div>
           </div>
         )}
       </ModalWrapper>
 
-      {/* Add Series modal.
-          NOTE: the common-masters number-series API is read-only (GET only) and
-          systemMastersService exposes no create method, so this cannot persist yet.
-          A backend POST /common-masters/number-series endpoint plus a
-          createNumberSeries() service method are required to make this functional. */}
+      {/* Add / Edit number series form modal */}
       <ModalWrapper
-        isOpen={showAdd}
-        onClose={() => setShowAdd(false)}
-        title="Add Number Series"
-        size="md"
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={formMode === 'edit' ? 'Edit Number Series' : 'Add Number Series'}
+        size="lg"
       >
-        <div className="space-y-3 text-sm text-gray-700">
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-amber-800">
-              Creating number series is not yet available. The common-masters
-              number-series API is read-only. A backend create endpoint
-              (<span className="font-mono">POST /common-masters/number-series</span>) and a
-              matching service method are required before this form can save.
-            </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveSeries();
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Series Code</label>
+              <input
+                type="text"
+                value={formData.seriesCode}
+                onChange={(e) => setFormData({ ...formData, seriesCode: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
+                required={formMode === 'create'}
+                disabled={formMode === 'edit'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Series Name</label>
+              <input
+                type="text"
+                value={formData.seriesName}
+                onChange={(e) => setFormData({ ...formData, seriesName: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
+              <input
+                type="text"
+                value={formData.documentType}
+                onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Module</label>
+              <select
+                value={formData.module}
+                onChange={(e) => setFormData({ ...formData, module: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent capitalize"
+              >
+                {['sales', 'purchase', 'inventory', 'finance', 'hr', 'production', 'quality'].map((m) => (
+                  <option key={m} value={m} className="capitalize">{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prefix</label>
+              <input
+                type="text"
+                value={formData.prefix}
+                onChange={(e) => setFormData({ ...formData, prefix: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Suffix</label>
+              <input
+                type="text"
+                value={formData.suffix}
+                onChange={(e) => setFormData({ ...formData, suffix: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Separator</label>
+              <input
+                type="text"
+                value={formData.separator}
+                onChange={(e) => setFormData({ ...formData, separator: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Padding Length</label>
+              <input
+                type="number"
+                value={formData.paddingLength}
+                onChange={(e) => setFormData({ ...formData, paddingLength: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Starting Number</label>
+              <input
+                type="number"
+                value={formData.startingNumber}
+                onChange={(e) => setFormData({ ...formData, startingNumber: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ending Number</label>
+              <input
+                type="number"
+                value={formData.endingNumber}
+                onChange={(e) => setFormData({ ...formData, endingNumber: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Current Number</label>
+              <input
+                type="number"
+                value={formData.currentNumber}
+                onChange={(e) => setFormData({ ...formData, currentNumber: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Increment By</label>
+              <input
+                type="number"
+                value={formData.incrementBy}
+                onChange={(e) => setFormData({ ...formData, incrementBy: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Reset Frequency</label>
+              <select
+                value={formData.resetFrequency}
+                onChange={(e) => setFormData({ ...formData, resetFrequency: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent capitalize"
+              >
+                {['never', 'daily', 'monthly', 'yearly'].map((f) => (
+                  <option key={f} value={f} className="capitalize">{f}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={formData.isActive ? 'active' : 'inactive'}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'active' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
           </div>
-        </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.defaultSeries}
+                onChange={(e) => setFormData({ ...formData, defaultSeries: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Default Series
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.allowManualEntry}
+                onChange={(e) => setFormData({ ...formData, allowManualEntry: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Manual Entry
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.validateSequence}
+                onChange={(e) => setFormData({ ...formData, validateSequence: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Validate Sequence
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setIsFormOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : formMode === 'edit' ? 'Save Changes' : 'Create Series'}
+            </button>
+          </div>
+        </form>
       </ModalWrapper>
     </div>
   );

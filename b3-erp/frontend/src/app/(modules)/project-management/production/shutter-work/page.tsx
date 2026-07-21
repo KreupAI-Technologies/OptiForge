@@ -20,12 +20,14 @@ import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface ShutterJob {
   id: string;
+  jobCode: string;
   shutterName: string;
   type: 'Glass' | 'Wood' | 'Acrylic';
   dimensions: string;
   quantity: number;
   status: 'Pending' | 'In Progress' | 'Completed';
   fitmentCheck: boolean;
+  extra: Record<string, any>;
 }
 
 export default function ShutterWorkPage() {
@@ -67,13 +69,15 @@ export default function ShutterWorkPage() {
       setSelectedProject(project);
       const rows = await ProductionJobService.listJobs(id, 'shutter');
       setJobs(rows.map((r) => ({
-        id: r.jobCode || r.id,
+        id: r.id,
+        jobCode: r.jobCode || r.id,
         shutterName: r.partName || '',
         type: (r.extra?.type as ShutterJob['type']) || 'Wood',
         dimensions: r.extra?.dimensions || '',
         quantity: r.quantity ?? 0,
         status: (r.status as ShutterJob['status']) || 'Pending',
         fitmentCheck: !!r.extra?.fitmentCheck,
+        extra: r.extra || {},
       })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
@@ -85,13 +89,25 @@ export default function ShutterWorkPage() {
 
   const handleStatusChange = async (id: string, newStatus: ShutterJob['status']) => {
     const prev = jobs;
+    const current = jobs.find(job => job.id === id);
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
     if (newStatus !== 'Completed' || !projectId) {
-      toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+      // Persist the Pending→In Progress transition so job status survives reload.
+      setSavingId(id);
+      try {
+        await ProductionJobService.updateStatus(id, { status: newStatus });
+        toast({ title: 'Status Updated', description: `Job ${current?.jobCode || id} status changed to ${newStatus}` });
+      } catch (error) {
+        setJobs(prev);
+        toast({ variant: 'destructive', title: 'Could not update status', description: error instanceof Error ? error.message : 'Failed to update job status.' });
+      } finally {
+        setSavingId(null);
+      }
       return;
     }
     setSavingId(id);
     try {
+      await ProductionJobService.updateStatus(id, { status: 'Completed' });
       await projectManagementService.logProductionOperation({
         projectId,
         operationType: 'assembly',
@@ -99,7 +115,7 @@ export default function ShutterWorkPage() {
         endTime: new Date().toISOString(),
         yieldCount: 1,
       });
-      toast({ title: 'Shutter Work Logged', description: `Job ${id} completed and logged to production.` });
+      toast({ title: 'Shutter Work Logged', description: `Job ${current?.jobCode || id} completed and logged to production.` });
     } catch (error) {
       setJobs(prev);
       toast({ variant: 'destructive', title: 'Could not log operation', description: error instanceof Error ? error.message : 'Failed to log shutter operation.' });
@@ -108,17 +124,22 @@ export default function ShutterWorkPage() {
     }
   };
 
-  const handleFitmentCheckToggle = (id: string) => {
-    setJobs(jobs.map(job => {
-      if (job.id === id) {
-        const newValue = !job.fitmentCheck;
-        if (newValue) {
-          toast({ title: 'Fitment Verified', description: `Fitment checked for ${job.shutterName}. Ready for trial wall.` });
-        }
-        return { ...job, fitmentCheck: newValue };
+  const handleFitmentCheckToggle = async (id: string) => {
+    const prev = jobs;
+    const current = jobs.find(job => job.id === id);
+    if (!current) return;
+    const newValue = !current.fitmentCheck;
+    const newExtra = { ...current.extra, fitmentCheck: newValue };
+    setJobs(jobs.map(job => job.id === id ? { ...job, fitmentCheck: newValue, extra: newExtra } : job));
+    try {
+      await ProductionJobService.updateStatus(id, { extra: newExtra });
+      if (newValue) {
+        toast({ title: 'Fitment Verified', description: `Fitment checked for ${current.shutterName}. Ready for trial wall.` });
       }
-      return job;
-    }));
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Could not update', description: error instanceof Error ? error.message : 'Failed to save fitment check.' });
+    }
   };
 
   // View 1: Project Selection
@@ -247,7 +268,7 @@ export default function ShutterWorkPage() {
                 <tbody>
                   {jobs.map((job) => (
                     <tr key={job.id} className="border-t hover:bg-blue-50/20 transition-colors">
-                      <td className="p-4 font-bold text-gray-900">{job.id}</td>
+                      <td className="p-4 font-bold text-gray-900">{job.jobCode}</td>
                       <td className="p-4 font-medium">{job.shutterName}</td>
                       <td className="p-4"><Badge variant="outline" className="text-[10px] font-bold">{job.type}</Badge></td>
                       <td className="p-4 font-medium">{job.dimensions}</td>

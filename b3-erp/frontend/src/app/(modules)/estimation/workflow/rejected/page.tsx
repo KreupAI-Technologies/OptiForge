@@ -21,6 +21,7 @@ import {
   CostEstimateRecord,
 } from '@/services/estimation-cost-estimate-live.service'
 import { costEstimateService } from '@/services/estimation-cost-estimate.service'
+import { exportToCsv } from '@/lib/export'
 
 const COMPANY_ID = 'default-company-id'
 
@@ -48,6 +49,8 @@ export default function EstimateWorkflowRejectedPage() {
   const [rejectedEstimates, setRejectedEstimates] = useState<RejectedEstimate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
   useEffect(() => {
     let cancelled = false
@@ -121,6 +124,15 @@ export default function EstimateWorkflowRejectedPage() {
     }
   }
 
+  const filteredEstimates =
+    categoryFilter === 'all'
+      ? rejectedEstimates
+      : rejectedEstimates.filter((e) => e.rejectionCategory === categoryFilter)
+
+  const handleExport = () => {
+    exportToCsv('rejected-estimates', filteredEstimates)
+  }
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'margin':
@@ -156,16 +168,44 @@ export default function EstimateWorkflowRejectedPage() {
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              showFilters
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Reason Category</label>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All</option>
+            <option value="margin">Margin</option>
+            <option value="pricing">Pricing</option>
+            <option value="scope">Scope</option>
+            <option value="compliance">Compliance</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      )}
 
       {loadError && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -274,14 +314,14 @@ export default function EstimateWorkflowRejectedPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {rejectedEstimates.length === 0 && (
+              {filteredEstimates.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
                     {isLoading ? 'Loading...' : 'No rejected estimates found.'}
                   </td>
                 </tr>
               )}
-              {rejectedEstimates.map((estimate) => (
+              {filteredEstimates.map((estimate) => (
                 <tr key={estimate.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>

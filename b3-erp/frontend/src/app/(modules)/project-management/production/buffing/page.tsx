@@ -19,11 +19,13 @@ import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface BuffingJob {
   id: string;
+  jobCode: string;
   partName: string;
   finishType: 'Mirror' | 'Matte' | 'Satin';
   quantity: number;
   status: 'Pending' | 'In Progress' | 'Completed';
   surfaceCheck: boolean;
+  extra: Record<string, any>;
 }
 
 export default function BuffingPage() {
@@ -65,12 +67,14 @@ export default function BuffingPage() {
       setSelectedProject(project);
       const rows = await ProductionJobService.listJobs(id, 'buffing');
       setJobs(rows.map((r) => ({
-        id: r.jobCode || r.id,
+        id: r.id,
+        jobCode: r.jobCode || r.id,
         partName: r.partName || '',
         finishType: (r.extra?.finishType as BuffingJob['finishType']) || 'Matte',
         quantity: r.quantity ?? 0,
         status: (r.status as BuffingJob['status']) || 'Pending',
         surfaceCheck: !!r.extra?.surfaceCheck,
+        extra: r.extra || {},
       })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
@@ -82,13 +86,25 @@ export default function BuffingPage() {
 
   const handleStatusChange = async (id: string, newStatus: BuffingJob['status']) => {
     const prev = jobs;
+    const current = jobs.find(job => job.id === id);
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
     if (newStatus !== 'Completed' || !projectId) {
-      toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+      // Persist the Pending→In Progress transition so job status survives reload.
+      setSavingId(id);
+      try {
+        await ProductionJobService.updateStatus(id, { status: newStatus });
+        toast({ title: 'Status Updated', description: `Job ${current?.jobCode || id} status changed to ${newStatus}` });
+      } catch (error) {
+        setJobs(prev);
+        toast({ variant: 'destructive', title: 'Could not update status', description: error instanceof Error ? error.message : 'Failed to update job status.' });
+      } finally {
+        setSavingId(null);
+      }
       return;
     }
     setSavingId(id);
     try {
+      await ProductionJobService.updateStatus(id, { status: 'Completed' });
       await projectManagementService.logProductionOperation({
         projectId,
         operationType: 'powder_coating',
@@ -96,7 +112,7 @@ export default function BuffingPage() {
         endTime: new Date().toISOString(),
         yieldCount: 1,
       });
-      toast({ title: 'Buffing Logged', description: `Job ${id} completed and logged to production.` });
+      toast({ title: 'Buffing Logged', description: `Job ${current?.jobCode || id} completed and logged to production.` });
     } catch (error) {
       setJobs(prev);
       toast({ variant: 'destructive', title: 'Could not log operation', description: error instanceof Error ? error.message : 'Failed to log buffing operation.' });
@@ -105,17 +121,22 @@ export default function BuffingPage() {
     }
   };
 
-  const handleSurfaceCheckToggle = (id: string) => {
-    setJobs(jobs.map(job => {
-      if (job.id === id) {
-        const newValue = !job.surfaceCheck;
-        if (newValue) {
-          toast({ title: 'Surface Finish Verified', description: `Surface finish confirmed for ${job.partName}.` });
-        }
-        return { ...job, surfaceCheck: newValue };
+  const handleSurfaceCheckToggle = async (id: string) => {
+    const prev = jobs;
+    const current = jobs.find(job => job.id === id);
+    if (!current) return;
+    const newValue = !current.surfaceCheck;
+    const newExtra = { ...current.extra, surfaceCheck: newValue };
+    setJobs(jobs.map(job => job.id === id ? { ...job, surfaceCheck: newValue, extra: newExtra } : job));
+    try {
+      await ProductionJobService.updateStatus(id, { extra: newExtra });
+      if (newValue) {
+        toast({ title: 'Surface Finish Verified', description: `Surface finish confirmed for ${current.partName}.` });
       }
-      return job;
-    }));
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Could not update', description: error instanceof Error ? error.message : 'Failed to save surface check.' });
+    }
   };
 
   // View 1: Project Selection
@@ -232,7 +253,7 @@ export default function BuffingPage() {
               <tbody>
                 {jobs.map((job) => (
                   <tr key={job.id} className="border-t hover:bg-blue-50/20 transition-colors">
-                    <td className="p-4 font-bold text-gray-900">{job.id}</td>
+                    <td className="p-4 font-bold text-gray-900">{job.jobCode}</td>
                     <td className="p-4 font-medium">{job.partName}</td>
                     <td className="p-4"><Badge variant="secondary" className="text-[10px] font-bold">{job.finishType}</Badge></td>
                     <td className="p-4 font-medium">{job.quantity}</td>

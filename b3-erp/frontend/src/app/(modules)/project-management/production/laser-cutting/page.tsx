@@ -20,12 +20,14 @@ import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface LaserJob {
   id: string;
+  jobCode: string;
   partName: string;
   material: string;
   thickness: string;
   quantity: number;
   status: 'Pending' | 'In Progress' | 'Completed';
   logoEtchVerified: boolean;
+  extra: Record<string, any>;
 }
 
 export default function LaserCuttingPage() {
@@ -67,13 +69,15 @@ export default function LaserCuttingPage() {
       setSelectedProject(project);
       const rows = await ProductionJobService.listJobs(id, 'laser');
       setJobs(rows.map((r) => ({
-        id: r.jobCode || r.id,
+        id: r.id,
+        jobCode: r.jobCode || r.id,
         partName: r.partName || '',
         material: r.material || '',
         thickness: r.thickness || '',
         quantity: r.quantity ?? 0,
         status: (r.status as LaserJob['status']) || 'Pending',
         logoEtchVerified: !!r.extra?.logoEtchVerified,
+        extra: r.extra || {},
       })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
@@ -85,13 +89,25 @@ export default function LaserCuttingPage() {
 
   const handleStatusChange = async (id: string, newStatus: LaserJob['status']) => {
     const prev = jobs;
+    const current = jobs.find(job => job.id === id);
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
     if (newStatus !== 'Completed' || !projectId) {
-      toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+      // Persist the Pending→In Progress transition so job status survives reload.
+      setSavingId(id);
+      try {
+        await ProductionJobService.updateStatus(id, { status: newStatus });
+        toast({ title: 'Status Updated', description: `Job ${current?.jobCode || id} status changed to ${newStatus}` });
+      } catch (error) {
+        setJobs(prev);
+        toast({ variant: 'destructive', title: 'Could not update status', description: error instanceof Error ? error.message : 'Failed to update job status.' });
+      } finally {
+        setSavingId(null);
+      }
       return;
     }
     setSavingId(id);
     try {
+      await ProductionJobService.updateStatus(id, { status: 'Completed' });
       await projectManagementService.logProductionOperation({
         projectId,
         operationType: 'laser',
@@ -99,7 +115,7 @@ export default function LaserCuttingPage() {
         endTime: new Date().toISOString(),
         yieldCount: 1,
       });
-      toast({ title: 'Laser Cut Logged', description: `Job ${id} completed and logged to production.` });
+      toast({ title: 'Laser Cut Logged', description: `Job ${current?.jobCode || id} completed and logged to production.` });
     } catch (error) {
       setJobs(prev);
       toast({ variant: 'destructive', title: 'Could not log operation', description: error instanceof Error ? error.message : 'Failed to log laser operation.' });
@@ -108,17 +124,22 @@ export default function LaserCuttingPage() {
     }
   };
 
-  const handleLogoEtchToggle = (id: string) => {
-    setJobs(jobs.map(job => {
-      if (job.id === id) {
-        const newValue = !job.logoEtchVerified;
-        if (newValue) {
-          toast({ title: 'Logo Etch Verified', description: `Logo etching confirmed for ${job.partName}. Ready for bending.` });
-        }
-        return { ...job, logoEtchVerified: newValue };
+  const handleLogoEtchToggle = async (id: string) => {
+    const prev = jobs;
+    const current = jobs.find(job => job.id === id);
+    if (!current) return;
+    const newValue = !current.logoEtchVerified;
+    const newExtra = { ...current.extra, logoEtchVerified: newValue };
+    setJobs(jobs.map(job => job.id === id ? { ...job, logoEtchVerified: newValue, extra: newExtra } : job));
+    try {
+      await ProductionJobService.updateStatus(id, { extra: newExtra });
+      if (newValue) {
+        toast({ title: 'Logo Etch Verified', description: `Logo etching confirmed for ${current.partName}. Ready for bending.` });
       }
-      return job;
-    }));
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Could not update', description: error instanceof Error ? error.message : 'Failed to save logo etch verification.' });
+    }
   };
 
   // View 1: Project Selection
@@ -246,7 +267,7 @@ export default function LaserCuttingPage() {
                 <tbody>
                   {jobs.map((job) => (
                     <tr key={job.id} className="border-t hover:bg-blue-50/20 transition-colors">
-                      <td className="p-4 font-bold text-gray-900">{job.id}</td>
+                      <td className="p-4 font-bold text-gray-900">{job.jobCode}</td>
                       <td className="p-4 font-medium">{job.partName}</td>
                       <td className="p-4">
                         <div className="flex flex-col">

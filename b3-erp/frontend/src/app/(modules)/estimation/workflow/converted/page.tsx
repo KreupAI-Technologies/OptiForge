@@ -50,6 +50,8 @@ export default function EstimateWorkflowConvertedPage() {
 
   const [convertedEstimates, setConvertedEstimates] = useState<ConvertedEstimate[]>([])
   const [loading, setLoading] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   useEffect(() => {
     let mounted = true
@@ -118,7 +120,7 @@ export default function EstimateWorkflowConvertedPage() {
   }
 
   const handleExport = () => {
-    exportToCsv('converted-estimates', convertedEstimates)
+    exportToCsv('converted-estimates', filteredEstimates)
   }
 
   const getStatusColor = (status: string) => {
@@ -142,10 +144,15 @@ export default function EstimateWorkflowConvertedPage() {
     return 'text-gray-600'
   }
 
-  const totalConverted = convertedEstimates.length
-  const totalEstimatedValue = convertedEstimates.reduce((sum, e) => sum + e.estimatedValue, 0)
-  const totalOrderValue = convertedEstimates.reduce((sum, e) => sum + e.finalOrderValue, 0)
-  const avgConversionTime = totalConverted > 0 ? convertedEstimates.reduce((sum, e) => sum + e.conversionTime, 0) / totalConverted : 0
+  const filteredEstimates =
+    statusFilter === 'all'
+      ? convertedEstimates
+      : convertedEstimates.filter((e) => e.status === statusFilter)
+
+  const totalConverted = filteredEstimates.length
+  const totalEstimatedValue = filteredEstimates.reduce((sum, e) => sum + e.estimatedValue, 0)
+  const totalOrderValue = filteredEstimates.reduce((sum, e) => sum + e.finalOrderValue, 0)
+  const avgConversionTime = totalConverted > 0 ? filteredEstimates.reduce((sum, e) => sum + e.conversionTime, 0) / totalConverted : 0
   const conversionRate = totalEstimatedValue > 0 ? ((totalOrderValue - totalEstimatedValue) / totalEstimatedValue) * 100 : 0
 
   return (
@@ -153,7 +160,14 @@ export default function EstimateWorkflowConvertedPage() {
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              showFilters
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
@@ -166,6 +180,23 @@ export default function EstimateWorkflowConvertedPage() {
           </button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All</option>
+            <option value="order-confirmed">Order Confirmed</option>
+            <option value="in-production">In Production</option>
+            <option value="partial-delivered">Partial Delivered</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -252,14 +283,14 @@ export default function EstimateWorkflowConvertedPage() {
                     Loading converted estimates...
                   </td>
                 </tr>
-              ) : convertedEstimates.length === 0 ? (
+              ) : filteredEstimates.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
                     No converted estimates found.
                   </td>
                 </tr>
               ) : (
-                convertedEstimates.map((estimate) => (
+                filteredEstimates.map((estimate) => (
                 <tr key={estimate.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>

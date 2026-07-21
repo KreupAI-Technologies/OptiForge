@@ -20,11 +20,13 @@ import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface AssemblyJob {
   id: string;
+  jobCode: string;
   assemblyName: string;
   components: string[];
   assignedTeam: string;
   status: 'Pending' | 'In Progress' | 'QC Ready' | 'Completed';
   progress: number;
+  extra: Record<string, any>;
 }
 
 export default function FabricationPage() {
@@ -66,12 +68,14 @@ export default function FabricationPage() {
       setSelectedProject(project);
       const rows = await ProductionJobService.listJobs(id, 'fabrication');
       setJobs(rows.map((r) => ({
-        id: r.jobCode || r.id,
+        id: r.id,
+        jobCode: r.jobCode || r.id,
         assemblyName: r.partName || '',
         components: Array.isArray(r.extra?.components) ? r.extra!.components : [],
         assignedTeam: r.extra?.assignedTeam || '',
         status: (r.status as AssemblyJob['status']) || 'Pending',
         progress: r.extra?.progress ?? 0,
+        extra: r.extra || {},
       })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
@@ -83,23 +87,30 @@ export default function FabricationPage() {
 
   const handleStatusUpdate = async (id: string) => {
     const current = jobs.find(j => j.id === id);
-    const willComplete = current?.status === 'In Progress';
+    if (!current) return;
+    const willComplete = current.status === 'In Progress';
+    const nextStatus: AssemblyJob['status'] = current.status === 'Pending' ? 'In Progress' : 'QC Ready';
+    const nextProgress = current.status === 'Pending' ? 25 : 100;
+    const nextExtra = { ...current.extra, progress: nextProgress };
     const prev = jobs;
-    setJobs(jobs.map(job => {
-      if (job.id === id) {
-        if (job.status === 'Pending') return { ...job, status: 'In Progress' as const, progress: 25 };
-        if (job.status === 'In Progress') return { ...job, status: 'QC Ready' as const, progress: 100 };
-        return job;
-      }
-      return job;
-    }));
-    // Persist an assembly production log when the job reaches QC Ready.
+    setJobs(jobs.map(job => job.id === id ? { ...job, status: nextStatus, progress: nextProgress, extra: nextExtra } : job));
+    // Persist the intermediate Pending→In Progress transition (status + progress).
     if (!willComplete || !projectId) {
-      toast({ title: 'Assembly Updated', description: 'Job status advanced.' });
+      setSavingId(id);
+      try {
+        await ProductionJobService.updateStatus(id, { status: nextStatus, extra: nextExtra });
+        toast({ title: 'Assembly Updated', description: 'Job status advanced.' });
+      } catch (error) {
+        setJobs(prev);
+        toast({ variant: 'destructive', title: 'Could not update status', description: error instanceof Error ? error.message : 'Failed to update assembly status.' });
+      } finally {
+        setSavingId(null);
+      }
       return;
     }
     setSavingId(id);
     try {
+      await ProductionJobService.updateStatus(id, { status: nextStatus, extra: nextExtra });
       await projectManagementService.logProductionOperation({
         projectId,
         operationType: 'assembly',
@@ -107,7 +118,7 @@ export default function FabricationPage() {
         endTime: new Date().toISOString(),
         yieldCount: 1,
       });
-      toast({ title: 'Assembly Logged', description: `Job ${id} ready for QC and logged to production.` });
+      toast({ title: 'Assembly Logged', description: `Job ${current.jobCode || id} ready for QC and logged to production.` });
     } catch (error) {
       setJobs(prev);
       toast({ variant: 'destructive', title: 'Could not log operation', description: error instanceof Error ? error.message : 'Failed to log assembly operation.' });
@@ -212,7 +223,7 @@ export default function FabricationPage() {
                 <div className="flex justify-between items-center">
                   <CardTitle className="flex items-center gap-2 font-bold text-gray-900">
                     {job.assemblyName}
-                    <Badge variant="outline" className="text-[10px] font-bold">{job.id}</Badge>
+                    <Badge variant="outline" className="text-[10px] font-bold">{job.jobCode}</Badge>
                   </CardTitle>
                   <Badge className={`text-[10px] font-bold ${job.status === 'QC Ready' ? 'bg-purple-100 text-purple-800' :
                       job.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'

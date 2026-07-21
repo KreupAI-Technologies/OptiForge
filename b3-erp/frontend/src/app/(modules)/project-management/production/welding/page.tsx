@@ -20,12 +20,14 @@ import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface WeldingJob {
   id: string;
+  jobCode: string;
   partName: string;
   material: string;
   weldType: 'TIG' | 'MIG' | 'Spot';
   quantity: number;
   status: 'Pending' | 'In Progress' | 'Completed';
   qualityCheck: boolean;
+  extra: Record<string, any>;
 }
 
 export default function WeldingPage() {
@@ -67,13 +69,15 @@ export default function WeldingPage() {
       setSelectedProject(project);
       const rows = await ProductionJobService.listJobs(id, 'welding');
       setJobs(rows.map((r) => ({
-        id: r.jobCode || r.id,
+        id: r.id,
+        jobCode: r.jobCode || r.id,
         partName: r.partName || '',
         material: r.material || '',
         weldType: (r.extra?.weldType as WeldingJob['weldType']) || 'TIG',
         quantity: r.quantity ?? 0,
         status: (r.status as WeldingJob['status']) || 'Pending',
         qualityCheck: !!r.extra?.qualityCheck,
+        extra: r.extra || {},
       })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
@@ -85,13 +89,25 @@ export default function WeldingPage() {
 
   const handleStatusChange = async (id: string, newStatus: WeldingJob['status']) => {
     const prev = jobs;
+    const current = jobs.find(job => job.id === id);
     setJobs(jobs.map(job => job.id === id ? { ...job, status: newStatus } : job));
     if (newStatus !== 'Completed' || !projectId) {
-      toast({ title: 'Status Updated', description: `Job ${id} status changed to ${newStatus}` });
+      // Persist the Pending→In Progress transition so job status survives reload.
+      setSavingId(id);
+      try {
+        await ProductionJobService.updateStatus(id, { status: newStatus });
+        toast({ title: 'Status Updated', description: `Job ${current?.jobCode || id} status changed to ${newStatus}` });
+      } catch (error) {
+        setJobs(prev);
+        toast({ variant: 'destructive', title: 'Could not update status', description: error instanceof Error ? error.message : 'Failed to update job status.' });
+      } finally {
+        setSavingId(null);
+      }
       return;
     }
     setSavingId(id);
     try {
+      await ProductionJobService.updateStatus(id, { status: 'Completed' });
       await projectManagementService.logProductionOperation({
         projectId,
         operationType: 'welding',
@@ -99,7 +115,7 @@ export default function WeldingPage() {
         endTime: new Date().toISOString(),
         yieldCount: 1,
       });
-      toast({ title: 'Welding Logged', description: `Job ${id} completed and logged to production.` });
+      toast({ title: 'Welding Logged', description: `Job ${current?.jobCode || id} completed and logged to production.` });
     } catch (error) {
       setJobs(prev);
       toast({ variant: 'destructive', title: 'Could not log operation', description: error instanceof Error ? error.message : 'Failed to log welding operation.' });
@@ -108,17 +124,22 @@ export default function WeldingPage() {
     }
   };
 
-  const handleQualityCheckToggle = (id: string) => {
-    setJobs(jobs.map(job => {
-      if (job.id === id) {
-        const newValue = !job.qualityCheck;
-        if (newValue) {
-          toast({ title: 'Quality Check Passed', description: `Weld quality verified for ${job.partName}. Ready for buffing.` });
-        }
-        return { ...job, qualityCheck: newValue };
+  const handleQualityCheckToggle = async (id: string) => {
+    const prev = jobs;
+    const current = jobs.find(job => job.id === id);
+    if (!current) return;
+    const newValue = !current.qualityCheck;
+    const newExtra = { ...current.extra, qualityCheck: newValue };
+    setJobs(jobs.map(job => job.id === id ? { ...job, qualityCheck: newValue, extra: newExtra } : job));
+    try {
+      await ProductionJobService.updateStatus(id, { extra: newExtra });
+      if (newValue) {
+        toast({ title: 'Quality Check Passed', description: `Weld quality verified for ${current.partName}. Ready for buffing.` });
       }
-      return job;
-    }));
+    } catch (error) {
+      setJobs(prev);
+      toast({ variant: 'destructive', title: 'Could not update', description: error instanceof Error ? error.message : 'Failed to save quality check.' });
+    }
   };
 
   // View 1: Project Selection
@@ -247,7 +268,7 @@ export default function WeldingPage() {
                 <tbody>
                   {jobs.map((job) => (
                     <tr key={job.id} className="border-t hover:bg-blue-50/20 transition-colors">
-                      <td className="p-4 font-bold text-gray-900">{job.id}</td>
+                      <td className="p-4 font-bold text-gray-900">{job.jobCode}</td>
                       <td className="p-4 font-medium">{job.partName}</td>
                       <td className="p-4 font-medium">{job.material}</td>
                       <td className="p-4"><Badge variant="outline" className="text-[10px] font-bold">{job.weldType}</Badge></td>

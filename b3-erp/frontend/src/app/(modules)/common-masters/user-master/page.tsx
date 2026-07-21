@@ -20,18 +20,21 @@ export default function UserMasterPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  const COMPANY_ID = '123e4567-e89b-12d3-a456-426614174000';
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const data = await systemMastersService.getAllUsers(COMPANY_ID);
+      setUsers(data);
+    } catch (error) {
+      showToast('Failed to fetch users', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      try {
-        const data = await systemMastersService.getAllUsers('123e4567-e89b-12d3-a456-426614174000');
-        setUsers(data);
-      } catch (error) {
-        showToast('Failed to fetch users', 'error');
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchUsers();
   }, []);
 
@@ -48,13 +51,99 @@ export default function UserMasterPage() {
 
   const [viewUser, setViewUser] = useState<User | null>(null);
 
+  // Add/Edit form modal state
+  const emptyForm = {
+    employeeId: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    department: '',
+    jobTitle: '',
+    roleId: '',
+    password: '',
+    twoFactorEnabled: false,
+    status: UserStatus.ACTIVE,
+  };
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ ...emptyForm });
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleViewUser = (row: User) => {
     // Open a read modal with the row data (real UX, no fake toast).
     setViewUser(row);
   };
 
   const handleEditUser = (row: User) => {
-    setViewUser(row);
+    setFormMode('edit');
+    setEditingUserId(row.id);
+    setFormData({
+      employeeId: row.employeeId || '',
+      email: row.email || '',
+      firstName: row.employee?.firstName || (row.fullName?.split(' ')[0] ?? ''),
+      lastName: row.employee?.lastName || (row.fullName?.split(' ').slice(1).join(' ') ?? ''),
+      phone: row.employee?.phone || '',
+      department: row.employee?.department?.name || '',
+      jobTitle: row.employee?.designation?.name || '',
+      roleId: row.roleId || '',
+      password: '',
+      twoFactorEnabled: row.mfaEnabled,
+      status: row.isActive ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleSaveUser = async () => {
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      showToast('First name and last name are required', 'error');
+      return;
+    }
+    if (formMode === 'create' && !formData.email.trim()) {
+      showToast('Email is required', 'error');
+      return;
+    }
+    if (formMode === 'create' && !formData.password.trim()) {
+      showToast('Password is required for a new user', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      if (formMode === 'edit' && editingUserId) {
+        await userManagementService.updateUser(editingUserId, {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone || undefined,
+          department: formData.department || undefined,
+          jobTitle: formData.jobTitle || undefined,
+          roleId: formData.roleId || undefined,
+          status: formData.status,
+          twoFactorEnabled: formData.twoFactorEnabled,
+        });
+        showToast('User updated', 'success');
+      } else {
+        await userManagementService.createUser({
+          employeeId: formData.employeeId,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone || undefined,
+          department: formData.department,
+          jobTitle: formData.jobTitle,
+          roleId: formData.roleId,
+          password: formData.password,
+          twoFactorEnabled: formData.twoFactorEnabled,
+        });
+        showToast('User created', 'success');
+      }
+      setIsFormOpen(false);
+      await fetchUsers();
+    } catch (error) {
+      showToast(formMode === 'edit' ? 'Failed to update user' : 'Failed to create user', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeactivateUser = async (row: User) => {
@@ -76,7 +165,10 @@ export default function UserMasterPage() {
   };
 
   const handleAddUser = () => {
-    showToast('Opening form to add new user', 'info');
+    setFormMode('create');
+    setEditingUserId(null);
+    setFormData({ ...emptyForm });
+    setIsFormOpen(true);
   };
 
   // Get unique departments and locations
@@ -555,6 +647,158 @@ export default function UserMasterPage() {
             </div>
           </div>
         )}
+      </ModalWrapper>
+
+      {/* Add / Edit user form modal */}
+      <ModalWrapper
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={formMode === 'edit' ? 'Edit User' : 'Add User'}
+        size="lg"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveUser();
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+              <input
+                type="text"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+              <input
+                type="text"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                required={formMode === 'create'}
+                disabled={formMode === 'edit'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+              <input
+                type="text"
+                value={formData.employeeId}
+                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                disabled={formMode === 'edit'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+              <input
+                type="text"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+              <input
+                type="text"
+                value={formData.jobTitle}
+                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role ID</label>
+              <input
+                type="text"
+                value={formData.roleId}
+                onChange={(e) => setFormData({ ...formData, roleId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            {formMode === 'create' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+            )}
+            {formMode === 'edit' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as UserStatus })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value={UserStatus.ACTIVE}>Active</option>
+                  <option value={UserStatus.INACTIVE}>Inactive</option>
+                  <option value={UserStatus.SUSPENDED}>Suspended</option>
+                  <option value={UserStatus.PENDING}>Pending</option>
+                </select>
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                id="mfa-toggle"
+                type="checkbox"
+                checked={formData.twoFactorEnabled}
+                onChange={(e) => setFormData({ ...formData, twoFactorEnabled: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <label htmlFor="mfa-toggle" className="text-sm font-medium text-gray-700">
+                Two-Factor Authentication
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setIsFormOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : formMode === 'edit' ? 'Save Changes' : 'Create User'}
+            </button>
+          </div>
+        </form>
       </ModalWrapper>
     </div>
   );

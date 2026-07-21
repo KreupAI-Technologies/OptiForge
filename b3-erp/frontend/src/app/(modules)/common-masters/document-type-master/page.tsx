@@ -8,28 +8,131 @@ import { ModalWrapper } from '@/components/ui/ModalWrapper';
 import { systemMastersService, DocumentType } from '@/services/system-masters.service';
 import { exportToCsv } from '@/lib/export';
 
+const CATEGORY_OPTIONS = ['identity', 'address', 'educational', 'employment', 'financial', 'medical', 'legal'];
+
 export default function DocumentTypeMasterPage() {
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
+
+  const COMPANY_ID = '123e4567-e89b-12d3-a456-426614174000';
+
+  // Add/Edit form modal state
+  const emptyForm = {
+    typeCode: '',
+    typeName: '',
+    category: 'identity',
+    description: '',
+    isMandatory: false,
+    isVerificationRequired: false,
+    requiredForJoining: false,
+    requiredForPayroll: false,
+    isActive: true,
+  };
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ ...emptyForm });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fetchDocTypes = async () => {
+    setIsLoading(true);
+    try {
+      const data = await systemMastersService.getAllDocumentTypes(COMPANY_ID);
+      setDocumentTypes(data);
+    } catch (error) {
+      console.error('Failed to fetch document types', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDocTypes = async () => {
-      setIsLoading(true);
-      try {
-        const data = await systemMastersService.getAllDocumentTypes('123e4567-e89b-12d3-a456-426614174000');
-        setDocumentTypes(data);
-      } catch (error) {
-        console.error('Failed to fetch document types', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchDocTypes();
   }, []);
+
+  const handleAdd = () => {
+    setFormMode('create');
+    setEditingId(null);
+    setFormData({ ...emptyForm });
+    setIsFormOpen(true);
+  };
+
+  const handleEdit = (row: DocumentType) => {
+    setFormMode('edit');
+    setEditingId(row.id);
+    setFormData({
+      typeCode: row.typeCode,
+      typeName: row.typeName,
+      category: row.category || 'identity',
+      description: row.description || '',
+      isMandatory: row.isMandatory,
+      isVerificationRequired: row.isVerificationRequired,
+      requiredForJoining: row.requiredForJoining,
+      requiredForPayroll: row.requiredForPayroll,
+      isActive: row.isActive,
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = async (row: DocumentType) => {
+    if (!confirm(`Delete document type ${row.typeName}?`)) return;
+    try {
+      await systemMastersService.deleteDocumentType(row.id);
+      await fetchDocTypes();
+    } catch (error) {
+      console.error('Failed to delete document type', error);
+      alert('Failed to delete document type.');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData.typeName.trim()) {
+      alert('Document type name is required.');
+      return;
+    }
+    if (formMode === 'create' && !formData.typeCode.trim()) {
+      alert('Document type code is required.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      if (formMode === 'edit' && editingId) {
+        await systemMastersService.updateDocumentType(editingId, {
+          typeName: formData.typeName,
+          category: formData.category,
+          description: formData.description,
+          isMandatory: formData.isMandatory,
+          isVerificationRequired: formData.isVerificationRequired,
+          requiredForJoining: formData.requiredForJoining,
+          requiredForPayroll: formData.requiredForPayroll,
+          isActive: formData.isActive,
+        });
+      } else {
+        await systemMastersService.createDocumentType({
+          typeCode: formData.typeCode,
+          typeName: formData.typeName,
+          category: formData.category,
+          description: formData.description,
+          isMandatory: formData.isMandatory,
+          isVerificationRequired: formData.isVerificationRequired,
+          requiredForJoining: formData.requiredForJoining,
+          requiredForPayroll: formData.requiredForPayroll,
+          isActive: formData.isActive,
+          companyId: COMPANY_ID,
+        });
+      }
+      setIsFormOpen(false);
+      await fetchDocTypes();
+    } catch (error) {
+      console.error('Failed to save document type', error);
+      alert('Failed to save document type.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return documentTypes.filter(doc => {
@@ -143,6 +246,35 @@ export default function DocumentTypeMasterPage() {
       accessor: 'isActive',
       sortable: true,
       render: (value) => <StatusBadge status={value ? 'active' : 'inactive'} text={value ? 'Active' : 'Inactive'} />
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      accessor: 'id',
+      sortable: false,
+      align: 'right',
+      render: (_, row) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(row);
+            }}
+          >
+            Edit
+          </button>
+          <button
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(row);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )
     }
   ];
 
@@ -178,7 +310,7 @@ export default function DocumentTypeMasterPage() {
             Export
           </button>
           <button
-            onClick={() => setShowAdd(true)}
+            onClick={handleAdd}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
@@ -261,28 +393,132 @@ export default function DocumentTypeMasterPage() {
         </ul>
       </div>
 
-      {/* Add Type modal.
-          NOTE: the common-masters document-types API is read-only (GET only) and
-          systemMastersService exposes no create method, so this cannot persist yet.
-          A backend POST /common-masters/document-types endpoint plus a
-          createDocumentType() service method are required to make this functional. */}
+      {/* Add / Edit document type form modal */}
       <ModalWrapper
-        isOpen={showAdd}
-        onClose={() => setShowAdd(false)}
-        title="Add Document Type"
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={formMode === 'edit' ? 'Edit Document Type' : 'Add Document Type'}
         size="md"
       >
-        <div className="space-y-3 text-sm text-gray-700">
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-amber-800">
-              Creating document types is not yet available. The common-masters
-              document-types API is read-only. A backend create endpoint
-              (<span className="font-mono">POST /common-masters/document-types</span>) and a
-              matching service method are required before this form can save.
-            </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSave();
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type Code</label>
+              <input
+                type="text"
+                value={formData.typeCode}
+                onChange={(e) => setFormData({ ...formData, typeCode: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                required={formMode === 'create'}
+                disabled={formMode === 'edit'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type Name</label>
+              <input
+                type="text"
+                value={formData.typeName}
+                onChange={(e) => setFormData({ ...formData, typeName: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent capitalize"
+              >
+                {CATEGORY_OPTIONS.map((c) => (
+                  <option key={c} value={c} className="capitalize">{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={formData.isActive ? 'active' : 'inactive'}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'active' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
-        </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.isMandatory}
+                onChange={(e) => setFormData({ ...formData, isMandatory: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Mandatory
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.isVerificationRequired}
+                onChange={(e) => setFormData({ ...formData, isVerificationRequired: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Verification Required
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.requiredForJoining}
+                onChange={(e) => setFormData({ ...formData, requiredForJoining: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Required for Joining
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.requiredForPayroll}
+                onChange={(e) => setFormData({ ...formData, requiredForPayroll: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Required for Payroll
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setIsFormOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : formMode === 'edit' ? 'Save Changes' : 'Create Type'}
+            </button>
+          </div>
+        </form>
       </ModalWrapper>
     </div>
   );
