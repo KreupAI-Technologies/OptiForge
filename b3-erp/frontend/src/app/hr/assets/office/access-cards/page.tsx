@@ -47,28 +47,52 @@ export default function Page() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ issuedTo: '', cardNumber: '', employeeCode: '', department: '', designation: '', cardType: 'employee' as AccessCard['cardType'], accessLevel: 'basic' as AccessCard['accessLevel'], accessZones: '', location: '', issuedBy: '' });
 
-  // NOTE: HrAssetsService exposes no access-card write endpoint (only getAccessCards read + createAssetRequest/updateAssetRequest).
-  // Until a backend access-card mutation endpoint exists, the write actions below optimistically update local `accessCards` state only.
-  const handleAdd = () => {
+  // NOTE: Issuance (handleAdd) persists via HrAssetsService.createAccessCard.
+  // Secondary deactivate/replace/renew actions still update local state only, pending backend transitions.
+  const handleAdd = async () => {
     const today = new Date().toISOString().split('T')[0];
-    const newCard: AccessCard = {
-      id: Date.now().toString(),
-      cardNumber: addForm.cardNumber,
-      cardType: addForm.cardType,
-      issuedTo: addForm.issuedTo,
-      employeeCode: addForm.employeeCode,
-      department: addForm.department,
-      designation: addForm.designation,
-      issueDate: today,
-      status: 'active',
-      accessLevel: addForm.accessLevel,
-      accessZones: addForm.accessZones ? addForm.accessZones.split(',').map(s => s.trim()).filter(Boolean) : [],
-      location: addForm.location,
-      issuedBy: addForm.issuedBy,
-    };
-    setAccessCards(prev => [newCard, ...prev]);
-    setShowAdd(false);
-    setAddForm({ issuedTo: '', cardNumber: '', employeeCode: '', department: '', designation: '', cardType: 'employee', accessLevel: 'basic', accessZones: '', location: '', issuedBy: '' });
+    const accessZones = addForm.accessZones ? addForm.accessZones.split(',').map(s => s.trim()).filter(Boolean) : [];
+    try {
+      const r = await HrAssetsService.createAccessCard({
+        cardNumber: addForm.cardNumber,
+        cardType: addForm.cardType,
+        issuedTo: addForm.issuedTo,
+        employeeCode: addForm.employeeCode,
+        department: addForm.department,
+        designation: addForm.designation,
+        issueDate: today,
+        accessLevel: addForm.accessLevel,
+        accessZones,
+        location: addForm.location,
+        issuedBy: addForm.issuedBy,
+      });
+      const cardTypes: AccessCard['cardType'][] = ['employee', 'contractor', 'visitor', 'temp'];
+      const statuses: AccessCard['status'][] = ['active', 'inactive', 'lost', 'expired', 'blocked'];
+      const levels: AccessCard['accessLevel'][] = ['basic', 'standard', 'elevated', 'admin'];
+      const created: AccessCard = {
+        id: String(r.id ?? Date.now()),
+        cardNumber: r.cardNumber ?? addForm.cardNumber,
+        cardType: cardTypes.includes(r.cardType as AccessCard['cardType']) ? (r.cardType as AccessCard['cardType']) : addForm.cardType,
+        issuedTo: r.issuedTo ?? addForm.issuedTo,
+        employeeCode: r.employeeCode ?? addForm.employeeCode,
+        department: r.department ?? addForm.department,
+        designation: r.designation ?? addForm.designation,
+        issueDate: r.issueDate ?? today,
+        expiryDate: r.expiryDate ?? undefined,
+        status: statuses.includes(r.status as AccessCard['status']) ? (r.status as AccessCard['status']) : 'active',
+        accessLevel: levels.includes(r.accessLevel as AccessCard['accessLevel']) ? (r.accessLevel as AccessCard['accessLevel']) : addForm.accessLevel,
+        accessZones: r.accessZones != null ? parseAccessZones(r.accessZones) : accessZones,
+        location: r.location ?? addForm.location,
+        issuedBy: r.issuedBy ?? addForm.issuedBy,
+        lastUsed: r.lastUsed ?? undefined,
+        remarks: r.remarks ?? undefined,
+      };
+      setAccessCards(prev => [created, ...prev]);
+      setShowAdd(false);
+      setAddForm({ issuedTo: '', cardNumber: '', employeeCode: '', department: '', designation: '', cardType: 'employee', accessLevel: 'basic', accessZones: '', location: '', issuedBy: '' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save');
+    }
   };
 
   const handleDeactivate = (card: AccessCard) => {

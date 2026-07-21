@@ -25,6 +25,22 @@ export class SafetyIncidentController {
     return this.service.findAll(companyId || 'company-1', status);
   }
 
+  // Static route MUST be declared before the greedy ':id' param route.
+  @Get('analytics/trends')
+  getTrends(
+    @Query('companyId') companyId: string,
+    @Query('monthsBack') monthsBack?: string,
+    @Query('hoursPerMonth') hoursPerMonth?: string,
+  ) {
+    const months = monthsBack ? parseInt(monthsBack, 10) : 6;
+    const hours = hoursPerMonth ? parseInt(hoursPerMonth, 10) : undefined;
+    return this.service.getTrends(
+      companyId || 'company-1',
+      Number.isFinite(months) && months > 0 ? months : 6,
+      hours && Number.isFinite(hours) ? hours : undefined,
+    );
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string): Promise<SafetyIncident> {
     return this.service.findOne(id);

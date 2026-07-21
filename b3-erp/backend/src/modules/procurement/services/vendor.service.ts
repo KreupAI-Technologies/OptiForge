@@ -64,6 +64,53 @@ export class VendorService {
     return this.vendorRepository.save(entity);
   }
 
+  async requestDocuments(
+    companyId: string,
+    id: string,
+    payload: {
+      documents?: string[];
+      message?: string;
+      dueDate?: string;
+      requestedBy?: string;
+    },
+  ): Promise<Vendor> {
+    const entity = await this.findOne(companyId, id);
+    const existing = Array.isArray(entity.documents) ? entity.documents : [];
+    const request = {
+      type: 'document_request',
+      documents: payload?.documents ?? [],
+      message: payload?.message ?? '',
+      dueDate: payload?.dueDate ?? null,
+      requestedBy: payload?.requestedBy ?? null,
+      requestedAt: new Date().toISOString(),
+      status: 'requested',
+    };
+    entity.documents = [...existing, request];
+    // Move vendor into a documentation-pending state without overriding a terminal status
+    if (entity.status === 'active' || entity.status === 'inactive') {
+      entity.status = 'documentation_pending';
+    }
+    return this.vendorRepository.save(entity);
+  }
+
+  async completeOnboarding(
+    companyId: string,
+    id: string,
+    payload?: { completedBy?: string; notes?: string },
+  ): Promise<Vendor> {
+    const entity = await this.findOne(companyId, id);
+    entity.status = 'onboarded';
+    if (!entity.registeredDate) {
+      entity.registeredDate = new Date();
+    }
+    if (payload?.notes) {
+      entity.notes = `${entity.notes ? entity.notes + '\n' : ''}Onboarding completed${
+        payload.completedBy ? ' by ' + payload.completedBy : ''
+      }: ${payload.notes}`;
+    }
+    return this.vendorRepository.save(entity);
+  }
+
   async delete(companyId: string, id: string): Promise<void> {
     const entity = await this.findOne(companyId, id);
     await this.vendorRepository.remove(entity);

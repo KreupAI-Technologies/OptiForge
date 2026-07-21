@@ -135,46 +135,66 @@ export default function Page() {
     location: '',
   });
 
-  // NOTE: HrAssetsService exposes no createVehicleFuel write endpoint (only
-  // createAssetRequest/updateAssetRequest), so "Add Fuel Record" performs a
-  // client-side optimistic prepend into the already-loaded list. Replace with a
-  // real POST once a backend fuel-log write endpoint exists.
-  const handleAddFuel = () => {
+  // "Add Fuel Record" persists via HrAssetsService.createVehicleFuel, then
+  // prepends the returned row into the already-loaded list.
+  const handleAddFuel = async () => {
     const now = Date.now();
     const quantity = Number(addForm.quantity);
     const pricePerLiter = Number(addForm.pricePerLiter);
-    const newRecord: FuelRecord = {
-      id: now.toString(),
-      recordId: `FUEL-${now}`,
-      vehicleNumber: addForm.vehicleNumber,
-      vehicleName: addForm.vehicleName,
-      registrationNumber: addForm.registrationNumber,
-      fuelDate: new Date().toISOString().slice(0, 10),
-      fuelType: addForm.fuelType,
-      quantity,
-      pricePerLiter,
-      totalCost: quantity * pricePerLiter,
-      odometer: Number(addForm.odometer),
-      fuelStation: addForm.fuelStation,
-      billNumber: addForm.billNumber,
-      filledBy: addForm.filledBy,
-      location: addForm.location,
-    };
-    setMockRecords((prev) => [newRecord, ...prev]);
-    setShowAdd(false);
-    setAddForm({
-      vehicleNumber: '',
-      vehicleName: '',
-      registrationNumber: '',
-      fuelType: 'petrol',
-      quantity: '',
-      pricePerLiter: '',
-      odometer: '',
-      fuelStation: '',
-      billNumber: '',
-      filledBy: '',
-      location: '',
-    });
+    const odometer = Number(addForm.odometer);
+    try {
+      const r = await HrAssetsService.createVehicleFuel({
+        recordId: `FUEL-${now}`,
+        vehicleNumber: addForm.vehicleNumber,
+        vehicleName: addForm.vehicleName,
+        registrationNumber: addForm.registrationNumber,
+        fuelDate: new Date().toISOString().slice(0, 10),
+        fuelType: addForm.fuelType,
+        quantity,
+        pricePerLiter,
+        totalCost: quantity * pricePerLiter,
+        odometer,
+        fuelStation: addForm.fuelStation,
+        billNumber: addForm.billNumber,
+        filledBy: addForm.filledBy,
+        location: addForm.location,
+      });
+      const created: FuelRecord = {
+        id: String(r.id ?? now),
+        recordId: r.recordId || `FUEL-${now}`,
+        vehicleNumber: r.vehicleNumber || addForm.vehicleNumber,
+        vehicleName: r.vehicleName || addForm.vehicleName,
+        registrationNumber: r.registrationNumber || addForm.registrationNumber,
+        fuelDate: r.fuelDate || new Date().toISOString().slice(0, 10),
+        fuelType: (r.fuelType as FuelRecord['fuelType']) || addForm.fuelType,
+        quantity: Number(r.quantity ?? quantity),
+        pricePerLiter: Number(r.pricePerLiter ?? pricePerLiter),
+        totalCost: Number(r.totalCost ?? quantity * pricePerLiter),
+        odometer: Number(r.odometer ?? odometer),
+        fuelStation: r.fuelStation || addForm.fuelStation,
+        billNumber: r.billNumber || addForm.billNumber,
+        filledBy: r.filledBy || addForm.filledBy,
+        location: r.location || addForm.location,
+        remarks: r.remarks || undefined,
+      };
+      setMockRecords((prev) => [created, ...prev]);
+      setShowAdd(false);
+      setAddForm({
+        vehicleNumber: '',
+        vehicleName: '',
+        registrationNumber: '',
+        fuelType: 'petrol',
+        quantity: '',
+        pricePerLiter: '',
+        odometer: '',
+        fuelStation: '',
+        billNumber: '',
+        filledBy: '',
+        location: '',
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save');
+    }
   };
 
   const handleDownloadBill = (record: FuelRecord) => {

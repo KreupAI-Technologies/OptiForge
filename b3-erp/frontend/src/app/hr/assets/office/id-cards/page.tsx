@@ -31,10 +31,9 @@ export default function Page() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Modal / write-action state.
-  // NOTE: HrAssetsService only exposes getIdCards() for reads; its write methods
-  // (createAssetRequest/updateAssetRequest) and AssetManagementService have NO
-  // id-card write endpoint. Until a backend id-card write API exists, the actions
-  // below optimistically update local `idCards` state only.
+  // NOTE: Issuance (handleAdd) persists via HrAssetsService.createIdCard.
+  // Secondary edit/renew/replace actions still update local state only, pending
+  // dedicated backend transitions.
   const [selected, setSelected] = useState<IDCard | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editTarget, setEditTarget] = useState<IDCard | null>(null);
@@ -57,39 +56,59 @@ export default function Page() {
     location: '',
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const today = new Date().toISOString().split('T')[0];
-    const newCard: IDCard = {
-      id: Date.now().toString(),
-      cardNumber: addForm.cardNumber,
-      cardType: addForm.cardType,
-      issuedTo: addForm.issuedTo,
-      employeeCode: addForm.employeeCode,
-      department: addForm.department,
-      designation: addForm.designation,
-      issueDate: today,
-      status: 'active',
-      bloodGroup: addForm.bloodGroup || undefined,
-      emergencyContact: addForm.emergencyContact,
-      photo: false,
-      location: addForm.location,
-      issuedBy: addForm.issuedBy,
-    };
-    // Optimistic local update — no backend id-card write endpoint available.
-    setIdCards(prev => [newCard, ...prev]);
-    setShowAdd(false);
-    setAddForm({
-      issuedTo: '',
-      cardNumber: '',
-      employeeCode: '',
-      department: '',
-      designation: '',
-      cardType: 'employee',
-      emergencyContact: '',
-      bloodGroup: '',
-      location: '',
-      issuedBy: '',
-    });
+    try {
+      const r = await HrAssetsService.createIdCard({
+        cardNumber: addForm.cardNumber,
+        cardType: addForm.cardType,
+        issuedTo: addForm.issuedTo,
+        employeeCode: addForm.employeeCode,
+        department: addForm.department,
+        designation: addForm.designation,
+        issueDate: today,
+        bloodGroup: addForm.bloodGroup || undefined,
+        emergencyContact: addForm.emergencyContact,
+        location: addForm.location,
+        issuedBy: addForm.issuedBy,
+      });
+      const cardTypes: IDCard['cardType'][] = ['employee', 'contractor', 'temp'];
+      const statuses: IDCard['status'][] = ['active', 'inactive', 'lost', 'expired', 'damaged'];
+      const created: IDCard = {
+        id: String(r.id ?? Date.now()),
+        cardNumber: r.cardNumber ?? addForm.cardNumber,
+        cardType: cardTypes.includes(r.cardType as IDCard['cardType']) ? (r.cardType as IDCard['cardType']) : addForm.cardType,
+        issuedTo: r.issuedTo ?? addForm.issuedTo,
+        employeeCode: r.employeeCode ?? addForm.employeeCode,
+        department: r.department ?? addForm.department,
+        designation: r.designation ?? addForm.designation,
+        issueDate: r.issueDate ?? today,
+        expiryDate: r.expiryDate ?? undefined,
+        status: statuses.includes(r.status as IDCard['status']) ? (r.status as IDCard['status']) : 'active',
+        bloodGroup: r.bloodGroup ?? (addForm.bloodGroup || undefined),
+        emergencyContact: r.emergencyContact ?? addForm.emergencyContact,
+        photo: Boolean(r.photo),
+        location: r.location ?? addForm.location,
+        issuedBy: r.issuedBy ?? addForm.issuedBy,
+        remarks: r.remarks ?? undefined,
+      };
+      setIdCards(prev => [created, ...prev]);
+      setShowAdd(false);
+      setAddForm({
+        issuedTo: '',
+        cardNumber: '',
+        employeeCode: '',
+        department: '',
+        designation: '',
+        cardType: 'employee',
+        emergencyContact: '',
+        bloodGroup: '',
+        location: '',
+        issuedBy: '',
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save');
+    }
   };
 
   const handleEdit = () => {

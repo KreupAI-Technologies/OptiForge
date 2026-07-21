@@ -43,4 +43,21 @@ export class LicenseUserService {
     const item = await this.findOne(id);
     await this.repository.remove(item);
   }
+
+  /**
+   * Renews a user's license by extending its validity. Sets status to active
+   * and pushes `validUntil` forward by `months` (default 12) from the later of
+   * today or the current expiry, then returns the updated record.
+   */
+  async renew(id: string, months = 12): Promise<LicenseUser> {
+    const item = await this.findOne(id);
+    const base =
+      item.validUntil && new Date(item.validUntil) > new Date()
+        ? new Date(item.validUntil)
+        : new Date();
+    base.setMonth(base.getMonth() + months);
+    item.validUntil = base.toISOString().slice(0, 10);
+    item.status = 'active';
+    return this.repository.save(item);
+  }
 }

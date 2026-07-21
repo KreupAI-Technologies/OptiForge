@@ -245,6 +245,12 @@ import { ProductionJobsController } from './controllers/production-jobs.controll
 import { ProductionJobsService } from './services/production-jobs.service';
 import { ProductionJobSeederService } from './services/production-job-seeder.service';
 import { DrawingVerification } from './entities/drawing-verification.entity';
+import { PmReportTemplateEntity } from './entities/pm-report-template.entity';
+import { PmReportTemplatesController } from './controllers/pm-report-templates.controller';
+import { PmReportTemplatesService } from './services/pm-report-templates.service';
+import { PmProjectCategoryEntity } from './entities/pm-project-category.entity';
+import { PmProjectCategoriesController } from './controllers/pm-project-categories.controller';
+import { PmProjectCategoriesService } from './services/pm-project-categories.service';
 
 @Module({
     imports: [TypeOrmModule.forFeature([
@@ -334,7 +340,9 @@ import { DrawingVerification } from './entities/drawing-verification.entity';
         PmVendorShipmentEntity,
         PackagingMaterialRequest,
         PmProductionJobEntity,
-        DrawingVerification
+        DrawingVerification,
+        PmReportTemplateEntity,
+        PmProjectCategoryEntity
     ])],
     controllers: [
         ProjectController,
@@ -405,7 +413,9 @@ import { DrawingVerification } from './entities/drawing-verification.entity';
         CabinetMarkingController,
         PmVendorShipmentController,
         PackagingMaterialRequestController,
-        ProductionJobsController
+        ProductionJobsController,
+        PmReportTemplatesController,
+        PmProjectCategoriesController
     ],
     providers: [
         ProjectService,
@@ -487,7 +497,9 @@ import { DrawingVerification } from './entities/drawing-verification.entity';
         PackagingMaterialRequestService,
         PackagingMaterialRequestSeederService,
         ProductionJobsService,
-        ProductionJobSeederService
+        ProductionJobSeederService,
+        PmReportTemplatesService,
+        PmProjectCategoriesService
     ],
     exports: [
         ProjectService,

@@ -2729,6 +2729,12 @@ class ProjectManagementService {
     updatePmProjectType(id: string, data: Partial<PmProjectTypeItem>) { return this.pmUpdate<PmProjectTypeItem>('project-types', id, data); }
     deletePmProjectType(id: string) { return this.pmDelete('project-types', id); }
 
+    // Project categories (categories tab on the project-types page)
+    listPmProjectCategories(companyId = 'default') { return this.pmList<any>('project-categories', companyId); }
+    createPmProjectCategory(data: Partial<any>) { return this.pmCreate<any>('project-categories', data); }
+    updatePmProjectCategory(id: string, data: Partial<any>) { return this.pmUpdate<any>('project-categories', id, data); }
+    deletePmProjectCategory(id: string) { return this.pmDelete('project-categories', id); }
+
     // Documents
     listPmDocuments(companyId = 'default') { return this.pmList<PmDocument>('documents', companyId); }
     createPmDocument(data: Partial<PmDocument>) { return this.pmCreate<PmDocument>('documents', data); }
@@ -2740,6 +2746,44 @@ class ProjectManagementService {
     createMrpMaterial(data: Partial<PmMrpMaterial>) { return this.pmCreate<PmMrpMaterial>('mrp', data); }
     updateMrpMaterial(id: string, data: Partial<PmMrpMaterial>) { return this.pmUpdate<PmMrpMaterial>('mrp', id, data); }
     deleteMrpMaterial(id: string) { return this.pmDelete('mrp', id); }
+
+    // MRP actions: PO shell from shortfall, demand forecast, aggregated report.
+    async generateMrpPo(id: string, data: { supplier?: string; requestedBy?: string } = {}): Promise<any | null> {
+        try {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/mrp/${encodeURIComponent(id)}/generate-po`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`Generate PO failed: ${res.status}`);
+            return await res.json();
+        } catch (error) {
+            console.error('Error generating MRP PO:', error);
+            return null;
+        }
+    }
+
+    async getMrpForecast(id: string, periods = 6): Promise<any | null> {
+        try {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/mrp/${encodeURIComponent(id)}/forecast?periods=${periods}`);
+            if (!res.ok) throw new Error(`Forecast failed: ${res.status}`);
+            return await res.json();
+        } catch (error) {
+            console.error('Error fetching MRP forecast:', error);
+            return null;
+        }
+    }
+
+    async getMrpReport(companyId = 'default'): Promise<any | null> {
+        try {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/mrp/report?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) throw new Error(`MRP report failed: ${res.status}`);
+            return await res.json();
+        } catch (error) {
+            console.error('Error fetching MRP report:', error);
+            return null;
+        }
+    }
 
     // Installation tracking
     listInstallationActivities(companyId = 'default') { return this.pmList<PmInstallationActivity>('installation-tracking', companyId); }
@@ -2764,6 +2808,12 @@ class ProjectManagementService {
     createPmReport(data: Partial<PmReport>) { return this.pmCreate<PmReport>('reports', data); }
     updatePmReport(id: string, data: Partial<PmReport>) { return this.pmUpdate<PmReport>('reports', id, data); }
     deletePmReport(id: string) { return this.pmDelete('reports', id); }
+
+    // Report templates (create / customize on the reports page)
+    listPmReportTemplates(companyId = 'default') { return this.pmList<any>('report-templates', companyId); }
+    createPmReportTemplate(data: Partial<any>) { return this.pmCreate<any>('report-templates', data); }
+    updatePmReportTemplate(id: string, data: Partial<any>) { return this.pmUpdate<any>('report-templates', id, data); }
+    deletePmReportTemplate(id: string) { return this.pmDelete('report-templates', id); }
 
     // Site surveys
     listPmSiteSurveys(companyId = 'default') { return this.pmList<PmSiteSurvey>('site-survey', companyId); }

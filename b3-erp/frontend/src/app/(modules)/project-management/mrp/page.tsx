@@ -368,11 +368,62 @@ export default function MRPPage() {
   }
  };
 
- // NEEDS BACKEND: no PO-creation, demand-report or forecast endpoint in the MRP
- // module yet — these close their modals without persisting.
- const handleCreatePO = (_data: any) => { setShowPurchaseOrderModal(false); setSelectedMaterial(null); };
- const handleGenerateReport = (_data: any) => { setShowReportModal(false); };
- const handleForecast = (_data: any) => { setShowForecastModal(false); };
+ // MRP actions wired to pm-mrp endpoints: PO shell from shortfall, aggregated
+ // report, and per-material demand forecast.
+ const handleCreatePO = async (data: any) => {
+  try {
+   if (selectedMaterial) {
+    const po = await projectManagementService.generateMrpPo(String(selectedMaterial.id), {
+     supplier: data?.supplier ?? selectedMaterial.supplier,
+     requestedBy: data?.requestedBy,
+    });
+    if (!po) throw new Error('Failed to generate purchase order');
+    alert(
+     po.lines?.length
+      ? `PO shell created for ${po.lines[0].itemName}: ${po.totalQuantity} ${po.lines[0].unit} (est. ${formatCurrency(po.estimatedTotal)})`
+      : (po.note || 'No shortfall to order.'),
+    );
+   }
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to generate purchase order');
+  } finally {
+   setShowPurchaseOrderModal(false);
+   setSelectedMaterial(null);
+  }
+ };
+
+ const handleGenerateReport = async (_data: any) => {
+  try {
+   const report = await projectManagementService.getMrpReport();
+   if (!report) throw new Error('Failed to generate report');
+   const s = report.summary || {};
+   alert(
+    `MRP Report\nItems: ${s.totalItems ?? 0}\nShortfall items: ${s.shortfallItems ?? 0}\nShortfall value: ${formatCurrency(s.shortfallValue ?? 0)}\nTotal cost: ${formatCurrency(s.totalCost ?? 0)}`,
+   );
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to generate report');
+  } finally {
+   setShowReportModal(false);
+  }
+ };
+
+ const handleForecast = async (data: any) => {
+  try {
+   const target = selectedMaterial ?? materials[0];
+   if (!target) { setShowForecastModal(false); return; }
+   const forecast = await projectManagementService.getMrpForecast(String(target.id), data?.periods ?? 6);
+   if (!forecast) throw new Error('Failed to generate forecast');
+   const proj = (forecast.projections || [])
+    .map((p: any) => `P${p.period}: demand ${p.projectedDemand}, reorder ${p.reorderPoint}`)
+    .join('\n');
+   alert(`Demand forecast for ${forecast.itemName || target.itemName}\n${proj}`);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to generate forecast');
+  } finally {
+   setShowForecastModal(false);
+   setSelectedMaterial(null);
+  }
+ };
 
  // Helper functions to open modals with material context
  const openEditModal = (material: Material) => {

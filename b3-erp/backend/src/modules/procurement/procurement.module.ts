@@ -27,6 +27,7 @@ import {
   VendorController,
   SpendAnalysisController,
   ProcurementInsightsController,
+  SourcingStrategyController,
 } from './controllers';
 import {
   AuditTrail,
@@ -53,6 +54,7 @@ import {
   VendorMessage,
   VendorQuotation,
   Vendor,
+  SourcingStrategy,
 } from './entities';
 import {
   ApprovalThresholdSeederService,
@@ -75,6 +77,7 @@ import {
   VendorPerformanceAnalyticsService,
   VendorQuotationService,
   VendorService,
+  SourcingStrategyService,
 } from './services';
 import { ApprovalMatrixService } from './services/approval-matrix.service';
 import { AuditTrailService } from './services/audit-trail.service';
@@ -113,6 +116,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
       SavingsInitiative,
       VendorScorecard,
       Vendor,
+      SourcingStrategy,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -142,6 +146,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorController,
     SpendAnalysisController,
     ProcurementInsightsController,
+    SourcingStrategyController,
   ],
   providers: [
     ApprovalMatrixService,
@@ -173,6 +178,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorPerformanceAnalyticsService,
     VendorQuotationService,
     VendorService,
+    SourcingStrategyService,
   ],
   exports: [
     ApprovalMatrixService,

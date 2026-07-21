@@ -1020,27 +1020,69 @@ export default function StrategicSourcing() {
       <CreateSourcingProjectModal
         isOpen={isCreateProjectModalOpen}
         onClose={() => setIsCreateProjectModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Create sourcing project:', data)
-          setIsCreateProjectModalOpen(false)
+        onSubmit={async (data) => {
+          try {
+            await procurementPagesService.createSourcingStrategy({
+              name: data.title || data.name || 'Sourcing Project',
+              description: data.objective || data.scope || '',
+              category: data.category,
+              strategyType: 'sourcing_project',
+              status: 'planned',
+              targetSavings: Number(data.targetSavings) || 0,
+              startDate: data.startDate || null,
+              targetDate: data.endDate || null,
+              details: data,
+            })
+            alert('Sourcing project created.')
+          } catch (err: any) {
+            alert(`Failed to create sourcing project: ${err?.message ?? 'Unknown error'}`)
+          } finally {
+            setIsCreateProjectModalOpen(false)
+          }
         }}
       />
 
       <AnalyzeSpendModal
         isOpen={isAnalyzeSpendModalOpen}
         onClose={() => setIsAnalyzeSpendModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Analyze spend:', data)
-          setIsAnalyzeSpendModalOpen(false)
+        onSubmit={async (data) => {
+          try {
+            await procurementPagesService.createSourcingStrategy({
+              name: `Spend Analysis - ${data.analysisType || 'category'}`,
+              description: `Spend analysis (${data.timeRange || 'ytd'})`,
+              strategyType: 'spend_analysis',
+              status: 'active',
+              details: data,
+            })
+            alert('Spend analysis saved.')
+          } catch (err: any) {
+            alert(`Failed to save spend analysis: ${err?.message ?? 'Unknown error'}`)
+          } finally {
+            setIsAnalyzeSpendModalOpen(false)
+          }
         }}
       />
 
       <DevelopStrategyModal
         isOpen={isDevelopStrategyModalOpen}
         onClose={() => setIsDevelopStrategyModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Develop strategy:', data)
-          setIsDevelopStrategyModalOpen(false)
+        onSubmit={async (data) => {
+          try {
+            await procurementPagesService.createSourcingStrategy({
+              name: data.title || data.name || data.strategyName || 'Sourcing Strategy',
+              description: data.description || data.objective || '',
+              category: data.category,
+              strategyType: 'strategy',
+              status: 'active',
+              targetSavings: Number(data.targetSavings) || 0,
+              details: data,
+            })
+            alert('Sourcing strategy saved.')
+          } catch (err: any) {
+            alert(`Failed to save strategy: ${err?.message ?? 'Unknown error'}`)
+          } finally {
+            setIsDevelopStrategyModalOpen(false)
+          }
         }}
       />
 
@@ -1048,9 +1090,33 @@ export default function StrategicSourcing() {
         isOpen={isTrackImplementationModalOpen}
         onClose={() => setIsTrackImplementationModalOpen(false)}
         project={selectedProject}
-        onSubmit={(data) => {
-          console.log('Track implementation:', data)
-          setIsTrackImplementationModalOpen(false)
+        onSubmit={async (data) => {
+          try {
+            const existingId = selectedProject?.id
+            if (existingId) {
+              await procurementPagesService.updateSourcingStrategy(existingId, {
+                strategyType: 'implementation',
+                status: data.status || 'in_progress',
+                progress: Number(data.progress) || 0,
+                achievedSavings: Number(data.achievedSavings) || 0,
+                details: data,
+              })
+            } else {
+              await procurementPagesService.createSourcingStrategy({
+                name: data.title || data.projectName || 'Implementation Tracking',
+                strategyType: 'implementation',
+                status: data.status || 'in_progress',
+                progress: Number(data.progress) || 0,
+                achievedSavings: Number(data.achievedSavings) || 0,
+                details: data,
+              })
+            }
+            alert('Implementation progress saved.')
+          } catch (err: any) {
+            alert(`Failed to save implementation: ${err?.message ?? 'Unknown error'}`)
+          } finally {
+            setIsTrackImplementationModalOpen(false)
+          }
         }}
       />
     </div>

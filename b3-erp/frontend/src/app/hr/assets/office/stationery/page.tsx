@@ -31,10 +31,9 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // NOTE: HrAssetsService exposes only READ getStationery (writes are createAssetRequest/
-  // updateAssetRequest, and AssetManagementService has no stationery method). There is no
-  // backend stationery create/issue/reorder endpoint, so the actions below optimistically
-  // update the locally-loaded `stationery` state until such an endpoint exists.
+  // NOTE: Add Item (handleAdd) persists via HrAssetsService.createStationery.
+  // Issue/Reorder still update the locally-loaded `stationery` state only,
+  // pending dedicated backend issue/reorder transitions.
   const [selected, setSelected] = useState<StationeryItem | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [issueTarget, setIssueTarget] = useState<StationeryItem | null>(null);
@@ -43,31 +42,50 @@ export default function Page() {
   const [issueQty, setIssueQty] = useState('');
   const [reorderQty, setReorderQty] = useState('');
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const totalQuantity = Number(addForm.totalQuantity) || 0;
     const unitCost = Number(addForm.unitCost) || 0;
-    const newItem: StationeryItem = {
-      id: Date.now().toString(),
-      itemCode: addForm.itemCode,
-      itemName: addForm.itemName,
-      category: addForm.category,
-      brand: addForm.brand,
-      unit: addForm.unit,
-      totalQuantity,
-      issued: 0,
-      available: totalQuantity,
-      minStockLevel: 0,
-      reorderLevel: 0,
-      unitCost,
-      totalValue: totalQuantity * unitCost,
-      location: addForm.location,
-      supplier: addForm.supplier,
-      lastPurchaseDate: new Date().toISOString(),
-      status: 'in_stock',
-    };
-    setStationery(prev => [newItem, ...prev]);
-    setShowAdd(false);
-    setAddForm({ itemName: '', itemCode: '', brand: '', category: 'writing', unit: 'pcs', totalQuantity: '', unitCost: '', location: '', supplier: '' });
+    try {
+      const r = await HrAssetsService.createStationery({
+        itemCode: addForm.itemCode,
+        itemName: addForm.itemName,
+        category: addForm.category,
+        brand: addForm.brand,
+        unit: addForm.unit,
+        totalQuantity,
+        unitCost,
+        totalValue: totalQuantity * unitCost,
+        location: addForm.location,
+        supplier: addForm.supplier,
+      });
+      const categories: StationeryItem['category'][] = ['writing', 'paper', 'filing', 'desk', 'binding', 'other'];
+      const units: StationeryItem['unit'][] = ['pcs', 'box', 'pack', 'ream', 'set'];
+      const statuses: StationeryItem['status'][] = ['in_stock', 'low_stock', 'out_of_stock', 'reorder'];
+      const created: StationeryItem = {
+        id: String(r.id ?? Date.now()),
+        itemCode: r.itemCode ?? addForm.itemCode,
+        itemName: r.itemName ?? addForm.itemName,
+        category: categories.includes(r.category as StationeryItem['category']) ? (r.category as StationeryItem['category']) : addForm.category,
+        brand: r.brand ?? addForm.brand,
+        unit: units.includes(r.unit as StationeryItem['unit']) ? (r.unit as StationeryItem['unit']) : addForm.unit,
+        totalQuantity: Number(r.totalQuantity ?? totalQuantity),
+        issued: Number(r.issued ?? 0),
+        available: Number(r.available ?? totalQuantity),
+        minStockLevel: Number(r.minStockLevel ?? 0),
+        reorderLevel: Number(r.reorderLevel ?? 0),
+        unitCost: Number(r.unitCost ?? unitCost),
+        totalValue: Number(r.totalValue ?? totalQuantity * unitCost),
+        location: r.location ?? addForm.location,
+        supplier: r.supplier ?? addForm.supplier,
+        lastPurchaseDate: r.lastPurchaseDate ?? new Date().toISOString(),
+        status: statuses.includes(r.status as StationeryItem['status']) ? (r.status as StationeryItem['status']) : 'in_stock',
+      };
+      setStationery(prev => [created, ...prev]);
+      setShowAdd(false);
+      setAddForm({ itemName: '', itemCode: '', brand: '', category: 'writing', unit: 'pcs', totalQuantity: '', unitCost: '', location: '', supplier: '' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save');
+    }
   };
 
   const handleIssue = () => {

@@ -72,6 +72,20 @@ class HrMastersService {
         return response.data || [];
     }
 
+    async createHoliday(data: { name: string; date: string; companyId: string; type?: string; description?: string }): Promise<Holiday> {
+        const response = await apiClient.post<Holiday>('/api/v1/common-masters/holidays', data);
+        return response.data;
+    }
+
+    async updateHoliday(id: string, data: { name?: string; date?: string; type?: string; description?: string; isActive?: boolean }): Promise<Holiday> {
+        const response = await apiClient.put<Holiday>(`/api/v1/common-masters/holidays/${id}`, data);
+        return response.data;
+    }
+
+    async deleteHoliday(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/holidays/${id}`);
+    }
+
     async getAllDesignations(companyId: string): Promise<Designation[]> {
         const response = await apiClient.get<Designation[]>(`/api/v1/common-masters/designations?companyId=${companyId}`);
         return response.data || [];

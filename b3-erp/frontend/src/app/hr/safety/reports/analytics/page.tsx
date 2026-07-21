@@ -54,18 +54,6 @@ interface RecentIncidentRow {
 // Type -> palette map (colors are stable labels, not data)
 const INCIDENT_TYPE_COLORS = ['#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#6b7280'];
 
-// Monthly time-series is not carried by the flat report list; left as-is
-// pending a time-bucketed backend feed.
-const monthlyTrends = [
-  { month: 'Jul', incidents: 8, nearMisses: 4, lostDays: 12 },
-  { month: 'Aug', incidents: 6, nearMisses: 5, lostDays: 8 },
-  { month: 'Sep', incidents: 9, nearMisses: 7, lostDays: 15 },
-  { month: 'Oct', incidents: 5, nearMisses: 3, lostDays: 6 },
-  { month: 'Nov', incidents: 7, nearMisses: 6, lostDays: 10 },
-  { month: 'Dec', incidents: 4, nearMisses: 2, lostDays: 4 },
-  { month: 'Jan', incidents: 8, nearMisses: 5, lostDays: 11 }
-];
-
 // Shift/root-cause breakdowns require fields not present on the report list;
 // left as-is pending a richer backend feed.
 const incidentsByShift = [
@@ -85,6 +73,9 @@ const rootCauses = [
 export default function IncidentAnalyticsPage() {
   const [dateRange, setDateRange] = useState('last6months');
   const [recentIncidents, setRecentIncidents] = useState<RecentIncidentRow[]>([]);
+  const [monthlyTrends, setMonthlyTrends] = useState<
+    Array<{ month: string; incidents: number; nearMisses: number; lostDays: number }>
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -138,8 +129,19 @@ export default function IncidentAnalyticsPage() {
     const load = async () => {
       setIsLoading(true);
       setLoadError(null);
+      const monthsBack =
+        dateRange === 'last30days'
+          ? 1
+          : dateRange === 'last3months'
+            ? 3
+            : dateRange === 'lastyear'
+              ? 12
+              : 6;
       try {
-        const rows = await HrSafetyService.getReports('analytics');
+        const [rows, trends] = await Promise.all([
+          HrSafetyService.getReports('analytics'),
+          HrSafetyService.getTrends(monthsBack),
+        ]);
         const mapped: RecentIncidentRow[] = rows.map((row: SafetyReport) => {
           const meta = (row.meta || {}) as any;
           return {
@@ -151,11 +153,22 @@ export default function IncidentAnalyticsPage() {
             status: row.status ?? '',
           };
         });
-        if (!cancelled) setRecentIncidents(mapped);
+        if (!cancelled) {
+          setRecentIncidents(mapped);
+          setMonthlyTrends(
+            trends.monthlyTrends.map((m) => ({
+              month: m.month,
+              incidents: m.incidents,
+              nearMisses: m.nearMisses,
+              lostDays: m.lostDays,
+            })),
+          );
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load incident analytics');
           setRecentIncidents([]);
+          setMonthlyTrends([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -165,7 +178,7 @@ export default function IncidentAnalyticsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dateRange]);
 
   return (
     <div className="p-6 space-y-3 text-sm font-medium">

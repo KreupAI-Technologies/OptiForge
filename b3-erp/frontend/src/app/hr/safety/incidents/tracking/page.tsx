@@ -5,6 +5,7 @@ import { AlertTriangle, AlertCircle, CheckCircle, Clock, XCircle, Eye, TrendingD
 import DataTable from '@/components/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { HrSafetyService } from '@/services/hr-safety.service';
 
 interface SafetyIncident {
   id: string;
@@ -32,6 +33,7 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [rows, setRows] = useState<SafetyIncident[]>([]);
+  const [ltir, setLtir] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -62,7 +64,17 @@ export default function Page() {
           daysLost: Number(r.daysLost ?? 0),
           medicalAttention: Boolean(r.medicalAttention ?? false),
         }));
-        if (!cancelled) setRows(mapped);
+        let trirLtir: number | null = null;
+        try {
+          const trends = await HrSafetyService.getTrends(12);
+          trirLtir = trends.summary.ltir;
+        } catch {
+          trirLtir = null; // aggregate is best-effort; keep the list working
+        }
+        if (!cancelled) {
+          setRows(mapped);
+          setLtir(trirLtir);
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load safety incidents');
@@ -94,9 +106,9 @@ export default function Page() {
     resolved: rows.filter(i => i.status === 'resolved').length,
     totalDaysLost: rows.reduce((sum, i) => sum + i.daysLost, 0),
     medicalCases: rows.filter(i => i.medicalAttention).length,
-    // LTIR = (lost-time injuries / total hours worked) × 200,000. Total hours
-    // worked is not exposed by any endpoint yet, so it cannot be computed here.
-    mtir: 'N/A' as string,
+    // LTIR = (lost-time injuries × 200,000 / hours worked), computed server-side
+    // by the safety analytics aggregate. Falls back to 'N/A' if unavailable.
+    mtir: (ltir != null ? ltir.toFixed(2) : 'N/A') as string,
   };
 
   const getSeverityColor = (severity: string) => {

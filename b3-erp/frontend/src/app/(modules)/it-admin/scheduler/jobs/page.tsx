@@ -330,6 +330,28 @@ const SchedulerJobsPage = () => {
   const handleRunNow = (jobId: string) => {
     const job = jobs.find(j => j.id === jobId);
     setToast({ message: `Running "${job?.name}" immediately...`, type: 'info' });
+    void (async () => {
+      try {
+        const updated = await ItAdminService.runScheduledJob(jobId);
+        setJobs(prev =>
+          prev.map(j =>
+            j.id === jobId
+              ? {
+                  ...j,
+                  lastRun: updated.lastRun ?? j.lastRun,
+                  lastRunStatus: updated.lastRunStatus ?? j.lastRunStatus,
+                  status: updated.status ?? j.status,
+                  totalRuns: updated.totalRuns ?? j.totalRuns,
+                  successRate: updated.successRate ?? j.successRate,
+                }
+              : j,
+          ),
+        );
+        setToast({ message: `Job "${job?.name}" ran successfully`, type: 'success' });
+      } catch {
+        setToast({ message: `Failed to run "${job?.name}"`, type: 'error' });
+      }
+    })();
   };
 
   const handleToggleStatus = (jobId: string) => {

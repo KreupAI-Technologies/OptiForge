@@ -47,6 +47,23 @@ export class SystemMonitorController {
     return this.service.summary(kind || 'health', companyId);
   }
 
+  @Get('history')
+  @ApiOperation({ summary: 'Recent monitoring time-series for a kind' })
+  @ApiQuery({ name: 'kind', required: false })
+  @ApiQuery({ name: 'companyId', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  async history(
+    @Query('kind') kind?: string,
+    @Query('companyId') companyId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.history(
+      kind || 'performance',
+      companyId,
+      limit ? parseInt(limit, 10) : 30,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get monitoring record by ID' })
   async findOne(@Param('id') id: string): Promise<SystemMonitor> {

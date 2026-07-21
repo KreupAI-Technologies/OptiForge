@@ -6,6 +6,7 @@ import {
   TrendingUp, Clock, RefreshCw, Download, Shield, Zap
 } from 'lucide-react'
 import { ItAdminService } from '@/services/it-admin.service'
+import { exportToCsv } from '@/lib/export'
 
 interface LicenseInfo {
   type: string
@@ -107,6 +108,14 @@ export default function LicenseManagement() {
 
   const utilizationPercentage = (licenseInfo.usedLicenses / licenseInfo.totalLicenses) * 100
 
+  // Download is a client-side export — no license-document store exists.
+  const handleDownloadReport = () => {
+    exportToCsv(
+      'license-report',
+      modules as unknown as Record<string, unknown>[],
+    )
+  }
+
   return (
     <div className="p-6 space-y-3">
       {/* Header */}
@@ -116,7 +125,7 @@ export default function LicenseManagement() {
           <p className="text-gray-600 mt-1">Manage your software licenses and monitor usage</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button onClick={handleDownloadReport} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
             <Download className="h-4 w-4 inline mr-2" />
             Download Report
           </button>

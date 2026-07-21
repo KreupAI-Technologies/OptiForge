@@ -172,9 +172,13 @@ export default function DatabaseBackupPage() {
     }
   };
 
-  const handleRestore = (backupId: string) => {
-    // No restore endpoint exists on the backup-records controller yet.
-    console.log('Restoring backup:', backupId);
+  const handleRestore = async (backupId: string) => {
+    try {
+      await ItAdminService.restoreBackupRecord(backupId);
+      await loadBackups();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to restore backup');
+    }
   };
 
   const handleDelete = async (backupId: string) => {

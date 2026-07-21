@@ -248,7 +248,57 @@ export interface SafetyReport {
   meta?: any;
 }
 
+export interface SafetyTrendMonth {
+  month: string;
+  monthKey: string;
+  incidents: number;
+  nearMisses: number;
+  lostDays: number;
+  recordable: number;
+  lostTime: number;
+  trir: number;
+  ltir: number;
+  target: number;
+}
+
+export interface SafetyTrends {
+  monthlyTrends: SafetyTrendMonth[];
+  summary: {
+    totalIncidents: number;
+    totalNearMisses: number;
+    totalLostDays: number;
+    trir: number;
+    ltir: number;
+  };
+}
+
 export class HrSafetyService {
+  /**
+   * Time-series safety analytics computed server-side from incident rows.
+   * Supplies monthlyTrends + TRIR/LTIR series the flat list cannot provide.
+   * Empty-safe: monthlyTrends still spans the window with zeroed metrics.
+   */
+  static async getTrends(
+    monthsBack = 6,
+    companyId = 'company-1',
+  ): Promise<SafetyTrends> {
+    const data = await getJson<SafetyTrends>(
+      `/hr/safety-incidents/analytics/trends?${qs(companyId, {
+        monthsBack: String(monthsBack),
+      })}`,
+    );
+    return {
+      monthlyTrends: Array.isArray(data?.monthlyTrends) ? data.monthlyTrends : [],
+      summary: data?.summary ?? {
+        totalIncidents: 0,
+        totalNearMisses: 0,
+        totalLostDays: 0,
+        trir: 0,
+        ltir: 0,
+      },
+    };
+  }
+
   static async getIncidents(
     status?: string,
     companyId = 'company-1',

@@ -40,6 +40,9 @@ export class LicenseUser {
   @Column({ length: 50, nullable: true })
   lastActive: string;
 
+  @Column({ length: 50, nullable: true })
+  validUntil: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

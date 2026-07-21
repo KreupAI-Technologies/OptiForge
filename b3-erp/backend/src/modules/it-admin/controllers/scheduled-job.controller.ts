@@ -53,6 +53,12 @@ export class ScheduledJobController {
     return this.service.update(id, data);
   }
 
+  @Post(':id/run')
+  @ApiOperation({ summary: 'Run a scheduled job immediately' })
+  async run(@Param('id') id: string): Promise<ScheduledJob> {
+    return this.service.run(id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete scheduled job' })

@@ -74,18 +74,9 @@ const kpiData = {
   incidentsClosed: { value: 87, target: 90, trend: 8, status: 'On Track' }
 };
 
-// Monthly time-series and per-department scores are not derivable from the
-// flat report list; left as reference series pending time-bucketed feeds.
-const monthlyKPITrend = [
-  { month: 'Jul', trir: 2.4, ltir: 0.6, target: 2.0 },
-  { month: 'Aug', trir: 2.2, ltir: 0.5, target: 2.0 },
-  { month: 'Sep', trir: 2.1, ltir: 0.5, target: 2.0 },
-  { month: 'Oct', trir: 1.9, ltir: 0.4, target: 2.0 },
-  { month: 'Nov', trir: 2.0, ltir: 0.4, target: 2.0 },
-  { month: 'Dec', trir: 1.7, ltir: 0.3, target: 2.0 },
-  { month: 'Jan', trir: 1.8, ltir: 0.4, target: 2.0 }
-];
-
+// Per-department scores are not derivable from the flat report list; left as
+// reference series pending a department-bucketed feed. The TRIR/LTIR monthly
+// time-series is now computed server-side (see monthlyKPITrend state below).
 const departmentScores = [
   { dept: 'Manufacturing', score: 91, target: 95 },
   { dept: 'Warehouse', score: 88, target: 95 },
@@ -103,16 +94,36 @@ export default function SafetyKPIsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('ytd');
   const [leadingIndicators, setLeadingIndicators] = useState<LeadingIndicatorRow[]>([]);
   const [laggingIndicators, setLaggingIndicators] = useState<LaggingIndicatorRow[]>([]);
+  const [monthlyKPITrend, setMonthlyKPITrend] = useState<
+    Array<{ month: string; trir: number; ltir: number; target: number }>
+  >([]);
+  // Computed TRIR/LTIR summary; overrides the static card reference values.
+  const [computedTrir, setComputedTrir] = useState<number | null>(null);
+  const [computedLtir, setComputedLtir] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const trirValue = computedTrir ?? kpiData.trir.value;
+  const ltirValue = computedLtir ?? kpiData.ltir.value;
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setIsLoading(true);
       setLoadError(null);
+      const monthsBack =
+        selectedPeriod === 'mtd'
+          ? 1
+          : selectedPeriod === 'qtd'
+            ? 3
+            : selectedPeriod === 'rolling12'
+              ? 12
+              : 12; // ytd
       try {
-        const rows = await HrSafetyService.getReports('kpi');
+        const [rows, trends] = await Promise.all([
+          HrSafetyService.getReports('kpi'),
+          HrSafetyService.getTrends(monthsBack),
+        ]);
         const leading: LeadingIndicatorRow[] = [];
         const lagging: LaggingIndicatorRow[] = [];
         rows.forEach((row: SafetyReport) => {
@@ -141,12 +152,23 @@ export default function SafetyKPIsPage() {
         if (!cancelled) {
           setLeadingIndicators(leading);
           setLaggingIndicators(lagging);
+          setMonthlyKPITrend(
+            trends.monthlyTrends.map((m) => ({
+              month: m.month,
+              trir: m.trir,
+              ltir: m.ltir,
+              target: m.target,
+            })),
+          );
+          setComputedTrir(trends.summary.trir);
+          setComputedLtir(trends.summary.ltir);
         }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load safety KPIs');
           setLeadingIndicators([]);
           setLaggingIndicators([]);
+          setMonthlyKPITrend([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -156,7 +178,7 @@ export default function SafetyKPIsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedPeriod]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -224,7 +246,7 @@ export default function SafetyKPIsPage() {
             </span>
           </div>
           <div className="flex items-end gap-2">
-            <p className="text-4xl font-black text-gray-900 italic tracking-tighter leading-none">{kpiData.trir.value}</p>
+            <p className="text-4xl font-black text-gray-900 italic tracking-tighter leading-none">{trirValue}</p>
             <p className="text-sm text-gray-400 font-bold mb-1">/ {kpiData.trir.target}</p>
           </div>
           <div className="flex items-center gap-1 mt-4">
@@ -245,7 +267,7 @@ export default function SafetyKPIsPage() {
             </span>
           </div>
           <div className="flex items-end gap-2">
-            <p className="text-4xl font-black text-gray-900 italic tracking-tighter leading-none">{kpiData.ltir.value}</p>
+            <p className="text-4xl font-black text-gray-900 italic tracking-tighter leading-none">{ltirValue}</p>
             <p className="text-sm text-gray-400 font-bold mb-1">/ {kpiData.ltir.target}</p>
           </div>
           <div className="flex items-center gap-1 mt-4">

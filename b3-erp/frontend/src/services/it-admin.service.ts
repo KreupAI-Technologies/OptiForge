@@ -398,6 +398,42 @@ export interface SystemMonitorSummaryDto {
   bySeverity: Record<string, number>;
 }
 
+export interface SystemMonitorHistoryDto {
+  kind: string;
+  metrics: string[];
+  series: Array<{ timestamp: string; values: Record<string, number> }>;
+}
+
+export interface ComplianceRequirementDto {
+  id: string;
+  companyId?: string;
+  standard: string;
+  requirement: string;
+  description?: string;
+  category: string;
+  status: string;
+  severity: string;
+  compliance: number;
+  lastAssessed?: string;
+  nextReview?: string;
+  owner?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ComplianceReportDto {
+  generatedAt: string;
+  totalRequirements: number;
+  overallCompliance: number;
+  byStatus: Record<string, number>;
+  bySeverity: Record<string, number>;
+  byStandard: Array<{
+    standard: string;
+    count: number;
+    averageCompliance: number;
+  }>;
+}
+
 export interface SystemConfigValueDto {
   key: string;
   value: any;
@@ -529,6 +565,12 @@ class ItAdminServiceClass {
     return request<ScheduledJobDto>(`/it-admin/scheduled-jobs/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  }
+
+  async runScheduledJob(id: string): Promise<ScheduledJobDto> {
+    return request<ScheduledJobDto>(`/it-admin/scheduled-jobs/${id}/run`, {
+      method: 'POST',
     });
   }
 
@@ -798,6 +840,16 @@ class ItAdminServiceClass {
     });
   }
 
+  async renewLicenseUser(
+    id: string,
+    months = 12,
+  ): Promise<LicenseUserDto> {
+    return request<LicenseUserDto>(`/it-admin/license-users/${id}/renew`, {
+      method: 'POST',
+      body: JSON.stringify({ months }),
+    });
+  }
+
   // --- Security Policies ---
   async getSecurityPolicies(params?: {
     companyId?: string;
@@ -883,6 +935,12 @@ class ItAdminServiceClass {
     });
   }
 
+  async restoreBackupRecord(id: string): Promise<BackupRecordDto> {
+    return request<BackupRecordDto>(`/it-admin/backup-records/${id}/restore`, {
+      method: 'POST',
+    });
+  }
+
   async deleteBackupRecord(id: string): Promise<void> {
     return request<void>(`/it-admin/backup-records/${id}`, {
       method: 'DELETE',
@@ -934,6 +992,37 @@ class ItAdminServiceClass {
   ): Promise<SystemMonitorSummaryDto> {
     return request<SystemMonitorSummaryDto>(
       `/it-admin/monitoring/summary${qs({ kind, companyId })}`,
+    );
+  }
+
+  async getMonitoringHistory(params?: {
+    kind?: string;
+    companyId?: string;
+    limit?: string;
+  }): Promise<SystemMonitorHistoryDto> {
+    return request<SystemMonitorHistoryDto>(
+      `/it-admin/monitoring/history${qs(params)}`,
+    );
+  }
+
+  // --- Compliance Requirements ---
+  async getComplianceRequirements(params?: {
+    companyId?: string;
+    standard?: string;
+    category?: string;
+    status?: string;
+    severity?: string;
+  }): Promise<ComplianceRequirementDto[]> {
+    return request<ComplianceRequirementDto[]>(
+      `/it-admin/compliance-requirements${qs(params)}`,
+    );
+  }
+
+  async generateComplianceReport(
+    companyId?: string,
+  ): Promise<ComplianceReportDto> {
+    return request<ComplianceReportDto>(
+      `/it-admin/compliance-requirements/report${qs({ companyId })}`,
     );
   }
 
