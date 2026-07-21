@@ -187,7 +187,9 @@ const ComplianceAuditPage = () => {
     let cancelled = false;
     ItAdminService.getComplianceRequirements()
       .then((rows) => {
-        if (cancelled || !rows || rows.length === 0) return;
+        // Successful fetch => trust the backend result even if empty
+        // (empty backend renders an empty catalog, not the illustrative mock).
+        if (cancelled || !Array.isArray(rows)) return;
         setRequirements(
           rows.map((dto) => ({
             id: dto.id,
@@ -250,7 +252,9 @@ const ComplianceAuditPage = () => {
   }, []);
 
   const stats: ComplianceStats = {
-    overallCompliance: Math.round(requirements.reduce((acc, req) => acc + req.compliance, 0) / requirements.length),
+    overallCompliance: requirements.length > 0
+      ? Math.round(requirements.reduce((acc, req) => acc + req.compliance, 0) / requirements.length)
+      : 0,
     totalRequirements: requirements.length,
     compliant: requirements.filter(r => r.status === 'Compliant').length,
     partiallyCompliant: requirements.filter(r => r.status === 'Partially Compliant').length,

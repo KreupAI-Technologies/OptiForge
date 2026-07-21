@@ -15,6 +15,7 @@ import {
     ArrowRight
 } from 'lucide-react';
 import { HrMovementsService } from '@/services/hr-movements.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 
 interface ReviewCycle {
     id: string;
@@ -35,39 +36,61 @@ export default function ReviewCyclesPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
+    const [showCreate, setShowCreate] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [createError, setCreateError] = useState<string | null>(null);
+    const [createForm, setCreateForm] = useState({ cycleName: '', cycleType: 'quarterly', startDate: '', endDate: '', description: '' });
+
+    const loadCycles = async () => {
+        setIsLoading(true);
+        setLoadError(null);
+        try {
+            const raw = await HrMovementsService.getTransfersPromotions();
+            const rows: any[] = Array.isArray(raw) ? raw : [];
+            const mapped: ReviewCycle[] = rows.map((r) => ({
+                id: r?.id ?? '',
+                name: r?.name ?? r?.title ?? 'Review Cycle',
+                type: r?.type ?? 'Annual',
+                startDate: r?.startDate ?? r?.effectiveDate ?? r?.createdAt ?? '',
+                endDate: r?.endDate ?? '',
+                status: r?.status ?? 'Planned',
+                participants: r?.participants ?? 0,
+                completionRate: r?.completionRate ?? 0,
+                description: r?.description ?? r?.remarks ?? '',
+            }));
+            setCycles(mapped);
+        } catch (e) {
+            setLoadError(e instanceof Error ? e.message : 'Failed to load');
+            setCycles([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            setIsLoading(true);
-            setLoadError(null);
-            try {
-                const raw = await HrMovementsService.getTransfersPromotions();
-                const rows: any[] = Array.isArray(raw) ? raw : [];
-                const mapped: ReviewCycle[] = rows.map((r) => ({
-                    id: r?.id ?? '',
-                    name: r?.name ?? r?.title ?? 'Review Cycle',
-                    type: r?.type ?? 'Annual',
-                    startDate: r?.startDate ?? r?.effectiveDate ?? r?.createdAt ?? '',
-                    endDate: r?.endDate ?? '',
-                    status: r?.status ?? 'Planned',
-                    participants: r?.participants ?? 0,
-                    completionRate: r?.completionRate ?? 0,
-                    description: r?.description ?? r?.remarks ?? '',
-                }));
-                if (!cancelled) setCycles(mapped);
-            } catch (e) {
-                if (!cancelled) {
-                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
-                    setCycles([]);
-                }
-            } finally {
-                if (!cancelled) setIsLoading(false);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
+        loadCycles();
     }, []);
+
+    const handleCreateCycle = async () => {
+        setSaving(true);
+        setCreateError(null);
+        try {
+            await PerformanceManagementService.createReviewCycle({
+                cycleName: createForm.cycleName,
+                cycleType: createForm.cycleType,
+                startDate: createForm.startDate,
+                endDate: createForm.endDate,
+                description: createForm.description,
+            });
+            setShowCreate(false);
+            setCreateForm({ cycleName: '', cycleType: 'quarterly', startDate: '', endDate: '', description: '' });
+            await loadCycles();
+        } catch (e) {
+            setCreateError(e instanceof Error ? e.message : 'Failed to create review cycle');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const filteredCycles = cycles.filter(cycle => {
         const matchesSearch = cycle.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -98,7 +121,7 @@ export default function ReviewCyclesPage() {
                         </h1>
                         <p className="text-gray-400 mt-1">Manage appraisal periods, track progress, and view history.</p>
                     </div>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-lg shadow-purple-900/20">
+                    <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-lg shadow-purple-900/20">
                         <Plus className="w-4 h-4" />
                         Create New Cycle
                     </button>
@@ -213,6 +236,49 @@ export default function ReviewCyclesPage() {
                     </div>
                 )}
             </div>
+
+            {showCreate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowCreate(false)}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-lg font-bold text-white mb-3">Create New Review Cycle</h2>
+                        {createError && (
+                            <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">{createError}</div>
+                        )}
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Cycle Name</label>
+                                <input type="text" value={createForm.cycleName} onChange={(e) => setCreateForm({ ...createForm, cycleName: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Cycle Type</label>
+                                <select value={createForm.cycleType} onChange={(e) => setCreateForm({ ...createForm, cycleType: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <option value="annual">Annual</option>
+                                    <option value="half-yearly">Half-Yearly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                    <option value="probation">Probation</option>
+                                    <option value="project-based">Project-Based</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Start Date</label>
+                                <input type="date" value={createForm.startDate} onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">End Date</label>
+                                <input type="date" value={createForm.endDate} onChange={(e) => setCreateForm({ ...createForm, endDate: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                                <textarea rows={3} value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm">Cancel</button>
+                            <button onClick={handleCreateCycle} disabled={saving} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Create Cycle'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

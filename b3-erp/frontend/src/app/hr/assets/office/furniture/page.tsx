@@ -96,7 +96,7 @@ export default function Page() {
     }
   ];
 
-  const [mockFurniture, setMockFurniture] = useState<FurnitureAsset[]>(fallbackFurniture);
+  const [mockFurniture, setMockFurniture] = useState<FurnitureAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -181,8 +181,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetItems('furniture');
         if (cancelled) return;
-        if (rows.length) {
-          setMockFurniture(
+        setMockFurniture(
             rows.map((r) => ({
               id: r.id,
               assetTag: r.assetTag || '',
@@ -199,10 +198,11 @@ export default function Page() {
               location: r.location || '',
             })),
           );
-        }
       } catch (err) {
-        if (!cancelled)
+        if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load furniture');
+          setMockFurniture(fallbackFurniture);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

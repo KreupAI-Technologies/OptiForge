@@ -39,21 +39,23 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
   const [isScheduleReportModalOpen, setIsScheduleReportModalOpen] = useState(false)
   const [isDashboardCustomizationModalOpen, setIsDashboardCustomizationModalOpen] = useState(false)
 
-  // Mock KPI data
-  const kpiMetrics = {
-    totalSpend: 2450000,
-    spendChange: 12.5,
-    totalOrders: 1234,
-    ordersChange: 8.3,
-    activeSuppliers: 156,
-    suppliersChange: 5.2,
-    avgOrderValue: 1986,
-    orderValueChange: -3.1,
-    savingsAchieved: 125000,
-    savingsTarget: 150000,
-    contractCompliance: 94.5,
-    complianceTarget: 95
-  };
+  // KPI data — totalSpend / totalOrders / activeSuppliers / avgOrderValue wired
+  // from getAnalyticsInsights().kpis. Change/target deltas are not part of the
+  // insight payload (needs-backend) and default to 0 until available.
+  const [kpiMetrics, setKpiMetrics] = useState({
+    totalSpend: 0,
+    spendChange: 0,
+    totalOrders: 0,
+    ordersChange: 0,
+    activeSuppliers: 0,
+    suppliersChange: 0,
+    avgOrderValue: 0,
+    orderValueChange: 0,
+    savingsAchieved: 0,
+    savingsTarget: 0,
+    contractCompliance: 0,
+    complianceTarget: 0
+  });
 
   // Mock spend analysis data
   const spendByCategory = [
@@ -92,6 +94,14 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
             risk: v?.risk ?? 'low',
           }))
         );
+        const k = insights?.kpis ?? {};
+        setKpiMetrics((prev) => ({
+          ...prev,
+          totalSpend: Number(k.totalSpend) || 0,
+          totalOrders: Number(k.orderCount) || 0,
+          activeSuppliers: Number(k.activeVendors) || 0,
+          avgOrderValue: Number(k.avgOrderValue) || 0,
+        }));
       } catch {
         setSupplierPerformance([]);
       }

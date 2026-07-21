@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Shield, CheckCircle, XCircle, Edit, Save } from 'lucide-react';
 import { ItAdminService } from '@/services/it-admin.service';
+import { RoleService } from '@/services/role.service';
 
 interface Permission {
   id: string;
@@ -180,6 +181,15 @@ export default function RolePermissionsPage() {
   const [roles, setRoles] = useState<Role[]>(fallbackRoles);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (saveMessage) {
+      const timer = setTimeout(() => setSaveMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveMessage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,22 +199,21 @@ export default function RolePermissionsPage() {
       try {
         const raw = await ItAdminService.getRoles();
         const list = Array.isArray(raw) ? raw : [];
-        if (list.length > 0) {
-          const mapped: Role[] = list.map((r) => ({
-            id: String(r.id ?? r.code ?? r.name),
-            name: r.name ?? r.code ?? 'Unnamed Role',
-            description: r.description ?? '',
-            userCount: Number(r.userCount ?? 0),
-            permissions: Array.isArray(r.permissions)
-              ? (r.permissions as Permission[])
-              : [],
-          }));
-          if (!cancelled) {
-            setRoles(mapped);
-            setSelectedRole(mapped[0].id);
-          }
+        const mapped: Role[] = list.map((r) => ({
+          id: String(r.id ?? r.code ?? r.name),
+          name: r.name ?? r.code ?? 'Unnamed Role',
+          description: r.description ?? '',
+          userCount: Number(r.userCount ?? 0),
+          permissions: Array.isArray(r.permissions)
+            ? (r.permissions as Permission[])
+            : [],
+        }));
+        // Successful fetch => trust the backend result even if empty
+        // (empty backend renders an empty UI, not the illustrative mock).
+        if (!cancelled) {
+          setRoles(mapped);
+          if (mapped.length > 0) setSelectedRole(mapped[0].id);
         }
-        // If backend has no roles yet, keep the illustrative fallback list.
       } catch (err) {
         if (!cancelled) {
           setLoadError(
@@ -226,6 +235,26 @@ export default function RolePermissionsPage() {
     p.module.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.resource.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  const handleSave = async () => {
+    if (!currentRole) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      // Persist the edited permission set for the selected role.
+      // UpdateRoleDto expects a flat list of permission ids.
+      const permissionIds = currentRole.permissions.map((p) => p.id);
+      await RoleService.updateRole(currentRole.id, { permissionIds });
+      setSaveMessage({ type: 'success', text: 'Permissions saved successfully.' });
+    } catch (err) {
+      setSaveMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to save permissions',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
@@ -274,11 +303,27 @@ export default function RolePermissionsPage() {
               <h2 className="text-lg font-bold text-gray-900">{currentRole?.name}</h2>
               <p className="text-sm text-gray-500">{currentRole?.description}</p>
             </div>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={isSaving || !currentRole}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm flex items-center gap-2 disabled:opacity-60"
+            >
               <Save className="w-4 h-4" />
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
+
+          {saveMessage && (
+            <div
+              className={`mb-3 rounded-lg border px-4 py-2 text-sm ${
+                saveMessage.type === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}
+            >
+              {saveMessage.text}
+            </div>
+          )}
 
           <div className="mb-2 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

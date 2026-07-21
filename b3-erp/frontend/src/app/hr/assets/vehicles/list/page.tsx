@@ -125,7 +125,7 @@ export default function Page() {
     }
   ];
 
-  const [mockVehicles, setMockVehicles] = useState<Vehicle[]>(fallbackVehicles);
+  const [mockVehicles, setMockVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -232,8 +232,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getVehicles();
         if (cancelled) return;
-        if (rows.length) {
-          setMockVehicles(
+        setMockVehicles(
             rows.map((r) => ({
               id: r.id,
               vehicleNumber: r.vehicleNumber || '',
@@ -254,10 +253,11 @@ export default function Page() {
               location: r.location || '',
             })),
           );
-        }
       } catch (err) {
-        if (!cancelled)
+        if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load vehicles');
+          setMockVehicles(fallbackVehicles);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

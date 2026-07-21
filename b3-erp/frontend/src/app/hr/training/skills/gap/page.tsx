@@ -12,6 +12,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService, TrainingSchedule } from '@/services/training-development.service';
 import {
   Radar,
   RadarChart,
@@ -55,6 +56,51 @@ export default function GapAnalysisPage() {
   const [skillGaps, setSkillGaps] = useState<SkillGap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [enrollFor, setEnrollFor] = useState<{ title: string } | null>(null);
+  const [schedules, setSchedules] = useState<TrainingSchedule[]>([]);
+  const [enrollForm, setEnrollForm] = useState({ scheduleId: '', employeeName: '', employeeCode: '', department: '' });
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [enrollMessage, setEnrollMessage] = useState<string | null>(null);
+
+  const openEnroll = async (rec: { title: string }) => {
+    setEnrollFor(rec);
+    setEnrollError(null);
+    setEnrollMessage(null);
+    setEnrollForm({ scheduleId: '', employeeName: '', employeeCode: '', department: '' });
+    try {
+      const { data } = await TrainingDevelopmentService.getTrainingSchedules();
+      setSchedules(data);
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'Failed to load training schedules');
+      setSchedules([]);
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!enrollForm.scheduleId) {
+      setEnrollError('Please select a training schedule.');
+      return;
+    }
+    setEnrolling(true);
+    setEnrollError(null);
+    try {
+      await TrainingDevelopmentService.enrollInTraining({
+        scheduleId: enrollForm.scheduleId,
+        employeeId: enrollForm.employeeCode,
+        employeeName: enrollForm.employeeName,
+        employeeCode: enrollForm.employeeCode,
+        department: enrollForm.department || undefined,
+      });
+      setEnrollMessage('Employee enrolled successfully.');
+      setEnrollFor(null);
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'Failed to enroll employee');
+    } finally {
+      setEnrolling(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +177,11 @@ export default function GapAnalysisPage() {
           {loadError}
         </div>
       )}
+      {enrollMessage && (
+        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {enrollMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Radar Chart */}
@@ -172,7 +223,7 @@ export default function GapAnalysisPage() {
 
           <div className="space-y-2">
             {recommendations.map((rec) => (
-              <div key={rec.id} className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors group cursor-pointer">
+              <div key={rec.id} className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors group">
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-700">{rec.title}</h3>
@@ -183,9 +234,9 @@ export default function GapAnalysisPage() {
                     {rec.type}
                   </span>
                 </div>
-                <div className="flex items-center text-xs font-medium text-purple-600 mt-2">
+                <button onClick={() => openEnroll(rec)} className="flex items-center text-xs font-medium text-purple-600 mt-2 hover:text-purple-800">
                   Enroll Employees <ArrowRight className="w-3 h-3 ml-1 group-hover:translate-x-0.5 transition-transform" />
-                </div>
+                </button>
               </div>
             ))}
           </div>
@@ -254,6 +305,48 @@ export default function GapAnalysisPage() {
           </table>
         </div>
       </div>
+
+      {enrollFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEnrollFor(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Enroll Employees</h2>
+            <p className="text-sm text-gray-500 mb-3">{enrollFor.title}</p>
+            {enrollError && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                {enrollError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Training Schedule</label>
+                <select value={enrollForm.scheduleId} onChange={(e) => setEnrollForm({ ...enrollForm, scheduleId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">Select a schedule…</option>
+                  {schedules.map((s) => (
+                    <option key={s.id} value={s.id}>{s.batchName} ({s.scheduleCode})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                <input type="text" value={enrollForm.employeeName} onChange={(e) => setEnrollForm({ ...enrollForm, employeeName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                <input type="text" value={enrollForm.employeeCode} onChange={(e) => setEnrollForm({ ...enrollForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input type="text" value={enrollForm.department} onChange={(e) => setEnrollForm({ ...enrollForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setEnrollFor(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleEnroll} disabled={enrolling} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm disabled:opacity-50">{enrolling ? 'Enrolling…' : 'Enroll'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

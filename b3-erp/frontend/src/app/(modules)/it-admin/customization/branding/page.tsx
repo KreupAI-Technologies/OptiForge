@@ -33,38 +33,42 @@ interface BrandingSettings {
   customCSS: string;
 }
 
+const DEFAULT_BRANDING: BrandingSettings = {
+  logo: {
+    primary: '',
+    secondary: '',
+    favicon: ''
+  },
+  colors: {
+    primary: '#3B82F6',
+    secondary: '#8B5CF6',
+    accent: '#10B981',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6'
+  },
+  typography: {
+    headingFont: 'Inter',
+    bodyFont: 'Inter',
+    fontSize: 'medium'
+  },
+  layout: {
+    sidebarPosition: 'left',
+    headerStyle: 'fixed',
+    compactMode: false
+  },
+  customCSS: '/* Custom CSS */\n.custom-class {\n  /* Your styles here */\n}'
+};
+
 export default function BrandingPage() {
   const router = useRouter();
   const [hasChanges, setHasChanges] = useState(false);
   const [activeTab, setActiveTab] = useState<'logo' | 'colors' | 'typography' | 'layout' | 'css'>('logo');
 
-  const [settings, setSettings] = useState<BrandingSettings>({
-    logo: {
-      primary: '',
-      secondary: '',
-      favicon: ''
-    },
-    colors: {
-      primary: '#3B82F6',
-      secondary: '#8B5CF6',
-      accent: '#10B981',
-      success: '#22C55E',
-      warning: '#F59E0B',
-      error: '#EF4444',
-      info: '#3B82F6'
-    },
-    typography: {
-      headingFont: 'Inter',
-      bodyFont: 'Inter',
-      fontSize: 'medium'
-    },
-    layout: {
-      sidebarPosition: 'left',
-      headerStyle: 'fixed',
-      compactMode: false
-    },
-    customCSS: '/* Custom CSS */\n.custom-class {\n  /* Your styles here */\n}'
-  });
+  const [settings, setSettings] = useState<BrandingSettings>(DEFAULT_BRANDING);
+  // The last-known persisted/default config; Reset restores the form to this.
+  const [baseline, setBaseline] = useState<BrandingSettings>(DEFAULT_BRANDING);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +77,9 @@ export default function BrandingPage() {
         const config = await ItAdminService.getConfigValue('it.branding');
         const value = config?.value;
         if (!cancelled && value && typeof value === 'object') {
-          setSettings(prev => ({ ...prev, ...(value as Partial<BrandingSettings>) }));
+          const merged = { ...DEFAULT_BRANDING, ...(value as Partial<BrandingSettings>) };
+          setSettings(merged);
+          setBaseline(merged);
         }
       } catch {
         // ignore; keep defaults
@@ -120,6 +126,8 @@ export default function BrandingPage() {
   const handleSave = async () => {
     try {
       await ItAdminService.setConfigValue('it.branding', settings);
+      // Persisted successfully — this becomes the new reset baseline.
+      setBaseline(settings);
     } catch {
       // best-effort persistence
     }
@@ -127,29 +135,8 @@ export default function BrandingPage() {
   };
 
   const handleReset = () => {
-    setSettings({
-      logo: { primary: '', secondary: '', favicon: '' },
-      colors: {
-        primary: '#3B82F6',
-        secondary: '#8B5CF6',
-        accent: '#10B981',
-        success: '#22C55E',
-        warning: '#F59E0B',
-        error: '#EF4444',
-        info: '#3B82F6'
-      },
-      typography: {
-        headingFont: 'Inter',
-        bodyFont: 'Inter',
-        fontSize: 'medium'
-      },
-      layout: {
-        sidebarPosition: 'left',
-        headerStyle: 'fixed',
-        compactMode: false
-      },
-      customCSS: '/* Custom CSS */\n.custom-class {\n  /* Your styles here */\n}'
-    });
+    // Restore the form to the last fetched/persisted config (or defaults).
+    setSettings(baseline);
     setHasChanges(false);
   };
 

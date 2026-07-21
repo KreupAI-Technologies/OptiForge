@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, XCircle, Bug, Code, Server, Database, Globe, Filter, Download, Eye, Search, Calendar, TrendingUp, CheckCircle2, CheckCircle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { ItAdminService } from '@/services/it-admin.service';
@@ -60,52 +60,60 @@ const ErrorMonitoringPage = () => {
     exportToCsv('error-logs', filteredErrors as unknown as Record<string, unknown>[]);
   };
 
-  const handleViewDetails = (errorId: string) => {
-    showToast(`Viewing details for error: ${errorId}`, 'info');
-  };
-
-  const handleResolve = (errorId: string) => {
-    showToast(`Marking error ${errorId} as resolved`, 'success');
-  };
-
   const [errors, setErrors] = useState<ErrorLog[]>([]);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const data = await ItAdminService.getMonitoring({ kind: 'error' });
-        if (!active) return;
-        const mapped: ErrorLog[] = (data ?? []).map((dto) => ({
-          id: dto.id,
-          errorId: dto.id,
-          timestamp: dto.lastOccurred ?? dto.createdAt ?? '',
-          severity: dto.severity ?? 'Low',
-          errorType: (dto.metadata?.errorType as string) ?? dto.category ?? 'Error',
-          source: dto.source ?? '',
-          message: dto.message ?? dto.name,
-          stackTrace: (dto.metadata?.stackTrace as string) ?? '',
-          affectedUsers: (dto.metadata?.affectedUsers as number) ?? 0,
-          occurrences: dto.occurrences ?? 0,
-          firstSeen: (dto.metadata?.firstSeen as string) ?? dto.createdAt ?? '',
-          lastSeen: dto.lastOccurred ?? dto.updatedAt ?? '',
-          status: dto.status,
-          assignedTo: dto.metadata?.assignedTo as string | undefined,
-          resolution: dto.metadata?.resolution as string | undefined,
-          user: dto.metadata?.user as string | undefined,
-          ipAddress: dto.metadata?.ipAddress as string | undefined,
-          url: dto.metadata?.url as string | undefined,
-          userAgent: dto.metadata?.userAgent as string | undefined,
-        }));
-        setErrors(mapped);
-      } catch {
-        if (active) setErrors([]);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+  const loadErrors = useCallback(async () => {
+    try {
+      const data = await ItAdminService.getMonitoring({ kind: 'error' });
+      const mapped: ErrorLog[] = (data ?? []).map((dto) => ({
+        id: dto.id,
+        errorId: dto.id,
+        timestamp: dto.lastOccurred ?? dto.createdAt ?? '',
+        severity: dto.severity ?? 'Low',
+        errorType: (dto.metadata?.errorType as string) ?? dto.category ?? 'Error',
+        source: dto.source ?? '',
+        message: dto.message ?? dto.name,
+        stackTrace: (dto.metadata?.stackTrace as string) ?? '',
+        affectedUsers: (dto.metadata?.affectedUsers as number) ?? 0,
+        occurrences: dto.occurrences ?? 0,
+        firstSeen: (dto.metadata?.firstSeen as string) ?? dto.createdAt ?? '',
+        lastSeen: dto.lastOccurred ?? dto.updatedAt ?? '',
+        status: dto.status,
+        assignedTo: dto.metadata?.assignedTo as string | undefined,
+        resolution: dto.metadata?.resolution as string | undefined,
+        user: dto.metadata?.user as string | undefined,
+        ipAddress: dto.metadata?.ipAddress as string | undefined,
+        url: dto.metadata?.url as string | undefined,
+        userAgent: dto.metadata?.userAgent as string | undefined,
+      }));
+      setErrors(mapped);
+    } catch {
+      setErrors([]);
+    }
   }, []);
+
+  useEffect(() => {
+    loadErrors();
+  }, [loadErrors]);
+
+  // Open the details modal for the selected error (mirrors the row Eye action).
+  const handleViewDetails = (error: ErrorLog) => {
+    setSelectedError(error);
+  };
+
+  const handleResolve = async (error: ErrorLog) => {
+    try {
+      await ItAdminService.updateMonitoring(error.id, { status: 'Resolved' });
+      showToast(`Error ${error.errorId} marked as resolved`, 'success');
+      setSelectedError(null);
+      await loadErrors();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : `Failed to resolve error ${error.errorId}`,
+        'error',
+      );
+    }
+  };
 
   const stats: ErrorStats = {
     totalErrors: errors.length,
@@ -410,10 +418,7 @@ const ErrorMonitoringPage = () => {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <button
-                      onClick={() => {
-                        setSelectedError(error);
-                        handleViewDetails(error.errorId);
-                      }}
+                      onClick={() => handleViewDetails(error)}
                       className="text-emerald-600 hover:text-emerald-700 p-1"
                     >
                       <Eye className="w-4 h-4" />
@@ -558,6 +563,15 @@ const ErrorMonitoringPage = () => {
             </div>
 
             <div className="flex justify-end gap-3 p-3 border-t border-gray-200">
+              {selectedError.status !== 'Resolved' && (
+                <button
+                  onClick={() => handleResolve(selectedError)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Mark as Resolved
+                </button>
+              )}
               <button
                 onClick={handleCloseDetails}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"

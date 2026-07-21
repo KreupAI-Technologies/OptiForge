@@ -94,17 +94,10 @@ const PerformanceMonitoringPage = () => {
     };
   }, []);
 
-  const [history, setHistory] = useState<PerformanceHistory[]>([
-    { timestamp: '18:00', cpu: 42, memory: 65, disk: 210, network: 142, responseTime: 132, throughput: 1180 },
-    { timestamp: '18:15', cpu: 45, memory: 66, disk: 215, network: 145, responseTime: 135, throughput: 1200 },
-    { timestamp: '18:30', cpu: 48, memory: 68, disk: 220, network: 150, responseTime: 140, throughput: 1220 },
-    { timestamp: '18:45', cpu: 46, memory: 67, disk: 218, network: 148, responseTime: 138, throughput: 1210 },
-    { timestamp: '19:00', cpu: 45, memory: 68, disk: 234, network: 156, responseTime: 145, throughput: 1250 },
-  ]);
+  const [history, setHistory] = useState<PerformanceHistory[]>([]);
 
   // Load the performance time-series from the backend. Metric names are matched
-  // heuristically to the fixed chart series; the hardcoded array above is the
-  // fallback until (and unless) the fetch returns data.
+  // heuristically to the fixed chart series. Empty backend => empty chart.
   useEffect(() => {
     let active = true;
     const pick = (values: Record<string, number>, needle: string): number => {
@@ -115,7 +108,11 @@ const PerformanceMonitoringPage = () => {
     };
     ItAdminService.getMonitoringHistory({ kind: 'performance' })
       .then((res) => {
-        if (!active || !res?.series || res.series.length === 0) return;
+        if (!active) return;
+        if (!res?.series || res.series.length === 0) {
+          setHistory([]);
+          return;
+        }
         setHistory(
           res.series.map((point) => {
             const ts = point.timestamp;
@@ -135,7 +132,7 @@ const PerformanceMonitoringPage = () => {
         );
       })
       .catch(() => {
-        // keep the fallback series on error
+        if (active) setHistory([]);
       });
     return () => {
       active = false;
@@ -301,6 +298,12 @@ const PerformanceMonitoringPage = () => {
           </select>
         </div>
         <div className="space-y-2">
+          {history.length === 0 && (
+            <div className="text-center py-8">
+              <BarChart3 className="w-10 h-10 text-gray-400 mb-2" />
+              <p className="text-gray-600">No performance history available</p>
+            </div>
+          )}
           {history.map((point, index) => (
             <div key={index} className="flex items-center gap-2">
               <div className="w-16 text-sm text-gray-600">{point.timestamp}</div>

@@ -84,96 +84,47 @@ const IPWhitelistPage = () => {
     loadEntries();
   }, [loadEntries]);
 
-  const [accessLogs] = useState<IPAccessLog[]>([
-    {
-      id: '1',
-      ipAddress: '103.21.244.45',
-      userName: 'Rajesh Kumar',
-      email: 'rajesh.kumar@company.com',
-      action: 'Login',
-      timestamp: '2025-10-21 09:15:23',
-      location: 'Mumbai, India',
-      device: 'Windows Desktop',
-      status: 'Allowed',
-    },
-    {
-      id: '2',
-      ipAddress: '49.207.198.156',
-      userName: 'Deepak Shah',
-      email: 'deepak.shah@company.com',
-      action: 'Login',
-      timestamp: '2025-10-21 08:45:12',
-      location: 'Bangalore, India',
-      device: 'MacBook Pro',
-      status: 'Allowed',
-    },
-    {
-      id: '3',
-      ipAddress: '192.168.100.50',
-      userName: 'Unknown',
-      email: '-',
-      action: 'Login Attempt',
-      timestamp: '2025-10-21 08:30:45',
-      location: 'Unknown',
-      device: 'Unknown',
-      status: 'Blocked',
-    },
-    {
-      id: '4',
-      ipAddress: '103.50.161.89',
-      userName: 'Priya Sharma',
-      email: 'priya.sharma@company.com',
-      action: 'API Access',
-      timestamp: '2025-10-21 10:30:56',
-      location: 'Mumbai, India',
-      device: 'Mobile App',
-      status: 'Allowed',
-    },
-    {
-      id: '5',
-      ipAddress: '45.123.67.89',
-      userName: 'Unknown',
-      email: '-',
-      action: 'Login Attempt',
-      timestamp: '2025-10-21 07:15:32',
-      location: 'Singapore',
-      device: 'Chrome Browser',
-      status: 'Blocked',
-    },
-    {
-      id: '6',
-      ipAddress: '117.198.144.73',
-      userName: 'Amit Patel',
-      email: 'amit.patel@company.com',
-      action: 'File Upload',
-      timestamp: '2025-10-20 18:30:21',
-      location: 'Delhi, India',
-      device: 'Windows Laptop',
-      status: 'Allowed',
-    },
-    {
-      id: '7',
-      ipAddress: '182.68.205.12',
-      userName: 'System',
-      email: 'system@company.com',
-      action: 'Data Sync',
-      timestamp: '2025-10-21 10:45:00',
-      location: 'AWS Mumbai',
-      device: 'Server',
-      status: 'Allowed',
-    },
-    {
-      id: '8',
-      ipAddress: '88.99.111.222',
-      userName: 'Unknown',
-      email: '-',
-      action: 'Brute Force Attempt',
-      timestamp: '2025-10-21 03:22:15',
-      location: 'Russia',
-      device: 'Unknown',
-      status: 'Blocked',
-    },
-  ]);
+  const [accessLogs, setAccessLogs] = useState<IPAccessLog[]>([]);
+
+  // Load access/IP-related audit events. The audit log is the source of truth
+  // for IP access; we surface entries that carry an IP address or an
+  // authentication/access-flavoured action.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await ItAdminService.getAuditLogs({ limit: '100' });
+        const logs = Array.isArray(res?.data) ? res.data : [];
+        const mapped: IPAccessLog[] = logs
+          .filter((log) => {
+            const action = (log.action || '').toLowerCase();
+            return (
+              !!log.ipAddress ||
+              action.includes('login') ||
+              action.includes('access') ||
+              action.includes('auth')
+            );
+          })
+          .map((log) => ({
+            id: log.id,
+            ipAddress: log.ipAddress || '-',
+            userName: log.userName || 'Unknown',
+            email: '-',
+            action: log.action || log.module || 'Access',
+            timestamp: log.createdAt || '',
+            location: '-',
+            device: '-',
+            status: log.status || 'Allowed',
+          }));
+        if (active) setAccessLogs(mapped);
+      } catch {
+        if (active) setAccessLogs([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stats = {
     totalEntries: entries.length,
@@ -569,6 +520,12 @@ const IPWhitelistPage = () => {
                 </tbody>
               </table>
             </div>
+            {accessLogs.length === 0 && (
+              <div className="text-center py-12">
+                <Globe className="w-12 h-12 text-gray-400 mb-3" />
+                <p className="text-gray-600">No access logs found</p>
+              </div>
+            )}
           </div>
         )}
       </div>

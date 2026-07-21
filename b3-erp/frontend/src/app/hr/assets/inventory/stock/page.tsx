@@ -138,7 +138,7 @@ export default function Page() {
     }
   ];
 
-  const [mockStock, setMockStock] = useState<StockItem[]>(fallbackStock);
+  const [mockStock, setMockStock] = useState<StockItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<StockItem | null>(null);
@@ -152,8 +152,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetInventory();
         if (cancelled) return;
-        if (rows.length) {
-          setMockStock(
+        setMockStock(
             rows.map((r) => ({
               id: r.id,
               assetCode: r.assetCode || '',
@@ -173,10 +172,11 @@ export default function Page() {
               status: (r.status as StockItem['status']) || 'in_stock',
             })),
           );
-        }
       } catch (err) {
-        if (!cancelled)
+        if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load stock');
+          setMockStock(fallbackStock);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

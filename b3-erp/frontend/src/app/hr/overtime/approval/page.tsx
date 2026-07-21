@@ -33,44 +33,59 @@ export default function OTApprovalPage() {
   const [rows, setRows] = useState<OvertimeApproval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const loadRequests = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrSelfServiceService.getOvertimeRequests('pending');
+      const mapped: OvertimeApproval[] = raw.map((r) => ({
+        id: r.id,
+        requestId: r.requestId ?? '',
+        employeeCode: r.employeeCode ?? '',
+        employeeName: r.employeeName ?? '',
+        department: r.department ?? '',
+        designation: r.designation ?? '',
+        date: r.date ?? '',
+        shiftType: r.shiftType ?? '',
+        regularHours: Number(r.regularHours ?? 0),
+        overtimeHours: Number(r.overtimeHours ?? 0),
+        reason: r.reason ?? '',
+        requestDate: r.requestDate ?? '',
+        calculatedAmount: Number(r.calculatedAmount ?? 0),
+        status: (r.status as OvertimeApproval['status']) ?? 'pending',
+      }));
+      setRows(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load overtime approvals');
+      setRows([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrSelfServiceService.getOvertimeRequests('pending');
-        const mapped: OvertimeApproval[] = raw.map((r) => ({
-          id: r.id,
-          requestId: r.requestId ?? '',
-          employeeCode: r.employeeCode ?? '',
-          employeeName: r.employeeName ?? '',
-          department: r.department ?? '',
-          designation: r.designation ?? '',
-          date: r.date ?? '',
-          shiftType: r.shiftType ?? '',
-          regularHours: Number(r.regularHours ?? 0),
-          overtimeHours: Number(r.overtimeHours ?? 0),
-          reason: r.reason ?? '',
-          requestDate: r.requestDate ?? '',
-          calculatedAmount: Number(r.calculatedAmount ?? 0),
-          status: (r.status as OvertimeApproval['status']) ?? 'pending',
-        }));
-        if (!cancelled) setRows(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load overtime approvals');
-          setRows([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    loadRequests();
   }, []);
+
+  const handleConfirmAction = async () => {
+    if (!selectedRequest) return;
+    setSaving(true);
+    setLoadError(null);
+    try {
+      await HrSelfServiceService.updateOvertimeRequest(selectedRequest.id, {
+        status: approvalAction === 'approve' ? 'approved' : 'rejected',
+      });
+      setShowApprovalModal(false);
+      setSelectedRequest(null);
+      await loadRequests();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update overtime request');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return rows.filter(request => {
@@ -395,8 +410,9 @@ export default function OTApprovalPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => setShowApprovalModal(false)}
-                  className={`flex-1 px-4 py-2 rounded-lg text-white ${
+                  onClick={handleConfirmAction}
+                  disabled={saving}
+                  className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-50 ${
                     approvalAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
                   }`}
                 >

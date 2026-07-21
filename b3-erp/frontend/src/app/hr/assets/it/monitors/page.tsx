@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Monitor, User } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
+import { AssetManagementService } from '@/services/asset-management.service';
 
 interface MonitorAsset {
   id: string;
@@ -79,6 +80,46 @@ export default function Page() {
   const [mockMonitors, setMockMonitors] = useState<MonitorAsset[]>(fallbackMonitors);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [addForm, setAddForm] = useState({ brand: '', model: '', serialNumber: '', size: '', cost: '', location: '' });
+
+  const handleAdd = async () => {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      const asset = await AssetManagementService.createAsset({
+        assetName: `${addForm.brand} ${addForm.model}`.trim() || 'Monitor',
+        brand: addForm.brand,
+        model: addForm.model,
+        serialNumber: addForm.serialNumber,
+        purchasePrice: Number(addForm.cost) || undefined,
+        location: addForm.location,
+      });
+      const newRow: MonitorAsset = {
+        id: asset?.id || Date.now().toString(),
+        assetTag: asset?.assetTag || asset?.assetCode || '',
+        brand: addForm.brand,
+        model: addForm.model,
+        serialNumber: addForm.serialNumber,
+        size: addForm.size,
+        resolution: '',
+        panelType: '',
+        purchaseDate: new Date().toISOString().split('T')[0],
+        cost: Number(addForm.cost) || 0,
+        status: 'available',
+        location: addForm.location,
+      };
+      setMockMonitors((prev) => [newRow, ...prev]);
+      setShowAdd(false);
+      setAddForm({ brand: '', model: '', serialNumber: '', size: '', cost: '', location: '' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add monitor');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +223,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Monitor
             </button>
           </div>
@@ -255,6 +296,44 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Monitor</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                <input type="text" value={addForm.brand} onChange={(e) => setAddForm({ ...addForm, brand: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                <input type="text" value={addForm.model} onChange={(e) => setAddForm({ ...addForm, model: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+                <input type="text" value={addForm.serialNumber} onChange={(e) => setAddForm({ ...addForm, serialNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Size</label>
+                <input type="text" value={addForm.size} onChange={(e) => setAddForm({ ...addForm, size: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="24 inch" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cost</label>
+                <input type="number" value={addForm.cost} onChange={(e) => setAddForm({ ...addForm, cost: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleAdd} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

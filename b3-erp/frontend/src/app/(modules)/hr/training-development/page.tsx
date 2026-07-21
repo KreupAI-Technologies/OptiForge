@@ -207,7 +207,7 @@ function TrainingDashboardView({ dashboard }: { dashboard: TrainingDashboard | n
 // Programs Component
 // ============================================================================
 
-function ProgramsSection({ programs, schedules, subTab }: { programs: TrainingProgram[]; schedules: TrainingSchedule[]; subTab: ProgramsSubTab }) {
+function ProgramsSection({ programs, schedules, subTab, onCreateSchedule, onEnroll }: { programs: TrainingProgram[]; schedules: TrainingSchedule[]; subTab: ProgramsSubTab; onCreateSchedule: () => void; onEnroll: (program: TrainingProgram) => void }) {
   const getStatusColor = (status: TrainingProgramStatus) => {
     switch (status) {
       case TrainingProgramStatus.ACTIVE: return 'bg-green-900 text-green-300';
@@ -302,7 +302,7 @@ function ProgramsSection({ programs, schedules, subTab }: { programs: TrainingPr
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Training Schedule</h3>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+          <button onClick={onCreateSchedule} className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
             <Plus className="h-4 w-4" />
             Create Schedule
           </button>
@@ -425,7 +425,7 @@ function ProgramsSection({ programs, schedules, subTab }: { programs: TrainingPr
             </div>
 
             <div className="flex gap-2">
-              <button className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+              <button onClick={() => onEnroll(program)} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
                 Enroll
               </button>
               <button className="px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">
@@ -1359,6 +1359,78 @@ export default function TrainingDevelopmentPage() {
   const [domainProgramsLoading, setDomainProgramsLoading] = useState(false);
   const [domainProgramsError, setDomainProgramsError] = useState<string | null>(null);
 
+  // Create-schedule modal
+  const [showCreateSchedule, setShowCreateSchedule] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleForm, setScheduleForm] = useState({ programId: '', batchName: '', startDate: '', endDate: '', maxParticipants: '', location: '', instructorName: '' });
+
+  // Enroll modal
+  const [enrollProgram, setEnrollProgram] = useState<TrainingProgram | null>(null);
+  const [enrollingTraining, setEnrollingTraining] = useState(false);
+  const [enrollTrainingError, setEnrollTrainingError] = useState<string | null>(null);
+  const [enrollTrainingForm, setEnrollTrainingForm] = useState({ scheduleId: '', employeeName: '', employeeCode: '', department: '' });
+
+  const openCreateSchedule = () => {
+    setScheduleError(null);
+    setScheduleForm({ programId: programs[0]?.id ?? '', batchName: '', startDate: '', endDate: '', maxParticipants: '', location: '', instructorName: '' });
+    setShowCreateSchedule(true);
+  };
+
+  const handleCreateSchedule = async () => {
+    setSavingSchedule(true);
+    setScheduleError(null);
+    try {
+      await TrainingDevelopmentService.createTrainingSchedule({
+        programId: scheduleForm.programId || undefined,
+        batchName: scheduleForm.batchName,
+        startDate: scheduleForm.startDate,
+        endDate: scheduleForm.endDate,
+        maxParticipants: scheduleForm.maxParticipants ? Number(scheduleForm.maxParticipants) : undefined,
+        location: scheduleForm.location || undefined,
+        instructorName: scheduleForm.instructorName || undefined,
+      });
+      setShowCreateSchedule(false);
+      await loadSchedules();
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : 'Failed to create schedule');
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const openEnroll = (program: TrainingProgram) => {
+    setEnrollProgram(program);
+    setEnrollTrainingError(null);
+    const programSchedules = schedules.filter((s) => s.programId === program.id);
+    setEnrollTrainingForm({ scheduleId: programSchedules[0]?.id ?? '', employeeName: '', employeeCode: '', department: '' });
+  };
+
+  const handleEnrollTraining = async () => {
+    if (!enrollTrainingForm.scheduleId) {
+      setEnrollTrainingError('Please select a schedule/batch.');
+      return;
+    }
+    setEnrollingTraining(true);
+    setEnrollTrainingError(null);
+    try {
+      await TrainingDevelopmentService.enrollInTraining({
+        scheduleId: enrollTrainingForm.scheduleId,
+        employeeId: enrollTrainingForm.employeeCode,
+        employeeName: enrollTrainingForm.employeeName,
+        employeeCode: enrollTrainingForm.employeeCode,
+        department: enrollTrainingForm.department || undefined,
+      });
+      setEnrollProgram(null);
+      await loadEnrollments();
+      await loadSchedules();
+    } catch (err) {
+      setEnrollTrainingError(err instanceof Error ? err.message : 'Failed to enroll');
+    } finally {
+      setEnrollingTraining(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboard();
     loadPrograms();
@@ -1586,7 +1658,7 @@ export default function TrainingDevelopmentPage() {
   const renderContent = () => {
     switch (mainTab) {
       case 'programs':
-        return <ProgramsSection programs={programs} schedules={schedules} subTab={programsSubTab} />;
+        return <ProgramsSection programs={programs} schedules={schedules} subTab={programsSubTab} onCreateSchedule={openCreateSchedule} onEnroll={openEnroll} />;
       case 'enrollment':
         return <EnrollmentSection enrollments={enrollments} subTab={enrollmentSubTab} />;
       case 'skills':
@@ -1709,6 +1781,93 @@ export default function TrainingDevelopmentPage() {
           {renderContent()}
         </div>
       </div>
+
+      {showCreateSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowCreateSchedule(false)}>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-white mb-3">Create Schedule</h2>
+            {scheduleError && <div className="mb-3 rounded-lg border border-red-900 bg-red-900/30 px-4 py-2 text-sm text-red-300">{scheduleError}</div>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Program</label>
+                <select value={scheduleForm.programId} onChange={(e) => setScheduleForm({ ...scheduleForm, programId: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm">
+                  <option value="">Select a program…</option>
+                  {programs.map((p) => (
+                    <option key={p.id} value={p.id}>{p.programName}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Batch Name</label>
+                <input type="text" value={scheduleForm.batchName} onChange={(e) => setScheduleForm({ ...scheduleForm, batchName: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Start Date</label>
+                  <input type="date" value={scheduleForm.startDate} onChange={(e) => setScheduleForm({ ...scheduleForm, startDate: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">End Date</label>
+                  <input type="date" value={scheduleForm.endDate} onChange={(e) => setScheduleForm({ ...scheduleForm, endDate: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Max Participants</label>
+                <input type="number" value={scheduleForm.maxParticipants} onChange={(e) => setScheduleForm({ ...scheduleForm, maxParticipants: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Location</label>
+                <input type="text" value={scheduleForm.location} onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Instructor</label>
+                <input type="text" value={scheduleForm.instructorName} onChange={(e) => setScheduleForm({ ...scheduleForm, instructorName: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowCreateSchedule(false)} className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm">Cancel</button>
+              <button onClick={handleCreateSchedule} disabled={savingSchedule} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50">{savingSchedule ? 'Saving…' : 'Create Schedule'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {enrollProgram && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEnrollProgram(null)}>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-white mb-1">Enroll in Training</h2>
+            <p className="text-sm text-gray-400 mb-3">{enrollProgram.programName}</p>
+            {enrollTrainingError && <div className="mb-3 rounded-lg border border-red-900 bg-red-900/30 px-4 py-2 text-sm text-red-300">{enrollTrainingError}</div>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Batch / Schedule</label>
+                <select value={enrollTrainingForm.scheduleId} onChange={(e) => setEnrollTrainingForm({ ...enrollTrainingForm, scheduleId: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm">
+                  <option value="">Select a batch…</option>
+                  {schedules.filter((s) => s.programId === enrollProgram.id).map((s) => (
+                    <option key={s.id} value={s.id}>{s.batchName} ({s.scheduleCode})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Employee Name</label>
+                <input type="text" value={enrollTrainingForm.employeeName} onChange={(e) => setEnrollTrainingForm({ ...enrollTrainingForm, employeeName: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Employee Code</label>
+                <input type="text" value={enrollTrainingForm.employeeCode} onChange={(e) => setEnrollTrainingForm({ ...enrollTrainingForm, employeeCode: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Department</label>
+                <input type="text" value={enrollTrainingForm.department} onChange={(e) => setEnrollTrainingForm({ ...enrollTrainingForm, department: e.target.value })} className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setEnrollProgram(null)} className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm">Cancel</button>
+              <button onClick={handleEnrollTraining} disabled={enrollingTraining} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50">{enrollingTraining ? 'Enrolling…' : 'Submit Enrollment'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

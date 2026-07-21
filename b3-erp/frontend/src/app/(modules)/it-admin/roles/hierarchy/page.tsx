@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, ChevronRight, Shield, Crown, Star, UserCog, Eye, Edit, Trash2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { ItAdminService } from '@/services/it-admin.service';
+import { RoleService } from '@/services/role.service';
 
 interface RoleNode {
   id: string;
@@ -22,6 +23,7 @@ export default function RoleHierarchyPage() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string>('admin');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [hierarchy, setHierarchy] = useState<RoleNode[]>([]);
 
   useEffect(() => {
     if (toast) {
@@ -34,47 +36,57 @@ export default function RoleHierarchyPage() {
     setToast({ message, type });
   };
 
-  const handleEdit = (roleName: string) => {
-    showToast(`Opening editor for ${roleName}`, 'info');
-  };
-
-  const handleDelete = (roleName: string) => {
-    showToast(`Delete action for ${roleName}`, 'error');
-  };
-
-  const [hierarchy, setHierarchy] = useState<RoleNode[]>([]);
+  const loadHierarchy = useCallback(async () => {
+    try {
+      const roles = await ItAdminService.getRoleHierarchy();
+      const list = Array.isArray(roles) ? roles : [];
+      const mapped: RoleNode[] = list.map((role) => {
+        const roleType = (role.roleType || '').toLowerCase();
+        let level = 4;
+        if (roleType.includes('admin')) level = 1;
+        else if (roleType.includes('manager')) level = 2;
+        else if (roleType.includes('supervisor')) level = 3;
+        return {
+          id: role.id,
+          name: role.name,
+          level,
+          userCount: role.userCount || 0,
+          permissions: Array.isArray(role.permissions) ? role.permissions.length : 0,
+          directReports: [],
+          canApprove: [],
+          canDelegate: false,
+          icon: 'shield',
+          color: 'blue',
+        };
+      });
+      setHierarchy(mapped);
+    } catch {
+      setHierarchy([]);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadHierarchy = async () => {
-      try {
-        const roles = await ItAdminService.getRoleHierarchy();
-        const list = Array.isArray(roles) ? roles : [];
-        const mapped: RoleNode[] = list.map((role) => {
-          const roleType = (role.roleType || '').toLowerCase();
-          let level = 4;
-          if (roleType.includes('admin')) level = 1;
-          else if (roleType.includes('manager')) level = 2;
-          else if (roleType.includes('supervisor')) level = 3;
-          return {
-            id: role.id,
-            name: role.name,
-            level,
-            userCount: role.userCount || 0,
-            permissions: Array.isArray(role.permissions) ? role.permissions.length : 0,
-            directReports: [],
-            canApprove: [],
-            canDelegate: false,
-            icon: 'shield',
-            color: 'blue',
-          };
-        });
-        setHierarchy(mapped);
-      } catch {
-        setHierarchy([]);
-      }
-    };
     loadHierarchy();
-  }, []);
+  }, [loadHierarchy]);
+
+  // Mirror roles/page.tsx: navigate to the shared role editor.
+  const handleEdit = (roleId: string) => {
+    router.push(`/it-admin/roles/create?roleId=${encodeURIComponent(roleId)}&mode=edit`);
+  };
+
+  const handleDelete = async (roleId: string, roleName: string) => {
+    if (!confirm(`Are you sure you want to delete the role "${roleName}"?`)) return;
+    try {
+      await RoleService.deleteRole(roleId);
+      showToast(`Role "${roleName}" deleted`, 'success');
+      await loadHierarchy();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : `Failed to delete ${roleName}`,
+        'error',
+      );
+    }
+  };
 
   const getIcon = (iconType: string) => {
     const iconMap = {
@@ -229,15 +241,15 @@ export default function RoleHierarchyPage() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-bold text-gray-900">Role Details</h2>
               <div className="flex gap-2">
-                <button 
-                  onClick={() => selectedRoleData && handleEdit(selectedRoleData.name)}
+                <button
+                  onClick={() => selectedRoleData && handleEdit(selectedRoleData.id)}
                   className="inline-flex items-center gap-1.5 px-3 py-2 border border-amber-300 rounded-lg hover:bg-amber-50 text-sm"
                 >
                   <Edit className="w-4 h-4 text-amber-600" />
                   <span className="text-amber-700">Edit</span>
                 </button>
-                <button 
-                  onClick={() => selectedRoleData && handleDelete(selectedRoleData.name)}
+                <button
+                  onClick={() => selectedRoleData && handleDelete(selectedRoleData.id, selectedRoleData.name)}
                   className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
                 >
                   <Trash2 className="w-4 h-4 text-red-600" />

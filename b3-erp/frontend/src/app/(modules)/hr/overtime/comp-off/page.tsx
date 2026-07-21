@@ -51,6 +51,70 @@ export default function CompOffPage() {
     const [actingId, setActingId] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
 
+    const [showRequest, setShowRequest] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [requestForm, setRequestForm] = useState({ employeeName: '', employeeCode: '', department: '', date: '', overtimeHours: '', reason: '' });
+
+    const loadData = async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+            const raw = await HrSelfServiceService.getOvertimeRequests();
+            const mappedRequests: CompOffRequest[] = (raw as any[]).map((r) => ({
+                id: String(r.id ?? r.requestId ?? ''),
+                employeeId: r.employeeCode ?? '',
+                employeeName: r.employeeName ?? '',
+                department: r.department ?? '',
+                requestDate: r.requestDate ?? '',
+                compOffDate: r.date ?? '',
+                hours: Number(r.overtimeHours ?? 0),
+                reason: r.reason ?? '',
+                status: (r.status ?? 'Pending') as CompOffRequest['status'],
+                approvedBy: r.approvedBy,
+            }));
+            const mappedBalances: CompOffBalance[] = (raw as any[]).map((r) => {
+                const earned = Number(r.overtimeHours ?? 0);
+                return {
+                    id: String(r.id ?? r.requestId ?? ''),
+                    employeeId: r.employeeCode ?? '',
+                    employeeName: r.employeeName ?? '',
+                    department: r.department ?? '',
+                    earnedHours: earned,
+                    usedHours: 0,
+                    balanceHours: earned,
+                    expiringHours: 0,
+                    expiryDate: null,
+                };
+            });
+            setRequests(mappedRequests); setBalances(mappedBalances);
+        } catch (e) {
+            setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRequests([]); setBalances([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCreateRequest = async () => {
+        setSaving(true); setActionError(null);
+        try {
+            await HrSelfServiceService.createOvertimeRequest({
+                employeeName: requestForm.employeeName,
+                employeeCode: requestForm.employeeCode,
+                department: requestForm.department,
+                date: requestForm.date,
+                overtimeHours: Number(requestForm.overtimeHours) || 0,
+                reason: requestForm.reason,
+                status: 'Pending',
+            });
+            setShowRequest(false);
+            setRequestForm({ employeeName: '', employeeCode: '', department: '', date: '', overtimeHours: '', reason: '' });
+            await loadData();
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : 'Failed to create comp-off request');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleDecision = async (request: CompOffRequest, decision: 'Approved' | 'Rejected') => {
         setActingId(request.id); setActionError(null);
         try {
@@ -64,47 +128,7 @@ export default function CompOffPage() {
     };
 
     useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            setIsLoading(true); setLoadError(null);
-            try {
-                const raw = await HrSelfServiceService.getOvertimeRequests();
-                // Overtime requests map naturally onto comp-off requests; balances
-                // are derived per-employee from comp-off hours in the raw data.
-                const mappedRequests: CompOffRequest[] = (raw as any[]).map((r) => ({
-                    id: String(r.id ?? r.requestId ?? ''),
-                    employeeId: r.employeeCode ?? '',
-                    employeeName: r.employeeName ?? '',
-                    department: r.department ?? '',
-                    requestDate: r.requestDate ?? '',
-                    compOffDate: r.date ?? '',
-                    hours: Number(r.overtimeHours ?? 0),
-                    reason: r.reason ?? '',
-                    status: (r.status ?? 'Pending') as CompOffRequest['status'],
-                    approvedBy: r.approvedBy,
-                }));
-                const mappedBalances: CompOffBalance[] = (raw as any[]).map((r) => {
-                    const earned = Number(r.overtimeHours ?? 0);
-                    return {
-                        id: String(r.id ?? r.requestId ?? ''),
-                        employeeId: r.employeeCode ?? '',
-                        employeeName: r.employeeName ?? '',
-                        department: r.department ?? '',
-                        earnedHours: earned,
-                        usedHours: 0,
-                        balanceHours: earned,
-                        expiringHours: 0,
-                        expiryDate: null,
-                    };
-                });
-                if (!cancelled) { setRequests(mappedRequests); setBalances(mappedBalances); }
-            } catch (e) {
-                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRequests([]); setBalances([]); }
-            } finally {
-                if (!cancelled) setIsLoading(false);
-            }
-        })();
-        return () => { cancelled = true; };
+        loadData();
     }, []);
 
     const filteredBalances = balances.filter(b =>
@@ -147,7 +171,7 @@ export default function CompOffPage() {
                         </h1>
                         <p className="text-gray-400 mt-1">Manage compensatory off balances and requests</p>
                     </div>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                    <button onClick={() => setShowRequest(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
                         <Plus className="w-4 h-4" />
                         Request Comp-Off
                     </button>
@@ -321,6 +345,44 @@ export default function CompOffPage() {
                     </div>
                 )}
             </div>
+
+            {showRequest && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowRequest(false)}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-lg font-bold text-white mb-3">Request Comp-Off</h2>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Employee Name</label>
+                                <input type="text" value={requestForm.employeeName} onChange={(e) => setRequestForm({ ...requestForm, employeeName: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Employee Code</label>
+                                <input type="text" value={requestForm.employeeCode} onChange={(e) => setRequestForm({ ...requestForm, employeeCode: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Department</label>
+                                <input type="text" value={requestForm.department} onChange={(e) => setRequestForm({ ...requestForm, department: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Comp-Off Date</label>
+                                <input type="date" value={requestForm.date} onChange={(e) => setRequestForm({ ...requestForm, date: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Hours</label>
+                                <input type="number" value={requestForm.overtimeHours} onChange={(e) => setRequestForm({ ...requestForm, overtimeHours: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Reason</label>
+                                <textarea rows={3} value={requestForm.reason} onChange={(e) => setRequestForm({ ...requestForm, reason: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button onClick={() => setShowRequest(false)} className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm">Cancel</button>
+                            <button onClick={handleCreateRequest} disabled={saving} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Submit'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
 import { TrainingDevelopmentService } from '@/services/training-development.service';
+import { useAuth } from '@/context/AuthContext';
 
 interface ActiveCourse {
   id: number | string;
@@ -46,12 +47,36 @@ const upcomingDeadlines = [
 ];
 
 export default function MyCoursesPage() {
+  const { user } = useAuth();
   const [filterType, setFilterType] = useState('All');
   const [activeCourses, setActiveCourses] = useState<ActiveCourse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollMessage, setEnrollMessage] = useState<string | null>(null);
+
+  const handleEnrollRecommended = async () => {
+    setEnrolling(true);
+    setActionError(null);
+    setEnrollMessage(null);
+    try {
+      const { data } = await TrainingDevelopmentService.getELearningCourses({ search: 'Communication' });
+      const course = data[0];
+      if (!course) {
+        setActionError('The recommended course is not available for enrollment right now.');
+        return;
+      }
+      await TrainingDevelopmentService.enrollInCourse(course.id, user?.id ?? '');
+      setEnrollMessage(`Enrolled in “${course.courseName}”.`);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to enroll in course.');
+    } finally {
+      setEnrolling(false);
+    }
+  };
 
   const load = async () => {
     setIsLoading(true);
@@ -216,9 +241,10 @@ export default function MyCoursesPage() {
               <div>
                 <h2 className="text-xl font-bold mb-2">Master Communication Skills</h2>
                 <p className="text-purple-200 text-sm max-w-md mb-2">Unlock your potential with our new advanced communication workshop. Recommended based on your role.</p>
-                <button className="px-4 py-2 bg-white text-purple-900 text-sm font-bold rounded-lg hover:bg-purple-50 transition-colors">
-                  Enroll Now
+                <button onClick={handleEnrollRecommended} disabled={enrolling} className="px-4 py-2 bg-white text-purple-900 text-sm font-bold rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-60">
+                  {enrolling ? 'Enrolling…' : 'Enroll Now'}
                 </button>
+                {enrollMessage && <p className="text-xs text-green-200 mt-2">{enrollMessage}</p>}
               </div>
               <div className="text-6xl animate-pulse">🎯</div>
             </div>

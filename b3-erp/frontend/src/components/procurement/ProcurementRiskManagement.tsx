@@ -92,6 +92,9 @@ export default function ProcurementRiskManagement() {
 
   // Risks - populated from getRiskInsights() (falls back to [] on error)
   const [risks, setRisks] = useState<Risk[]>([]);
+  // Derived from getRiskInsights().assessments (category counts + likelihood/impact matrix)
+  const [categoryDistribution, setCategoryDistribution] = useState<Array<{ name: string; value: number; color: string }>>([]);
+  const [riskMatrix, setRiskMatrix] = useState<Array<{ x: number; y: number; z: number; name: string; severity: string }>>([]);
 
   useEffect(() => {
     (async () => {
@@ -141,6 +144,37 @@ export default function ProcurementRiskManagement() {
         });
 
         setRisks(mapped);
+
+        // Category distribution derived from assessment categories
+        const catColors: Record<string, string> = {
+          'supply-chain': '#3B82F6',
+          financial: '#EF4444',
+          compliance: '#F59E0B',
+          operational: '#10B981',
+          strategic: '#8B5CF6',
+          geopolitical: '#EC4899',
+        };
+        const palette = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899'];
+        const counts = new Map<string, number>();
+        for (const m of mapped) counts.set(m.category, (counts.get(m.category) || 0) + 1);
+        setCategoryDistribution(
+          Array.from(counts.entries()).map(([name, value], i) => ({
+            name: name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            value,
+            color: catColors[name] || palette[i % palette.length],
+          }))
+        );
+
+        // Risk matrix (likelihood × impact bubble = spend exposure) from assessments
+        setRiskMatrix(
+          mapped.map((m) => ({
+            x: m.likelihood,
+            y: m.impact,
+            z: m.residualRisk,
+            name: m.title,
+            severity: m.severity,
+          }))
+        );
       } catch {
         // keep empty [] on failure
       }
@@ -154,24 +188,6 @@ export default function ProcurementRiskManagement() {
     { month: 'Apr', critical: 2, high: 4, medium: 8, low: 6 },
     { month: 'May', critical: 1, high: 5, medium: 7, low: 7 },
     { month: 'Jun', critical: 1, high: 4, medium: 8, low: 8 }
-  ];
-
-  const categoryDistribution = [
-    { name: 'Supply Chain', value: 35, color: '#3B82F6' },
-    { name: 'Financial', value: 25, color: '#EF4444' },
-    { name: 'Compliance', value: 15, color: '#F59E0B' },
-    { name: 'Operational', value: 15, color: '#10B981' },
-    { name: 'Strategic', value: 7, color: '#8B5CF6' },
-    { name: 'Geopolitical', value: 3, color: '#EC4899' }
-  ];
-
-  const riskMatrix = [
-    { x: 75, y: 90, z: 6750, name: 'Single Source Dependency', severity: 'critical' },
-    { x: 60, y: 80, z: 4800, name: 'Financial Instability', severity: 'high' },
-    { x: 40, y: 95, z: 3800, name: 'Geopolitical', severity: 'high' },
-    { x: 70, y: 50, z: 3500, name: 'Compliance', severity: 'medium' },
-    { x: 65, y: 60, z: 3900, name: 'Capacity', severity: 'medium' },
-    { x: 30, y: 40, z: 1200, name: 'Quality Variance', severity: 'low' }
   ];
 
   const mitigationProgress = [

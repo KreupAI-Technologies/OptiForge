@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Headphones, Package, AlertCircle } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
+import { AssetManagementService } from '@/services/asset-management.service';
 
 interface AccessoryAsset {
   id: string;
@@ -24,6 +25,46 @@ export default function Page() {
   const [accessories, setAccessories] = useState<AccessoryAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', brand: '', model: '', quantity: '', unitCost: '', location: '', category: 'keyboard' as AccessoryAsset['category'] });
+
+  const handleAdd = async () => {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      const qty = Number(addForm.quantity) || 0;
+      const asset = await AssetManagementService.createAsset({
+        assetName: addForm.name,
+        brand: addForm.brand,
+        model: addForm.model,
+        purchasePrice: Number(addForm.unitCost) || undefined,
+        location: addForm.location,
+      });
+      const newRow: AccessoryAsset = {
+        id: asset?.id || Date.now().toString(),
+        assetCode: asset?.assetCode || '',
+        name: addForm.name,
+        category: addForm.category,
+        brand: addForm.brand,
+        model: addForm.model,
+        quantity: qty,
+        allocated: 0,
+        available: qty,
+        unitCost: Number(addForm.unitCost) || 0,
+        location: addForm.location,
+        status: qty === 0 ? 'out_of_stock' : qty <= 5 ? 'low_stock' : 'in_stock',
+      };
+      setAccessories((prev) => [newRow, ...prev]);
+      setShowAdd(false);
+      setAddForm({ name: '', brand: '', model: '', quantity: '', unitCost: '', location: '', category: 'keyboard' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add accessory');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -150,7 +191,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Accessory
             </button>
           </div>
@@ -231,6 +272,55 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Accessory</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input type="text" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select value={addForm.category} onChange={(e) => setAddForm({ ...addForm, category: e.target.value as AccessoryAsset['category'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                  <option value="keyboard">Keyboard</option>
+                  <option value="mouse">Mouse</option>
+                  <option value="headset">Headset</option>
+                  <option value="webcam">Webcam</option>
+                  <option value="docking_station">Docking Station</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                <input type="text" value={addForm.brand} onChange={(e) => setAddForm({ ...addForm, brand: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                <input type="text" value={addForm.model} onChange={(e) => setAddForm({ ...addForm, model: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                <input type="number" value={addForm.quantity} onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
+                <input type="number" value={addForm.unitCost} onChange={(e) => setAddForm({ ...addForm, unitCost: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleAdd} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, DollarSign, Clock, Users, Calendar, CheckCircle, AlertCircle, Save, Edit, Plus, Trash2 } from 'lucide-react';
+import { Settings, DollarSign, Clock, Users, Calendar, CheckCircle, AlertCircle, Save, Edit, Plus, Trash2, X } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { AddOTRateModal } from '@/components/hr/AddOTRateModal';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface OTRate {
   id: string;
@@ -20,6 +21,45 @@ export default function OTSettingsPage() {
   const [activeTab, setActiveTab] = useState<'rates' | 'rules' | 'compoff' | 'limits'>('rates');
   const [isEditMode, setIsEditMode] = useState(false);
   const [isAddRateModalOpen, setIsAddRateModalOpen] = useState(false);
+  const [editRate, setEditRate] = useState<OTRate | null>(null);
+  const [editForm, setEditForm] = useState({ grade: '', designation: '', hourlyRate: '', multiplier: '', effectiveFrom: '', status: 'active' as 'active' | 'inactive' });
+  const [savingRate, setSavingRate] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
+
+  const openEditRate = (rate: OTRate) => {
+    setEditRate(rate);
+    setRateError(null);
+    setEditForm({
+      grade: rate.grade,
+      designation: rate.designation,
+      hourlyRate: String(rate.hourlyRate),
+      multiplier: String(rate.multiplier),
+      effectiveFrom: rate.effectiveFrom,
+      status: rate.status,
+    });
+  };
+
+  const handleUpdateRate = async () => {
+    if (!editRate) return;
+    setSavingRate(true);
+    setRateError(null);
+    try {
+      const updated = await HrSelfServiceService.updateOvertimeRate(editRate.id, {
+        grade: editForm.grade,
+        designation: editForm.designation,
+        hourlyRate: parseFloat(editForm.hourlyRate) || 0,
+        multiplier: parseFloat(editForm.multiplier) || 0,
+        effectiveFrom: editForm.effectiveFrom,
+        status: editForm.status,
+      });
+      setOtRates((prev) => prev.map((r) => (r.id === editRate.id ? mapRate({ ...r, ...updated, ...editForm, hourlyRate: parseFloat(editForm.hourlyRate) || 0, multiplier: parseFloat(editForm.multiplier) || 0 }) : r)));
+      setEditRate(null);
+    } catch (err) {
+      setRateError(err instanceof Error ? err.message : 'Failed to update OT rate');
+    } finally {
+      setSavingRate(false);
+    }
+  };
 
   // OT Rate Configuration
   const [otRates, setOtRates] = useState<OTRate[]>([]);
@@ -113,12 +153,14 @@ export default function OTSettingsPage() {
       render: (v: string) => <StatusBadge status={v as any} />
     },
     { key: 'id', label: 'Actions', sortable: false,
-      render: () => (
+      render: (_: any, row: OTRate) => (
         <div className="flex gap-2">
-          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
+          <button onClick={() => openEditRate(row)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
             <Edit className="h-4 w-4" />
           </button>
-          <button className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors">
+          {/* Delete requires a DELETE /hr/overtime-settings/rates/:id endpoint + service method
+              that do not exist yet. See NEEDS-BACKEND. */}
+          <button disabled title="Delete not available (needs backend)" className="p-2 text-red-300 rounded cursor-not-allowed">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -793,6 +835,71 @@ export default function OTSettingsPage() {
         onClose={() => setIsAddRateModalOpen(false)}
         onSubmit={handleAddRate}
       />
+
+      {/* Edit OT Rate Modal */}
+      {editRate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3" onClick={() => setEditRate(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-2 flex justify-between items-center rounded-t-lg">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-6 h-6" />
+                <h2 className="text-xl font-bold">Edit OT Rate</h2>
+              </div>
+              <button onClick={() => setEditRate(null)} className="text-white hover:bg-white/20 p-1 rounded transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              {rateError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {rateError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Grade Code</label>
+                  <input type="text" value={editForm.grade} onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Designation</label>
+                  <input type="text" value={editForm.designation} onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Base Hourly Rate (₹)</label>
+                  <input type="number" value={editForm.hourlyRate} onChange={(e) => setEditForm({ ...editForm, hourlyRate: e.target.value })} step="10" min="0" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">OT Multiplier</label>
+                  <input type="number" value={editForm.multiplier} onChange={(e) => setEditForm({ ...editForm, multiplier: e.target.value })} step="0.1" min="0" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Effective From</label>
+                  <input type="date" value={editForm.effectiveFrom} onChange={(e) => setEditForm({ ...editForm, effectiveFrom: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'active' | 'inactive' })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-gray-50 px-3 py-2 flex justify-end gap-3 border-t border-gray-200 rounded-b-lg">
+              <button onClick={() => setEditRate(null)} className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium transition-colors">Cancel</button>
+              <button onClick={handleUpdateRate} disabled={savingRate} className="px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                <Save className="w-4 h-4" />
+                {savingRate ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
