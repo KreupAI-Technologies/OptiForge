@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, File, Download, Eye, Filter, AlertCircle } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { DocumentManagementService, DocumentRepository } from '@/services/document-management.service';
 
 interface SearchResult {
   id: string;
@@ -12,7 +12,19 @@ interface SearchResult {
   type: string;
   lastModified: string;
   relevance: number;
+  fileUrl?: string;
 }
+
+const mapRow = (row: DocumentRepository): SearchResult => ({
+  id: String(row.id),
+  name: row.documentName ?? row.fileName ?? '',
+  path: row.documentCategory ?? '',
+  size: row.fileSize != null ? String(row.fileSize) : '',
+  type: row.documentCategory ?? '',
+  lastModified: row.uploadedAt ?? '',
+  relevance: 0,
+  fileUrl: row.fileUrl,
+});
 
 export default function SearchRepositoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,20 +38,8 @@ export default function SearchRepositoryPage() {
       setLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrComplianceDocsService.getDocuments();
-        const mapped: SearchResult[] = rows.map((row) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            name: row.fileName ?? row.title ?? '',
-            path: meta.path ?? row.docCategory ?? '',
-            size: row.fileSize ?? '',
-            type: meta.type ?? row.documentType ?? '',
-            lastModified: row.uploadedOn ?? meta.lastModified ?? '',
-            relevance: meta.relevance ?? 0,
-          };
-        });
-        if (!cancelled) setSearchResults(mapped);
+        const { data } = await DocumentManagementService.getRepositoryDocuments();
+        if (!cancelled) setSearchResults(data.map(mapRow));
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load search results');
@@ -54,6 +54,43 @@ export default function SearchRepositoryPage() {
       cancelled = true;
     };
   }, []);
+
+  const handleSearch = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data } = searchQuery.trim()
+        ? await DocumentManagementService.searchDocuments(searchQuery.trim())
+        : await DocumentManagementService.getRepositoryDocuments();
+      setSearchResults(data.map(mapRow));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Search failed');
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async (id: string, fileUrl?: string) => {
+    try {
+      const res = await DocumentManagementService.downloadDocument(id);
+      if (res.available && res.fileUrl) {
+        window.open(res.fileUrl, '_blank');
+      } else {
+        window.alert('File not available for download');
+      }
+    } catch {
+      window.alert('File not available for download');
+    }
+  };
+
+  const handleView = (id: string, fileUrl?: string) => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    } else {
+      handleDownload(id, fileUrl);
+    }
+  };
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -83,11 +120,16 @@ export default function SearchRepositoryPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="Search documents by name, content, or tags..."
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+          <button
+            onClick={handleSearch}
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
+          >
             Search
           </button>
           <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
@@ -96,6 +138,7 @@ export default function SearchRepositoryPage() {
           </button>
         </div>
 
+        {/* Filter pills are visual only — the primary Search + result View/Download are wired to the backend. */}
         <div className="mt-4 flex gap-2">
           <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">All Types</button>
           <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">PDF</button>
@@ -123,10 +166,16 @@ export default function SearchRepositoryPage() {
                 </div>
               </div>
               <div className="flex gap-2 ml-4">
-                <button className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg">
+                <button
+                  onClick={() => handleView(result.id, result.fileUrl)}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
+                >
                   <Eye className="h-4 w-4" />
                 </button>
-                <button className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg">
+                <button
+                  onClick={() => handleDownload(result.id, result.fileUrl)}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
+                >
                   <Download className="h-4 w-4" />
                 </button>
               </div>

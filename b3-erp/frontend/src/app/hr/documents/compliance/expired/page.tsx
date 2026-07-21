@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { XCircle, AlertTriangle, Upload, FileText } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { DocumentManagementService } from '@/services/document-management.service';
 
 interface ExpiredDocument {
   id: string;
@@ -26,61 +26,81 @@ export default function ExpiredDocumentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getDocuments();
-        const daysSince = (date: string) => {
-          const diff = new Date().getTime() - new Date(date).getTime();
-          return Math.floor(diff / (1000 * 60 * 60 * 24));
+  const [cancelledRef] = useState<{ current: boolean }>({ current: false });
+
+  const loadData = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await DocumentManagementService.getExpiredDocuments();
+      const daysSince = (date: string) => {
+        const diff = new Date().getTime() - new Date(date).getTime();
+        return Math.floor(diff / (1000 * 60 * 60 * 24));
+      };
+      const categories = ['personal', 'education', 'statutory'];
+      const mapped: ExpiredDocument[] = rows.map((r) => {
+        const expiryDate = (r.expiryDate || r.dueDate || '') as string;
+        const daysExpired = expiryDate ? daysSince(expiryDate) : 0;
+        const severity: ExpiredDocument['severity'] =
+          daysExpired > 90 ? 'critical' : daysExpired > 60 ? 'high' : 'medium';
+        const category = categories.includes(r.documentCategory)
+          ? (r.documentCategory as ExpiredDocument['category'])
+          : 'personal';
+        return {
+          id: r.id,
+          employeeId: r.employeeId || r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          department: r.department || '',
+          documentType: r.documentName || r.documentType || '',
+          category,
+          expiryDate,
+          daysExpired,
+          lastReminderSent: r.lastReminderAt || undefined,
+          uploadedOn: r.submittedDate || '',
+          severity,
         };
-        const categories = ['personal', 'education', 'statutory'];
-        const mapped: ExpiredDocument[] = rows
-          .filter((r) => r.expiryDate && daysSince(r.expiryDate as string) > 0)
-          .map((r) => {
-            const meta = (r.meta || {}) as Record<string, any>;
-            const daysExpired = daysSince(r.expiryDate as string);
-            const severity: ExpiredDocument['severity'] =
-              daysExpired > 90 ? 'critical' : daysExpired > 60 ? 'high' : 'medium';
-            const category = categories.includes(r.docCategory || '')
-              ? (r.docCategory as ExpiredDocument['category'])
-              : categories.includes(meta.category)
-                ? (meta.category as ExpiredDocument['category'])
-                : 'personal';
-            return {
-              id: String(r.id),
-              employeeId: meta.employeeId || '',
-              employeeName: meta.employeeName || '',
-              department: meta.department || '',
-              documentType: r.documentType || r.title || '',
-              category,
-              expiryDate: r.expiryDate as string,
-              daysExpired,
-              lastReminderSent: meta.lastReminderSent || undefined,
-              uploadedOn: r.uploadedOn || '',
-              severity,
-            };
-          });
-        if (!cancelled) setMockExpiredDocs(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(
-            err instanceof Error ? err.message : 'Failed to load expired documents',
-          );
-          setMockExpiredDocs([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
+      });
+      if (!cancelledRef.current) setMockExpiredDocs(mapped);
+    } catch (err) {
+      if (!cancelledRef.current) {
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load expired documents',
+        );
+        setMockExpiredDocs([]);
       }
-    };
-    load();
+    } finally {
+      if (!cancelledRef.current) setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    loadData();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSendReminder = async (id: string) => {
+    try {
+      await DocumentManagementService.sendComplianceReminder(id);
+      await loadData();
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to send reminder',
+      );
+    }
+  };
+
+  const handleUploadRenewed = () => {
+    // TODO(storage-integration): wire to real file storage once available.
+    window.alert('Document upload is not yet available — file storage integration pending');
+  };
+
+  const handleViewOldDocument = () => {
+    window.alert('File not available');
+  };
 
   const filteredDocs = useMemo(() => {
     return mockExpiredDocs.filter(doc => {
@@ -261,14 +281,14 @@ export default function ExpiredDocumentsPage() {
             </div>
 
             <div className="flex gap-2 pt-4 border-t border-gray-200">
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+              <button onClick={handleUploadRenewed} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                 <Upload className="h-4 w-4" />
                 Upload Renewed Document
               </button>
-              <button className="px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg font-medium text-sm">
+              <button onClick={() => handleSendReminder(doc.id)} className="px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg font-medium text-sm">
                 Send Renewal Reminder
               </button>
-              <button className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button onClick={handleViewOldDocument} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
                 View Old Document
               </button>
             </div>

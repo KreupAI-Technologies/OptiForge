@@ -62,6 +62,38 @@ export class HrDocument {
   @Column({ type: 'varchar', nullable: true })
   fileSize: string;
 
+  // Additive columns for document-repository (view/index over this table) and
+  // document-compliance (computed tracking). See orphan_hr_documents_repo_compliance.sql.
+  @Column({ type: 'varchar', nullable: true })
+  fileUrl: string;
+
+  @Column({ type: 'boolean', default: false })
+  archived: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  employeeId: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  employeeName: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  employeeCode: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  department: string;
+
+  @Column({ type: 'integer', default: 0 })
+  remindersSent: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastReminderAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  resolvedAt: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  resolvedBy: string;
+
   @Column({ type: 'varchar', nullable: true })
   verifiedBy: string;
 

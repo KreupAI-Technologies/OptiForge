@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Archive, File, Download, RotateCcw, AlertCircle } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { DocumentManagementService } from '@/services/document-management.service';
 
 interface ArchivedDoc {
   id: string;
@@ -10,6 +10,7 @@ interface ArchivedDoc {
   archivedOn: string;
   archivedBy: string;
   size: string;
+  fileUrl?: string;
 }
 
 export default function ArchiveRepositoryPage() {
@@ -17,38 +18,60 @@ export default function ArchiveRepositoryPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getDocuments('archive');
-        const mapped: ArchivedDoc[] = rows.map((row) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            name: row.fileName ?? row.title ?? '',
-            archivedOn: meta.archivedOn ?? row.uploadedOn ?? '',
-            archivedBy: meta.archivedBy ?? row.uploadedBy ?? '',
-            size: row.fileSize ?? '',
-          };
-        });
-        if (!cancelled) setArchivedDocs(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load archived documents');
-          setArchivedDocs([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const load = async (signal?: { cancelled: boolean }) => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data } = await DocumentManagementService.getArchivedDocuments();
+      const mapped: ArchivedDoc[] = data.map((row) => ({
+        id: String(row.id),
+        name: row.documentName ?? row.fileName ?? '',
+        archivedOn: row.uploadedAt ?? '',
+        archivedBy: row.uploadedByName ?? row.uploadedBy ?? '',
+        size: row.fileSize != null ? String(row.fileSize) : '',
+        fileUrl: row.fileUrl,
+      }));
+      if (!signal?.cancelled) setArchivedDocs(mapped);
+    } catch (err) {
+      if (!signal?.cancelled) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load archived documents');
+        setArchivedDocs([]);
       }
-    };
-    load();
+    } finally {
+      if (!signal?.cancelled) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const signal = { cancelled: false };
+    load(signal);
     return () => {
-      cancelled = true;
+      signal.cancelled = true;
     };
   }, []);
+
+  const handleRestore = async (id: string) => {
+    if (!window.confirm('Restore this document?')) return;
+    try {
+      await DocumentManagementService.unarchiveDocument(id);
+      await load();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed to restore document');
+    }
+  };
+
+  const handleDownload = async (id: string) => {
+    try {
+      const res = await DocumentManagementService.downloadDocument(id);
+      if (res.available && res.fileUrl) {
+        window.open(res.fileUrl, '_blank');
+      } else {
+        window.alert('File not available for download');
+      }
+    } catch {
+      window.alert('File not available for download');
+    }
+  };
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -97,11 +120,17 @@ export default function ArchiveRepositoryPage() {
                 </div>
               </div>
               <div className="flex gap-2 ml-4">
-                <button className="px-3 py-1 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium flex items-center gap-2">
+                <button
+                  onClick={() => handleRestore(doc.id)}
+                  className="px-3 py-1 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium flex items-center gap-2"
+                >
                   <RotateCcw className="h-4 w-4" />
                   Restore
                 </button>
-                <button className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg">
+                <button
+                  onClick={() => handleDownload(doc.id)}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
+                >
                   <Download className="h-4 w-4" />
                 </button>
               </div>

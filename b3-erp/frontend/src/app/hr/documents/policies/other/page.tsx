@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Files, Download, Eye, AlertCircle } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { Files, Download, Eye, AlertCircle, Send } from 'lucide-react';
+import { DocumentManagementService, PolicyCategory } from '@/services/document-management.service';
 
 interface OtherPolicy {
   id: string;
   title: string;
   version: string;
   lastUpdated: string;
-  fileSize: string;
+  fileUrl?: string;
+  status: string;
 }
 
 export default function OtherPoliciesPage() {
@@ -17,38 +18,49 @@ export default function OtherPoliciesPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data } = await DocumentManagementService.getHRPolicies({ policyCategory: PolicyCategory.OTHER });
+      const mapped: OtherPolicy[] = data.map((policy) => ({
+        id: policy.id,
+        title: policy.policyName ?? '',
+        version: policy.version ?? '',
+        lastUpdated: policy.publishedAt ?? policy.effectiveFrom ?? '',
+        fileUrl: policy.fileUrl,
+        status: policy.status,
+      }));
+      setPolicies(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load policies');
+      setPolicies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getDocuments('policy-other');
-        const mapped: OtherPolicy[] = rows.map((row) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            title: row.title ?? '',
-            version: meta.version ?? '',
-            lastUpdated: row.uploadedOn ?? meta.lastUpdated ?? '',
-            fileSize: row.fileSize ?? '',
-          };
-        });
-        if (!cancelled) setPolicies(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load policies');
-          setPolicies([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleDownload = (fileUrl?: string) => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    } else {
+      window.alert('File not available');
+    }
+  };
+
+  const handlePublish = async (id: string) => {
+    if (!window.confirm('Publish this policy?')) return;
+    try {
+      await DocumentManagementService.publishPolicy(id, 'HR Admin');
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to publish policy');
+    }
+  };
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -78,18 +90,34 @@ export default function OtherPoliciesPage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900">{policy.title}</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Version {policy.version} • Last updated: {new Date(policy.lastUpdated).toLocaleDateString('en-IN')} • {policy.fileSize}
+                  Version {policy.version}
+                  {policy.lastUpdated && ` • Last updated: ${new Date(policy.lastUpdated).toLocaleDateString('en-IN')}`}
                 </p>
               </div>
               <div className="flex gap-2 ml-4">
-                <button className="px-4 py-2 text-blue-600 hover:bg-blue-100 rounded-lg font-medium text-sm flex items-center gap-2">
+                <button
+                  onClick={() => handleDownload(policy.fileUrl)}
+                  className="px-4 py-2 text-blue-600 hover:bg-blue-100 rounded-lg font-medium text-sm flex items-center gap-2"
+                >
                   <Eye className="h-4 w-4" />
                   View
                 </button>
-                <button className="px-4 py-2 text-blue-600 hover:bg-blue-100 rounded-lg font-medium text-sm flex items-center gap-2">
+                <button
+                  onClick={() => handleDownload(policy.fileUrl)}
+                  className="px-4 py-2 text-blue-600 hover:bg-blue-100 rounded-lg font-medium text-sm flex items-center gap-2"
+                >
                   <Download className="h-4 w-4" />
                   Download
                 </button>
+                {policy.status === 'draft' && (
+                  <button
+                    onClick={() => handlePublish(policy.id)}
+                    className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium text-sm flex items-center gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    Publish
+                  </button>
+                )}
               </div>
             </div>
           ))}

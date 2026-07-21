@@ -223,6 +223,16 @@ import { RemediationPlanService } from './services/remediation-plan.service';
 import { DocumentAuditLogService } from './services/document-audit-log.service';
 import { AssetReportService } from './services/asset-report.service';
 
+// Net-new HR Documents backend: policies, document-repository (view over
+// hr_documents), document-compliance (computed over hr_documents)
+import { HrPolicy } from './entities/hr-policy.entity';
+import { HrPolicyController } from './controllers/hr-policy.controller';
+import { HrPolicyService } from './services/hr-policy.service';
+import { DocumentRepositoryController } from './controllers/document-repository.controller';
+import { DocumentRepositoryService } from './services/document-repository.service';
+import { DocumentComplianceController } from './controllers/document-compliance.controller';
+import { DocumentComplianceService } from './services/document-compliance.service';
+
 // Succession / Probation / Performance-goals (orphan-endpoint build) — direct imports
 import { SuccessionPlan } from './entities/succession-plan.entity';
 import { ProbationReview } from './entities/probation-review.entity';
@@ -449,6 +459,8 @@ import { PrismaModule } from '../prisma/prisma.module';
       ComplianceAudit,
       HrGrievance,
       HrDocument,
+      // Net-new HR Documents backend
+      HrPolicy,
       // Net-new HR features
       KpiMaster,
       TrainingBudget,
@@ -578,6 +590,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     ComplianceAuditController,
     HrGrievanceController,
     HrDocumentController,
+    // Net-new HR Documents backend
+    HrPolicyController,
+    DocumentRepositoryController,
+    DocumentComplianceController,
     // Net-new HR features
     KpiMasterController,
     TrainingBudgetController,
@@ -701,6 +717,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     ComplianceAuditService,
     HrGrievanceService,
     HrDocumentService,
+    // Net-new HR Documents backend
+    HrPolicyService,
+    DocumentRepositoryService,
+    DocumentComplianceService,
     // Net-new HR features
     KpiMasterService,
     TrainingBudgetService,

@@ -129,6 +129,9 @@ const MIGRATION_ORDER: string[] = [
     'orphan_hr_training_feedback.sql',
     'orphan_hr_training_assessments.sql',
     'orphan_hr_course_progress.sql',
+    // Net-new HR Documents backend (policies + repository/compliance columns)
+    'orphan_hr_policies.sql',
+    'orphan_hr_documents_repo_compliance.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

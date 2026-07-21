@@ -33,6 +33,133 @@ function docFetch(path: string, init: RequestInit = {}): Promise<Response> {
   });
 }
 
+/**
+ * Backend `hr_policies.category` discriminator values. The FE PolicyCategory
+ * enum is richer (employee_handbook, leave_policy, ...); collapse it to the
+ * backend's short category so the category-filtered pages line up.
+ */
+function mapPolicyCategoryToBackend(cat?: string): string {
+  switch (cat) {
+    case 'leave_policy':
+      return 'leave';
+    case 'attendance_policy':
+      return 'attendance';
+    case 'expense_policy':
+      return 'expense';
+    case 'code_of_conduct':
+      return 'conduct';
+    case 'employee_handbook':
+      return 'handbook';
+    default:
+      return 'other';
+  }
+}
+
+function mapPolicyCategoryToFrontend(cat?: string): PolicyCategory {
+  switch (cat) {
+    case 'leave':
+      return PolicyCategory.LEAVE_POLICY;
+    case 'attendance':
+      return PolicyCategory.ATTENDANCE_POLICY;
+    case 'expense':
+      return PolicyCategory.EXPENSE_POLICY;
+    case 'conduct':
+      return PolicyCategory.CODE_OF_CONDUCT;
+    case 'handbook':
+      return PolicyCategory.EMPLOYEE_HANDBOOK;
+    default:
+      return PolicyCategory.OTHER;
+  }
+}
+
+/**
+ * Adapt a backend HrPolicy row (title/category/version/status/effectiveDate/...)
+ * to the FE HRPolicy shape (policyName/policyCategory/policyCode/effectiveFrom/...).
+ */
+function normalizePolicy(row: any): HRPolicy {
+  return {
+    id: String(row.id),
+    policyCode: row.policyCode ?? row.id,
+    policyName: row.policyName ?? row.title ?? '',
+    policyCategory: mapPolicyCategoryToFrontend(row.category),
+    version: row.version ?? '1.0',
+    summary: row.summary ?? undefined,
+    content: row.content ?? undefined,
+    fileName: row.fileName ?? undefined,
+    fileUrl: row.fileUrl ?? undefined,
+    effectiveFrom: row.effectiveDate ?? row.effectiveFrom ?? '',
+    effectiveTo: row.effectiveTo ?? undefined,
+    status: (row.status as PolicyStatus) ?? PolicyStatus.DRAFT,
+    publishedAt: row.publishedAt ?? undefined,
+    publishedBy: row.publishedBy ?? undefined,
+    applicableTo: row.applicableTo ?? 'all',
+    applicableEntities: row.applicableEntities ?? [],
+    requiresAcknowledgment: row.requiresAcknowledgment ?? false,
+  } as HRPolicy;
+}
+
+/**
+ * Adapt a backend hr_documents row to the FE DocumentRepository shape
+ * (the repository is a view/index over hr_documents).
+ */
+function normalizeRepoDoc(row: any): DocumentRepository {
+  return {
+    id: String(row.id),
+    documentCode: row.documentNumber ?? row.id,
+    documentName: row.title ?? row.documentType ?? '',
+    documentCategory: row.docCategory ?? 'other',
+    fileName: row.fileName ?? '',
+    fileUrl: row.fileUrl ?? '',
+    fileSize: row.fileSize ? Number(row.fileSize) : undefined,
+    fileType: row.fileType ?? undefined,
+    description: row.remarks ?? undefined,
+    tags: row.tags ?? [],
+    keywords: row.keywords ?? [],
+    version: row.version ?? '1.0',
+    accessLevel: row.accessLevel ?? 'company',
+    allowedDepartments: row.allowedDepartments ?? [],
+    allowedRoles: row.allowedRoles ?? [],
+    status: row.archived ? 'archived' : (row.status ?? 'active'),
+    uploadedBy: row.uploadedBy ?? '',
+    uploadedByName: row.uploadedByName ?? row.uploadedBy ?? '',
+    uploadedAt: row.uploadedOn ?? row.createdAt ?? '',
+    downloadCount: row.downloadCount ?? 0,
+  } as DocumentRepository;
+}
+
+/** Adapt a FE DocumentRepository payload to backend hr_documents columns. */
+function denormalizeRepoDoc(data: Partial<DocumentRepository>): Record<string, unknown> {
+  return {
+    companyId: COMPANY_ID,
+    title: data.documentName,
+    docCategory: data.documentCategory,
+    documentType: data.documentCategory,
+    fileName: data.fileName,
+    fileUrl: data.fileUrl,
+    fileSize: data.fileSize != null ? String(data.fileSize) : undefined,
+    remarks: data.description,
+    uploadedBy: data.uploadedBy,
+    uploadedOn: data.uploadedAt,
+    status: 'active',
+  };
+}
+
+/** Adapt a FE HRPolicy payload to the backend hr_policies column names. */
+function denormalizePolicy(data: Partial<HRPolicy>): Record<string, unknown> {
+  return {
+    companyId: COMPANY_ID,
+    title: data.policyName,
+    category: data.policyCategory ? mapPolicyCategoryToBackend(data.policyCategory) : undefined,
+    version: data.version,
+    summary: data.summary,
+    content: data.content,
+    fileName: data.fileName,
+    fileUrl: data.fileUrl,
+    status: data.status,
+    effectiveDate: data.effectiveFrom,
+  };
+}
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -596,14 +723,17 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
-    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies).
-    // Only policy-acknowledgments / policy-violations / attendance-policies exist.
-    // Left on the original relative path (raw fetch) pending a backend build.
+    // NestJS: GET /hr/policies?companyId&category&status -> bare HrPolicy[].
+    // The FE PolicyCategory enum (leave_policy, attendance_policy, ...) maps to the
+    // backend `category` discriminator (leave, attendance, expense, conduct, handbook, other).
     const params = new URLSearchParams();
-    if (options?.policyCategory) params.append('policyCategory', options.policyCategory);
+    params.append('companyId', COMPANY_ID);
+    if (options?.policyCategory) params.append('category', mapPolicyCategoryToBackend(options.policyCategory));
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/policies?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await docFetch(`/hr/policies?${params.toString()}`);
+    const rows = await response.json();
+    const arr: HRPolicy[] = (Array.isArray(rows) ? rows : (rows?.data ?? [])).map(normalizePolicy);
+    return { data: arr, total: arr.length };
   }
 
   static async getHRPolicyById(id: string): Promise<HRPolicy> {
@@ -612,9 +742,9 @@ export class DocumentManagementService {
       if (!policy) throw new Error('Policy not found');
       return policy;
     }
-    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies).
-    const response = await fetch(`/api/hr/policies/${id}`, { credentials: 'include' });
-    return response.json();
+    // NestJS: GET /hr/policies/:id -> bare HrPolicy row.
+    const response = await docFetch(`/hr/policies/${id}`);
+    return normalizePolicy(await response.json());
   }
 
   static async createHRPolicy(data: Partial<HRPolicy>): Promise<HRPolicy> {
@@ -635,14 +765,13 @@ export class DocumentManagementService {
       mockPolicies.push(newPolicy);
       return newPolicy;
     }
-    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies).
-    const response = await fetch('/api/hr/policies', {
-      credentials: 'include',
+    // NestJS: POST /hr/policies (companyId + backend column names in body).
+    const response = await docFetch('/hr/policies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(denormalizePolicy(data)),
     });
-    return response.json();
+    return normalizePolicy(await response.json());
   }
 
   static async publishPolicy(id: string, publishedBy: string): Promise<HRPolicy> {
@@ -655,14 +784,13 @@ export class DocumentManagementService {
       }
       return policy!;
     }
-    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies) publish action.
-    const response = await fetch(`/api/hr/policies/${id}/publish`, {
-      credentials: 'include',
+    // NestJS: POST /hr/policies/:id/publish -> sets status=published + publishedAt.
+    const response = await docFetch(`/hr/policies/${id}/publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ publishedBy }),
     });
-    return response.json();
+    return normalizePolicy(await response.json());
   }
 
   static async acknowledgePolicy(policyId: string, data: {
@@ -728,17 +856,52 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
-    // TODO(needs-backend): no NestJS route for the document repository (hr/document-repository).
+    // NestJS: GET /hr/document-repository (browse) or /search?q= -> bare HrDocument[].
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
-    if (options?.searchQuery) params.append('searchQuery', options.searchQuery);
-    if (options?.accessLevel) params.append('accessLevel', options.accessLevel);
-    const response = await fetch(`/api/hr/document-repository?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    if (options?.status) params.append('status', options.status);
+    let path = `/hr/document-repository?${params.toString()}`;
+    if (options?.searchQuery) {
+      const sp = new URLSearchParams();
+      sp.append('companyId', COMPANY_ID);
+      sp.append('q', options.searchQuery);
+      path = `/hr/document-repository/search?${sp.toString()}`;
+    }
+    const response = await docFetch(path);
+    const rows = await response.json();
+    const arr: DocumentRepository[] = (Array.isArray(rows) ? rows : (rows?.data ?? [])).map(normalizeRepoDoc);
+    return { data: arr, total: arr.length };
   }
 
   static async searchDocuments(query: string): Promise<{ data: DocumentRepository[]; total: number }> {
     return this.getRepositoryDocuments({ searchQuery: query });
+  }
+
+  static async getArchivedDocuments(): Promise<{ data: DocumentRepository[]; total: number }> {
+    // NestJS: GET /hr/document-repository/archived -> bare HrDocument[] (archived=true).
+    const response = await docFetch(`/hr/document-repository/archived?companyId=${COMPANY_ID}`);
+    const rows = await response.json();
+    const arr: DocumentRepository[] = (Array.isArray(rows) ? rows : (rows?.data ?? [])).map(normalizeRepoDoc);
+    return { data: arr, total: arr.length };
+  }
+
+  static async archiveDocument(id: string): Promise<DocumentRepository> {
+    // NestJS: POST /hr/document-repository/archive/:id -> updated HrDocument.
+    const response = await docFetch(`/hr/document-repository/archive/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return normalizeRepoDoc(await response.json());
+  }
+
+  static async unarchiveDocument(id: string): Promise<DocumentRepository> {
+    // NestJS: POST /hr/document-repository/unarchive/:id -> updated HrDocument.
+    const response = await docFetch(`/hr/document-repository/unarchive/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return normalizeRepoDoc(await response.json());
   }
 
   static async uploadDocument(data: Partial<DocumentRepository>): Promise<DocumentRepository> {
@@ -766,24 +929,26 @@ export class DocumentManagementService {
       mockRepositoryDocuments.push(newDoc);
       return newDoc;
     }
-    // TODO(needs-backend): no NestJS route for the document repository (hr/document-repository).
-    const response = await fetch('/api/hr/document-repository', {
-      credentials: 'include',
+    // NestJS: POST /hr/document-repository (creates an hr_documents metadata row).
+    const response = await docFetch('/hr/document-repository', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(denormalizeRepoDoc(data)),
     });
-    return response.json();
+    return normalizeRepoDoc(await response.json());
   }
 
-  static async downloadDocument(id: string): Promise<void> {
-    if (USE_MOCK_DATA) {
-      const doc = mockRepositoryDocuments.find(d => d.id === id);
-      if (doc) doc.downloadCount++;
-      return;
-    }
-    // TODO(needs-backend): no NestJS route for the document repository (hr/document-repository) download.
-    await fetch(`/api/hr/document-repository/${id}/download`, { credentials: 'include', method: 'POST' });
+  /**
+   * Resolves the stored fileUrl for a repository document. Returns
+   * `{ available, fileUrl?, fileName? }`; when no file is stored the backend
+   * responds `{ available: false }` (we never fabricate a file). Callers should
+   * open fileUrl when available, else show "file not available".
+   * NOTE: actual blob storage is a residual storage-integration TODO.
+   */
+  static async downloadDocument(id: string): Promise<{ available: boolean; fileUrl?: string; fileName?: string }> {
+    // NestJS: GET /hr/document-repository/:id/download -> { available, fileUrl?, fileName? }.
+    const response = await docFetch(`/hr/document-repository/${id}/download`);
+    return response.json();
   }
 
   // Certificate Requests
@@ -950,40 +1115,47 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
-    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance).
+    // NestJS: GET /hr/document-compliance/tracking?companyId&... -> bare ComplianceRow[]
+    // (computed over hr_documents; field names already match DocumentComplianceTracking).
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.complianceStatus) params.append('complianceStatus', options.complianceStatus);
     if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
-    const response = await fetch(`/api/hr/document-compliance?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await docFetch(`/hr/document-compliance/tracking?${params.toString()}`);
+    const rows = await response.json();
+    const arr: DocumentComplianceTracking[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async getMissingDocuments(): Promise<DocumentComplianceTracking[]> {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.MISSING);
     }
-    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/missing).
-    const response = await fetch('/api/hr/document-compliance/missing', { credentials: 'include' });
-    return response.json();
+    // NestJS: GET /hr/document-compliance/missing -> bare ComplianceRow[].
+    const response = await docFetch(`/hr/document-compliance/missing?companyId=${COMPANY_ID}`);
+    const rows = await response.json();
+    return Array.isArray(rows) ? rows : (rows?.data ?? []);
   }
 
   static async getExpiredDocuments(): Promise<DocumentComplianceTracking[]> {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.EXPIRED);
     }
-    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/expired).
-    const response = await fetch('/api/hr/document-compliance/expired', { credentials: 'include' });
-    return response.json();
+    // NestJS: GET /hr/document-compliance/expired -> bare ComplianceRow[].
+    const response = await docFetch(`/hr/document-compliance/expired?companyId=${COMPANY_ID}`);
+    const rows = await response.json();
+    return Array.isArray(rows) ? rows : (rows?.data ?? []);
   }
 
   static async getExpiringDocuments(withinDays: number = 30): Promise<DocumentComplianceTracking[]> {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.EXPIRING_SOON);
     }
-    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/expiring).
-    const response = await fetch(`/api/hr/document-compliance/expiring?withinDays=${withinDays}`, { credentials: 'include' });
-    return response.json();
+    // NestJS: GET /hr/document-compliance/expiring?withinDays -> bare ComplianceRow[].
+    const response = await docFetch(`/hr/document-compliance/expiring?companyId=${COMPANY_ID}&withinDays=${withinDays}`);
+    const rows = await response.json();
+    return Array.isArray(rows) ? rows : (rows?.data ?? []);
   }
 
   static async sendComplianceReminder(id: string): Promise<DocumentComplianceTracking> {
@@ -995,10 +1167,10 @@ export class DocumentManagementService {
       }
       return tracking!;
     }
-    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/:id/remind).
-    const response = await fetch(`/api/hr/document-compliance/${id}/remind`, {
-      credentials: 'include',
+    // NestJS: POST /hr/document-compliance/reminder/:id -> stamps remindersSent + lastReminderAt.
+    const response = await docFetch(`/hr/document-compliance/reminder/${id}`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
     });
     return response.json();
   }
@@ -1013,9 +1185,8 @@ export class DocumentManagementService {
       }
       return tracking!;
     }
-    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/:id/resolve).
-    const response = await fetch(`/api/hr/document-compliance/${id}/resolve`, {
-      credentials: 'include',
+    // NestJS: POST /hr/document-compliance/resolve/:id -> marks the doc resolved.
+    const response = await docFetch(`/hr/document-compliance/resolve/${id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resolvedBy, notes }),

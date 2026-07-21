@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Folder, File, Download, Eye, FolderOpen, AlertCircle } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { DocumentManagementService } from '@/services/document-management.service';
 
 interface RepoFile {
   id: string;
@@ -10,6 +10,7 @@ interface RepoFile {
   size: string;
   type: string;
   lastModified: string;
+  fileUrl?: string;
 }
 
 export default function BrowseRepositoryPage() {
@@ -24,17 +25,15 @@ export default function BrowseRepositoryPage() {
       setLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrComplianceDocsService.getDocuments();
-        const mapped: RepoFile[] = rows.map((row) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            name: row.fileName ?? row.title ?? '',
-            size: row.fileSize ?? '',
-            type: meta.type ?? row.documentType ?? '',
-            lastModified: row.uploadedOn ?? meta.lastModified ?? '',
-          };
-        });
+        const { data } = await DocumentManagementService.getRepositoryDocuments();
+        const mapped: RepoFile[] = data.map((row) => ({
+          id: String(row.id),
+          name: row.documentName ?? row.fileName ?? '',
+          size: row.fileSize != null ? String(row.fileSize) : '',
+          type: row.documentCategory ?? '',
+          lastModified: row.uploadedAt ?? '',
+          fileUrl: row.fileUrl,
+        }));
         if (!cancelled) setFiles(mapped);
       } catch (err) {
         if (!cancelled) {
@@ -61,6 +60,29 @@ export default function BrowseRepositoryPage() {
     setCurrentPath([...currentPath, folderName]);
   };
 
+  const handleDownload = async (id: string, fileUrl?: string) => {
+    try {
+      const res = await DocumentManagementService.downloadDocument(id);
+      if (res.available && res.fileUrl) {
+        window.open(res.fileUrl, '_blank');
+      } else {
+        window.alert('File not available for download');
+      }
+    } catch {
+      window.alert('File not available for download');
+    }
+  };
+
+  const handleView = (id: string, fileUrl?: string) => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    } else {
+      handleDownload(id, fileUrl);
+    }
+  };
+
+  // Static navigation chrome — these folders are presentational categories used
+  // to navigate the breadcrumb path and do not drive the document data below.
   const folders = [
     { id: 1, name: 'HR Policies', fileCount: 12, lastModified: '2025-01-15' },
     { id: 2, name: 'Employee Handbooks', fileCount: 5, lastModified: '2025-01-10' },
@@ -138,10 +160,16 @@ export default function BrowseRepositoryPage() {
                 </div>
               </div>
               <div className="flex gap-2 ml-4">
-                <button className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg">
+                <button
+                  onClick={() => handleView(file.id, file.fileUrl)}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
+                >
                   <Eye className="h-4 w-4" />
                 </button>
-                <button className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg">
+                <button
+                  onClick={() => handleDownload(file.id, file.fileUrl)}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
+                >
                   <Download className="h-4 w-4" />
                 </button>
               </div>

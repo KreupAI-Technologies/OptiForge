@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Bell, Calendar, FileText, AlertCircle } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { DocumentManagementService } from '@/services/document-management.service';
 
 interface RenewalReminder {
   id: string;
@@ -34,57 +34,89 @@ export default function RenewalRemindersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getDocuments();
-        const mapped: RenewalReminder[] = rows
-          .filter((r) => r.expiryDate)
-          .map((r) => {
-            const meta = (r.meta || {}) as Record<string, any>;
-            const days = calculateDaysUntilExpiry(r.expiryDate as string);
-            const urgency: RenewalReminder['urgency'] =
-              days <= 30 ? 'urgent' : days <= 60 ? 'soon' : 'upcoming';
-            const category: RenewalReminder['category'] =
-              (r.docCategory === 'statutory' || meta.category === 'statutory')
-                ? 'statutory'
-                : 'personal';
-            return {
-              id: String(r.id),
-              employeeId: meta.employeeId || '',
-              employeeName: meta.employeeName || '',
-              department: meta.department || '',
-              documentType: r.documentType || r.title || '',
-              category,
-              expiryDate: r.expiryDate as string,
-              daysUntilExpiry: days,
-              uploadedOn: r.uploadedOn || '',
-              urgency,
-              remindersSent: Number(meta.remindersSent) || 0,
-              lastReminderDate: meta.lastReminderDate || undefined,
-            };
-          })
-          .filter((r) => r.daysUntilExpiry >= 0);
-        if (!cancelled) setMockRenewals(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(
-            err instanceof Error ? err.message : 'Failed to load renewal reminders',
-          );
-          setMockRenewals([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
+  const [cancelledRef] = useState<{ current: boolean }>({ current: false });
+
+  const loadData = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await DocumentManagementService.getExpiringDocuments(30);
+      const mapped: RenewalReminder[] = rows
+        .filter((r) => r.expiryDate)
+        .map((r) => {
+          const days = calculateDaysUntilExpiry(r.expiryDate as string);
+          const urgency: RenewalReminder['urgency'] =
+            days <= 30 ? 'urgent' : days <= 60 ? 'soon' : 'upcoming';
+          const category: RenewalReminder['category'] =
+            r.documentCategory === 'statutory' ? 'statutory' : 'personal';
+          return {
+            id: r.id,
+            employeeId: r.employeeId || r.employeeCode || '',
+            employeeName: r.employeeName || '',
+            department: r.department || '',
+            documentType: r.documentName || r.documentType || '',
+            category,
+            expiryDate: r.expiryDate as string,
+            daysUntilExpiry: days,
+            uploadedOn: r.submittedDate || '',
+            urgency,
+            remindersSent: r.remindersSent || 0,
+            lastReminderDate: r.lastReminderAt || undefined,
+          };
+        })
+        .filter((r) => r.daysUntilExpiry >= 0);
+      if (!cancelledRef.current) setMockRenewals(mapped);
+    } catch (err) {
+      if (!cancelledRef.current) {
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load renewal reminders',
+        );
+        setMockRenewals([]);
       }
-    };
-    load();
+    } finally {
+      if (!cancelledRef.current) setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    loadData();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSendReminder = async (id: string) => {
+    try {
+      await DocumentManagementService.sendComplianceReminder(id);
+      await loadData();
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to send reminder',
+      );
+    }
+  };
+
+  const handleViewCurrentDocument = () => {
+    window.alert('File not available');
+  };
+
+  const handleContactEmployee = (employeeName: string) => {
+    window.alert(`Contact ${employeeName || 'the employee'} to follow up on this renewal`);
+  };
+
+  const handleResolve = async (id: string) => {
+    if (!window.confirm('Mark this document compliant?')) return;
+    try {
+      await DocumentManagementService.resolveComplianceIssue(id, 'HR Admin');
+      await loadData();
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to resolve document',
+      );
+    }
+  };
 
   const filteredRenewals = useMemo(() => {
     return mockRenewals.filter(renewal => {
@@ -283,14 +315,17 @@ export default function RenewalRemindersPage() {
             </div>
 
             <div className="flex gap-2 pt-4 border-t border-gray-200">
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+              <button onClick={() => handleSendReminder(renewal.id)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                 Send Renewal Reminder
               </button>
-              <button className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button onClick={handleViewCurrentDocument} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
                 View Current Document
               </button>
-              <button className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button onClick={() => handleContactEmployee(renewal.employeeName)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
                 Contact Employee
+              </button>
+              <button onClick={() => handleResolve(renewal.id)} className="px-4 py-2 text-green-600 hover:bg-green-50 rounded-lg font-medium text-sm">
+                Mark Resolved
               </button>
             </div>
           </div>
