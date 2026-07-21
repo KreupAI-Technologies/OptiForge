@@ -4,9 +4,27 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Tag, DollarSign, Calendar, CheckCircle, AlertCircle, ShoppingCart, TrendingDown, TrendingUp, Download, Upload } from 'lucide-react';
 import { commonMastersService, PriceList } from '@/services/common-masters.service';
 
+const COMPANY_ID = '1';
+
 export default function PriceListMaster() {
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    priceListCode: '',
+    priceListName: '',
+    description: '',
+    effectiveFrom: '',
+    effectiveTo: '',
+    applicableFor: 'sales',
+    pricingMethod: 'fixed',
+    currency: 'INR',
+    includeTax: false,
+    isDefault: false,
+    status: 'active',
+  });
 
   useEffect(() => {
     fetchPriceLists();
@@ -21,6 +39,70 @@ export default function PriceListMaster() {
       console.error('Failed to fetch price lists:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openModal = (pl: PriceList | null) => {
+    setSelectedPriceList(pl);
+    setForm({
+      priceListCode: pl?.priceListCode ?? '',
+      priceListName: pl?.priceListName ?? '',
+      description: pl?.description ?? '',
+      effectiveFrom: pl?.effectiveFrom ? pl.effectiveFrom.split('T')[0] : '',
+      effectiveTo: pl?.effectiveTo ? pl.effectiveTo.split('T')[0] : '',
+      applicableFor: pl?.applicableFor ?? 'sales',
+      pricingMethod: pl?.pricingMethod ?? 'fixed',
+      currency: pl?.currency ?? 'INR',
+      includeTax: pl?.includeTax ?? false,
+      isDefault: pl?.isDefault ?? false,
+      status: pl?.status ?? 'active',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.priceListCode.trim()) { alert('Price List Code is required.'); return; }
+    if (!form.priceListName.trim()) { alert('Price List Name is required.'); return; }
+    if (!form.effectiveFrom) { alert('Effective From date is required.'); return; }
+    try {
+      setIsSaving(true);
+      const payload = {
+        priceListCode: form.priceListCode.trim(),
+        priceListName: form.priceListName.trim(),
+        description: form.description.trim() || undefined,
+        effectiveFrom: form.effectiveFrom,
+        effectiveTo: form.effectiveTo || undefined,
+        applicableFor: form.applicableFor,
+        pricingMethod: form.pricingMethod,
+        currency: form.currency,
+        includeTax: form.includeTax,
+        isDefault: form.isDefault,
+        status: form.status,
+      };
+      if (selectedPriceList) {
+        await commonMastersService.updatePriceList(selectedPriceList.id, payload);
+      } else {
+        await commonMastersService.createPriceList({ ...payload, companyId: COMPANY_ID });
+      }
+      setIsModalOpen(false);
+      await fetchPriceLists();
+      alert(`Price list ${selectedPriceList ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error('Error saving price list:', error);
+      alert('Failed to save price list. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this price list?')) return;
+    try {
+      await commonMastersService.deletePriceList(id);
+      await fetchPriceLists();
+    } catch (error) {
+      console.error('Error deleting price list:', error);
+      alert('Failed to delete price list. Please try again.');
     }
   };
 
@@ -46,7 +128,9 @@ export default function PriceListMaster() {
               </h1>
               <p className="text-gray-600 mt-2">Manage pricing structures and price lists</p>
             </div>
-            <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
+            <button
+              onClick={() => openModal(null)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
               <Plus className="w-4 h-4" />
               Add Price List
             </button>
@@ -147,13 +231,17 @@ export default function PriceListMaster() {
                   <p className="text-sm text-gray-500">{priceList.description}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    <Eye className="w-4 h-4 text-gray-600" />
-                    <span className="text-gray-700">View</span>
-                  </button>
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                  <button
+                    onClick={() => openModal(priceList)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
                     <Edit className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(priceList.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <span className="text-red-700">Delete</span>
                   </button>
                 </div>
               </div>
@@ -258,6 +346,154 @@ export default function PriceListMaster() {
           ))}
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">
+                {selectedPriceList ? 'Edit Price List' : 'Add New Price List'}
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Code *</label>
+                  <input
+                    type="text"
+                    value={form.priceListCode}
+                    onChange={(e) => setForm({ ...form, priceListCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="PL-2025-01"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={form.priceListName}
+                    onChange={(e) => setForm({ ...form, priceListName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="Standard Sales Price List"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Effective From *</label>
+                  <input
+                    type="date"
+                    value={form.effectiveFrom}
+                    onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Effective To</label>
+                  <input
+                    type="date"
+                    value={form.effectiveTo}
+                    onChange={(e) => setForm({ ...form, effectiveTo: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Applicable For</label>
+                  <select
+                    value={form.applicableFor}
+                    onChange={(e) => setForm({ ...form, applicableFor: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="sales">Sales</option>
+                    <option value="purchase">Purchase</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pricing Method</label>
+                  <select
+                    value={form.pricingMethod}
+                    onChange={(e) => setForm({ ...form, pricingMethod: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="fixed">Fixed</option>
+                    <option value="markup">Markup</option>
+                    <option value="markdown">Markdown</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <input
+                    type="text"
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="expired">Expired</option>
+                  </select>
+                </div>
+                <div className="flex items-end gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.includeTax}
+                      onChange={(e) => setForm({ ...form, includeTax: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Include Tax</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.isDefault}
+                      onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Default</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : `${selectedPriceList ? 'Update' : 'Create'} Price List`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

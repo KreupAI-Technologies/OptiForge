@@ -105,15 +105,96 @@ export default function BatchLotMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterQualityStatus, setFilterQualityStatus] = useState<string>('All');
+  const [isSaving, setIsSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    batchNumber: '',
+    lotNumber: '',
+    itemCode: '',
+    quantity: 0,
+    uom: 'units',
+    warehouse: '',
+    location: '',
+    qualityStatus: 'Pending',
+    status: 'Active',
+    notes: ''
+  });
 
-  const handleEdit = (batch: BatchLot) => {
-    setSelectedBatch(batch);
+  const openCreateModal = () => {
+    setSelectedBatch(null);
+    setModalError(null);
+    setForm({
+      batchNumber: '',
+      lotNumber: '',
+      itemCode: '',
+      quantity: 0,
+      uom: 'units',
+      warehouse: '',
+      location: '',
+      qualityStatus: 'Pending',
+      status: 'Active',
+      notes: ''
+    });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleEdit = (batch: BatchLot) => {
+    setSelectedBatch(batch);
+    setModalError(null);
+    setForm({
+      batchNumber: batch.batchNumber,
+      lotNumber: batch.lotNumber,
+      itemCode: batch.itemCode,
+      quantity: batch.quantity,
+      uom: batch.uom,
+      warehouse: batch.warehouse,
+      location: batch.location,
+      qualityStatus: batch.qualityStatus,
+      status: batch.status,
+      notes: batch.notes
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.batchNumber.trim()) {
+      setModalError('Batch Number is required.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setModalError(null);
+      const payload = {
+        batchNumber: form.batchNumber,
+        itemId: form.itemCode,
+        quantity: Number(form.quantity) || 0,
+        status: form.status,
+        companyId: '1'
+      };
+      if (selectedBatch) {
+        await manufacturingMastersService.updateBatch(selectedBatch.id, payload);
+      } else {
+        await manufacturingMastersService.createBatch(payload);
+      }
+      setIsModalOpen(false);
+      await fetchBatches();
+    } catch (err) {
+      console.error('Error saving batch:', err);
+      setModalError('Failed to save batch/lot. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this batch/lot?')) {
-      setBatches(batches.filter(b => b.id !== id));
+      try {
+        await manufacturingMastersService.deleteBatch(id);
+        await fetchBatches();
+      } catch (err) {
+        console.error('Error deleting batch:', err);
+        alert('Failed to delete batch/lot. Please try again.');
+      }
     }
   };
 
@@ -247,10 +328,7 @@ export default function BatchLotMaster() {
               </select>
             </div>
             <button
-              onClick={() => {
-                setSelectedBatch(null);
-                setIsModalOpen(true);
-              }}
+              onClick={openCreateModal}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -388,7 +466,8 @@ export default function BatchLotMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedBatch?.batchNumber}
+                      value={form.batchNumber}
+                      onChange={(e) => setForm({ ...form, batchNumber: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="BATCH-YYYY-NNN"
                     />
@@ -399,7 +478,8 @@ export default function BatchLotMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedBatch?.lotNumber}
+                      value={form.lotNumber}
+                      onChange={(e) => setForm({ ...form, lotNumber: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="LOT-X-NNNNN"
                     />
@@ -413,7 +493,8 @@ export default function BatchLotMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedBatch?.itemCode}
+                      value={form.itemCode}
+                      onChange={(e) => setForm({ ...form, itemCode: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Select item"
                     />
@@ -425,7 +506,8 @@ export default function BatchLotMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedBatch?.quantity}
+                        value={form.quantity}
+                        onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="0"
                       />
@@ -436,7 +518,8 @@ export default function BatchLotMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedBatch?.uom}
+                        value={form.uom}
+                        onChange={(e) => setForm({ ...form, uom: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="kg"
                       />
@@ -451,7 +534,8 @@ export default function BatchLotMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedBatch?.warehouse}
+                      value={form.warehouse}
+                      onChange={(e) => setForm({ ...form, warehouse: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Select warehouse"
                     />
@@ -462,7 +546,8 @@ export default function BatchLotMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedBatch?.location}
+                      value={form.location}
+                      onChange={(e) => setForm({ ...form, location: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Zone-Rack-Bin"
                     />
@@ -475,7 +560,8 @@ export default function BatchLotMaster() {
                       Quality Status
                     </label>
                     <select
-                      defaultValue={selectedBatch?.qualityStatus || 'Pending'}
+                      value={form.qualityStatus}
+                      onChange={(e) => setForm({ ...form, qualityStatus: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Approved">Approved</option>
@@ -489,7 +575,8 @@ export default function BatchLotMaster() {
                       Status
                     </label>
                     <select
-                      defaultValue={selectedBatch?.status || 'Active'}
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Active">Active</option>
@@ -506,7 +593,8 @@ export default function BatchLotMaster() {
                     Notes
                   </label>
                   <textarea
-                    defaultValue={selectedBatch?.notes}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     rows={2}
                     placeholder="Additional notes"
@@ -515,15 +603,25 @@ export default function BatchLotMaster() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+            <div className="p-4 border-t border-gray-200 flex justify-end items-center gap-2">
+              {modalError && (
+                <span className="mr-auto text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {modalError}
+                </span>
+              )}
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Save Batch/Lot
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save Batch/Lot'}
               </button>
             </div>
           </div>

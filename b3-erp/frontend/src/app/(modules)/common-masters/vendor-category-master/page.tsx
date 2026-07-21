@@ -93,8 +93,67 @@ export default function VendorCategoryMasterPage() {
     setToast({ message, type });
   };
 
-  const handleEditCategory = (category: VendorCategory) => {
-    showToast(`Editing category: ${category.categoryName}`, 'info');
+  const reloadCategories = async () => {
+    try {
+      const raw = (await commonMastersService.getAllVendorCategories(DEFAULT_COMPANY_ID)) as any[];
+      const mapped: VendorCategory[] = raw.map((c) => ({
+        id: String(c.id ?? ''),
+        categoryCode: c.code ?? c.categoryCode ?? '',
+        categoryName: c.name ?? c.categoryName ?? '',
+        description: c.description ?? '',
+        defaultPaymentTerms: c.defaultPaymentTerms ?? '',
+        defaultDeliveryTerms: c.defaultDeliveryTerms ?? undefined,
+        creditPeriod: Number(c.creditPeriod ?? 0),
+        paymentDays: c.paymentDays !== null && c.paymentDays !== undefined ? Number(c.paymentDays) : undefined,
+        advancePaymentPercentage: c.advancePaymentPercentage !== null && c.advancePaymentPercentage !== undefined ? Number(c.advancePaymentPercentage) : undefined,
+        advancePaymentRequired: c.advancePaymentRequired ?? undefined,
+        advancePercentage: c.advancePercentage !== null && c.advancePercentage !== undefined ? Number(c.advancePercentage) : undefined,
+        materialType: (c.materialType ?? 'others') as VendorCategory['materialType'],
+        vendorType: c.vendorType ?? undefined,
+        isPreferred: c.isPreferred ?? undefined,
+        qualityRating: (c.qualityRating ?? 'B') as VendorCategory['qualityRating'],
+        minOrderValue: Number(c.minOrderValue ?? 0),
+        leadTimeDays: Number(c.leadTimeDays ?? 0),
+        onTimeDeliveryRate: c.onTimeDeliveryRate !== null && c.onTimeDeliveryRate !== undefined ? Number(c.onTimeDeliveryRate) : undefined,
+        evaluationRequired: c.evaluationRequired ?? false,
+        inspectionRequired: c.inspectionRequired ?? false,
+        requiresQualityInspection: c.requiresQualityInspection ?? undefined,
+        certificationRequired: c.certificationRequired ?? false,
+        certifications: Array.isArray(c.certifications) ? c.certifications : undefined,
+        defectRate: c.defectRate !== null && c.defectRate !== undefined ? Number(c.defectRate) : undefined,
+        complianceScore: c.complianceScore !== null && c.complianceScore !== undefined ? Number(c.complianceScore) : undefined,
+        vendorsCount: Number(c.vendorsCount ?? 0),
+        totalPurchases: Number(c.totalPurchases ?? 0),
+        avgOrderValue: Number(c.avgOrderValue ?? 0),
+        averagePOValue: c.averagePOValue !== null && c.averagePOValue !== undefined ? Number(c.averagePOValue) : undefined,
+        outstandingAmount: Number(c.outstandingAmount ?? 0),
+        pendingPayments: c.pendingPayments !== null && c.pendingPayments !== undefined ? Number(c.pendingPayments) : undefined,
+        isActive: c.isActive ?? true,
+        createdBy: c.createdBy ?? '',
+        createdDate: c.createdDate ?? c.createdAt ?? '',
+      }));
+      setCategories(mapped);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to reload vendor categories', 'error');
+    }
+  };
+
+  const handleEditCategory = async (category: VendorCategory) => {
+    const newName = window.prompt('Update category name', category.categoryName);
+    if (newName === null) return;
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      showToast('Category name is required', 'error');
+      return;
+    }
+    const description = window.prompt('Description', category.description) ?? category.description;
+    try {
+      await commonMastersService.updateVendorCategory(category.id, { name: trimmed, description });
+      await reloadCategories();
+      showToast(`Updated category: ${trimmed}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update category', 'error');
+    }
   };
 
   const handleViewVendors = (category: VendorCategory) => {
@@ -106,8 +165,33 @@ export default function VendorCategoryMasterPage() {
     showToast('Exporting vendor categories data...', 'success');
   };
 
-  const handleAddCategory = () => {
-    showToast('Opening add category form...', 'info');
+  const handleAddCategory = async () => {
+    const name = window.prompt('New vendor category name', '');
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      showToast('Category name is required', 'error');
+      return;
+    }
+    const description = window.prompt('Description', '') ?? '';
+    try {
+      await commonMastersService.createVendorCategory({ name: trimmed, description, companyId: DEFAULT_COMPANY_ID });
+      await reloadCategories();
+      showToast(`Created category: ${trimmed}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create category', 'error');
+    }
+  };
+
+  const handleDeleteCategory = async (category: VendorCategory) => {
+    if (!confirm(`Delete ${category.categoryName}? This affects ${category.vendorsCount} vendors.`)) return;
+    try {
+      await commonMastersService.deleteVendorCategory(category.id);
+      await reloadCategories();
+      showToast(`Deleted category: ${category.categoryName}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete category', 'error');
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -312,10 +396,7 @@ export default function VendorCategoryMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete ${row.categoryName}? This affects ${row.vendorsCount} vendors.`)) {
-                setCategories(prev => prev.filter(c => c.id !== row.id));
-                showToast(`Deleted category: ${row.categoryName}`, 'success');
-              }
+              handleDeleteCategory(row);
             }}
           >
             Delete

@@ -39,6 +39,7 @@ export default function EstimationSettingsTemplatesPage() {
   const [templates, setTemplates] = useState<EstimateTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [activeOnly, setActiveOnly] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -92,6 +93,39 @@ export default function EstimationSettingsTemplatesPage() {
     }
   }, [])
 
+  const handleExport = () => {
+    const headers = ['Code', 'Name', 'Category', 'Sections', 'Line Items', 'Default Markup', 'Usage Count', 'Status']
+    const rows = templates.map((t) => [
+      t.templateCode,
+      t.templateName,
+      t.category,
+      t.sections,
+      t.lineItems,
+      t.defaultMarkup,
+      t.usageCount,
+      t.status,
+    ])
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'estimate-templates.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this template?')) return
+    try {
+      await estimationTemplateService.deleteBoqTemplate(id)
+      setTemplates((prev) => prev.filter((t) => t.id !== id))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete template')
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -111,6 +145,10 @@ export default function EstimationSettingsTemplatesPage() {
   const defaultTemplates = templates.filter(t => t.isDefault).length
   const totalUsage = templates.reduce((sum, t) => sum + t.usageCount, 0)
 
+  const visibleTemplates = activeOnly
+    ? templates.filter(t => t.status === 'active')
+    : templates
+
   return (
     <div className="w-full h-full px-4 py-2">
       {/* Header */}
@@ -128,15 +166,24 @@ export default function EstimationSettingsTemplatesPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setActiveOnly((prev) => !prev)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${activeOnly ? 'text-blue-700 bg-blue-50 border-blue-300' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}`}
+          >
             <Filter className="h-4 w-4" />
-            Filter
+            {activeOnly ? 'Active Only' : 'Filter'}
           </button>
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={() => router.push('/estimation/boq/templates/create')}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Plus className="h-4 w-4" />
             New Template
           </button>
@@ -209,7 +256,7 @@ export default function EstimationSettingsTemplatesPage() {
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {templates.map((template) => (
+        {visibleTemplates.map((template) => (
           <div key={template.id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="p-6">
               <div className="flex items-start justify-between mb-2">
@@ -258,19 +305,31 @@ export default function EstimationSettingsTemplatesPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2">
-                <button className="flex-1 px-3 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
+                <button
+                  onClick={() => router.push(`/estimation/boq/templates/view/${template.id}`)}
+                  className="flex-1 px-3 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 text-sm"
+                >
                   <Eye className="h-4 w-4" />
                   View
                 </button>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                <button
+                  onClick={() => router.push(`/estimation/boq/templates/edit/${template.id}`)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
                   <Edit2 className="h-4 w-4 text-gray-600" />
                   <span className="text-gray-700">Edit</span>
                 </button>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                <button
+                  onClick={() => router.push('/estimation/boq/templates/create')}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
                   <Copy className="h-4 w-4 text-gray-600" />
                   <span className="text-gray-700">Copy</span>
                 </button>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
+                <button
+                  onClick={() => handleDelete(template.id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                >
                   <Trash2 className="h-4 w-4 text-red-600" />
                   <span className="text-red-600">Delete</span>
                 </button>

@@ -119,6 +119,90 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [selected, setSelected] = useState<FuelRecord | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({
+    vehicleNumber: '',
+    vehicleName: '',
+    registrationNumber: '',
+    fuelType: 'petrol' as FuelRecord['fuelType'],
+    quantity: '',
+    pricePerLiter: '',
+    odometer: '',
+    fuelStation: '',
+    billNumber: '',
+    filledBy: '',
+    location: '',
+  });
+
+  // NOTE: HrAssetsService exposes no createVehicleFuel write endpoint (only
+  // createAssetRequest/updateAssetRequest), so "Add Fuel Record" performs a
+  // client-side optimistic prepend into the already-loaded list. Replace with a
+  // real POST once a backend fuel-log write endpoint exists.
+  const handleAddFuel = () => {
+    const now = Date.now();
+    const quantity = Number(addForm.quantity);
+    const pricePerLiter = Number(addForm.pricePerLiter);
+    const newRecord: FuelRecord = {
+      id: now.toString(),
+      recordId: `FUEL-${now}`,
+      vehicleNumber: addForm.vehicleNumber,
+      vehicleName: addForm.vehicleName,
+      registrationNumber: addForm.registrationNumber,
+      fuelDate: new Date().toISOString().slice(0, 10),
+      fuelType: addForm.fuelType,
+      quantity,
+      pricePerLiter,
+      totalCost: quantity * pricePerLiter,
+      odometer: Number(addForm.odometer),
+      fuelStation: addForm.fuelStation,
+      billNumber: addForm.billNumber,
+      filledBy: addForm.filledBy,
+      location: addForm.location,
+    };
+    setMockRecords((prev) => [newRecord, ...prev]);
+    setShowAdd(false);
+    setAddForm({
+      vehicleNumber: '',
+      vehicleName: '',
+      registrationNumber: '',
+      fuelType: 'petrol',
+      quantity: '',
+      pricePerLiter: '',
+      odometer: '',
+      fuelStation: '',
+      billNumber: '',
+      filledBy: '',
+      location: '',
+    });
+  };
+
+  const handleDownloadBill = (record: FuelRecord) => {
+    const lines = [
+      `Record ID: ${record.recordId}`,
+      `Vehicle Name: ${record.vehicleName}`,
+      `Registration Number: ${record.registrationNumber}`,
+      `Fuel Date: ${record.fuelDate}`,
+      `Quantity: ${record.quantity}`,
+      `Price Per Liter: ${record.pricePerLiter}`,
+      `Total Cost: ${record.totalCost}`,
+      `Odometer: ${record.odometer}`,
+      `Fuel Station: ${record.fuelStation}`,
+      `Bill Number: ${record.billNumber}`,
+      `Filled By: ${record.filledBy}`,
+      `Location: ${record.location}`,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${record.recordId || 'fuel-bill'}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -246,7 +330,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Fuel Record
             </button>
           </div>
@@ -328,16 +412,112 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => setSelected(record)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Details
               </button>
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => handleDownloadBill(record)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 Download Bill
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">{selected.vehicleName} — {selected.recordId}</h2>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Vehicle Number</p><p className="font-semibold text-gray-900">{selected.vehicleNumber}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Registration</p><p className="font-semibold text-gray-900">{selected.registrationNumber}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Fuel Date</p><p className="font-semibold text-gray-900">{selected.fuelDate}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Fuel Type</p><p className="font-semibold text-gray-900">{selected.fuelType}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Quantity</p><p className="font-semibold text-gray-900">{selected.quantity} L</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Price/Liter</p><p className="font-semibold text-gray-900">₹{selected.pricePerLiter.toFixed(2)}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Total Cost</p><p className="font-semibold text-gray-900">₹{selected.totalCost.toLocaleString('en-IN')}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Odometer</p><p className="font-semibold text-gray-900">{selected.odometer.toLocaleString('en-IN')} km</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Fuel Station</p><p className="font-semibold text-gray-900">{selected.fuelStation}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Bill Number</p><p className="font-semibold text-gray-900">{selected.billNumber}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Filled By</p><p className="font-semibold text-gray-900">{selected.filledBy}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Location</p><p className="font-semibold text-gray-900">{selected.location}</p></div>
+              {selected.remarks && (
+                <div className="col-span-2"><p className="text-xs text-gray-500 uppercase font-medium">Remarks</p><p className="font-semibold text-gray-900">{selected.remarks}</p></div>
+              )}
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Fuel Record</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
+                <input type="text" value={addForm.vehicleNumber} onChange={(e) => setAddForm({ ...addForm, vehicleNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Name</label>
+                <input type="text" value={addForm.vehicleName} onChange={(e) => setAddForm({ ...addForm, vehicleName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                <input type="text" value={addForm.registrationNumber} onChange={(e) => setAddForm({ ...addForm, registrationNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Type</label>
+                <select value={addForm.fuelType} onChange={(e) => setAddForm({ ...addForm, fuelType: e.target.value as FuelRecord['fuelType'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                  <option value="petrol">Petrol</option>
+                  <option value="diesel">Diesel</option>
+                  <option value="cng">CNG</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity (L)</label>
+                <input type="number" value={addForm.quantity} onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price/Liter</label>
+                <input type="number" value={addForm.pricePerLiter} onChange={(e) => setAddForm({ ...addForm, pricePerLiter: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Odometer (km)</label>
+                <input type="number" value={addForm.odometer} onChange={(e) => setAddForm({ ...addForm, odometer: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Station</label>
+                <input type="text" value={addForm.fuelStation} onChange={(e) => setAddForm({ ...addForm, fuelStation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bill Number</label>
+                <input type="text" value={addForm.billNumber} onChange={(e) => setAddForm({ ...addForm, billNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Filled By</label>
+                <input type="text" value={addForm.filledBy} onChange={(e) => setAddForm({ ...addForm, filledBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Cancel
+              </button>
+              <button onClick={handleAddFuel} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

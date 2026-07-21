@@ -31,6 +31,82 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // NOTE: HrAssetsService has no vehicle-assignment write endpoint
+  // (only createAssetRequest/updateAssetRequest, and AssetManagementService.allocateAsset
+  // targets asset allocations, not vehicle assignments). Until a dedicated backend
+  // endpoint exists, the New Assignment / Return Vehicle actions optimistically update
+  // the locally-loaded `assignments` list only.
+  const [selected, setSelected] = useState<VehicleAssignment | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<VehicleAssignment | null>(null);
+  const [addForm, setAddForm] = useState({
+    vehicleName: '',
+    vehicleNumber: '',
+    registrationNumber: '',
+    assignedTo: '',
+    employeeCode: '',
+    department: '',
+    designation: '',
+    purpose: '',
+    odometerReadingStart: '',
+    location: '',
+  });
+  const [returnForm, setReturnForm] = useState({ odometerReadingEnd: '', remarks: '' });
+
+  const handleAdd = () => {
+    const now = Date.now();
+    const newAssignment: VehicleAssignment = {
+      id: now.toString(),
+      assignmentId: `VA-${now}`,
+      vehicleNumber: addForm.vehicleNumber,
+      vehicleName: addForm.vehicleName,
+      registrationNumber: addForm.registrationNumber,
+      assignedTo: addForm.assignedTo,
+      employeeCode: addForm.employeeCode,
+      department: addForm.department,
+      designation: addForm.designation,
+      assignmentDate: new Date().toISOString(),
+      purpose: addForm.purpose,
+      status: 'active',
+      odometerReadingStart: Number(addForm.odometerReadingStart) || 0,
+      location: addForm.location,
+    };
+    setAssignments(prev => [newAssignment, ...prev]);
+    setShowAdd(false);
+    setAddForm({
+      vehicleName: '',
+      vehicleNumber: '',
+      registrationNumber: '',
+      assignedTo: '',
+      employeeCode: '',
+      department: '',
+      designation: '',
+      purpose: '',
+      odometerReadingStart: '',
+      location: '',
+    });
+  };
+
+  const handleReturn = () => {
+    if (!returnTarget) return;
+    const targetId = returnTarget.id;
+    setAssignments(prev =>
+      prev.map(a =>
+        a.id === targetId
+          ? {
+              ...a,
+              status: 'returned',
+              returnDate: new Date().toISOString(),
+              odometerReadingEnd: Number(returnForm.odometerReadingEnd) || 0,
+              remarks: returnForm.remarks || a.remarks,
+            }
+          : a
+      )
+    );
+    setReturnTarget(null);
+    setReturnForm({ odometerReadingEnd: '', remarks: '' });
+  };
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -153,7 +229,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               New Assignment
             </button>
           </div>
@@ -253,11 +329,11 @@ export default function Page() {
               )}
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setSelected(assignment)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View Details
                 </button>
                 {assignment.status === 'active' && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => setReturnTarget(assignment)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Return Vehicle
                   </button>
                 )}
@@ -266,6 +342,128 @@ export default function Page() {
           );
         })}
       </div>
+
+      {/* View Details modal */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Assignment Details</h2>
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusColors[selected.status]}`}>
+                {selected.status.charAt(0).toUpperCase() + selected.status.slice(1)}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Vehicle Name</p><p className="text-gray-900">{selected.vehicleName}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Registration Number</p><p className="text-gray-900">{selected.registrationNumber}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Assignment ID</p><p className="text-gray-900">{selected.assignmentId}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Assigned To</p><p className="text-gray-900">{selected.assignedTo}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Employee Code</p><p className="text-gray-900">{selected.employeeCode}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Department</p><p className="text-gray-900">{selected.department}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Designation</p><p className="text-gray-900">{selected.designation}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Assignment Date</p><p className="text-gray-900">{selected.assignmentDate}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Return Date</p><p className="text-gray-900">{selected.returnDate ?? '—'}</p></div>
+              <div className="md:col-span-2"><p className="text-xs text-gray-500 uppercase font-medium">Purpose</p><p className="text-gray-900">{selected.purpose}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Odometer Start</p><p className="text-gray-900">{selected.odometerReadingStart.toLocaleString('en-IN')} km</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Odometer End</p><p className="text-gray-900">{selected.odometerReadingEnd != null ? `${selected.odometerReadingEnd.toLocaleString('en-IN')} km` : '—'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Location</p><p className="text-gray-900">{selected.location}</p></div>
+              <div className="md:col-span-2"><p className="text-xs text-gray-500 uppercase font-medium">Remarks</p><p className="text-gray-900">{selected.remarks ?? '—'}</p></div>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Assignment modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">New Assignment</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Name</label>
+                <input value={addForm.vehicleName} onChange={(e) => setAddForm({ ...addForm, vehicleName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
+                <input value={addForm.vehicleNumber} onChange={(e) => setAddForm({ ...addForm, vehicleNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                <input value={addForm.registrationNumber} onChange={(e) => setAddForm({ ...addForm, registrationNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                <input value={addForm.assignedTo} onChange={(e) => setAddForm({ ...addForm, assignedTo: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                <input value={addForm.employeeCode} onChange={(e) => setAddForm({ ...addForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input value={addForm.department} onChange={(e) => setAddForm({ ...addForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                <input value={addForm.designation} onChange={(e) => setAddForm({ ...addForm, designation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Odometer Start (km)</label>
+                <input type="number" value={addForm.odometerReadingStart} onChange={(e) => setAddForm({ ...addForm, odometerReadingStart: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+                <textarea value={addForm.purpose} onChange={(e) => setAddForm({ ...addForm, purpose: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Cancel
+              </button>
+              <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Return Vehicle modal */}
+      {returnTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Return Vehicle</h2>
+            <p className="text-sm text-gray-600 mb-3">{returnTarget.vehicleName} • {returnTarget.assignedTo}</p>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Odometer End (km)</label>
+                <input type="number" value={returnForm.odometerReadingEnd} onChange={(e) => setReturnForm({ ...returnForm, odometerReadingEnd: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                <textarea value={returnForm.remarks} onChange={(e) => setReturnForm({ ...returnForm, remarks: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => { setReturnTarget(null); setReturnForm({ odometerReadingEnd: '', remarks: '' }); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Cancel
+              </button>
+              <button onClick={handleReturn} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                Confirm Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

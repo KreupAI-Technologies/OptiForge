@@ -58,62 +58,106 @@ export default function CompetitivePricingPage() {
   const [competitivePrices, setCompetitivePrices] = useState<CompetitivePrice[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const loadPricing = async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      // Map pricing records to the competitive-comparison shape. The pricing
+      // endpoint has no competitor feed, so competitor columns are neutral and
+      // the market index is anchored at 100 (parity) using our own totalPrice.
+      const raw = await estimationPricingLiveService.getPricing()
+      const mapped: CompetitivePrice[] = raw.map((p: PricingRecord) => {
+        const ourPrice = Number(p.totalPrice ?? 0)
+        const ourCost = Number(p.baseCost ?? 0)
+        const ourMargin = Number(p.actualMarginPercentage ?? p.markupPercentage ?? 0)
+        return {
+          id: p.id,
+          productCode: p.pricingNumber ?? p.id,
+          productName: p.title ?? 'Untitled Pricing',
+          category: p.category ?? p.pricingStrategy ?? 'General',
+          ourPrice,
+          ourCost,
+          ourMargin,
+          competitor1: '—',
+          competitor1Price: 0,
+          competitor1Position: 'same',
+          competitor2: '—',
+          competitor2Price: 0,
+          competitor2Position: 'same',
+          competitor3: '—',
+          competitor3Price: 0,
+          competitor3Position: 'same',
+          marketAvg: ourPrice,
+          priceIndex: 100,
+          recommendation: 'monitor',
+          priceDifferential: 0,
+          status: 'competitive',
+        }
+      })
+      setCompetitivePrices(mapped)
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to load competitive pricing',
+      )
+      setCompetitivePrices([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        // Map pricing records to the competitive-comparison shape. The pricing
-        // endpoint has no competitor feed, so competitor columns are neutral and
-        // the market index is anchored at 100 (parity) using our own totalPrice.
-        const raw = await estimationPricingLiveService.getPricing()
-        const mapped: CompetitivePrice[] = raw.map((p: PricingRecord) => {
-          const ourPrice = Number(p.totalPrice ?? 0)
-          const ourCost = Number(p.baseCost ?? 0)
-          const ourMargin = Number(p.actualMarginPercentage ?? p.markupPercentage ?? 0)
-          return {
-            id: p.id,
-            productCode: p.pricingNumber ?? p.id,
-            productName: p.title ?? 'Untitled Pricing',
-            category: p.category ?? p.pricingStrategy ?? 'General',
-            ourPrice,
-            ourCost,
-            ourMargin,
-            competitor1: '—',
-            competitor1Price: 0,
-            competitor1Position: 'same',
-            competitor2: '—',
-            competitor2Price: 0,
-            competitor2Position: 'same',
-            competitor3: '—',
-            competitor3Price: 0,
-            competitor3Position: 'same',
-            marketAvg: ourPrice,
-            priceIndex: 100,
-            recommendation: 'monitor',
-            priceDifferential: 0,
-            status: 'competitive',
-          }
-        })
-        if (!cancelled) setCompetitivePrices(mapped)
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(
-            err instanceof Error ? err.message : 'Failed to load competitive pricing',
-          )
-          setCompetitivePrices([])
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
+    loadPricing()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Client-side filter over the loaded rows driven by the search box.
+  const filteredPrices = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return competitivePrices
+    return competitivePrices.filter(
+      (p) =>
+        p.productName.toLowerCase().includes(q) ||
+        p.productCode.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q),
+    )
+  }, [competitivePrices, searchTerm])
+
+  const handleExport = () => {
+    const headers = [
+      'Product Code',
+      'Product Name',
+      'Category',
+      'Our Price',
+      'Our Margin %',
+      'Market Avg',
+      'Price Index',
+      'Recommendation',
+      'Status',
+    ]
+    const rows = filteredPrices.map((p) => [
+      p.productCode,
+      p.productName,
+      p.category,
+      p.ourPrice,
+      p.ourMargin.toFixed(1),
+      p.marketAvg,
+      p.priceIndex.toFixed(1),
+      p.recommendation,
+      p.status,
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `competitive-pricing-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   // Competitor profiles are derived from named competitors present in the rows.
   const competitorProfiles: CompetitorProfile[] = useMemo(() => {
@@ -194,11 +238,17 @@ export default function CompetitivePricingPage() {
       )}
       {/* Header */}
       <div className="mb-3 flex items-center justify-end gap-3">
-        <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+        <button
+          onClick={loadPricing}
+          className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+        >
           <Filter className="h-4 w-4" />
           Filter
         </button>
-        <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
           <Download className="h-4 w-4" />
           Export
         </button>
@@ -302,6 +352,8 @@ export default function CompetitivePricingPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search products..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -323,14 +375,14 @@ export default function CompetitivePricingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {competitivePrices.length === 0 && (
+              {filteredPrices.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
                     {isLoading ? 'Loading...' : 'No competitive pricing found.'}
                   </td>
                 </tr>
               )}
-              {competitivePrices.map((product) => (
+              {filteredPrices.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>

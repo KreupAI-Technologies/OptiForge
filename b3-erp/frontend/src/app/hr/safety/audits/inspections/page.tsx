@@ -18,14 +18,6 @@ import {
 } from 'lucide-react';
 import { HrSafetyService, SafetyInspection } from '@/services/hr-safety.service';
 
-// Mock Data
-const inspectionStats = {
-  activeInspections: 4,
-  completedMTD: 12,
-  avgCompliance: 94,
-  outstandingIssues: 6
-};
-
 interface ChecklistItem {
   name: string;
   status: string;
@@ -47,41 +39,75 @@ export default function InspectionsPage() {
   const [inspectionChecklists, setInspectionChecklists] = useState<InspectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', area: '', inspector: '' });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getInspections('inspection');
+      const mapped: InspectionItem[] = rows.map((row: SafetyInspection) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          title: row.title ?? '',
+          area: row.area ?? '',
+          inspector: row.auditor ?? row.assignedTo ?? '',
+          status: row.status ?? '',
+          compliance: Number(meta.compliance ?? row.score ?? 0) || 0,
+          items: Array.isArray(meta.items) ? (meta.items as ChecklistItem[]) : [],
+        };
+      });
+      setInspectionChecklists(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load inspections');
+      setInspectionChecklists([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getInspections('inspection');
-        const mapped: InspectionItem[] = rows.map((row: SafetyInspection) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            title: row.title ?? '',
-            area: row.area ?? '',
-            inspector: row.auditor ?? row.assignedTo ?? '',
-            status: row.status ?? '',
-            compliance: Number(meta.compliance ?? row.score ?? 0) || 0,
-            items: Array.isArray(meta.items) ? (meta.items as ChecklistItem[]) : [],
-          };
-        });
-        if (!cancelled) setInspectionChecklists(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load inspections');
-          setInspectionChecklists([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createInspection({
+        recordType: 'inspection',
+        title: form.title.trim(),
+        area: form.area.trim() || undefined,
+        auditor: form.inspector.trim() || undefined,
+        status: 'In Progress',
+      });
+      setShowCreate(false);
+      setForm({ title: '', area: '', inspector: '' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create inspection');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inspectionStats = {
+    activeInspections: inspectionChecklists.filter((i) => i.status === 'In Progress').length,
+    completedMTD: inspectionChecklists.filter((i) => i.status === 'Completed').length,
+    avgCompliance: inspectionChecklists.length
+      ? Math.round(
+          inspectionChecklists.reduce((s, i) => s + (i.compliance || 0), 0) /
+            inspectionChecklists.length,
+        )
+      : 0,
+    outstandingIssues: inspectionChecklists.reduce(
+      (s, i) => s + i.items.filter((it) => it.status === 'Fail').length,
+      0,
+    ),
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -94,11 +120,71 @@ export default function InspectionsPage() {
           </h1>
           <p className="text-gray-500 mt-1">Conduct and manage routine safety walkthroughs and compliance checks</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Start New Inspection
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-orange-600" /> Start New Inspection
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Warehouse Walkthrough"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Area</label>
+                <input
+                  type="text"
+                  value={form.area}
+                  onChange={(e) => setForm({ ...form, area: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Production Floor"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Inspector</label>
+                <input
+                  type="text"
+                  value={form.inspector}
+                  onChange={(e) => setForm({ ...form, inspector: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Jane Doe"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.title.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

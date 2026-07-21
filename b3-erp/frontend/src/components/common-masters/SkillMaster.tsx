@@ -41,52 +41,120 @@ export default function SkillMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [filterLevel, setFilterLevel] = useState<string>('All');
+  const [isSaving, setIsSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    code: '',
+    name: '',
+    category: 'Technical',
+    level: 'Beginner',
+    description: '',
+    certificationRequired: false,
+    trainingHours: 0,
+    status: 'Active'
+  });
 
   // Load skills from service
+  const loadSkills = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await manufacturingMastersService.getAllSkills('1');
+
+      const mapped: Skill[] = data.map((s: BackendSkill) => ({
+        id: s.id,
+        code: `SKL-${s.name.substring(0, 3).toUpperCase()}`,
+        name: s.name,
+        category: s.category || 'Technical',
+        level: 'Intermediate',
+        description: s.description || '',
+        prerequisites: [],
+        certificationRequired: false,
+        trainingHours: 0,
+        assessmentMethod: 'N/A',
+        competencyIndicators: [],
+        applicableRoles: [],
+        status: 'Active',
+        metadata: {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 'admin',
+          updatedBy: 'admin'
+        }
+      }));
+      setSkills(mapped);
+    } catch (err) {
+      console.error('Error loading skills:', err);
+      setError('Failed to load skills. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadSkills = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await manufacturingMastersService.getAllSkills('1');
-
-        const mapped: Skill[] = data.map((s: BackendSkill) => ({
-          id: s.id,
-          code: `SKL-${s.name.substring(0, 3).toUpperCase()}`,
-          name: s.name,
-          category: s.category || 'Technical',
-          level: 'Intermediate',
-          description: s.description || '',
-          prerequisites: [],
-          certificationRequired: false,
-          trainingHours: 0,
-          assessmentMethod: 'N/A',
-          competencyIndicators: [],
-          applicableRoles: [],
-          status: 'Active',
-          metadata: {
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            createdBy: 'admin',
-            updatedBy: 'admin'
-          }
-        }));
-        setSkills(mapped);
-      } catch (err) {
-        console.error('Error loading skills:', err);
-        setError('Failed to load skills. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadSkills();
   }, []);
 
 
+  const openCreateModal = () => {
+    setSelectedSkill(null);
+    setModalError(null);
+    setForm({
+      code: '',
+      name: '',
+      category: 'Technical',
+      level: 'Beginner',
+      description: '',
+      certificationRequired: false,
+      trainingHours: 0,
+      status: 'Active'
+    });
+    setIsModalOpen(true);
+  };
+
   const handleEdit = (skill: Skill) => {
     setSelectedSkill(skill);
+    setModalError(null);
+    setForm({
+      code: skill.code,
+      name: skill.name,
+      category: skill.category,
+      level: skill.level,
+      description: skill.description,
+      certificationRequired: skill.certificationRequired,
+      trainingHours: skill.trainingHours,
+      status: skill.status
+    });
     setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      setModalError('Skill name is required.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setModalError(null);
+      const payload = {
+        name: form.name,
+        description: form.description,
+        category: form.category,
+        companyId: '1'
+      };
+      if (selectedSkill) {
+        await manufacturingMastersService.updateSkill(selectedSkill.id, payload);
+      } else {
+        await manufacturingMastersService.createSkill(payload);
+      }
+      setIsModalOpen(false);
+      await loadSkills();
+    } catch (err) {
+      console.error('Error saving skill:', err);
+      setModalError('Failed to save skill. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -233,10 +301,7 @@ export default function SkillMaster() {
               </select>
             </div>
             <button
-              onClick={() => {
-                setSelectedSkill(null);
-                setIsModalOpen(true);
-              }}
+              onClick={openCreateModal}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -370,6 +435,11 @@ export default function SkillMaster() {
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               <div className="space-y-2">
+                {modalError && (
+                  <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    {modalError}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -377,7 +447,8 @@ export default function SkillMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedSkill?.code}
+                      value={form.code}
+                      onChange={(e) => setForm({ ...form, code: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="SKL-XXX-000"
                     />
@@ -388,7 +459,8 @@ export default function SkillMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedSkill?.name}
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Enter skill name"
                     />
@@ -401,7 +473,8 @@ export default function SkillMaster() {
                       Category *
                     </label>
                     <select
-                      defaultValue={selectedSkill?.category || 'Technical'}
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Technical">Technical</option>
@@ -417,7 +490,8 @@ export default function SkillMaster() {
                       Level *
                     </label>
                     <select
-                      defaultValue={selectedSkill?.level || 'Beginner'}
+                      value={form.level}
+                      onChange={(e) => setForm({ ...form, level: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Beginner">Beginner</option>
@@ -433,7 +507,8 @@ export default function SkillMaster() {
                     Description *
                   </label>
                   <textarea
-                    defaultValue={selectedSkill?.description}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     rows={2}
                     placeholder="Describe the skill"
@@ -444,7 +519,8 @@ export default function SkillMaster() {
                   <input
                     type="checkbox"
                     id="certificationRequired"
-                    defaultChecked={selectedSkill?.certificationRequired}
+                    checked={form.certificationRequired}
+                    onChange={(e) => setForm({ ...form, certificationRequired: e.target.checked })}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <label htmlFor="certificationRequired" className="text-sm text-gray-700">
@@ -459,7 +535,8 @@ export default function SkillMaster() {
                     </label>
                     <input
                       type="number"
-                      defaultValue={selectedSkill?.trainingHours}
+                      value={form.trainingHours}
+                      onChange={(e) => setForm({ ...form, trainingHours: Number(e.target.value) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="0"
                     />
@@ -469,7 +546,8 @@ export default function SkillMaster() {
                       Status
                     </label>
                     <select
-                      defaultValue={selectedSkill?.status || 'Active'}
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Active">Active</option>
@@ -488,8 +566,12 @@ export default function SkillMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Save Skill
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save Skill'}
               </button>
             </div>
           </div>

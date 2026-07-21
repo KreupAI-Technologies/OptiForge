@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search, Download, Eye, Edit, Copy, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { RoleService, Role as ServiceRole } from '@/services/role.service';
@@ -19,6 +20,7 @@ interface Role {
 }
 
 export default function RolesPage() {
+  const router = useRouter();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,36 +31,36 @@ export default function RolesPage() {
   const itemsPerPage = 10;
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  const fetchRoles = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fetchedRoles = await RoleService.getAllRoles();
+
+      // Transform service roles to page format
+      const transformedRoles: Role[] = fetchedRoles.map((role: ServiceRole) => ({
+        id: role.id,
+        roleName: role.name,
+        roleType: role.isSystemRole ? 'system' as const : 'custom' as const,
+        usersCount: role.userCount || 0,
+        permissionsCount: role.permissions?.length || 0,
+        description: role.description,
+        createdDate: new Date(role.createdAt).toISOString().split('T')[0],
+        createdBy: role.createdBy || 'System',
+        lastModified: new Date(role.updatedAt).toISOString().split('T')[0],
+        status: role.status as 'active' | 'inactive',
+      }));
+
+      setRoles(transformedRoles);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load roles');
+      console.error('Error fetching roles:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchRoles = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const fetchedRoles = await RoleService.getAllRoles();
-
-        // Transform service roles to page format
-        const transformedRoles: Role[] = fetchedRoles.map((role: ServiceRole) => ({
-          id: role.id,
-          roleName: role.name,
-          roleType: role.isSystemRole ? 'system' as const : 'custom' as const,
-          usersCount: role.userCount || 0,
-          permissionsCount: role.permissions?.length || 0,
-          description: role.description,
-          createdDate: new Date(role.createdAt).toISOString().split('T')[0],
-          createdBy: role.createdBy || 'System',
-          lastModified: new Date(role.updatedAt).toISOString().split('T')[0],
-          status: role.status as 'active' | 'inactive',
-        }));
-
-        setRoles(transformedRoles);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load roles');
-        console.error('Error fetching roles:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchRoles();
   }, []);
 
@@ -78,15 +80,31 @@ export default function RolesPage() {
   };
 
   const handleView = (roleId: string) => {
-    showToast(`Viewing role: ${roleId}`, 'info');
+    router.push(`/it-admin/roles/create?roleId=${encodeURIComponent(roleId)}&mode=view`);
   };
 
   const handleEdit = (roleId: string) => {
-    showToast(`Opening editor for role: ${roleId}`, 'info');
+    router.push(`/it-admin/roles/create?roleId=${encodeURIComponent(roleId)}&mode=edit`);
   };
 
-  const handleDuplicate = (roleId: string) => {
-    showToast(`Duplicating role: ${roleId}`, 'success');
+  const handleDuplicate = async (roleId: string) => {
+    try {
+      const source = await RoleService.getRoleById(roleId);
+      await RoleService.createRole({
+        code: `${source.code}_COPY_${Date.now().toString().slice(-4)}`,
+        name: `${source.name} (Copy)`,
+        description: source.description,
+        level: source.level,
+        permissionIds: (source.permissions || []).map((p) => p.id),
+      });
+      showToast(`Role duplicated from ${source.name}`, 'success');
+      await fetchRoles();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Failed to duplicate role',
+        'error',
+      );
+    }
   };
 
   const filteredRoles = roles.filter(role => {

@@ -14,6 +14,7 @@ import {
     Save
 } from 'lucide-react';
 import { EmployeeService } from '@/services/employee.service';
+import { AttendanceService, AttendanceStatus, CheckInMethod, MarkAttendanceDto } from '@/services/attendance.service';
 
 interface Employee {
     id: string;
@@ -27,6 +28,15 @@ interface Employee {
     workHours?: string;
 }
 
+const UI_TO_STATUS: Record<string, AttendanceStatus> = {
+    Present: AttendanceStatus.PRESENT,
+    Absent: AttendanceStatus.ABSENT,
+    Late: AttendanceStatus.LATE,
+    'Half Day': AttendanceStatus.HALF_DAY,
+    'On Leave': AttendanceStatus.ON_LEAVE,
+    'Not Marked': AttendanceStatus.PRESENT,
+};
+
 export default function MarkAttendancePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -35,6 +45,57 @@ export default function MarkAttendancePage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+
+    // Per-row editable attendance draft, keyed by employee id.
+    const [drafts, setDrafts] = useState<Record<string, { checkIn: string; checkOut: string; status: string }>>({});
+    const [saving, setSaving] = useState<string | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveOk, setSaveOk] = useState<string | null>(null);
+
+    const setDraft = (id: string, patch: Partial<{ checkIn: string; checkOut: string; status: string }>) => {
+        setDrafts((prev) => ({
+            ...prev,
+            [id]: { ...{ checkIn: '', checkOut: '', status: 'Present' }, ...prev[id], ...patch },
+        }));
+    };
+
+    const buildDto = (emp: Employee): MarkAttendanceDto => {
+        const draft = drafts[emp.id] ?? { checkIn: '', checkOut: '', status: emp.status };
+        const toIso = (t: string) => (t ? new Date(`${selectedDate}T${t}:00`).toISOString() : undefined);
+        return {
+            employeeId: emp.id,
+            date: selectedDate,
+            checkInTime: toIso(draft.checkIn),
+            checkOutTime: toIso(draft.checkOut),
+            status: UI_TO_STATUS[draft.status] ?? AttendanceStatus.PRESENT,
+            checkInMethod: draft.checkIn ? CheckInMethod.MANUAL : undefined,
+            checkOutMethod: draft.checkOut ? CheckInMethod.MANUAL : undefined,
+        };
+    };
+
+    const handleSave = async (emp: Employee) => {
+        setSaving(emp.id); setSaveError(null); setSaveOk(null);
+        try {
+            await AttendanceService.markAttendance(buildDto(emp));
+            setSaveOk(`Saved attendance for ${emp.name}`);
+        } catch (e) {
+            setSaveError(e instanceof Error ? e.message : 'Failed to save');
+        } finally {
+            setSaving(null);
+        }
+    };
+
+    const handleSaveAll = async () => {
+        setSaving('__all__'); setSaveError(null); setSaveOk(null);
+        try {
+            await AttendanceService.bulkMarkAttendance(filteredEmployees.map(buildDto));
+            setSaveOk(`Saved attendance for ${filteredEmployees.length} employees`);
+        } catch (e) {
+            setSaveError(e instanceof Error ? e.message : 'Failed to save');
+        } finally {
+            setSaving(null);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -103,6 +164,8 @@ export default function MarkAttendancePage() {
             <div className="w-full space-y-3">
                 {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
                 {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
+                {saveError && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{saveError}</div>)}
+                {saveOk && (<div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">{saveOk}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -118,9 +181,13 @@ export default function MarkAttendancePage() {
                             onChange={(e) => setSelectedDate(e.target.value)}
                             className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                        <button
+                            onClick={handleSaveAll}
+                            disabled={saving !== null || filteredEmployees.length === 0}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                        >
                             <Save className="w-4 h-4" />
-                            Save All
+                            {saving === '__all__' ? 'Saving…' : 'Save All'}
                         </button>
                     </div>
                 </div>
@@ -205,22 +272,25 @@ export default function MarkAttendancePage() {
                                     <td className="p-4">
                                         <input
                                             type="time"
-                                            defaultValue={emp.checkIn}
+                                            value={drafts[emp.id]?.checkIn ?? emp.checkIn ?? ''}
+                                            onChange={(e) => setDraft(emp.id, { checkIn: e.target.value })}
                                             className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </td>
                                     <td className="p-4">
                                         <input
                                             type="time"
-                                            defaultValue={emp.checkOut}
+                                            value={drafts[emp.id]?.checkOut ?? emp.checkOut ?? ''}
+                                            onChange={(e) => setDraft(emp.id, { checkOut: e.target.value })}
                                             className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </td>
                                     <td className="p-4 text-gray-300">{emp.workHours || '-'}</td>
                                     <td className="p-4">
                                         <select
-                                            defaultValue={emp.status}
-                                            className={`px-3 py-1 rounded-full text-xs font-medium border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusColor(emp.status)}`}
+                                            value={drafts[emp.id]?.status ?? emp.status}
+                                            onChange={(e) => setDraft(emp.id, { status: e.target.value })}
+                                            className={`px-3 py-1 rounded-full text-xs font-medium border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusColor(drafts[emp.id]?.status ?? emp.status)}`}
                                         >
                                             <option value="Present">Present</option>
                                             <option value="Absent">Absent</option>
@@ -230,8 +300,12 @@ export default function MarkAttendancePage() {
                                         </select>
                                     </td>
                                     <td className="p-4">
-                                        <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
-                                            Save
+                                        <button
+                                            onClick={() => handleSave(emp)}
+                                            disabled={saving !== null}
+                                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-sm"
+                                        >
+                                            {saving === emp.id ? 'Saving…' : 'Save'}
                                         </button>
                                     </td>
                                 </tr>

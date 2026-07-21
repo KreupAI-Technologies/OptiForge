@@ -6,6 +6,7 @@ import {
   Percent,
   Edit2,
   Save,
+  Trash2,
   ArrowLeft,
   Search,
   Filter,
@@ -13,6 +14,7 @@ import {
   Plus,
   TrendingUp
 } from 'lucide-react'
+import { exportToCsv } from '@/lib/export'
 import { estimationMarkupSettingService } from '@/services/estimation-markup-setting.service'
 
 const COMPANY_ID = 'company-001'
@@ -35,9 +37,83 @@ interface MarkupSetting {
 export default function EstimationSettingsMarkupPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<number>(0)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [activeOnly, setActiveOnly] = useState(false)
   const [markupSettings, setMarkupSettings] = useState<MarkupSetting[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  const handleStartEdit = (setting: MarkupSetting) => {
+    setEditingId(setting.id)
+    setEditValue(setting.defaultMarkup)
+  }
+
+  const handleSave = async (id: string) => {
+    setSavingId(id)
+    setLoadError(null)
+    try {
+      await estimationMarkupSettingService.update(COMPANY_ID, id, { defaultMarkup: editValue })
+      setMarkupSettings((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, defaultMarkup: editValue } : s))
+      )
+      setEditingId(null)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update markup setting')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const handleAdd = async () => {
+    setLoadError(null)
+    try {
+      const created = await estimationMarkupSettingService.create(COMPANY_ID, {
+        category: 'New Category',
+        defaultMarkup: 0,
+        minMarkup: 0,
+        maxMarkup: 0,
+        costBasis: 'full-cost',
+        approvalRequired: false,
+        approvalThreshold: 0,
+        status: 'active',
+      })
+      setMarkupSettings((prev) => [
+        ...prev,
+        {
+          id: created.id,
+          category: created.category,
+          subcategory: created.subcategory ?? '',
+          defaultMarkup: Number(created.defaultMarkup ?? 0),
+          minMarkup: Number(created.minMarkup ?? 0),
+          maxMarkup: Number(created.maxMarkup ?? 0),
+          costBasis: created.costBasis,
+          approvalRequired: !!created.approvalRequired,
+          approvalThreshold: Number(created.approvalThreshold ?? 0),
+          lastUpdated: created.updatedAt ? created.updatedAt.slice(0, 10) : '',
+          updatedBy: created.updatedBy ?? '',
+          status: created.status,
+        },
+      ])
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create markup setting')
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this markup setting?')) return
+    setLoadError(null)
+    try {
+      await estimationMarkupSettingService.delete(COMPANY_ID, id)
+      setMarkupSettings((prev) => prev.filter((s) => s.id !== id))
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete markup setting')
+    }
+  }
+
+  const handleExport = () => {
+    exportToCsv('markup-settings', markupSettings)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -100,6 +176,10 @@ export default function EstimationSettingsMarkupPage() {
     }
   }
 
+  const visibleMarkupSettings = activeOnly
+    ? markupSettings.filter((s) => s.status === 'active')
+    : markupSettings
+
   const totalSettings = markupSettings.length
   const avgMarkup = totalSettings
     ? markupSettings.reduce((sum, s) => sum + s.defaultMarkup, 0) / totalSettings
@@ -124,15 +204,25 @@ export default function EstimationSettingsMarkupPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setActiveOnly((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              activeOnly
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
             <Filter className="h-4 w-4" />
-            Filter
+            {activeOnly ? 'Active Only' : 'Filter'}
           </button>
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
             <Download className="h-4 w-4" />
             Export
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleAdd}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add Setting
           </button>
@@ -225,7 +315,7 @@ export default function EstimationSettingsMarkupPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {markupSettings.map((setting) => (
+              {visibleMarkupSettings.map((setting) => (
                 <tr key={setting.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <p className="font-medium text-gray-900 text-sm">{setting.category}</p>
@@ -238,7 +328,8 @@ export default function EstimationSettingsMarkupPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          defaultValue={setting.defaultMarkup}
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
                           className="w-20 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           step="0.1"
                         />
@@ -279,19 +370,29 @@ export default function EstimationSettingsMarkupPage() {
                     <div className="flex items-center gap-2">
                       {editingId === setting.id ? (
                         <button
-                          onClick={() => setEditingId(null)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                          onClick={() => handleSave(setting.id)}
+                          disabled={savingId === setting.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                          title="Save"
                         >
                           <Save className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => setEditingId(setting.id)}
+                          onClick={() => handleStartEdit(setting)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="Edit"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDelete(setting.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>

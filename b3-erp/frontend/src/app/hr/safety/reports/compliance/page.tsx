@@ -50,16 +50,8 @@ interface NonComplianceRow {
   owner: string;
 }
 
-// Mock Data
-const complianceStats = {
-  overallScore: 94.2,
-  totalRequirements: 156,
-  compliant: 147,
-  nonCompliant: 4,
-  pending: 5,
-  upcomingDeadlines: 8
-};
-
+// Framework/category/deadline/audit breakdowns are distinct report shapes not
+// carried by the non-compliance list; left as-is pending dedicated feeds.
 const regulatoryFrameworks = [
   { name: 'OSHA Standards', total: 48, compliant: 46, score: 96, status: 'Compliant' },
   { name: 'EPA Regulations', total: 32, compliant: 30, score: 94, status: 'Compliant' },
@@ -92,16 +84,31 @@ const auditHistory = [
   { date: '2023-07-05', type: 'Insurance Audit', scope: 'Full Site', score: 89, findings: 8, status: 'Closed' }
 ];
 
-const complianceGaugeData = [
-  { name: 'Score', value: 94.2, fill: '#22c55e' }
-];
-
 export default function ComplianceReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFramework, setSelectedFramework] = useState('all');
   const [nonComplianceItems, setNonComplianceItems] = useState<NonComplianceRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // derived: totals from the reference frameworks, open items from fetched list
+  const totalRequirements = regulatoryFrameworks.reduce((s, f) => s + f.total, 0);
+  const compliantRequirements = regulatoryFrameworks.reduce((s, f) => s + f.compliant, 0);
+  const complianceStats = {
+    overallScore: totalRequirements
+      ? Math.round((compliantRequirements / totalRequirements) * 1000) / 10
+      : 0,
+    totalRequirements,
+    compliant: compliantRequirements,
+    nonCompliant: nonComplianceItems.length, // derived from fetched non-compliance list
+    pending: nonComplianceItems.filter((i) => i.status === 'In Progress').length,
+    upcomingDeadlines: upcomingDeadlines.length,
+  };
+
+  // derived from complianceStats.overallScore
+  const complianceGaugeData = [
+    { name: 'Score', value: complianceStats.overallScore, fill: '#22c55e' },
+  ];
 
   useEffect(() => {
     let cancelled = false;

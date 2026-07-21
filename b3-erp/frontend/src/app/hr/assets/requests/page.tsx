@@ -36,6 +36,19 @@ export default function Page() {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showFulfillModal, setShowFulfillModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    requester: '',
+    employeeCode: '',
+    department: '',
+    designation: '',
+    assetCategory: 'laptop',
+    assetName: '',
+    quantity: 1,
+    priority: 'medium',
+    purpose: '',
+    requiredBy: new Date().toISOString().split('T')[0],
+  });
   const [selectedRequest, setSelectedRequest] = useState<AssetRequest | null>(null);
   const [approveFormData, setApproveFormData] = useState({
     approvedBy: '',
@@ -169,6 +182,38 @@ export default function Page() {
       notes: ''
     });
     setShowFulfillModal(true);
+  };
+
+  const handleSubmitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await HrAssetsService.createAssetRequest({
+        requester: createFormData.requester,
+        employeeCode: createFormData.employeeCode,
+        department: createFormData.department,
+        designation: createFormData.designation,
+        assetCategory: createFormData.assetCategory,
+        assetName: createFormData.assetName,
+        quantity: Number(createFormData.quantity),
+        priority: createFormData.priority,
+        purpose: createFormData.purpose,
+        requestDate: new Date().toISOString().split('T')[0],
+        status: 'pending',
+      });
+      toast({ title: 'Request Created', description: 'New asset request has been submitted.' });
+      setShowCreateModal(false);
+      setCreateFormData({
+        requester: '', employeeCode: '', department: '', designation: '',
+        assetCategory: 'laptop', assetName: '', quantity: 1, priority: 'medium',
+        purpose: '', requiredBy: new Date().toISOString().split('T')[0],
+      });
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast({ title: 'Creation failed', description: err instanceof Error ? err.message : 'Could not create request.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSubmitApprove = async (e: React.FormEvent) => {
@@ -309,7 +354,10 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+            >
               New Request
             </button>
           </div>
@@ -920,6 +968,86 @@ export default function Page() {
                   >
                     Cancel
                   </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 flex items-center justify-between rounded-t-xl z-10">
+              <div className="flex items-center gap-3">
+                <ShoppingCart className="h-6 w-6" />
+                <h2 className="text-xl font-bold">New Asset Request</h2>
+              </div>
+              <button onClick={() => setShowCreateModal(false)} className="text-white hover:bg-white/20 rounded-lg p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <form onSubmit={handleSubmitCreate} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Requester <span className="text-red-500">*</span></label>
+                    <input type="text" value={createFormData.requester} onChange={(e) => setCreateFormData({ ...createFormData, requester: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                    <input type="text" value={createFormData.employeeCode} onChange={(e) => setCreateFormData({ ...createFormData, employeeCode: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <input type="text" value={createFormData.department} onChange={(e) => setCreateFormData({ ...createFormData, department: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                    <input type="text" value={createFormData.designation} onChange={(e) => setCreateFormData({ ...createFormData, designation: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Asset Category</label>
+                    <select value={createFormData.assetCategory} onChange={(e) => setCreateFormData({ ...createFormData, assetCategory: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                      <option value="laptop">Laptop</option>
+                      <option value="desktop">Desktop</option>
+                      <option value="mobile">Mobile</option>
+                      <option value="tablet">Tablet</option>
+                      <option value="monitor">Monitor</option>
+                      <option value="printer">Printer</option>
+                      <option value="furniture">Furniture</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name / Type <span className="text-red-500">*</span></label>
+                    <input type="text" value={createFormData.assetName} onChange={(e) => setCreateFormData({ ...createFormData, assetName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <input type="number" min={1} value={createFormData.quantity} onChange={(e) => setCreateFormData({ ...createFormData, quantity: Number(e.target.value) })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                    <select value={createFormData.priority} onChange={(e) => setCreateFormData({ ...createFormData, priority: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Business Justification / Purpose</label>
+                  <textarea value={createFormData.purpose} onChange={(e) => setCreateFormData({ ...createFormData, purpose: e.target.value })} rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="submit" disabled={submitting} className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-60">
+                    {submitting ? 'Submitting…' : 'Submit Request'}
+                  </button>
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold">Cancel</button>
                 </div>
               </form>
             </div>

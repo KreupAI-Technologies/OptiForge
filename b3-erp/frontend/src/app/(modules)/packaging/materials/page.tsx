@@ -121,11 +121,30 @@ export default function PackingMaterialsPage() {
         toast({ title: 'Project Selected', description: `Viewing packing materials for ${project.name}` });
     };
 
-    const handleRequestPurchase = (id: string, name: string) => {
-        toast({
-            title: 'Purchase Request Created',
-            description: `Purchase request initiated for ${name}`,
-        });
+    const handleRequestPurchase = async (id: string, name: string) => {
+        const material = materials.find(m => m.id === id);
+        try {
+            const created = await PackagingService.requestPurchase({
+                projectId: selectedProject?.id,
+                materialId: id,
+                materialName: name,
+                quantity: material ? Math.max(material.required - material.currentStock, 0) : 0,
+                unit: material?.unit,
+                priority: material?.status === 'Out of Stock' ? 'High' : 'Medium',
+                requestedBy: 'System',
+            });
+            toast({
+                title: 'Purchase Request Created',
+                description: `Purchase request for ${name} — status: ${created?.status || 'Requested'}`,
+            });
+        } catch (error) {
+            console.error('Failed to create purchase request:', error);
+            toast({
+                title: 'Error',
+                description: `Failed to create purchase request for ${name}`,
+                variant: 'destructive',
+            });
+        }
     };
 
     const filteredProjects = projects.filter(p =>

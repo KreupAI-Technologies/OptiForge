@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Plus, Search, Eye, Edit3, Users, TrendingUp, Award } from 'lucide-react';
+import { Briefcase, Plus, Search, Edit3, Trash2, Users, TrendingUp, Award } from 'lucide-react';
 
 interface Designation {
   id: string;
@@ -41,55 +41,109 @@ interface Designation {
 }
 
 import { hrMastersService } from '@/services/hr-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const COMPANY_ID = '1';
 
 const DesignationMaster: React.FC = () => {
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDesignation, setSelectedDesignation] = useState<Designation | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formCode, setFormCode] = useState('');
+  const [formName, setFormName] = useState('');
+
+  const fetchDesignations = async () => {
+    try {
+      setLoading(true);
+      const data = await hrMastersService.getAllDesignations(COMPANY_ID);
+
+      const transformedDesignations: Designation[] = data.map(item => ({
+        id: item.id,
+        designationCode: item.code,
+        designationName: item.name,
+        description: item.name,
+        department: 'Unassigned',
+        level: 'mid',
+        responsibilities: [],
+        qualifications: [],
+        salaryRange: {
+          minSalary: 0,
+          maxSalary: 0,
+          currency: 'INR'
+        },
+        requiredExperience: {
+          minYears: 0
+        },
+        headcount: {
+          sanctioned: 0,
+          current: 0,
+          vacant: 0
+        },
+        benefits: [],
+        status: 'active',
+        createdBy: 'System',
+        createdAt: new Date().toISOString()
+      }));
+
+      setDesignations(transformedDesignations);
+    } catch (error) {
+      console.error('Error fetching designations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
-    const fetchDesignations = async () => {
-      try {
-        setLoading(true);
-        const data = await hrMastersService.getAllDesignations('1');
-
-        const transformedDesignations: Designation[] = data.map(item => ({
-          id: item.id,
-          designationCode: item.code,
-          designationName: item.name,
-          description: item.name,
-          department: 'Unassigned',
-          level: 'mid',
-          responsibilities: [],
-          qualifications: [],
-          salaryRange: {
-            minSalary: 0,
-            maxSalary: 0,
-            currency: 'INR'
-          },
-          requiredExperience: {
-            minYears: 0
-          },
-          headcount: {
-            sanctioned: 0,
-            current: 0,
-            vacant: 0
-          },
-          benefits: [],
-          status: 'active',
-          createdBy: 'System',
-          createdAt: new Date().toISOString()
-        }));
-
-        setDesignations(transformedDesignations);
-      } catch (error) {
-        console.error('Error fetching designations:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDesignations();
   }, []);
+
+  const openModal = (designation: Designation | null) => {
+    setSelectedDesignation(designation);
+    setFormCode(designation?.designationCode ?? '');
+    setFormName(designation?.designationName ?? '');
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!formCode.trim()) { alert('Designation Code is required.'); return; }
+    if (!formName.trim()) { alert('Designation Name is required.'); return; }
+    try {
+      setIsSaving(true);
+      if (selectedDesignation) {
+        await commonMastersService.updateDesignation(selectedDesignation.id, {
+          code: formCode.trim(),
+          name: formName.trim(),
+        });
+      } else {
+        await commonMastersService.createDesignation({
+          code: formCode.trim(),
+          name: formName.trim(),
+          companyId: COMPANY_ID,
+        });
+      }
+      setIsModalOpen(false);
+      await fetchDesignations();
+      alert(`Designation ${selectedDesignation ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error('Error saving designation:', error);
+      alert('Failed to save designation. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this designation?')) return;
+    try {
+      await commonMastersService.deleteDesignation(id);
+      await fetchDesignations();
+    } catch (error) {
+      console.error('Error deleting designation:', error);
+      alert('Failed to delete designation. Please try again.');
+    }
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState<string>('all');
@@ -116,7 +170,9 @@ const DesignationMaster: React.FC = () => {
               </h1>
               <p className="text-gray-600 mt-2">Manage job positions and roles</p>
             </div>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+            <button
+              onClick={() => openModal(null)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
               <Plus className="w-4 h-4" />
               Add Designation
             </button>
@@ -217,13 +273,17 @@ const DesignationMaster: React.FC = () => {
                   <p className="text-sm text-gray-500">{designation.description}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    <Eye className="w-4 h-4 text-gray-600" />
-                    <span className="text-gray-700">View</span>
-                  </button>
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                  <button
+                    onClick={() => openModal(designation)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
                     <Edit3 className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(designation.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <span className="text-red-700">Delete</span>
                   </button>
                 </div>
               </div>
@@ -316,6 +376,59 @@ const DesignationMaster: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">
+                {selectedDesignation ? 'Edit Designation' : 'Add New Designation'}
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Designation Code *
+                </label>
+                <input
+                  type="text"
+                  value={formCode}
+                  onChange={(e) => setFormCode(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., MGR-01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Designation Name *
+                </label>
+                <input
+                  type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter designation name"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : `${selectedDesignation ? 'Update' : 'Create'} Designation`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

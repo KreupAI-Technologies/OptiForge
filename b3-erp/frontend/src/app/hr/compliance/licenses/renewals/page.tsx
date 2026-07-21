@@ -65,6 +65,20 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const handleRenewalStatus = async (id: string, nextStatus: LicenseRenewal['renewalStatus']) => {
+    try {
+      setUpdatingId(id);
+      await HrComplianceDocsService.updateLicense(id, { status: nextStatus });
+      setRenewals(prev => prev.map(x => x.id === id ? { ...x, renewalStatus: nextStatus } : x));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update renewal');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const sourceRenewals = renewals;
 
   const filteredRenewals = useMemo(() => {
@@ -320,14 +334,22 @@ export default function Page() {
                     View Details
                   </button>
                   {renewal.renewalStatus === 'upcoming' && (
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
-                      Start Renewal Process
+                    <button
+                      onClick={() => handleRenewalStatus(renewal.id, 'in_progress')}
+                      disabled={updatingId === renewal.id}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50"
+                    >
+                      {updatingId === renewal.id ? 'Starting...' : 'Start Renewal Process'}
                     </button>
                   )}
                   {renewal.renewalStatus === 'in_progress' && (
-                    <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium flex items-center gap-2">
+                    <button
+                      onClick={() => handleRenewalStatus(renewal.id, 'submitted')}
+                      disabled={updatingId === renewal.id}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                    >
                       <Upload className="h-4 w-4" />
-                      Submit Application
+                      {updatingId === renewal.id ? 'Submitting...' : 'Submit Application'}
                     </button>
                   )}
                 </div>

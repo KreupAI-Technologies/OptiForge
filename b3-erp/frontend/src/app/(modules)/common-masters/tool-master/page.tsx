@@ -17,6 +17,10 @@ export default function ToolMasterPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({ code: '', name: '', description: '', category: 'durable', status: 'available' });
 
   useEffect(() => {
     fetchTools();
@@ -74,8 +78,65 @@ export default function ToolMasterPage() {
     showToast(`Viewing tool: ${tool.toolName}`, 'info');
   };
 
+  const openCreateModal = () => {
+    setForm({ code: '', name: '', description: '', category: 'durable', status: 'available' });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
   const handleEditTool = (tool: Tool) => {
-    showToast(`Editing tool: ${tool.toolName}`, 'info');
+    setForm({
+      code: tool.toolCode,
+      name: tool.toolName,
+      description: tool.description,
+      category: tool.category,
+      status: tool.status,
+    });
+    setEditingId(tool.id);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveTool = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      showToast('Code and name are required', 'error');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const payload = {
+        code: form.code,
+        name: form.name,
+        description: form.description,
+        category: form.category,
+        status: form.status,
+        companyId: '1',
+      };
+      if (editingId) {
+        await manufacturingMastersService.updateTool(editingId, payload);
+      } else {
+        await manufacturingMastersService.createTool(payload);
+      }
+      setIsModalOpen(false);
+      await fetchTools();
+      showToast(editingId ? 'Tool updated successfully' : 'Tool created successfully', 'success');
+    } catch (error) {
+      console.error('Error saving tool:', error);
+      showToast('Failed to save tool', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTool = async (tool: Tool) => {
+    if (!confirm(`Delete tool "${tool.toolName}"?`)) return;
+    try {
+      await manufacturingMastersService.deleteTool(tool.id);
+      await fetchTools();
+      showToast('Tool deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting tool:', error);
+      showToast('Failed to delete tool', 'error');
+    }
   };
 
   const handleExport = () => {
@@ -84,7 +145,7 @@ export default function ToolMasterPage() {
   };
 
   const handleAddTool = () => {
-    showToast('Opening Add Tool form...', 'info');
+    openCreateModal();
   };
 
   // Filtered data
@@ -288,6 +349,15 @@ export default function ToolMasterPage() {
             }}
           >
             Edit
+          </button>
+          <button
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteTool(row);
+            }}
+          >
+            Delete
           </button>
         </div>
       )
@@ -502,6 +572,93 @@ export default function ToolMasterPage() {
           </div>
         </div>
       </div>
+
+      {/* Add/Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">{editingId ? 'Edit Tool' : 'Add Tool'}</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tool Code *</label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  placeholder="e.g. TL-001"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  placeholder="e.g. End Mill 10mm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  rows={3}
+                  placeholder="Optional description"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="consumable">Consumable</option>
+                  <option value="durable">Durable</option>
+                  <option value="precision_instrument">Precision Instrument</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="available">Available</option>
+                  <option value="in_use">In Use</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="calibration">Calibration</option>
+                  <option value="retired">Retired</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTool}
+                disabled={isSaving}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving…' : editingId ? 'Update Tool' : 'Create Tool'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

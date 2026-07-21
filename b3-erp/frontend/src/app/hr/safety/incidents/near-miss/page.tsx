@@ -33,61 +33,98 @@ interface NearMissRow {
   status: string;
 }
 
-// Mock Data
-const nearMissTrend = [
-  { month: 'Jan', count: 12 },
-  { month: 'Feb', count: 18 },
-  { month: 'Mar', count: 15 },
-  { month: 'Apr', count: 20 },
-  { month: 'May', count: 22 },
-  { month: 'Jun', count: 19 },
-];
-
-const hazardMapData = [
-  { zone: 'Zone A', type: 'Slip/Trip', level: 85, color: '#ef4444' },
-  { zone: 'Zone B', type: 'Falling Object', level: 45, color: '#f59e0b' },
-  { zone: 'Zone C', type: 'Electrical', level: 20, color: '#10b981' },
-];
-
-const safetyScore = 88;
+const hotspotColors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
 
 export default function NearMissPage() {
   const [detailedLogs, setDetailedLogs] = useState<NearMissRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ hazard: '', location: '' });
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getIncidents('near-miss');
+      const mapped: NearMissRow[] = rows.map((row: SafetyIncident) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.incidentNumber ?? row.id),
+          hazard: row.description ?? meta.hazard ?? row.type ?? '',
+          location: row.location ?? '',
+          date: row.reportedDate ?? row.incidentDate ?? '',
+          status: row.status ?? '',
+        };
+      });
+      setDetailedLogs(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load near-miss reports');
+      setDetailedLogs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getIncidents('near-miss');
-        const mapped: NearMissRow[] = rows.map((row: SafetyIncident) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.incidentNumber ?? row.id),
-            hazard: row.description ?? meta.hazard ?? row.type ?? '',
-            location: row.location ?? '',
-            date: row.reportedDate ?? row.incidentDate ?? '',
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setDetailedLogs(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load near-miss reports');
-          setDetailedLogs([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.hazard.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createIncident({
+        type: 'near-miss',
+        description: form.hazard.trim(),
+        location: form.location.trim() || undefined,
+        reportedDate: new Date().toISOString().slice(0, 10),
+        status: 'Open',
+      });
+      setShowCreate(false);
+      setForm({ hazard: '', location: '' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to report near miss');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Derived: monthly reporting trend (last 6 months)
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const now = new Date();
+  const nearMissTrend = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const label = monthLabels[d.getMonth()];
+    const count = detailedLogs.filter((log) => {
+      const ld = new Date(log.date);
+      return !isNaN(ld.getTime()) && ld.getFullYear() === d.getFullYear() && ld.getMonth() === d.getMonth();
+    }).length;
+    return { month: label, count };
+  });
+
+  // Derived: hazard hotspots by location (top 3)
+  const locationCounts: Record<string, number> = {};
+  detailedLogs.forEach((log) => {
+    const loc = log.location || 'Unspecified';
+    locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+  });
+  const maxLoc = Math.max(1, ...Object.values(locationCounts));
+  const hazardMapData = Object.entries(locationCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([zone, count], idx) => ({
+      zone,
+      type: `${count} report${count === 1 ? '' : 's'}`,
+      level: Math.round((count / maxLoc) * 100),
+      color: hotspotColors[idx % hotspotColors.length],
+    }));
+
+  // Derived: proactive safety score from resolution rate
+  const resolvedCount = detailedLogs.filter((l) => l.status === 'Resolved' || l.status === 'Closed').length;
+  const safetyScore = detailedLogs.length ? Math.round((resolvedCount / detailedLogs.length) * 100) : 0;
 
   return (
     <div className="p-6 space-y-3">
@@ -100,11 +137,61 @@ export default function NearMissPage() {
           </h1>
           <p className="text-gray-500 mt-1">Proactive hazard reporting and trend analysis</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-medium hover:from-orange-600 hover:to-red-600 shadow-md transition-all">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-medium hover:from-orange-600 hover:to-red-600 shadow-md transition-all"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Report Near Miss
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-600" /> Report Near Miss
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hazard / Description</label>
+                <input
+                  type="text"
+                  value={form.hazard}
+                  onChange={(e) => setForm({ ...form, hazard: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Spilled liquid near loading dock"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Location</label>
+                <input
+                  type="text"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Zone A"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.hazard.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Reporting…' : 'Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

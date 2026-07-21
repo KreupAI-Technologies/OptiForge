@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { Clock, CheckCircle, AlertTriangle, ChevronRight, Calculator, Calendar } from 'lucide-react';
 
 interface PIP {
@@ -42,19 +43,30 @@ export default function PIPTrackingPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const toggleActionItem = (pipId: string, itemId: string) => {
-    setActivePIPs(prev => prev.map(pip => {
-      if (pip.id !== pipId) return pip;
+    const target = activePIPs.find(p => p.id === pipId);
+    if (!target) return;
 
-      const updatedItems = pip.actionItems.map(item =>
-        item.id === itemId ? { ...item, completed: !item.completed } : item
-      );
+    const updatedItems = target.actionItems.map(item =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    const newProgress = Math.round(
+      (updatedItems.filter(i => i.completed).length / updatedItems.length) * 100
+    );
 
-      const newProgress = Math.round(
-        (updatedItems.filter(i => i.completed).length / updatedItems.length) * 100
-      );
+    // Optimistic local update
+    setActivePIPs(prev => prev.map(pip =>
+      pip.id === pipId ? { ...pip, actionItems: updatedItems, progress: newProgress } : pip
+    ));
 
-      return { ...pip, actionItems: updatedItems, progress: newProgress };
-    }));
+    // Persist
+    void HrTalentService.updatePerformance(pipId, {
+      data: { actionItems: updatedItems, progress: newProgress }
+    }).catch(() => {
+      // Revert on failure
+      setActivePIPs(prev => prev.map(pip =>
+        pip.id === pipId ? target : pip
+      ));
+    });
   };
 
   return (

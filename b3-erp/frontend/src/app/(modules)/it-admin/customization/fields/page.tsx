@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Edit, Trash2, Type, Hash, Calendar, ToggleLeft, List, FileText, Link2, CheckSquare } from 'lucide-react';
-import { AdminManagementService } from '@/services/admin-management.service';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface CustomField {
   id: string;
@@ -36,7 +36,7 @@ export default function CustomFieldsPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await AdminManagementService.getCustomFields();
+        const data = await ItAdminService.getCustomFields();
         if (!mounted) return;
         setCustomFields(
           (Array.isArray(data) ? data : []).map((f: any) => ({
@@ -121,14 +121,33 @@ export default function CustomFieldsPage() {
 
   const handleDelete = (fieldId: string) => {
     setCustomFields(prev => prev.filter(f => f.id !== fieldId));
+    void (async () => {
+      try {
+        await ItAdminService.deleteCustomField(fieldId);
+      } catch {
+        // best-effort persistence; keep optimistic UI state
+      }
+    })();
   };
 
   const handleToggleActive = (fieldId: string) => {
+    let nextActive = false;
     setCustomFields(prev =>
-      prev.map(f =>
-        f.id === fieldId ? { ...f, active: !f.active } : f
-      )
+      prev.map(f => {
+        if (f.id === fieldId) {
+          nextActive = !f.active;
+          return { ...f, active: nextActive };
+        }
+        return f;
+      })
     );
+    void (async () => {
+      try {
+        await ItAdminService.updateCustomField(fieldId, { active: nextActive });
+      } catch {
+        // best-effort persistence; keep optimistic UI state
+      }
+    })();
   };
 
   const stats = {

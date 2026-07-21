@@ -148,16 +148,78 @@ export default function WorkCenterMaster() {
   const [filterType, setFilterType] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState<{
+    code: string; name: string; type: string; status: string;
+    department: string; location: string; dailyCapacity: number; unitOfMeasure: string; efficiency: number;
+  }>({ code: '', name: '', type: 'Production', status: 'Active', department: '', location: '', dailyCapacity: 0, unitOfMeasure: 'pcs', efficiency: 0 });
 
-  const handleEdit = (workCenter: WorkCenter) => {
-    setSelectedWorkCenter(workCenter);
+  const openCreateModal = () => {
+    setSelectedWorkCenter(null);
+    setForm({ code: '', name: '', type: 'Production', status: 'Active', department: '', location: '', dailyCapacity: 0, unitOfMeasure: 'pcs', efficiency: 0 });
     setIsModalOpen(true);
     setCurrentTab('basic');
   };
 
-  const handleDelete = (id: string) => {
+  const handleEdit = (workCenter: WorkCenter) => {
+    setSelectedWorkCenter(workCenter);
+    setForm({
+      code: workCenter.code,
+      name: workCenter.name,
+      type: workCenter.type,
+      status: workCenter.status,
+      department: workCenter.department,
+      location: workCenter.location,
+      dailyCapacity: workCenter.capacity.dailyCapacity,
+      unitOfMeasure: workCenter.capacity.unitOfMeasure,
+      efficiency: workCenter.capacity.efficiency,
+    });
+    setIsModalOpen(true);
+    setCurrentTab('basic');
+  };
+
+  const handleSave = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      setError('Work Center Code and Name are required.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setError(null);
+      const payload = {
+        code: form.code,
+        name: form.name,
+        type: form.type,
+        status: form.status,
+        location: form.location,
+        dailyCapacity: Number(form.dailyCapacity) || 0,
+        efficiency: Number(form.efficiency) || 0,
+        companyId: '1',
+      };
+      if (selectedWorkCenter) {
+        await manufacturingMastersService.updateWorkCenter(selectedWorkCenter.id, payload);
+      } else {
+        await manufacturingMastersService.createWorkCenter(payload);
+      }
+      setIsModalOpen(false);
+      await fetchWorkCenters();
+    } catch (err) {
+      console.error('Error saving work center:', err);
+      setError('Failed to save work center. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this work center?')) {
-      setWorkCenters(workCenters.filter(wc => wc.id !== id));
+      try {
+        await manufacturingMastersService.deleteWorkCenter(id);
+        setWorkCenters(workCenters.filter(wc => wc.id !== id));
+      } catch (err) {
+        console.error('Error deleting work center:', err);
+        alert('Failed to delete work center. Please try again.');
+      }
     }
   };
 
@@ -297,11 +359,7 @@ export default function WorkCenterMaster() {
               </select>
             </div>
             <button
-              onClick={() => {
-                setSelectedWorkCenter(null);
-                setIsModalOpen(true);
-                setCurrentTab('basic');
-              }}
+              onClick={openCreateModal}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -449,7 +507,8 @@ export default function WorkCenterMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedWorkCenter?.code}
+                        value={form.code}
+                        onChange={(e) => setForm({ ...form, code: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="WC-XXX-000"
                       />
@@ -460,7 +519,8 @@ export default function WorkCenterMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedWorkCenter?.name}
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter work center name"
                       />
@@ -472,7 +532,8 @@ export default function WorkCenterMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Type *
                       </label>
-                      <select defaultValue={selectedWorkCenter?.type || 'Production'}
+                      <select value={form.type}
+                        onChange={(e) => setForm({ ...form, type: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="Production">Production</option>
                         <option value="Assembly">Assembly</option>
@@ -485,7 +546,8 @@ export default function WorkCenterMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Status
                       </label>
-                      <select defaultValue={selectedWorkCenter?.status || 'Active'}
+                      <select value={form.status}
+                        onChange={(e) => setForm({ ...form, status: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="Active">Active</option>
                         <option value="Inactive">Inactive</option>
@@ -502,7 +564,8 @@ export default function WorkCenterMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedWorkCenter?.department}
+                        value={form.department}
+                        onChange={(e) => setForm({ ...form, department: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., Manufacturing"
                       />
@@ -513,7 +576,8 @@ export default function WorkCenterMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedWorkCenter?.location}
+                        value={form.location}
+                        onChange={(e) => setForm({ ...form, location: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., Factory Floor - Zone A"
                       />
@@ -543,7 +607,8 @@ export default function WorkCenterMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedWorkCenter?.capacity.dailyCapacity}
+                        value={form.dailyCapacity}
+                        onChange={(e) => setForm({ ...form, dailyCapacity: Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -553,7 +618,8 @@ export default function WorkCenterMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedWorkCenter?.capacity.unitOfMeasure}
+                        value={form.unitOfMeasure}
+                        onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., pieces, units, kg"
                       />
@@ -579,7 +645,8 @@ export default function WorkCenterMaster() {
                         type="number"
                         min="0"
                         max="100"
-                        defaultValue={selectedWorkCenter?.capacity.efficiency}
+                        value={form.efficiency}
+                        onChange={(e) => setForm({ ...form, efficiency: Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -908,13 +975,11 @@ export default function WorkCenterMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Work Center saved successfully!');
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                {selectedWorkCenter ? 'Update' : 'Create'} Work Center
+                {isSaving ? 'Saving...' : `${selectedWorkCenter ? 'Update' : 'Create'} Work Center`}
               </button>
             </div>
           </div>

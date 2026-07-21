@@ -56,40 +56,66 @@ export default function SafetyTrainingPage() {
   const [trainingRecords, setTrainingRecords] = useState<TrainingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: '', type: 'Evacuation', scheduledDate: '' });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getTrainings('training');
+      const mapped: TrainingRecord[] = rows.map((row: SafetyTraining) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.code ?? row.id ?? ''),
+          employee: row.memberName ?? meta.employee ?? '',
+          course: row.title ?? '',
+          date: row.completedDate ?? row.scheduledDate ?? '',
+          expiry: row.reviewDate ?? meta.expiry ?? '',
+          status: row.status ?? '',
+        };
+      });
+      setTrainingRecords(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load training records');
+      setTrainingRecords([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getTrainings('training');
-        const mapped: TrainingRecord[] = rows.map((row: SafetyTraining) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.code ?? row.id ?? ''),
-            employee: row.memberName ?? meta.employee ?? '',
-            course: row.title ?? '',
-            date: row.completedDate ?? row.scheduledDate ?? '',
-            expiry: row.reviewDate ?? meta.expiry ?? '',
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setTrainingRecords(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load training records');
-          setTrainingRecords([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleSchedule = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createTraining({
+        recordType: 'training',
+        title: form.name.trim(),
+        category: form.type,
+        scheduledDate: form.scheduledDate || undefined,
+        status: 'Scheduled',
+      });
+      setShowSchedule(false);
+      setForm({ name: '', type: 'Evacuation', scheduledDate: '' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to schedule drill');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isExpired = (s: string) => s === 'Expired' || s === 'expired';
+  const isValid = (s: string) => s === 'Valid' || s === 'valid';
+  const expiredCount = trainingRecords.filter(r => isExpired(r.status)).length;
+  const overallCompliance = trainingRecords.length
+    ? Math.round((trainingRecords.filter(r => isValid(r.status)).length / trainingRecords.length) * 100)
+    : 0;
 
   return (
     <div className="p-6 space-y-3">
@@ -114,24 +140,86 @@ export default function SafetyTrainingPage() {
           </h1>
           <p className="text-gray-500 mt-1">Manage certifications, compliance, and emergency drills</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowSchedule(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Calendar className="w-4 h-4 mr-2" />
           Schedule Drill
         </button>
       </div>
+
+      {/* Schedule Drill Modal */}
+      {showSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Schedule Drill</h2>
+              <button onClick={() => setShowSchedule(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Drill Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Fire Evacuation Drill"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="Evacuation">Evacuation</option>
+                  <option value="Response">Response</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
+                <input
+                  type="date"
+                  value={form.scheduledDate}
+                  onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setShowSchedule(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSchedule}
+                disabled={saving || !form.name.trim()}
+                className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Schedule Drill'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">Overall Compliance</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">94%</p>
-            <p className="text-xs text-green-600 mt-1">+1% from last month</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{overallCompliance}%</p>
+            <p className="text-xs text-green-600 mt-1">Based on valid certifications</p>
           </div>
           <div className="h-16 w-16">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={[{ value: 94, fill: '#10b981' }, { value: 6, fill: '#f3f4f6' }]} dataKey="value" innerRadius={20} outerRadius={30} startAngle={90} endAngle={-270} />
+                <Pie data={[{ value: overallCompliance, fill: '#10b981' }, { value: 100 - overallCompliance, fill: '#f3f4f6' }]} dataKey="value" innerRadius={20} outerRadius={30} startAngle={90} endAngle={-270} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -139,7 +227,7 @@ export default function SafetyTrainingPage() {
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">Expired Certifications</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">12</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{expiredCount}</p>
             <p className="text-xs text-red-600 mt-1">Immediate action required</p>
           </div>
           <div className="p-3 bg-red-50 rounded-lg">

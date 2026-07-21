@@ -20,6 +20,9 @@ import {
   estimationCostEstimateLiveService,
   CostEstimateRecord,
 } from '@/services/estimation-cost-estimate-live.service'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
+
+const COMPANY_ID = 'default-company-id'
 
 interface RejectedEstimate {
   id: string
@@ -99,6 +102,24 @@ export default function EstimateWorkflowRejectedPage() {
       cancelled = true
     }
   }, [])
+
+  const handleView = (estimateId: string) => {
+    router.push(`/estimation/pricing/view/${estimateId}`)
+  }
+
+  const handleViewComments = (estimateId: string) => {
+    router.push(`/estimation/workflow/pending/comments/${estimateId}`)
+  }
+
+  const handleRevise = async (estimateId: string, projectName: string) => {
+    if (!confirm(`Create a new revision of "${projectName}"?`)) return
+    try {
+      const version = await costEstimateService.createVersion(COMPANY_ID, estimateId, 'Current User')
+      router.push(`/estimation/workflow/drafts/edit/${version.id}`)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create revision.')
+    }
+  }
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -298,14 +319,26 @@ export default function EstimateWorkflowRejectedPage() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                      <button
+                        onClick={() => handleView(estimate.id)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                        title="View Details"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+                      <button
+                        onClick={() => handleViewComments(estimate.id)}
+                        className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg"
+                        title="View Comments"
+                      >
                         <MessageSquare className="h-4 w-4" />
                       </button>
                       {estimate.canRevise && !estimate.revisedEstimate && (
-                        <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
+                        <button
+                          onClick={() => handleRevise(estimate.id, estimate.projectName)}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                          title="Create Revision"
+                        >
                           <RotateCcw className="h-4 w-4" />
                         </button>
                       )}

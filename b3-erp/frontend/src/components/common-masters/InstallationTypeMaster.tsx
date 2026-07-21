@@ -6,6 +6,7 @@ import {
   XCircle, Clock, Users, DollarSign, Wrench
 } from 'lucide-react';
 import { manufacturingMastersService, InstallationType as BackendInstallationType } from '@/services/manufacturing-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface InstallationType {
   id: string;
@@ -43,12 +44,24 @@ interface InstallationType {
 }
 
 export default function InstallationTypeMaster() {
+  const companyId = '123e4567-e89b-12d3-a456-426614174000';
   const [installationTypes, setInstallationTypes] = useState<InstallationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<InstallationType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterComplexity, setFilterComplexity] = useState<string>('All');
+
+  const codeRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const categoryRef = React.useRef<HTMLSelectElement>(null);
+  const complexityRef = React.useRef<HTMLSelectElement>(null);
+  const laborHoursRef = React.useRef<HTMLInputElement>(null);
+  const teamSizeRef = React.useRef<HTMLInputElement>(null);
+  const skillLevelRef = React.useRef<HTMLSelectElement>(null);
+  const costMinRef = React.useRef<HTMLInputElement>(null);
+  const costMaxRef = React.useRef<HTMLInputElement>(null);
+  const statusRef = React.useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     fetchInstallationTypes();
@@ -57,7 +70,7 @@ export default function InstallationTypeMaster() {
   const fetchInstallationTypes = async () => {
     try {
       setIsLoading(true);
-      const data = await manufacturingMastersService.getAllInstallationTypes('123e4567-e89b-12d3-a456-426614174000');
+      const data = await manufacturingMastersService.getAllInstallationTypes(companyId);
 
       const mapped: InstallationType[] = data.map(it => ({
         id: it.id,
@@ -102,9 +115,59 @@ export default function InstallationTypeMaster() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleSave = async () => {
+    const code = codeRef.current?.value?.trim() || '';
+    const name = nameRef.current?.value?.trim() || '';
+    const category = categoryRef.current?.value || '';
+    const complexity = complexityRef.current?.value || '';
+    const laborHours = Number(laborHoursRef.current?.value);
+    const teamSize = Number(teamSizeRef.current?.value);
+    const skillLevel = skillLevelRef.current?.value || '';
+    const costMin = Number(costMinRef.current?.value);
+    const costMax = Number(costMaxRef.current?.value);
+    const status = statusRef.current?.value || '';
+
+    if (!code || !name) {
+      alert('Code and Name are required');
+      return;
+    }
+
+    const payload = {
+      code,
+      name,
+      companyId,
+      description: category,
+      laborRate: costMin,
+      category,
+      complexity,
+      status,
+      requirements: { laborHours, teamSize, skillLevel },
+      estimatedCost: { min: costMin, max: costMax },
+    };
+
+    try {
+      if (selectedType) {
+        await commonMastersService.updateInstallationType(selectedType.id, payload as any);
+      } else {
+        await commonMastersService.createInstallationType(payload as any);
+      }
+      setIsModalOpen(false);
+      await fetchInstallationTypes();
+    } catch (error) {
+      console.error('Error saving installation type:', error);
+      alert('Failed to save installation type');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this installation type?')) {
-      setInstallationTypes(installationTypes.filter(t => t.id !== id));
+      try {
+        await commonMastersService.deleteInstallationType(id);
+        await fetchInstallationTypes();
+      } catch (error) {
+        console.error('Error deleting installation type:', error);
+        alert('Failed to delete installation type');
+      }
     }
   };
 
@@ -307,6 +370,7 @@ export default function InstallationTypeMaster() {
                       Code *
                     </label>
                     <input
+                      ref={codeRef}
                       type="text"
                       defaultValue={selectedType?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -318,6 +382,7 @@ export default function InstallationTypeMaster() {
                       Name *
                     </label>
                     <input
+                      ref={nameRef}
                       type="text"
                       defaultValue={selectedType?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -332,6 +397,7 @@ export default function InstallationTypeMaster() {
                       Category *
                     </label>
                     <select
+                      ref={categoryRef}
                       defaultValue={selectedType?.category || 'Floor-standing'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -348,6 +414,7 @@ export default function InstallationTypeMaster() {
                       Complexity *
                     </label>
                     <select
+                      ref={complexityRef}
                       defaultValue={selectedType?.complexity || 'Moderate'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -365,6 +432,7 @@ export default function InstallationTypeMaster() {
                       Labor Hours *
                     </label>
                     <input
+                      ref={laborHoursRef}
                       type="number"
                       defaultValue={selectedType?.requirements.laborHours}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -375,6 +443,7 @@ export default function InstallationTypeMaster() {
                       Team Size *
                     </label>
                     <input
+                      ref={teamSizeRef}
                       type="number"
                       defaultValue={selectedType?.requirements.teamSize}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -385,6 +454,7 @@ export default function InstallationTypeMaster() {
                       Skill Level *
                     </label>
                     <select
+                      ref={skillLevelRef}
                       defaultValue={selectedType?.requirements.skillLevel || 'Intermediate'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -402,6 +472,7 @@ export default function InstallationTypeMaster() {
                       Min Cost (₹) *
                     </label>
                     <input
+                      ref={costMinRef}
                       type="number"
                       defaultValue={selectedType?.estimatedCost.min}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -412,6 +483,7 @@ export default function InstallationTypeMaster() {
                       Max Cost (₹) *
                     </label>
                     <input
+                      ref={costMaxRef}
                       type="number"
                       defaultValue={selectedType?.estimatedCost.max}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -424,6 +496,7 @@ export default function InstallationTypeMaster() {
                     Status
                   </label>
                   <select
+                    ref={statusRef}
                     defaultValue={selectedType?.status || 'Active'}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
@@ -442,7 +515,7 @@ export default function InstallationTypeMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Save Installation Type
               </button>
             </div>

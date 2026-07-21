@@ -73,124 +73,9 @@ const HSNSACCodeMaster: React.FC = () => {
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [showModal, setShowModal] = useState(false);
+  const [editingCode, setEditingCode] = useState<HSNSACCode | null>(null);
   const companyId = 'MAIN_COMPANY_ID';
-
-  const mockCodes: HSNSACCode[] = [
-    {
-      id: '1',
-      code: '9403.40',
-      type: 'HSN',
-      description: 'Wooden furniture of a kind used in the kitchen',
-      chapterCode: '94',
-      chapterDescription: 'Furniture; bedding, mattresses',
-      status: 'active',
-      taxDetails: {
-        defaultGSTRate: 18,
-        cgst: 9,
-        sgst: 9,
-        igst: 18,
-        applicableFrom: '2017-07-01'
-      },
-      classification: {
-        section: 'XX',
-        heading: '9403',
-        subHeading: '9403.40'
-      },
-      usage: {
-        domestic: true,
-        import: true,
-        export: true
-      },
-      statistics: {
-        itemsLinked: 125,
-        transactionsCount: 3450,
-        totalValue: 12500000
-      },
-      compliance: {
-        eWayBillRequired: true,
-        reverseChargeApplicable: false,
-        exempted: false
-      },
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    },
-    {
-      id: '2',
-      code: '4407.11',
-      type: 'HSN',
-      description: 'Wood sawn lengthwise - Oak',
-      chapterCode: '44',
-      chapterDescription: 'Wood and articles of wood',
-      status: 'active',
-      taxDetails: {
-        defaultGSTRate: 12,
-        cgst: 6,
-        sgst: 6,
-        igst: 12,
-        applicableFrom: '2017-07-01'
-      },
-      classification: {
-        section: 'IX',
-        heading: '4407',
-        subHeading: '4407.11'
-      },
-      usage: {
-        domestic: true,
-        import: true,
-        export: false
-      },
-      statistics: {
-        itemsLinked: 45,
-        transactionsCount: 890,
-        totalValue: 5600000
-      },
-      compliance: {
-        eWayBillRequired: true,
-        reverseChargeApplicable: false,
-        exempted: false
-      },
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    },
-    {
-      id: '3',
-      code: '998599',
-      type: 'SAC',
-      description: 'Installation services (other than installation in respect of goods)',
-      chapterCode: '9985',
-      chapterDescription: 'Installation services',
-      status: 'active',
-      taxDetails: {
-        defaultGSTRate: 18,
-        cgst: 9,
-        sgst: 9,
-        igst: 18,
-        applicableFrom: '2017-07-01'
-      },
-      classification: {
-        section: 'Installation',
-        heading: '9985',
-        subHeading: '998599'
-      },
-      usage: {
-        domestic: true,
-        import: false,
-        export: false
-      },
-      statistics: {
-        itemsLinked: 15,
-        transactionsCount: 245,
-        totalValue: 1200000
-      },
-      compliance: {
-        eWayBillRequired: false,
-        reverseChargeApplicable: false,
-        exempted: false
-      },
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    }
-  ];
 
   useEffect(() => {
     loadHsnSacs();
@@ -230,6 +115,51 @@ const HSNSACCodeMaster: React.FC = () => {
     }
   };
 
+  const handleAddCode = () => {
+    setEditingCode(null);
+    setShowModal(true);
+  };
+
+  const handleEditCode = (code: HSNSACCode) => {
+    setEditingCode(code);
+    setShowModal(true);
+  };
+
+  const handleDeleteCode = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this HSN/SAC code?')) return;
+    try {
+      await commonMastersService.deleteHsnSac(id);
+      await loadHsnSacs();
+    } catch (error) {
+      console.error('Failed to delete HSN/SAC code:', error);
+      alert('Failed to delete HSN/SAC code.');
+    }
+  };
+
+  const handleSaveCode = async (data: { code: string; description: string; gstPercentage: number; status: 'active' | 'inactive' }) => {
+    try {
+      if (editingCode) {
+        await commonMastersService.updateHsnSac(editingCode.id, {
+          code: data.code,
+          description: data.description,
+          gstPercentage: data.gstPercentage,
+          isActive: data.status === 'active',
+        });
+      } else {
+        await commonMastersService.createHsnSac({
+          code: data.code,
+          description: data.description,
+          gstPercentage: data.gstPercentage,
+          companyId,
+        });
+      }
+      setShowModal(false);
+      await loadHsnSacs();
+    } catch (error) {
+      console.error('Failed to save HSN/SAC code:', error);
+      alert('Failed to save HSN/SAC code.');
+    }
+  };
 
   useEffect(() => {
     let filtered = codes;
@@ -265,7 +195,7 @@ const HSNSACCodeMaster: React.FC = () => {
                 <Upload className="w-4 h-4" />
                 Import
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+              <button onClick={handleAddCode} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Add Code
               </button>
@@ -399,9 +329,19 @@ const HSNSACCodeMaster: React.FC = () => {
                         <Eye className="w-4 h-4 text-gray-600" />
                         <span className="text-gray-700">View</span>
                       </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                      <button
+                        onClick={() => handleEditCode(code)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                      >
                         <Edit3 className="w-4 h-4 text-gray-600" />
                         <span className="text-gray-700">Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCode(code.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <span className="text-red-600">Delete</span>
                       </button>
                     </div>
                   </td>
@@ -411,8 +351,121 @@ const HSNSACCodeMaster: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {showModal && (
+        <HsnSacModal
+          code={editingCode}
+          onSave={handleSaveCode}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 };
+
+interface HsnSacModalProps {
+  code: HSNSACCode | null;
+  onSave: (data: { code: string; description: string; gstPercentage: number; status: 'active' | 'inactive' }) => void;
+  onClose: () => void;
+}
+
+function HsnSacModal({ code, onSave, onClose }: HsnSacModalProps) {
+  const [formData, setFormData] = useState({
+    code: code?.code || '',
+    description: code?.description || '',
+    gstPercentage: code?.taxDetails?.defaultGSTRate ?? 18,
+    status: (code?.status || 'active') as 'active' | 'inactive',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.code.trim()) {
+      alert('Code is required.');
+      return;
+    }
+    onSave({
+      code: formData.code.trim(),
+      description: formData.description.trim(),
+      gstPercentage: Number(formData.gstPercentage),
+      status: formData.status,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {code ? 'Edit HSN/SAC Code' : 'Add New HSN/SAC Code'}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-4 py-3 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
+            <input
+              type="text"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. 9403.40"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">GST Rate (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.gstPercentage}
+              onChange={(e) => setFormData({ ...formData, gstPercentage: Number(e.target.value) })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div className="pt-2 border-t border-gray-200 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              {code ? 'Update Code' : 'Create Code'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default HSNSACCodeMaster;

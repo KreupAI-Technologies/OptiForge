@@ -38,9 +38,13 @@ interface MaterialRate {
   status: 'active' | 'inactive' | 'discontinued'
 }
 
+const COMPANY_ID = ''
+
 export default function MaterialsRatesPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<number>(0)
+  const [savingId, setSavingId] = useState<string | null>(null)
   const [materialRates, setMaterialRates] = useState<MaterialRate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -99,6 +103,39 @@ export default function MaterialsRatesPage() {
 
   const handleViewHistory = (materialId: string) => {
     router.push(`/estimation/rates/materials/history/${materialId}`)
+  }
+
+  const handleStartEdit = (material: MaterialRate) => {
+    setEditingId(material.id)
+    setEditValue(material.currentRate)
+  }
+
+  const handleSaveRate = async (materialId: string) => {
+    setSavingId(materialId)
+    setLoadError(null)
+    try {
+      await estimationResourceRateService.updateResourceRate(COMPANY_ID, materialId, {
+        standardRate: editValue,
+      })
+      setMaterialRates((prev) =>
+        prev.map((m) =>
+          m.id === materialId
+            ? {
+                ...m,
+                previousRate: m.currentRate,
+                currentRate: editValue,
+                rateChange: editValue - m.currentRate,
+                rateChangePercent: m.currentRate ? ((editValue - m.currentRate) / m.currentRate) * 100 : 0,
+              }
+            : m
+        )
+      )
+      setEditingId(null)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update material rate')
+    } finally {
+      setSavingId(null)
+    }
   }
 
   const handleExport = () => {
@@ -275,7 +312,8 @@ export default function MaterialsRatesPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          defaultValue={material.currentRate}
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
                           className="w-24 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-xs text-gray-600">/{material.unit}</span>
@@ -328,17 +366,18 @@ export default function MaterialsRatesPage() {
                     <div className="flex items-center gap-2">
                       {editingId === material.id ? (
                         <button
-                          onClick={() => setEditingId(null)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                         
+                          onClick={() => handleSaveRate(material.id)}
+                          disabled={savingId === material.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                          title="Save Rate"
                         >
                           <Save className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => setEditingId(material.id)}
+                          onClick={() => handleStartEdit(material)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                         
+                          title="Edit Rate"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>

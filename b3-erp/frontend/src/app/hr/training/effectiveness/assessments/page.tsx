@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
 import {
   BarChart,
   Bar,
@@ -54,6 +55,32 @@ export default function AssessmentsPage() {
   const [recentResults, setRecentResults] = useState<AssessmentResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<AssessmentResult | null>(null);
+  const [form, setForm] = useState({ title: '', assessmentType: 'quiz', passingMarks: 70, totalMarks: 100 });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleCreateTest = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await TrainingDevelopmentService.createTrainingAssessment({
+        title: form.title,
+        assessmentType: form.assessmentType as any,
+        passingMarks: Number(form.passingMarks),
+        totalMarks: Number(form.totalMarks),
+      } as any);
+      setShowCreate(false);
+      setForm({ title: '', assessmentType: 'quiz', passingMarks: 70, totalMarks: 100 });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to create test');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -107,7 +134,10 @@ export default function AssessmentsPage() {
             <option>Last Quarter</option>
             <option>Last Year</option>
           </select>
-          <button className="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-purple-700 shadow-sm transition-colors">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-purple-700 shadow-sm transition-colors"
+          >
             Create Test
           </button>
         </div>
@@ -195,7 +225,10 @@ export default function AssessmentsPage() {
               </div>
             ))}
           </div>
-          <button className="w-full mt-4 text-sm text-purple-600 font-medium hover:text-purple-800 flex items-center justify-center">
+          <button
+            onClick={() => setShowLeaderboard(true)}
+            className="w-full mt-4 text-sm text-purple-600 font-medium hover:text-purple-800 flex items-center justify-center"
+          >
             View Leaderboard <ArrowUpRight className="w-4 h-4 ml-1" />
           </button>
         </div>
@@ -242,7 +275,10 @@ export default function AssessmentsPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button className="text-gray-400 hover:text-gray-600">
+                    <button
+                      onClick={() => setSelectedResult(result)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </td>
@@ -252,6 +288,124 @@ export default function AssessmentsPage() {
           </table>
         </div>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Create Test</h3>
+            {saveError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select
+                  value={form.assessmentType}
+                  onChange={(e) => setForm({ ...form, assessmentType: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="quiz">Quiz</option>
+                  <option value="exam">Exam</option>
+                  <option value="practical">Practical</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passing Marks</label>
+                  <input
+                    type="number"
+                    value={form.passingMarks}
+                    onChange={(e) => setForm({ ...form, passingMarks: Number(e.target.value) })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Marks</label>
+                  <input
+                    type="number"
+                    value={form.totalMarks}
+                    onChange={(e) => setForm({ ...form, totalMarks: Number(e.target.value) })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTest}
+                disabled={saving || !form.title}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Create Test'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLeaderboard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-500" /> Leaderboard
+              </h3>
+              <button onClick={() => setShowLeaderboard(false)} className="text-gray-400 hover:text-gray-600">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {topPerformers.map((performer, idx) => (
+                <div key={performer.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-gray-400 w-5">#{idx + 1}</span>
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">{performer.name}</h4>
+                      <p className="text-xs text-gray-500">{performer.role}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-green-600">{performer.avgScore}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Result Details</h3>
+              <button onClick={() => setSelectedResult(null)} className="text-gray-400 hover:text-gray-600">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between"><dt className="text-gray-500">Employee</dt><dd className="font-medium text-gray-900">{selectedResult.employee}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Test</dt><dd className="font-medium text-gray-900">{selectedResult.test}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Date</dt><dd className="font-medium text-gray-900">{selectedResult.date}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Score</dt><dd className="font-medium text-gray-900">{selectedResult.score}%</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Status</dt><dd className="font-medium text-gray-900">{selectedResult.status}</dd></div>
+            </dl>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

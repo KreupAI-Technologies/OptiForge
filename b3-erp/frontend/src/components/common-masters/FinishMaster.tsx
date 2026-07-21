@@ -7,6 +7,7 @@ import {
   BarChart3, Package, Clock, AlertCircle, TrendingUp, Info
 } from 'lucide-react';
 import { manufacturingMastersService, KitchenFinish as BackendFinish } from '@/services/manufacturing-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface Finish {
   id: string;
@@ -46,6 +47,17 @@ interface Finish {
 }
 
 export default function FinishMaster() {
+  const companyId = '123e4567-e89b-12d3-a456-426614174000';
+  const codeRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const categoryRef = React.useRef<HTMLSelectElement>(null);
+  const textureRef = React.useRef<HTMLSelectElement>(null);
+  const durabilityRef = React.useRef<HTMLSelectElement>(null);
+  const waterResistanceRef = React.useRef<HTMLSelectElement>(null);
+  const scratchResistanceRef = React.useRef<HTMLSelectElement>(null);
+  const pricePerUnitRef = React.useRef<HTMLInputElement>(null);
+  const warrantyRef = React.useRef<HTMLInputElement>(null);
+  const statusRef = React.useRef<HTMLSelectElement>(null);
   const [finishes, setFinishes] = useState<Finish[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFinish, setSelectedFinish] = useState<Finish | null>(null);
@@ -64,7 +76,7 @@ export default function FinishMaster() {
   const fetchFinishes = async () => {
     try {
       setIsLoading(true);
-      const data = await manufacturingMastersService.getAllKitchenFinishes('123e4567-e89b-12d3-a456-426614174000');
+      const data = await manufacturingMastersService.getAllKitchenFinishes(companyId);
 
       const mapped: Finish[] = data.map(f => ({
         id: f.id,
@@ -121,9 +133,61 @@ export default function FinishMaster() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this finish?')) {
-      setFinishes(finishes.filter(f => f.id !== id));
+      try {
+        await commonMastersService.deleteKitchenFinish(id);
+        await fetchFinishes();
+        showToast('Finish deleted', 'success');
+      } catch (error) {
+        console.error('Error deleting finish:', error);
+        showToast('Failed to delete finish', 'error');
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    const code = codeRef.current?.value.trim() || '';
+    const name = nameRef.current?.value.trim() || '';
+    const category = categoryRef.current?.value || '';
+    const texture = textureRef.current?.value || '';
+    const durability = durabilityRef.current?.value || '';
+    const waterResistance = waterResistanceRef.current?.value || '';
+    const scratchResistance = scratchResistanceRef.current?.value || '';
+    const pricePerUnit = Number(pricePerUnitRef.current?.value);
+    const warranty = warrantyRef.current?.value || '';
+    const status = statusRef.current?.value || '';
+
+    if (!code || !name) {
+      showToast('Code and Name are required', 'error');
+      return;
+    }
+
+    const payload = {
+      code,
+      name,
+      companyId,
+      category,
+      texture,
+      price: pricePerUnit,
+      pricePerUnit,
+      warranty,
+      status,
+      properties: { texture, durability, waterResistance, scratchResistance }
+    };
+
+    try {
+      if (selectedFinish) {
+        await commonMastersService.updateKitchenFinish(selectedFinish.id, payload as any);
+      } else {
+        await commonMastersService.createKitchenFinish(payload as any);
+      }
+      setIsModalOpen(false);
+      await fetchFinishes();
+      showToast('Finish saved successfully', 'success');
+    } catch (error) {
+      console.error('Error saving finish:', error);
+      showToast('Failed to save finish', 'error');
     }
   };
 
@@ -442,6 +506,7 @@ export default function FinishMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={codeRef}
                       defaultValue={selectedFinish?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="FIN-XXX-XXX"
@@ -453,6 +518,7 @@ export default function FinishMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={nameRef}
                       defaultValue={selectedFinish?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Finish name"
@@ -466,6 +532,7 @@ export default function FinishMaster() {
                       Category *
                     </label>
                     <select
+                      ref={categoryRef}
                       defaultValue={selectedFinish?.category || 'Laminate'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -483,6 +550,7 @@ export default function FinishMaster() {
                       Texture *
                     </label>
                     <select
+                      ref={textureRef}
                       defaultValue={selectedFinish?.properties.texture || 'Matt'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -501,6 +569,7 @@ export default function FinishMaster() {
                       Durability
                     </label>
                     <select
+                      ref={durabilityRef}
                       defaultValue={selectedFinish?.properties.durability || 'High'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -514,6 +583,7 @@ export default function FinishMaster() {
                       Water Resistance
                     </label>
                     <select
+                      ref={waterResistanceRef}
                       defaultValue={selectedFinish?.properties.waterResistance || 'Good'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -528,6 +598,7 @@ export default function FinishMaster() {
                       Scratch Resistance
                     </label>
                     <select
+                      ref={scratchResistanceRef}
                       defaultValue={selectedFinish?.properties.scratchResistance || 'Good'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -546,6 +617,7 @@ export default function FinishMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={pricePerUnitRef}
                       defaultValue={selectedFinish?.pricePerUnit}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -556,6 +628,7 @@ export default function FinishMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={warrantyRef}
                       defaultValue={selectedFinish?.warranty}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., 10 Years"
@@ -568,6 +641,7 @@ export default function FinishMaster() {
                     Status
                   </label>
                   <select
+                    ref={statusRef}
                     defaultValue={selectedFinish?.status || 'Active'}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
@@ -587,10 +661,7 @@ export default function FinishMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  showToast('Finish saved successfully', 'success');
-                }}
+                onClick={handleSave}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Save Finish

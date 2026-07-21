@@ -26,6 +26,8 @@ export default function Page() {
   const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [detailAudit, setDetailAudit] = useState<AuditRecord | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +158,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Schedule New Audit
             </button>
           </div>
@@ -251,21 +253,21 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Details
               </button>
               {audit.status === 'pending' && (
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                   Start Audit
                 </button>
               )}
               {audit.status === 'in_progress' && (
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                   Complete Audit
                 </button>
               )}
               {audit.status === 'completed' && (
-                <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
+                <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
                   Approve
                 </button>
               )}
@@ -273,6 +275,99 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailAudit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Audit Details</h2>
+              <button onClick={() => setDetailAudit(null)} className="text-white hover:text-gray-200">
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Audit ID</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.auditId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Location</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.location}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Audit Type</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.auditType}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Auditor</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.auditor}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Audit Date</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.auditDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Status</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.status}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Total Assets</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.totalAssets}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Verified</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.verified}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Missing</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.missing}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Damaged</p>
+                  <p className="font-semibold text-gray-900">{detailAudit.damaged}</p>
+                </div>
+                {detailAudit.completionDate && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Completion Date</p>
+                    <p className="font-semibold text-gray-900">{detailAudit.completionDate}</p>
+                  </div>
+                )}
+                {detailAudit.remarks && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Remarks</p>
+                    <p className="font-semibold text-gray-900">{detailAudit.remarks}</p>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setDetailAudit(null)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Schedule New Audit</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:text-gray-200">
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Scheduling audits from this screen is not yet available — the audit service endpoint is pending.
+              </div>
+              <button onClick={() => setShowForm(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

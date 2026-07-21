@@ -15,6 +15,7 @@ import {
   Printer
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface BuffingJob {
   id: string;
@@ -62,11 +63,15 @@ export default function BuffingPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setJobs([
-        { id: 'BJ-001', partName: 'Main Frame Assembly', finishType: 'Matte', quantity: 5, status: 'Pending', surfaceCheck: false },
-        { id: 'BJ-002', partName: 'Handle Bars', finishType: 'Mirror', quantity: 50, status: 'In Progress', surfaceCheck: true },
-        { id: 'BJ-003', partName: 'Decorative Trim', finishType: 'Satin', quantity: 100, status: 'Completed', surfaceCheck: true },
-      ]);
+      const rows = await ProductionJobService.listJobs(id, 'buffing');
+      setJobs(rows.map((r) => ({
+        id: r.jobCode || r.id,
+        partName: r.partName || '',
+        finishType: (r.extra?.finishType as BuffingJob['finishType']) || 'Matte',
+        quantity: r.quantity ?? 0,
+        status: (r.status as BuffingJob['status']) || 'Pending',
+        surfaceCheck: !!r.extra?.surfaceCheck,
+      })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/production/buffing');

@@ -6,6 +6,7 @@ import {
   XCircle, Layers, Ruler, DollarSign, Image, Package
 } from 'lucide-react';
 import { manufacturingMastersService, CabinetType as BackendCabinetType } from '@/services/manufacturing-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface CabinetType {
   id: string;
@@ -47,6 +48,20 @@ export default function CabinetTypeMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
 
+  const companyId = '123e4567-e89b-12d3-a456-426614174000';
+
+  const codeRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const categoryRef = React.useRef<HTMLSelectElement>(null);
+  const subcategoryRef = React.useRef<HTMLInputElement>(null);
+  const depthRef = React.useRef<HTMLInputElement>(null);
+  const heightRef = React.useRef<HTMLInputElement>(null);
+  const basePriceRef = React.useRef<HTMLInputElement>(null);
+  const doorsRef = React.useRef<HTMLInputElement>(null);
+  const drawersRef = React.useRef<HTMLInputElement>(null);
+  const shelvesRef = React.useRef<HTMLInputElement>(null);
+  const statusRef = React.useRef<HTMLSelectElement>(null);
+
   useEffect(() => {
     fetchCabinetTypes();
   }, []);
@@ -55,7 +70,7 @@ export default function CabinetTypeMaster() {
     try {
       setIsLoading(true);
       // Using seeded companyId '123e4567-e89b-12d3-a456-426614174000'
-      const data = await manufacturingMastersService.getAllCabinetTypes('123e4567-e89b-12d3-a456-426614174000');
+      const data = await manufacturingMastersService.getAllCabinetTypes(companyId);
 
       const mapped: CabinetType[] = data.map(ct => ({
         id: ct.id,
@@ -97,9 +112,63 @@ export default function CabinetTypeMaster() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleSave = async () => {
+    const code = codeRef.current?.value.trim() || '';
+    const name = nameRef.current?.value.trim() || '';
+
+    if (!code || !name) {
+      alert('Code and Name are required');
+      return;
+    }
+
+    const category = categoryRef.current?.value || '';
+    const subcategory = subcategoryRef.current?.value || '';
+    const depth = Number(depthRef.current?.value);
+    const height = Number(heightRef.current?.value);
+    const basePrice = Number(basePriceRef.current?.value);
+    const doors = Number(doorsRef.current?.value);
+    const drawers = Number(drawersRef.current?.value);
+    const shelves = Number(shelvesRef.current?.value);
+    const status = statusRef.current?.value || '';
+
+    const payload = {
+      code,
+      name,
+      companyId,
+      category,
+      description: subcategory,
+      specifications: {
+        subcategory,
+        basePrice,
+        dimensions: { depth, height },
+        configuration: { doors, drawers, shelves },
+        status,
+      },
+    };
+
+    try {
+      if (selectedCabinet) {
+        await commonMastersService.updateCabinetType(selectedCabinet.id, payload as any);
+      } else {
+        await commonMastersService.createCabinetType(payload as any);
+      }
+      setIsModalOpen(false);
+      await fetchCabinetTypes();
+    } catch (error) {
+      console.error('Error saving cabinet type:', error);
+      alert('Failed to save cabinet type');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this cabinet type?')) {
-      setCabinetTypes(cabinetTypes.filter(c => c.id !== id));
+      try {
+        await commonMastersService.deleteCabinetType(id);
+        await fetchCabinetTypes();
+      } catch (error) {
+        console.error('Error deleting cabinet type:', error);
+        alert('Failed to delete cabinet type');
+      }
     }
   };
 
@@ -295,6 +364,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={codeRef}
                       defaultValue={selectedCabinet?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="CAB-XXX-XXX"
@@ -306,6 +376,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={nameRef}
                       defaultValue={selectedCabinet?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Cabinet type name"
@@ -319,6 +390,7 @@ export default function CabinetTypeMaster() {
                       Category *
                     </label>
                     <select
+                      ref={categoryRef}
                       defaultValue={selectedCabinet?.category || 'Base Cabinet'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -335,6 +407,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={subcategoryRef}
                       defaultValue={selectedCabinet?.subcategory}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Drawer Unit, Storage Unit"
@@ -349,6 +422,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={depthRef}
                       defaultValue={selectedCabinet?.dimensions.depth}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -359,6 +433,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={heightRef}
                       defaultValue={selectedCabinet?.dimensions.height}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -369,6 +444,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={basePriceRef}
                       defaultValue={selectedCabinet?.basePrice}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -382,6 +458,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={doorsRef}
                       defaultValue={selectedCabinet?.configuration.doors}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -393,6 +470,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={drawersRef}
                       defaultValue={selectedCabinet?.configuration.drawers}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -404,6 +482,7 @@ export default function CabinetTypeMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={shelvesRef}
                       defaultValue={selectedCabinet?.configuration.shelves}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -416,6 +495,7 @@ export default function CabinetTypeMaster() {
                     Status
                   </label>
                   <select
+                    ref={statusRef}
                     defaultValue={selectedCabinet?.status || 'Active'}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
@@ -434,7 +514,7 @@ export default function CabinetTypeMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Save Cabinet Type
               </button>
             </div>

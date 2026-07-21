@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { estimationPricingService } from '@/services/estimation-pricing.service'
 import {
@@ -14,8 +14,11 @@ import {
   Download,
   Calculator,
   Edit2,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react'
+
+const companyId = 'default-company-id'
 
 interface MarkupRule {
   id: string
@@ -47,51 +50,113 @@ interface CategoryMarkup {
 export default function PricingMarkupPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<number>(0)
   const [markupRules, setMarkupRules] = useState<MarkupRule[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const loadRules = async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      // Backend returns raw MarkupRule[]; map to the page's MarkupRule view model.
+      const res = await estimationPricingService.findAllMarkupRules(companyId)
+      const raw = (Array.isArray(res) ? res : []) as any[]
+      const mapped: MarkupRule[] = raw.map((r, i) => ({
+        id: r.id,
+        ruleCode: r.code ?? `MU-${i + 1}`,
+        ruleName: r.name ?? '',
+        category: r.applyTo ?? '',
+        subcategory: '',
+        costBasis: 'full-cost',
+        markupPercent: Number(r.markupPercentage ?? 0),
+        minimumPrice: r.minAmount != null ? Number(r.minAmount) : undefined,
+        maximumPrice: r.maxAmount != null ? Number(r.maxAmount) : undefined,
+        applicableRange: r.description ?? '',
+        priority: Number(r.priority ?? 0),
+        status: r.isActive === false ? 'inactive' : 'active',
+        products: 0,
+        avgSellingPrice: 0,
+        avgMargin: 0,
+      }))
+      setMarkupRules(mapped)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load markup rules')
+      setMarkupRules([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        // Backend returns raw MarkupRule[]; map to the page's MarkupRule view model.
-        const res = await estimationPricingService.findAllMarkupRules('')
-        const raw = (Array.isArray(res) ? res : []) as any[]
-        const mapped: MarkupRule[] = raw.map((r, i) => ({
-          id: r.id,
-          ruleCode: r.code ?? `MU-${i + 1}`,
-          ruleName: r.name ?? '',
-          category: r.applyTo ?? '',
-          subcategory: '',
-          costBasis: 'full-cost',
-          markupPercent: Number(r.markupPercentage ?? 0),
-          minimumPrice: r.minAmount != null ? Number(r.minAmount) : undefined,
-          maximumPrice: r.maxAmount != null ? Number(r.maxAmount) : undefined,
-          applicableRange: r.description ?? '',
-          priority: Number(r.priority ?? 0),
-          status: r.isActive === false ? 'inactive' : 'active',
-          products: 0,
-          avgSellingPrice: 0,
-          avgMargin: 0,
-        }))
-        if (!cancelled) setMarkupRules(mapped)
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load markup rules')
-          setMarkupRules([])
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
+    loadRules()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const startEdit = (rule: MarkupRule) => {
+    setEditingId(rule.id)
+    setEditValue(rule.markupPercent)
+  }
+
+  const saveEdit = async (id: string) => {
+    try {
+      await estimationPricingService.updateMarkupRule(companyId, id, {
+        markupPercentage: editValue,
+      } as any)
+      setMarkupRules((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, markupPercent: editValue } : r)),
+      )
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update markup rule')
+    } finally {
+      setEditingId(null)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this markup rule?')) return
+    try {
+      await estimationPricingService.deleteMarkupRule(companyId, id)
+      setMarkupRules((prev) => prev.filter((r) => r.id !== id))
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete markup rule')
+    }
+  }
+
+  // Client-side filter over the loaded rows driven by the search box.
+  const filteredRules = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return markupRules
+    return markupRules.filter(
+      (r) =>
+        r.ruleName.toLowerCase().includes(q) ||
+        r.ruleCode.toLowerCase().includes(q) ||
+        r.category.toLowerCase().includes(q),
+    )
+  }, [markupRules, searchTerm])
+
+  const handleExport = () => {
+    const headers = ['Rule Code', 'Rule Name', 'Category', 'Markup %', 'Priority', 'Status']
+    const rows = filteredRules.map((r) => [
+      r.ruleCode,
+      r.ruleName,
+      r.category,
+      r.markupPercent.toFixed(1),
+      r.priority,
+      r.status,
+    ])
+    const csv = [headers, ...rows]
+      .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `markup-rules-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
 
   const categoryMarkups: CategoryMarkup[] = [
@@ -136,15 +201,24 @@ export default function PricingMarkupPage() {
     <div className="w-full h-full px-4 py-2">
       {/* Header */}
       <div className="mb-3 flex items-center justify-end gap-3">
-        <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+        <button
+          onClick={() => router.push('/estimation/pricing/add')}
+          className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+        >
           <Calculator className="h-4 w-4" />
           Calculator
         </button>
-        <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+        <button
+          onClick={loadRules}
+          className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+        >
           <Filter className="h-4 w-4" />
           Filter
         </button>
-        <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
           <Download className="h-4 w-4" />
           Export
         </button>
@@ -265,6 +339,8 @@ export default function PricingMarkupPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search rules..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -287,7 +363,14 @@ export default function PricingMarkupPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {markupRules.map((rule) => (
+              {filteredRules.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">
+                    {isLoading ? 'Loading...' : 'No markup rules found.'}
+                  </td>
+                </tr>
+              )}
+              {filteredRules.map((rule) => (
                 <tr key={rule.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>
@@ -308,7 +391,8 @@ export default function PricingMarkupPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          defaultValue={rule.markupPercent}
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
                           className="w-20 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           step="0.1"
                         />
@@ -337,21 +421,29 @@ export default function PricingMarkupPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    {editingId === rule.id ? (
+                    <div className="flex items-center gap-1">
+                      {editingId === rule.id ? (
+                        <button
+                          onClick={() => saveEdit(rule.id)}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        >
+                          <Save className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => startEdit(rule)}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
-                        onClick={() => setEditingId(null)}
-                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        onClick={() => handleDelete(rule.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
                       >
-                        <Save className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => setEditingId(rule.id)}
-                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}

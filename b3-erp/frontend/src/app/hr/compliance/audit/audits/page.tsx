@@ -27,6 +27,7 @@ export default function Page() {
   const [items, setItems] = useState<ComplianceAudit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +61,18 @@ export default function Page() {
     })();
     return () => { active = false; };
   }, []);
+
+  const handleStartAudit = async (id: string) => {
+    try {
+      setUpdatingId(id);
+      await HrComplianceDocsService.updateAudit(id, { status: 'in_progress' });
+      setItems(prev => prev.map(a => a.id === id ? { ...a, status: 'in_progress' } : a));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update audit');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const sourceAudits = items;
 
@@ -284,8 +297,12 @@ export default function Page() {
                 </button>
               )}
               {audit.status === 'scheduled' && (
-                <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium">
-                  Start Audit
+                <button
+                  onClick={() => handleStartAudit(audit.id)}
+                  disabled={updatingId === audit.id}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {updatingId === audit.id ? 'Starting...' : 'Start Audit'}
                 </button>
               )}
             </div>

@@ -105,102 +105,34 @@ const CategoryManagement: React.FC = () => {
   };
 
   // Handler functions
-  const handleCreateCategory = () => {
-    console.log('Creating new category...');
-    alert(`Create New Category
-
-Category Information:
-
-📦 BASIC DETAILS
-• Category Name: [_______________]
-• Description: [_______________]
-• Category Code: [_______________]
-• Parent Category: [Select...▼]
-
-👤 MANAGEMENT
-• Category Manager: [Select User ▼]
-• Backup Manager: [Select User ▼]
-• Department: [Select ▼]
-
-💰 BUDGET ALLOCATION
-• Annual Budget: $[_______]
-• Q1: $[_______] (25%)
-• Q2: $[_______] (25%)
-• Q3: $[_______] (25%)
-• Q4: $[_______] (25%)
-
-🎯 SAVINGS TARGET
-• Annual Savings Goal: $[_______]
-• Target %: [___]%
-• Strategy: [Select ▼]
-  ○ Cost Reduction
-  ○ Demand Management
-  ○ Supplier Consolidation
-  ○ Process Improvement
-
-🏢 SUPPLIER REQUIREMENTS
-• Minimum Suppliers: [__]
-• Maximum Suppliers: [__]
-• Certification Required: [Select]
-☐ ISO 9001
-☐ ISO 14001
-☐ Industry-specific certs
-
-📊 APPROVAL THRESHOLDS
-• Auto-approve: Up to $[_______]
-• Manager approval: $[_______] - $[_______]
-• Director approval: $[_______] - $[_______]
-• Executive approval: Over $[_______]
-
-🔔 NOTIFICATIONS
-☑ Budget threshold alerts (80%, 90%, 95%)
-☑ Supplier performance issues
-☑ New opportunities
-☑ Monthly performance reports
-
-[Create Category] [Save as Draft] [Cancel]`);
+  const handleCreateCategory = async () => {
+    const name = window.prompt('New category name')?.trim();
+    if (!name) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementCategoryService.createCategory({ name, status: 'active', priority: 'medium' });
+      await loadCategories();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create category');
+    } finally {
+      setActionBusy(false);
+    }
   };
 
-  const handleEditCategory = (category: Category) => {
-    console.log('Editing category:', category.id);
-    alert(`Edit Category: ${category.name}
-
-Current Information:
-
-📦 BASIC DETAILS
-• Category Name: ${category.name}
-• Description: ${category.description}
-• Status: ${category.status.toUpperCase()}
-• Manager: ${category.manager}
-
-💰 BUDGET INFORMATION
-• Annual Budget: $${category.budget.toLocaleString()}
-• Spent to Date: $${category.spent.toLocaleString()}
-• Remaining: $${(category.budget - category.spent).toLocaleString()}
-• Utilization: ${((category.spent / category.budget) * 100).toFixed(1)}%
-
-🏢 SUPPLIER METRICS
-• Active Suppliers: ${category.suppliers}
-• Total Items: ${category.items}
-
-🎯 SAVINGS PERFORMANCE
-• Target Savings: $${category.savingsTarget.toLocaleString()}
-• Actual Savings: $${category.actualSavings.toLocaleString()}
-• Achievement: ${((category.actualSavings / category.savingsTarget) * 100).toFixed(1)}%
-
-EDIT OPTIONS:
-☐ Update budget allocation
-☐ Change category manager
-☐ Modify savings targets
-☐ Update supplier requirements
-☐ Adjust approval thresholds
-☐ Change priority level: ${category.priority.toUpperCase()}
-☐ Update notification settings
-
-ACTIONS:
-[Save Changes] [Reset] [Cancel]
-
-⚠ Changes to budget and targets may require executive approval.`);
+  const handleEditCategory = async (category: Category) => {
+    const name = window.prompt('Category name', category.name)?.trim();
+    if (!name) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementCategoryService.updateCategory(category.id, { name });
+      await loadCategories();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to update ${category.name}`);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleAssignSuppliers = (category: Category) => {

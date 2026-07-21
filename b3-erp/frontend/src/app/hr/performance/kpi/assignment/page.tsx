@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { UserCheck, Plus, Trash2, Search } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -59,33 +60,55 @@ export default function KPIAssignmentPage() {
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
 
-  const handleAssignKPI = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleAssignKPI = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployeeId) return;
-
-    const newKPI: KPI = {
-      id: Date.now().toString(),
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const payload = {
+      employeeId: selectedEmployeeId,
       title: formData.title,
       description: formData.description,
       target: formData.target,
       weight: parseInt(formData.weight),
       dueDate: formData.dueDate,
-      status: 'assigned'
+      status: 'assigned' as const
     };
-
-    setEmployees(prev => prev.map(emp =>
-      emp.id === selectedEmployeeId
-        ? { ...emp, kpis: [...emp.kpis, newKPI] }
-        : emp
-    ));
-
-    setFormData({
-      title: '',
-      description: '',
-      target: '',
-      weight: '20',
-      dueDate: ''
-    });
+    try {
+      const created = await HrTalentService.createPerformance<typeof payload>(payload, {
+        recordType: 'kpi-assignment',
+        status: 'assigned',
+        employeeCode: selectedEmployeeId
+      });
+      const newKPI: KPI = {
+        id: String((created as any)?.id ?? Date.now().toString()),
+        title: payload.title,
+        description: payload.description,
+        target: payload.target,
+        weight: payload.weight,
+        dueDate: payload.dueDate,
+        status: 'assigned'
+      };
+      setEmployees(prev => prev.map(emp =>
+        emp.id === selectedEmployeeId
+          ? { ...emp, kpis: [...emp.kpis, newKPI] }
+          : emp
+      ));
+      setFormData({
+        title: '',
+        description: '',
+        target: '',
+        weight: '20',
+        dueDate: ''
+      });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to assign KPI');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const columns = [
@@ -165,6 +188,11 @@ export default function KPIAssignmentPage() {
                   Assign New KPI to {selectedEmployee.name}
                 </h3>
                 <form onSubmit={handleAssignKPI} className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {submitError && (
+                    <div className="md:col-span-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                      {submitError}
+                    </div>
+                  )}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">KPI Title</label>
                     <input
@@ -221,9 +249,10 @@ export default function KPIAssignmentPage() {
                   <div className="flex items-end">
                     <button
                       type="submit"
-                      className="w-full px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                      disabled={isSubmitting}
+                      className="w-full px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                     >
-                      Assign KPI
+                      {isSubmitting ? 'Assigning…' : 'Assign KPI'}
                     </button>
                   </div>
                 </form>

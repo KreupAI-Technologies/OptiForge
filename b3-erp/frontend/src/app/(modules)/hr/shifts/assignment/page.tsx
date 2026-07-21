@@ -39,6 +39,38 @@ export default function ShiftAssignmentPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
+    const [showForm, setShowForm] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+    const emptyForm = {
+        employeeId: '', employeeName: '', department: '', shiftCode: 'DAY',
+        shiftName: '', effectiveFrom: new Date().toISOString().split('T')[0],
+    };
+    const [form, setForm] = useState({ ...emptyForm });
+    const [reloadKey, setReloadKey] = useState(0);
+
+    const handleCreate = async () => {
+        setSaving(true); setFormError(null);
+        try {
+            await HrShiftsService.createShiftAssignment({
+                employeeId: form.employeeId,
+                employeeName: form.employeeName,
+                department: form.department,
+                shiftCode: form.shiftCode,
+                shiftName: form.shiftName,
+                effectiveFrom: form.effectiveFrom,
+                status: 'Active',
+            });
+            setShowForm(false);
+            setForm({ ...emptyForm });
+            setReloadKey((k) => k + 1);
+        } catch (e) {
+            setFormError(e instanceof Error ? e.message : 'Failed to create assignment');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -66,7 +98,7 @@ export default function ShiftAssignmentPage() {
             }
         })();
         return () => { cancelled = true; };
-    }, []);
+    }, [reloadKey]);
 
     const departments = Array.from(new Set(assignments.map(a => a.department)));
 
@@ -110,11 +142,42 @@ export default function ShiftAssignmentPage() {
                         </h1>
                         <p className="text-gray-400 mt-1">Assign shifts to employees</p>
                     </div>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                    <button
+                        onClick={() => { setShowForm((v) => !v); setFormError(null); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
                         <Plus className="w-4 h-4" />
                         New Assignment
                     </button>
                 </div>
+
+                {showForm && (
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 space-y-3">
+                        <h3 className="text-lg font-semibold text-white">New Shift Assignment</h3>
+                        {formError && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{formError}</div>)}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <input type="text" placeholder="Employee ID" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="text" placeholder="Employee Name" value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="text" placeholder="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <select value={form.shiftCode} onChange={(e) => setForm({ ...form, shiftCode: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="DAY">DAY</option>
+                                <option value="MOR">MOR</option>
+                                <option value="EVE">EVE</option>
+                                <option value="NGT">NGT</option>
+                            </select>
+                            <input type="text" placeholder="Shift Name" value={form.shiftName} onChange={(e) => setForm({ ...form, shiftName: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="date" value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleCreate} disabled={saving || !form.employeeId} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg">
+                                {saving ? 'Saving…' : 'Create'}
+                            </button>
+                            <button onClick={() => { setShowForm(false); setForm({ ...emptyForm }); }} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">

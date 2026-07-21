@@ -7,7 +7,7 @@
     "dev": "concurrently -k -n PLATFORM,DOMAIN,WEB -c magenta,blue,green \"npm:dev:platform\" \"npm:dev:domain\" \"npm:dev:web\"",
     "dev:node": "concurrently -k -n DOMAIN,WEB -c blue,green \"npm:dev:domain\" \"npm:dev:web\"",
     "dev:platform": "cd backend && .venv/bin/python manage.py runserver 0.0.0.0:8000",
-    "dev:domain": "cd b3-erp/backend && npm run start:dev",
+    "dev:domain": "cd b3-erp/backend && npx prisma generate && npm run start:dev",
     "dev:web": "cd b3-erp/frontend && npm run dev",
     "start": "npm run dev",
     "build": "npm run build:domain && npm run build:web",

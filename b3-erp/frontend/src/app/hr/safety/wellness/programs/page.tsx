@@ -40,57 +40,81 @@ const PROGRAM_STYLES: Record<string, { icon: any; color: string; bgColor: string
   Nutrition: { icon: Apple, color: 'text-green-600', bgColor: 'bg-green-50' },
 };
 
-const engagementStats = {
-  totalEnrolled: 842,
-  activeChallenges: 2,
-  avgParticipation: 78,
-  wellnessPoints: '12,450'
-};
-
 export default function WellnessProgramsPage() {
   const [filter, setFilter] = useState('All');
   const [activePrograms, setActivePrograms] = useState<ProgramRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: '', category: 'Physical Fitness' });
+
+  // derived from fetched activePrograms
+  const totalEnrolled = activePrograms.reduce((sum, p) => sum + (p.participants || 0), 0);
+  const engagementStats = {
+    totalEnrolled,
+    activeChallenges: activePrograms.filter((p) => p.status === 'In Progress').length,
+    avgParticipation: activePrograms.length
+      ? Math.round(totalEnrolled / activePrograms.length)
+      : 0,
+    wellnessPoints: totalEnrolled.toLocaleString(),
+  };
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getWellness('program');
+      const mapped: ProgramRow[] = rows.map((row: SafetyWellness) => {
+        const meta = (row.meta || {}) as any;
+        const category = row.category ?? '';
+        const style = PROGRAM_STYLES[category] || { icon: Sparkles, color: 'text-teal-600', bgColor: 'bg-teal-50' };
+        return {
+          id: String(row.id),
+          title: row.title ?? '',
+          icon: style.icon,
+          category,
+          participants: row.participants ?? 0,
+          status: row.status ?? '',
+          impact: row.riskLevel ?? meta.impact ?? '',
+          color: style.color,
+          bgColor: style.bgColor,
+        };
+      });
+      setActivePrograms(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load wellness programs');
+      setActivePrograms([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getWellness('program');
-        const mapped: ProgramRow[] = rows.map((row: SafetyWellness) => {
-          const meta = (row.meta || {}) as any;
-          const category = row.category ?? '';
-          const style = PROGRAM_STYLES[category] || { icon: Sparkles, color: 'text-teal-600', bgColor: 'bg-teal-50' };
-          return {
-            id: String(row.id),
-            title: row.title ?? '',
-            icon: style.icon,
-            category,
-            participants: row.participants ?? 0,
-            status: row.status ?? '',
-            impact: row.riskLevel ?? meta.impact ?? '',
-            color: style.color,
-            bgColor: style.bgColor,
-          };
-        });
-        if (!cancelled) setActivePrograms(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load wellness programs');
-          setActivePrograms([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleLaunchProgram = async () => {
+    if (!form.title.trim()) return;
+    setIsSaving(true);
+    setLoadError(null);
+    try {
+      await HrSafetyService.createWellness({
+        recordType: 'program',
+        title: form.title,
+        category: form.category,
+        participants: 0,
+        status: 'Upcoming',
+      });
+      setShowCreate(false);
+      setForm({ title: '', category: 'Physical Fitness' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to launch program');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -103,11 +127,58 @@ export default function WellnessProgramsPage() {
           </h1>
           <p className="text-gray-500 mt-1">Strategic health programs and employee engagement challenges for a thriving workplace</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          disabled={isSaving}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors disabled:opacity-60"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Launch Program
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Launch Program</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Program Title</label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Category</label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={form.category}
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                  placeholder="Mental Health, Physical Fitness, Nutrition…"
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLaunchProgram}
+                disabled={isSaving}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving…' : 'Launch'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

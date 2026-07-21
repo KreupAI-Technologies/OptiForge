@@ -65,6 +65,20 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const handleStartInvestigation = async (id: string) => {
+    try {
+      setUpdatingId(id);
+      await HrComplianceDocsService.updatePolicyViolation(id, { status: 'under_investigation' });
+      setItems(prev => prev.map(v => v.id === id ? { ...v, status: 'under_investigation' } : v));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to start investigation');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const sourceViolations = items;
 
   const filteredViolations = useMemo(() => {
@@ -269,8 +283,12 @@ export default function Page() {
                 View Full Report
               </button>
               {violation.status === 'reported' && (
-                <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium">
-                  Start Investigation
+                <button
+                  onClick={() => handleStartInvestigation(violation.id)}
+                  disabled={updatingId === violation.id}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {updatingId === violation.id ? 'Starting...' : 'Start Investigation'}
                 </button>
               )}
             </div>

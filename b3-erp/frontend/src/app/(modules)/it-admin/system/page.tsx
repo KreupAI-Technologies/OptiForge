@@ -108,8 +108,18 @@ export default function SystemPage() {
     showToast(`Opening editor for configuration: ${configId}`, 'info');
   };
 
-  const handleReset = (configId: string) => {
-    showToast(`Resetting configuration ${configId} to default`, 'success');
+  const handleReset = async (configId: string) => {
+    if (!confirm('Reset this configuration to its default value?')) return;
+    try {
+      const updated = (await SystemConfigService.resetToDefault(configId)) as any;
+      const newValue = String(updated?.value ?? '');
+      setConfigs((prev) =>
+        prev.map((c) => (c.id === configId ? { ...c, currentValue: newValue } : c)),
+      );
+      showToast(`Configuration ${configId} reset to default`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to reset configuration', 'error');
+    }
   };
 
   const filteredConfigs = configs.filter(config => {

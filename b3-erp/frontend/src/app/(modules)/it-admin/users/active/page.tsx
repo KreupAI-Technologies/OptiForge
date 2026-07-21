@@ -16,69 +16,6 @@ interface User {
   avatar: string;
 }
 
-const activeUsersSeed: User[] = [
-  {
-    id: '001',
-    name: 'Rajesh Kumar',
-    email: 'rajesh@example.com',
-    phone: '+91-98765-43210',
-    department: 'Operations',
-    role: 'Manager',
-    joinDate: '2024-01-15',
-    avatar: '🧑‍💼'
-  },
-  {
-    id: '002',
-    name: 'Priya Singh',
-    email: 'priya@example.com',
-    phone: '+91-98765-43211',
-    department: 'Sales',
-    role: 'Executive',
-    joinDate: '2024-02-10',
-    avatar: '👩‍💼'
-  },
-  {
-    id: '003',
-    name: 'Amit Patel',
-    email: 'amit@example.com',
-    phone: '+91-98765-43212',
-    department: 'IT',
-    role: 'Administrator',
-    joinDate: '2024-03-05',
-    avatar: '🧑‍💻'
-  },
-  {
-    id: '004',
-    name: 'Sneha Sharma',
-    email: 'sneha@example.com',
-    phone: '+91-98765-43213',
-    department: 'HR',
-    role: 'Specialist',
-    joinDate: '2024-04-20',
-    avatar: '👩‍💼'
-  },
-  {
-    id: '005',
-    name: 'Vikram Desai',
-    email: 'vikram@example.com',
-    phone: '+91-98765-43214',
-    department: 'Finance',
-    role: 'Analyst',
-    joinDate: '2024-05-12',
-    avatar: '🧑‍💼'
-  },
-  {
-    id: '006',
-    name: 'Neha Gupta',
-    email: 'neha@example.com',
-    phone: '+91-98765-43215',
-    department: 'Marketing',
-    role: 'Manager',
-    joinDate: '2024-06-18',
-    avatar: '👩‍💼'
-  }
-];
-
 export default function ActiveUsersPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');

@@ -18,13 +18,13 @@ import {
 } from 'lucide-react';
 import { HrSafetyService, SafetyHazard } from '@/services/hr-safety.service';
 
-// Mock Data
-const hierarchyData = [
-  { level: 'Elimination', icon: Zap, color: 'text-red-600', bg: 'bg-red-50', desc: 'Physically remove the hazard', count: 2 },
-  { level: 'Substitution', icon: ArrowRight, color: 'text-orange-600', bg: 'bg-orange-50', desc: 'Replace the hazard', count: 1 },
-  { level: 'Engineering', icon: Settings, color: 'text-blue-600', bg: 'bg-blue-50', desc: 'Isolate people from the hazard', count: 5 },
-  { level: 'Administrative', icon: Users, color: 'text-yellow-600', bg: 'bg-yellow-50', desc: 'Change the way people work', count: 8 },
-  { level: 'PPE', icon: HardHat, color: 'text-green-600', bg: 'bg-green-50', desc: 'Protect the worker with PPE', count: 12 },
+// Hierarchy-of-controls label/style map (constants — not mock data; counts derived)
+const HIERARCHY_META = [
+  { level: 'Elimination', icon: Zap, color: 'text-red-600', bg: 'bg-red-50', desc: 'Physically remove the hazard' },
+  { level: 'Substitution', icon: ArrowRight, color: 'text-orange-600', bg: 'bg-orange-50', desc: 'Replace the hazard' },
+  { level: 'Engineering', icon: Settings, color: 'text-blue-600', bg: 'bg-blue-50', desc: 'Isolate people from the hazard' },
+  { level: 'Administrative', icon: Users, color: 'text-yellow-600', bg: 'bg-yellow-50', desc: 'Change the way people work' },
+  { level: 'PPE', icon: HardHat, color: 'text-green-600', bg: 'bg-green-50', desc: 'Protect the worker with PPE' },
 ];
 
 interface ControlItem {
@@ -42,41 +42,75 @@ export default function ControlMeasuresPage() {
   const [activeControls, setActiveControls] = useState<ControlItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    type: 'Engineering',
+    targetRisk: '',
+    efficiency: '',
+  });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getHazards('control');
+      const mapped: ControlItem[] = rows.map((row: SafetyHazard) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          title: row.title ?? '',
+          type: row.category ?? '',
+          targetRisk: meta.targetRisk ?? row.remarks ?? '',
+          lastReview: meta.lastReview ?? row.date ?? '',
+          efficiency: Number(meta.efficiency ?? row.riskScore ?? 0) || 0,
+          status: row.status ?? '',
+        };
+      });
+      setActiveControls(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load control measures');
+      setActiveControls([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getHazards('control');
-        const mapped: ControlItem[] = rows.map((row: SafetyHazard) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            title: row.title ?? '',
-            type: row.category ?? '',
-            targetRisk: meta.targetRisk ?? row.remarks ?? '',
-            lastReview: meta.lastReview ?? row.date ?? '',
-            efficiency: Number(meta.efficiency ?? row.riskScore ?? 0) || 0,
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setActiveControls(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load control measures');
-          setActiveControls([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      const eff = Number(form.efficiency) || 0;
+      await HrSafetyService.createHazard({
+        recordType: 'control',
+        title: form.title.trim(),
+        category: form.type,
+        remarks: form.targetRisk.trim(),
+        riskScore: eff,
+        date: new Date().toISOString().slice(0, 10),
+        status: 'Active',
+        meta: { targetRisk: form.targetRisk.trim(), efficiency: eff, lastReview: new Date().toISOString().slice(0, 10) },
+      });
+      setShowCreate(false);
+      setForm({ title: '', type: 'Engineering', targetRisk: '', efficiency: '' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create control');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Derived counts per hierarchy level from fetched controls
+  const hierarchyData = HIERARCHY_META.map((meta) => ({
+    ...meta,
+    count: activeControls.filter((c) => c.type === meta.level).length,
+  }));
 
   return (
     <div className="p-6 space-y-3">
@@ -89,11 +123,86 @@ export default function ControlMeasuresPage() {
           </h1>
           <p className="text-gray-500 mt-1">Implement and track the hierarchy of controls to mitigate identified risks</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Implement Control
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Implement Control</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Control Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                  placeholder="Describe the control measure"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hierarchy Level</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                >
+                  {HIERARCHY_META.map((m) => (
+                    <option key={m.level}>{m.level}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target Risk</label>
+                <input
+                  type="text"
+                  value={form.targetRisk}
+                  onChange={(e) => setForm({ ...form, targetRisk: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                  placeholder="e.g. RISK-012"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Efficiency (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={form.efficiency}
+                  onChange={(e) => setForm({ ...form, efficiency: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                  placeholder="0-100"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.title.trim()}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                {saving ? 'Saving…' : 'Save Control'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

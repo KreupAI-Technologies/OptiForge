@@ -75,7 +75,21 @@ function DocumentDashboard({ stats }: { stats: DocumentDashboardStats | null }) 
 // Employee Documents Component
 // ============================================================================
 
-function EmployeeDocumentsSection({ documents, category }: { documents: EmployeeDocument[]; category: DocumentCategory }) {
+function EmployeeDocumentsSection({
+  documents,
+  category,
+  onUpload,
+  onView,
+  onVerify,
+  onReject,
+}: {
+  documents: EmployeeDocument[];
+  category: DocumentCategory;
+  onUpload: () => void;
+  onView: (doc: EmployeeDocument) => void;
+  onVerify: (doc: EmployeeDocument) => void;
+  onReject: (doc: EmployeeDocument) => void;
+}) {
   const getStatusColor = (status: DocumentStatus) => {
     switch (status) {
       case DocumentStatus.VERIFIED: return 'bg-green-900 text-green-300';
@@ -92,7 +106,10 @@ function EmployeeDocumentsSection({ documents, category }: { documents: Employee
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white capitalize">{category} Documents</h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+        <button
+          onClick={onUpload}
+          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+        >
           <Upload className="h-4 w-4" />
           Upload Document
         </button>
@@ -142,15 +159,24 @@ function EmployeeDocumentsSection({ documents, category }: { documents: Employee
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button className="text-blue-400 hover:text-blue-300 text-sm">
+                      <button
+                        onClick={() => onView(doc)}
+                        className="text-blue-400 hover:text-blue-300 text-sm"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
                       {doc.status === DocumentStatus.PENDING && (
                         <>
-                          <button className="text-green-400 hover:text-green-300 text-sm">
+                          <button
+                            onClick={() => onVerify(doc)}
+                            className="text-green-400 hover:text-green-300 text-sm"
+                          >
                             <CheckCircle className="h-4 w-4" />
                           </button>
-                          <button className="text-red-400 hover:text-red-300 text-sm">
+                          <button
+                            onClick={() => onReject(doc)}
+                            className="text-red-400 hover:text-red-300 text-sm"
+                          >
                             <XCircle className="h-4 w-4" />
                           </button>
                         </>
@@ -171,14 +197,27 @@ function EmployeeDocumentsSection({ documents, category }: { documents: Employee
 // Compliance Documents Component
 // ============================================================================
 
-function ComplianceDocumentsSection({ documents, category }: { documents: ComplianceDocument[]; category: ComplianceDocumentCategory }) {
+function ComplianceDocumentsSection({
+  documents,
+  category,
+  onAdd,
+  onView,
+}: {
+  documents: ComplianceDocument[];
+  category: ComplianceDocumentCategory;
+  onAdd: () => void;
+  onView: (doc: ComplianceDocument) => void;
+}) {
   const filteredDocs = documents.filter(d => d.documentCategory === category);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white capitalize">{category.replace('_', ' ')}</h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+        >
           <Plus className="h-4 w-4" />
           Add Document
         </button>
@@ -222,7 +261,12 @@ function ComplianceDocumentsSection({ documents, category }: { documents: Compli
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button className="text-blue-400 hover:text-blue-300 text-sm">View</button>
+                    <button
+                      onClick={() => onView(doc)}
+                      className="text-blue-400 hover:text-blue-300 text-sm"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
               ))
@@ -238,14 +282,29 @@ function ComplianceDocumentsSection({ documents, category }: { documents: Compli
 // HR Policies Component
 // ============================================================================
 
-function HRPoliciesSection({ policies, category }: { policies: HRPolicy[]; category: PolicyCategory }) {
+function HRPoliciesSection({
+  policies,
+  category,
+  onAdd,
+  onView,
+  onDownload,
+}: {
+  policies: HRPolicy[];
+  category: PolicyCategory;
+  onAdd: () => void;
+  onView: (policy: HRPolicy) => void;
+  onDownload: (policy: HRPolicy) => void;
+}) {
   const filteredPolicies = policies.filter(p => p.policyCategory === category);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white capitalize">{category.replace('_', ' ')}</h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+        >
           <Plus className="h-4 w-4" />
           Add Policy
         </button>
@@ -286,11 +345,17 @@ function HRPoliciesSection({ policies, category }: { policies: HRPolicy[]; categ
                 )}
               </div>
               <div className="mt-3 flex gap-2">
-                <button className="flex-1 px-3 py-2 bg-gray-700 text-gray-300 rounded text-sm hover:bg-gray-600">
+                <button
+                  onClick={() => onView(policy)}
+                  className="flex-1 px-3 py-2 bg-gray-700 text-gray-300 rounded text-sm hover:bg-gray-600"
+                >
                   View
                 </button>
                 {policy.fileUrl && (
-                  <button className="px-3 py-2 bg-gray-700 text-gray-300 rounded text-sm hover:bg-gray-600">
+                  <button
+                    onClick={() => onDownload(policy)}
+                    className="px-3 py-2 bg-gray-700 text-gray-300 rounded text-sm hover:bg-gray-600"
+                  >
                     <Download className="h-4 w-4" />
                   </button>
                 )}
@@ -307,7 +372,19 @@ function HRPoliciesSection({ policies, category }: { policies: HRPolicy[]; categ
 // Document Repository Component
 // ============================================================================
 
-function DocumentRepositorySection({ documents }: { documents: DocumentRepository[] }) {
+function DocumentRepositorySection({
+  documents,
+  searchQuery,
+  onSearchChange,
+  onUpload,
+  onOpen,
+}: {
+  documents: DocumentRepository[];
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  onUpload: () => void;
+  onOpen: (doc: DocumentRepository) => void;
+}) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -317,11 +394,16 @@ function DocumentRepositorySection({ documents }: { documents: DocumentRepositor
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search documents..."
               className="pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+          <button
+            onClick={onUpload}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
             <Upload className="h-4 w-4" />
             Upload
           </button>
@@ -330,7 +412,11 @@ function DocumentRepositorySection({ documents }: { documents: DocumentRepositor
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {documents.map((doc) => (
-          <div key={doc.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 cursor-pointer">
+          <div
+            key={doc.id}
+            onClick={() => onOpen(doc)}
+            className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 cursor-pointer"
+          >
             <div className="flex items-start gap-3">
               <div className="p-2 bg-gray-700 rounded">
                 <FileText className="h-6 w-6 text-blue-400" />
@@ -363,7 +449,23 @@ function DocumentRepositorySection({ documents }: { documents: DocumentRepositor
 // Certificate Requests Component
 // ============================================================================
 
-function CertificateRequestsSection({ requests, type }: { requests: CertificateRequest[]; type?: CertificateType }) {
+function CertificateRequestsSection({
+  requests,
+  type,
+  onNewRequest,
+  onApprove,
+  onReject,
+  onDownload,
+  onView,
+}: {
+  requests: CertificateRequest[];
+  type?: CertificateType;
+  onNewRequest: () => void;
+  onApprove: (request: CertificateRequest) => void;
+  onReject: (request: CertificateRequest) => void;
+  onDownload: (request: CertificateRequest) => void;
+  onView: (request: CertificateRequest) => void;
+}) {
   const filteredRequests = type
     ? requests.filter(r => r.certificateType === type)
     : requests;
@@ -384,7 +486,10 @@ function CertificateRequestsSection({ requests, type }: { requests: CertificateR
         <h3 className="text-lg font-semibold text-white">
           {type ? type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'All Certificate Requests'}
         </h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+        <button
+          onClick={onNewRequest}
+          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+        >
           <Plus className="h-4 w-4" />
           New Request
         </button>
@@ -431,16 +536,34 @@ function CertificateRequestsSection({ requests, type }: { requests: CertificateR
                   <div className="flex gap-2">
                     {request.status === CertificateRequestStatus.PENDING && (
                       <>
-                        <button className="text-green-400 hover:text-green-300 text-sm">Approve</button>
-                        <button className="text-red-400 hover:text-red-300 text-sm">Reject</button>
+                        <button
+                          onClick={() => onApprove(request)}
+                          className="text-green-400 hover:text-green-300 text-sm"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => onReject(request)}
+                          className="text-red-400 hover:text-red-300 text-sm"
+                        >
+                          Reject
+                        </button>
                       </>
                     )}
                     {request.status === CertificateRequestStatus.ISSUED && request.documentUrl && (
-                      <button className="text-blue-400 hover:text-blue-300 text-sm">
+                      <button
+                        onClick={() => onDownload(request)}
+                        className="text-blue-400 hover:text-blue-300 text-sm"
+                      >
                         <Download className="h-4 w-4" />
                       </button>
                     )}
-                    <button className="text-blue-400 hover:text-blue-300 text-sm">View</button>
+                    <button
+                      onClick={() => onView(request)}
+                      className="text-blue-400 hover:text-blue-300 text-sm"
+                    >
+                      View
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -456,7 +579,19 @@ function CertificateRequestsSection({ requests, type }: { requests: CertificateR
 // Compliance Tracking Component
 // ============================================================================
 
-function ComplianceTrackingSection({ tracking, status }: { tracking: DocumentComplianceTracking[]; status: ComplianceStatus }) {
+function ComplianceTrackingSection({
+  tracking,
+  status,
+  onSendAllReminders,
+  onRemind,
+  onResolve,
+}: {
+  tracking: DocumentComplianceTracking[];
+  status: ComplianceStatus;
+  onSendAllReminders: (items: DocumentComplianceTracking[]) => void;
+  onRemind: (item: DocumentComplianceTracking) => void;
+  onResolve: (item: DocumentComplianceTracking) => void;
+}) {
   const filteredTracking = tracking.filter(t => t.complianceStatus === status);
 
   const getStatusColor = (complianceStatus: ComplianceStatus) => {
@@ -475,7 +610,10 @@ function ComplianceTrackingSection({ tracking, status }: { tracking: DocumentCom
         <h3 className="text-lg font-semibold text-white capitalize">
           {status === ComplianceStatus.EXPIRING_SOON ? 'Renewal Reminders' : `${status} Documents`}
         </h3>
-        <button className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">
+        <button
+          onClick={() => onSendAllReminders(filteredTracking)}
+          className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm"
+        >
           <Bell className="h-4 w-4" />
           Send Reminders
         </button>
@@ -529,10 +667,16 @@ function ComplianceTrackingSection({ tracking, status }: { tracking: DocumentCom
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button className="text-blue-400 hover:text-blue-300 text-sm">
+                      <button
+                        onClick={() => onRemind(item)}
+                        className="text-blue-400 hover:text-blue-300 text-sm"
+                      >
                         <Bell className="h-4 w-4" />
                       </button>
-                      <button className="text-green-400 hover:text-green-300 text-sm">
+                      <button
+                        onClick={() => onResolve(item)}
+                        className="text-green-400 hover:text-green-300 text-sm"
+                      >
                         <CheckCircle className="h-4 w-4" />
                       </button>
                     </div>
@@ -734,6 +878,12 @@ export default function DocumentManagementPage() {
   const [repositoryDocuments, setRepositoryDocuments] = useState<DocumentRepository[]>([]);
   const [certificateRequests, setCertificateRequests] = useState<CertificateRequest[]>([]);
   const [complianceTracking, setComplianceTracking] = useState<DocumentComplianceTracking[]>([]);
+  const [repositorySearch, setRepositorySearch] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Actor identity for verify/approve/reject audit fields. In production this is
+  // resolved from the authenticated session; fall back to a stable label for now.
+  const CURRENT_USER = 'HR Admin';
 
   useEffect(() => {
     loadDashboard();
@@ -807,6 +957,147 @@ export default function DocumentManagementPage() {
       console.error('Error loading compliance tracking:', error);
     }
   };
+
+  // --------------------------------------------------------------------------
+  // Action handlers — wire buttons to DocumentManagementService + refresh state
+  // --------------------------------------------------------------------------
+  const runAction = async (fn: () => Promise<unknown>, reload?: () => Promise<void>) => {
+    setActionError(null);
+    try {
+      await fn();
+      if (reload) await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Action failed');
+    }
+  };
+
+  // Employee documents
+  const handleUploadEmployeeDoc = () => {
+    setMainTab('employee_documents');
+    setEmployeeDocSubTab('upload');
+  };
+  const handleViewEmployeeDoc = (doc: EmployeeDocument) => {
+    if (doc.fileUrl) window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
+  };
+  const handleVerifyEmployeeDoc = (doc: EmployeeDocument) =>
+    runAction(
+      () => DocumentManagementService.verifyDocument(doc.id, CURRENT_USER),
+      loadEmployeeDocuments,
+    );
+  const handleRejectEmployeeDoc = (doc: EmployeeDocument) => {
+    const reason = window.prompt('Reason for rejection?');
+    if (!reason) return;
+    runAction(
+      () => DocumentManagementService.rejectDocument(doc.id, CURRENT_USER, reason),
+      loadEmployeeDocuments,
+    );
+  };
+
+  // Compliance documents
+  const handleAddComplianceDoc = () => {
+    runAction(
+      () =>
+        DocumentManagementService.createComplianceDocument({
+          documentName: 'New Compliance Document',
+          documentCategory: complianceSubTab === 'statutory_forms' ? ComplianceDocumentCategory.STATUTORY_FORM :
+            complianceSubTab === 'declarations' ? ComplianceDocumentCategory.DECLARATION :
+            complianceSubTab === 'nominations' ? ComplianceDocumentCategory.NOMINATION :
+            ComplianceDocumentCategory.INSURANCE_FORM,
+        }),
+      loadComplianceDocuments,
+    );
+  };
+  const handleViewComplianceDoc = (doc: ComplianceDocument) => {
+    if (doc.fileUrl) window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  // Policies
+  const handleAddPolicy = () => {
+    runAction(
+      () =>
+        DocumentManagementService.createHRPolicy({
+          policyName: 'New Policy',
+          policyCategory: policySubTab === 'leave_policy' ? PolicyCategory.LEAVE_POLICY :
+            policySubTab === 'attendance_policy' ? PolicyCategory.ATTENDANCE_POLICY :
+            policySubTab === 'expense_policy' ? PolicyCategory.EXPENSE_POLICY :
+            policySubTab === 'code_of_conduct' ? PolicyCategory.CODE_OF_CONDUCT :
+            policySubTab === 'employee_handbook' ? PolicyCategory.EMPLOYEE_HANDBOOK :
+            PolicyCategory.OTHER,
+        }),
+      loadPolicies,
+    );
+  };
+  const handleViewPolicy = (policy: HRPolicy) => {
+    if (policy.fileUrl) window.open(policy.fileUrl, '_blank', 'noopener,noreferrer');
+  };
+  const handleDownloadPolicy = (policy: HRPolicy) => {
+    if (policy.fileUrl) window.open(policy.fileUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  // Repository
+  const handleRepositorySearch = (value: string) => {
+    setRepositorySearch(value);
+    runAction(async () => {
+      const result = await DocumentManagementService.searchDocuments(value);
+      setRepositoryDocuments(result.data);
+    });
+  };
+  const handleUploadRepositoryDoc = () => {
+    setMainTab('employee_documents');
+    setEmployeeDocSubTab('upload');
+  };
+  const handleOpenRepositoryDoc = (doc: DocumentRepository) => {
+    runAction(() => DocumentManagementService.downloadDocument(doc.id), loadRepositoryDocuments);
+    if (doc.fileUrl) window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  // Certificate requests
+  const handleNewCertificateRequest = () => {
+    const certType = certificateSubTab === 'experience' ? CertificateType.EXPERIENCE_CERTIFICATE :
+      certificateSubTab === 'salary' ? CertificateType.SALARY_CERTIFICATE :
+      certificateSubTab === 'employment' ? CertificateType.EMPLOYMENT_CERTIFICATE :
+      CertificateType.EXPERIENCE_CERTIFICATE;
+    runAction(
+      () => DocumentManagementService.createCertificateRequest({ certificateType: certType }),
+      loadCertificateRequests,
+    );
+  };
+  const handleApproveCertificate = (request: CertificateRequest) =>
+    runAction(
+      () => DocumentManagementService.approveCertificateRequest(request.id, CURRENT_USER),
+      loadCertificateRequests,
+    );
+  const handleRejectCertificate = (request: CertificateRequest) => {
+    const reason = window.prompt('Reason for rejecting this certificate request?');
+    if (!reason) return;
+    runAction(
+      () => DocumentManagementService.rejectCertificateRequest(request.id, CURRENT_USER, reason),
+      loadCertificateRequests,
+    );
+  };
+  const handleDownloadCertificate = (request: CertificateRequest) => {
+    if (request.documentUrl) window.open(request.documentUrl, '_blank', 'noopener,noreferrer');
+  };
+  const handleViewCertificate = (request: CertificateRequest) => {
+    if (request.documentUrl) window.open(request.documentUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  // Compliance tracking
+  const handleSendAllReminders = (items: DocumentComplianceTracking[]) =>
+    runAction(
+      () => Promise.all(items.map((t) => DocumentManagementService.sendComplianceReminder(t.id))),
+      loadComplianceTracking,
+    );
+  const handleRemind = (item: DocumentComplianceTracking) =>
+    runAction(
+      () => DocumentManagementService.sendComplianceReminder(item.id),
+      loadComplianceTracking,
+    );
+  const handleResolve = (item: DocumentComplianceTracking) =>
+    runAction(
+      () => DocumentManagementService.resolveComplianceIssue(item.id, CURRENT_USER),
+      loadComplianceTracking,
+    );
 
   const mainTabs = [
     { id: 'employee_documents' as MainTab, label: 'Employee Documents', icon: FileText },
@@ -904,14 +1195,30 @@ export default function DocumentManagementPage() {
         const docCategory = employeeDocSubTab === 'personal' ? DocumentCategory.PERSONAL :
                           employeeDocSubTab === 'educational' ? DocumentCategory.EDUCATIONAL :
                           DocumentCategory.EMPLOYMENT;
-        return <EmployeeDocumentsSection documents={employeeDocuments} category={docCategory} />;
+        return (
+          <EmployeeDocumentsSection
+            documents={employeeDocuments}
+            category={docCategory}
+            onUpload={handleUploadEmployeeDoc}
+            onView={handleViewEmployeeDoc}
+            onVerify={handleVerifyEmployeeDoc}
+            onReject={handleRejectEmployeeDoc}
+          />
+        );
 
       case 'compliance_documents':
         const compCategory = complianceSubTab === 'statutory_forms' ? ComplianceDocumentCategory.STATUTORY_FORM :
                             complianceSubTab === 'declarations' ? ComplianceDocumentCategory.DECLARATION :
                             complianceSubTab === 'nominations' ? ComplianceDocumentCategory.NOMINATION :
                             ComplianceDocumentCategory.INSURANCE_FORM;
-        return <ComplianceDocumentsSection documents={complianceDocuments} category={compCategory} />;
+        return (
+          <ComplianceDocumentsSection
+            documents={complianceDocuments}
+            category={compCategory}
+            onAdd={handleAddComplianceDoc}
+            onView={handleViewComplianceDoc}
+          />
+        );
 
       case 'policies':
         const polCategory = policySubTab === 'employee_handbook' ? PolicyCategory.EMPLOYEE_HANDBOOK :
@@ -920,25 +1227,68 @@ export default function DocumentManagementPage() {
                            policySubTab === 'expense_policy' ? PolicyCategory.EXPENSE_POLICY :
                            policySubTab === 'code_of_conduct' ? PolicyCategory.CODE_OF_CONDUCT :
                            PolicyCategory.OTHER;
-        return <HRPoliciesSection policies={policies} category={polCategory} />;
+        return (
+          <HRPoliciesSection
+            policies={policies}
+            category={polCategory}
+            onAdd={handleAddPolicy}
+            onView={handleViewPolicy}
+            onDownload={handleDownloadPolicy}
+          />
+        );
 
       case 'repository':
-        return <DocumentRepositorySection documents={repositoryDocuments} />;
+        return (
+          <DocumentRepositorySection
+            documents={repositoryDocuments}
+            searchQuery={repositorySearch}
+            onSearchChange={handleRepositorySearch}
+            onUpload={handleUploadRepositoryDoc}
+            onOpen={handleOpenRepositoryDoc}
+          />
+        );
 
       case 'certificates':
         if (certificateSubTab === 'status') {
-          return <CertificateRequestsSection requests={certificateRequests} />;
+          return (
+            <CertificateRequestsSection
+              requests={certificateRequests}
+              onNewRequest={handleNewCertificateRequest}
+              onApprove={handleApproveCertificate}
+              onReject={handleRejectCertificate}
+              onDownload={handleDownloadCertificate}
+              onView={handleViewCertificate}
+            />
+          );
         }
         const certType = certificateSubTab === 'experience' ? CertificateType.EXPERIENCE_CERTIFICATE :
                         certificateSubTab === 'salary' ? CertificateType.SALARY_CERTIFICATE :
                         CertificateType.EMPLOYMENT_CERTIFICATE;
-        return <CertificateRequestsSection requests={certificateRequests} type={certType} />;
+        return (
+          <CertificateRequestsSection
+            requests={certificateRequests}
+            type={certType}
+            onNewRequest={handleNewCertificateRequest}
+            onApprove={handleApproveCertificate}
+            onReject={handleRejectCertificate}
+            onDownload={handleDownloadCertificate}
+            onView={handleViewCertificate}
+          />
+        );
 
       case 'tracking':
         const trackStatus = trackingSubTab === 'missing' ? ComplianceStatus.MISSING :
                            trackingSubTab === 'expired' ? ComplianceStatus.EXPIRED :
                            ComplianceStatus.EXPIRING_SOON;
-        return <ComplianceTrackingSection tracking={complianceTracking} status={trackStatus} />;
+        return (
+          <ComplianceTrackingSection
+            tracking={complianceTracking}
+            status={trackStatus}
+            onSendAllReminders={handleSendAllReminders}
+            onRemind={handleRemind}
+            onResolve={handleResolve}
+          />
+        );
 
       default:
         return null;
@@ -955,16 +1305,28 @@ export default function DocumentManagementPage() {
             <p className="text-gray-400">Manage employee documents, policies, and compliance</p>
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600">
+            <button
+              onClick={() => setMainTab('repository')}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600"
+            >
               <Search className="h-4 w-4" />
               Search
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button
+              onClick={handleUploadEmployeeDoc}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
               <Upload className="h-4 w-4" />
               Upload
             </button>
           </div>
         </div>
+
+        {actionError && (
+          <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-2 text-sm">
+            {actionError}
+          </div>
+        )}
 
         {/* Dashboard Stats */}
         <DocumentDashboard stats={dashboardStats} />

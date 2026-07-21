@@ -34,9 +34,14 @@ interface LaborRate {
 
 const SKILL_LEVELS: LaborRate['skillLevel'][] = ['trainee', 'skilled', 'expert', 'supervisor']
 
+const COMPANY_ID = ''
+
 export default function LaborRatesPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<number>(0)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [activeOnly, setActiveOnly] = useState(false)
   const [laborRates, setLaborRates] = useState<LaborRate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -51,6 +56,29 @@ export default function LaborRatesPage() {
 
   const handleViewHistory = (laborId: string) => {
     router.push(`/estimation/rates/labor/history/${laborId}`)
+  }
+
+  const handleStartEdit = (labor: LaborRate) => {
+    setEditingId(labor.id)
+    setEditValue(labor.standardRate)
+  }
+
+  const handleSaveRate = async (laborId: string) => {
+    setSavingId(laborId)
+    setLoadError(null)
+    try {
+      await estimationResourceRateService.updateResourceRate(COMPANY_ID, laborId, {
+        standardRate: editValue,
+      })
+      setLaborRates((prev) =>
+        prev.map((l) => (l.id === laborId ? { ...l, standardRate: editValue } : l))
+      )
+      setEditingId(null)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update labor rate')
+    } finally {
+      setSavingId(null)
+    }
   }
 
   useEffect(() => {
@@ -124,6 +152,10 @@ export default function LaborRatesPage() {
     }
   }
 
+  const visibleLaborRates = activeOnly
+    ? laborRates.filter((l) => l.status === 'active')
+    : laborRates
+
   const totalLabor = laborRates.length
   const avgRate = totalLabor > 0 ? laborRates.reduce((sum, l) => sum + l.standardRate, 0) / totalLabor : 0
   const expertCount = laborRates.filter(l => l.skillLevel === 'expert').length
@@ -146,9 +178,15 @@ export default function LaborRatesPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setActiveOnly((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              activeOnly
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
             <Filter className="h-4 w-4" />
-            Filter
+            {activeOnly ? 'Active Only' : 'Filter'}
           </button>
           <button
             onClick={handleExport}
@@ -260,7 +298,7 @@ export default function LaborRatesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {laborRates.map((labor) => (
+              {visibleLaborRates.map((labor) => (
                 <tr key={labor.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>
@@ -281,7 +319,8 @@ export default function LaborRatesPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          defaultValue={labor.standardRate}
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
                           className="w-20 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-xs text-gray-600">/hr</span>
@@ -310,17 +349,18 @@ export default function LaborRatesPage() {
                     <div className="flex items-center gap-2">
                       {editingId === labor.id ? (
                         <button
-                          onClick={() => setEditingId(null)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                         
+                          onClick={() => handleSaveRate(labor.id)}
+                          disabled={savingId === labor.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                          title="Save Rate"
                         >
                           <Save className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => setEditingId(labor.id)}
+                          onClick={() => handleStartEdit(labor)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                         
+                          title="Edit Rate"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>

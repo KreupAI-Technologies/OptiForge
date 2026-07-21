@@ -6,6 +6,7 @@ import {
   XCircle, Star, DollarSign, Package, TrendingUp
 } from 'lucide-react';
 import { manufacturingMastersService, MaterialGrade as BackendMaterialGrade } from '@/services/manufacturing-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface MaterialGrade {
   id: string;
@@ -40,12 +41,25 @@ interface MaterialGrade {
 }
 
 export default function MaterialGradeMaster() {
+  const companyId = '123e4567-e89b-12d3-a456-426614174000';
   const [materialGrades, setMaterialGrades] = useState<MaterialGrade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGrade, setSelectedGrade] = useState<MaterialGrade | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState<string>('All');
+
+  const codeRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const categoryRef = React.useRef<HTMLSelectElement>(null);
+  const gradeRef = React.useRef<HTMLSelectElement>(null);
+  const thicknessRef = React.useRef<HTMLInputElement>(null);
+  const densityRef = React.useRef<HTMLInputElement>(null);
+  const moistureContentRef = React.useRef<HTMLInputElement>(null);
+  const pricePerUnitRef = React.useRef<HTMLInputElement>(null);
+  const minOrderQuantityRef = React.useRef<HTMLInputElement>(null);
+  const supplierRatingRef = React.useRef<HTMLInputElement>(null);
+  const statusRef = React.useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     fetchMaterialGrades();
@@ -54,7 +68,7 @@ export default function MaterialGradeMaster() {
   const fetchMaterialGrades = async () => {
     try {
       setIsLoading(true);
-      const data = await manufacturingMastersService.getAllMaterialGrades('123e4567-e89b-12d3-a456-426614174000');
+      const data = await manufacturingMastersService.getAllMaterialGrades(companyId);
 
       const mapped: MaterialGrade[] = data.map(mg => ({
         id: mg.id,
@@ -96,9 +110,60 @@ export default function MaterialGradeMaster() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleSave = async () => {
+    const code = codeRef.current?.value?.trim() || '';
+    const name = nameRef.current?.value?.trim() || '';
+    const category = categoryRef.current?.value || '';
+    const grade = gradeRef.current?.value || '';
+    const thickness = Number(thicknessRef.current?.value);
+    const density = Number(densityRef.current?.value);
+    const moistureContent = Number(moistureContentRef.current?.value);
+    const pricePerUnit = Number(pricePerUnitRef.current?.value);
+    const minOrderQuantity = Number(minOrderQuantityRef.current?.value);
+    const supplierRating = supplierRatingRef.current?.value || '';
+    const status = statusRef.current?.value || '';
+
+    if (!code || !name) {
+      alert('Code and Name are required');
+      return;
+    }
+
+    const payload = {
+      code,
+      name,
+      companyId,
+      category,
+      grade,
+      pricePerUnit,
+      minOrderQuantity,
+      supplierRating: Number(supplierRating),
+      status,
+      specifications: { thickness, density, moistureContent }
+    };
+
+    try {
+      if (selectedGrade) {
+        await commonMastersService.updateMaterialGrade(selectedGrade.id, payload as any);
+      } else {
+        await commonMastersService.createMaterialGrade(payload as any);
+      }
+      setIsModalOpen(false);
+      await fetchMaterialGrades();
+    } catch (error) {
+      console.error('Error saving material grade:', error);
+      alert('Failed to save material grade');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this material grade?')) {
-      setMaterialGrades(materialGrades.filter(g => g.id !== id));
+      try {
+        await commonMastersService.deleteMaterialGrade(id);
+        await fetchMaterialGrades();
+      } catch (error) {
+        console.error('Error deleting material grade:', error);
+        alert('Failed to delete material grade');
+      }
     }
   };
 
@@ -315,6 +380,7 @@ export default function MaterialGradeMaster() {
                       Code *
                     </label>
                     <input
+                      ref={codeRef}
                       type="text"
                       defaultValue={selectedGrade?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -326,6 +392,7 @@ export default function MaterialGradeMaster() {
                       Name *
                     </label>
                     <input
+                      ref={nameRef}
                       type="text"
                       defaultValue={selectedGrade?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -340,6 +407,7 @@ export default function MaterialGradeMaster() {
                       Category *
                     </label>
                     <select
+                      ref={categoryRef}
                       defaultValue={selectedGrade?.category || 'Plywood'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -357,6 +425,7 @@ export default function MaterialGradeMaster() {
                       Grade *
                     </label>
                     <select
+                      ref={gradeRef}
                       defaultValue={selectedGrade?.grade || 'Standard'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -374,6 +443,7 @@ export default function MaterialGradeMaster() {
                       Thickness (mm)
                     </label>
                     <input
+                      ref={thicknessRef}
                       type="number"
                       defaultValue={selectedGrade?.specifications.thickness}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -384,6 +454,7 @@ export default function MaterialGradeMaster() {
                       Density (kg/m³)
                     </label>
                     <input
+                      ref={densityRef}
                       type="number"
                       defaultValue={selectedGrade?.specifications.density}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -394,6 +465,7 @@ export default function MaterialGradeMaster() {
                       Moisture %
                     </label>
                     <input
+                      ref={moistureContentRef}
                       type="number"
                       defaultValue={selectedGrade?.specifications.moistureContent}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -407,6 +479,7 @@ export default function MaterialGradeMaster() {
                       Price/Unit (₹) *
                     </label>
                     <input
+                      ref={pricePerUnitRef}
                       type="number"
                       defaultValue={selectedGrade?.pricePerUnit}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -417,6 +490,7 @@ export default function MaterialGradeMaster() {
                       Min Order Qty
                     </label>
                     <input
+                      ref={minOrderQuantityRef}
                       type="number"
                       defaultValue={selectedGrade?.minOrderQuantity}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -427,6 +501,7 @@ export default function MaterialGradeMaster() {
                       Supplier Rating
                     </label>
                     <input
+                      ref={supplierRatingRef}
                       type="number"
                       step="0.1"
                       max="5"
@@ -441,6 +516,7 @@ export default function MaterialGradeMaster() {
                     Status
                   </label>
                   <select
+                    ref={statusRef}
                     defaultValue={selectedGrade?.status || 'Active'}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
@@ -459,7 +535,10 @@ export default function MaterialGradeMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
                 Save Material Grade
               </button>
             </div>

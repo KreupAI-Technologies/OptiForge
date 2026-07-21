@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Cog, Plus, Search, Eye, Edit3, Activity, AlertCircle, Wrench } from 'lucide-react';
+import { Cog, Plus, Search, Eye, Edit3, Activity, AlertCircle, Wrench, Trash2, X } from 'lucide-react';
 import { manufacturingMastersService, Machine as BackendMachine } from '../../services/manufacturing-masters.service';
 
 interface Machine {
@@ -55,9 +55,41 @@ interface Machine {
   createdAt: string;
 }
 
+interface MachineForm {
+  machineCode: string;
+  machineName: string;
+  description: string;
+  category: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  capacity: string;
+  power: string;
+  status: string;
+}
+
+const emptyForm: MachineForm = {
+  machineCode: '',
+  machineName: '',
+  description: '',
+  category: 'other',
+  manufacturer: '',
+  model: '',
+  serialNumber: '',
+  capacity: '',
+  power: '',
+  status: 'operational',
+};
+
 const MachineMaster: React.FC = () => {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
+  const [form, setForm] = useState<MachineForm>(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMachines();
@@ -117,6 +149,82 @@ const MachineMaster: React.FC = () => {
     }
   };
 
+  const openCreateModal = () => {
+    setSelectedMachine(null);
+    setForm(emptyForm);
+    setError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (machine: Machine) => {
+    setSelectedMachine(machine.id);
+    setForm({
+      machineCode: machine.machineCode,
+      machineName: machine.machineName,
+      description: machine.description,
+      category: machine.category,
+      manufacturer: machine.manufacturer,
+      model: machine.model,
+      serialNumber: machine.serialNumber,
+      capacity: machine.specifications.capacity,
+      power: machine.specifications.power,
+      status: machine.status,
+    });
+    setError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.machineCode.trim() || !form.machineName.trim()) {
+      setError('Machine Code and Machine Name are required.');
+      return;
+    }
+
+    const payload = {
+      machineCode: form.machineCode,
+      machineName: form.machineName,
+      description: form.description,
+      category: form.category,
+      manufacturer: form.manufacturer,
+      model: form.model,
+      serialNumber: form.serialNumber,
+      capacity: form.capacity,
+      power: form.power,
+      status: form.status,
+      companyId: '1',
+    };
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      if (selectedMachine) {
+        await manufacturingMastersService.updateMachine(selectedMachine, payload);
+      } else {
+        await manufacturingMastersService.createMachine(payload);
+      }
+      setIsModalOpen(false);
+      await fetchMachines();
+    } catch (err) {
+      console.error('Error saving machine:', err);
+      setError('Failed to save machine. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (machine: Machine) => {
+    if (!confirm(`Delete machine "${machine.machineName}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await manufacturingMastersService.deleteMachine(machine.id);
+      setMachines(prev => prev.filter(m => m.id !== machine.id));
+    } catch (err) {
+      console.error('Error deleting machine:', err);
+      setError('Failed to delete machine. Please try again.');
+    }
+  };
+
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -144,7 +252,10 @@ const MachineMaster: React.FC = () => {
               </h1>
               <p className="text-gray-600 mt-2">Manage equipment database and performance</p>
             </div>
-            <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
+            <button
+              onClick={openCreateModal}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+            >
               <Plus className="w-4 h-4" />
               Add Machine
             </button>
@@ -174,6 +285,12 @@ const MachineMaster: React.FC = () => {
             </select>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-3 text-sm">
+            {error}
+          </div>
+        )}
 
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
@@ -267,9 +384,19 @@ const MachineMaster: React.FC = () => {
                     <Eye className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">View</span>
                   </button>
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                  <button
+                    onClick={() => openEditModal(machine)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                  >
                     <Edit3 className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(machine)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-red-50 text-sm"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <span className="text-red-600">Delete</span>
                   </button>
                 </div>
               </div>
@@ -367,6 +494,150 @@ const MachineMaster: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Add/Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {selectedMachine ? 'Edit Machine' : 'Add New Machine'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-3 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Machine Code *</label>
+                  <input
+                    type="text"
+                    value={form.machineCode}
+                    onChange={(e) => setForm({ ...form, machineCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Machine Name *</label>
+                  <input
+                    type="text"
+                    value={form.machineName}
+                    onChange={(e) => setForm({ ...form, machineName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="cutting">Cutting</option>
+                    <option value="drilling">Drilling</option>
+                    <option value="finishing">Finishing</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="operational">Operational</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="breakdown">Breakdown</option>
+                    <option value="idle">Idle</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Manufacturer</label>
+                  <input
+                    type="text"
+                    value={form.manufacturer}
+                    onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <input
+                    type="text"
+                    value={form.model}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+                  <input
+                    type="text"
+                    value={form.serialNumber}
+                    onChange={(e) => setForm({ ...form, serialNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                  <input
+                    type="text"
+                    value={form.capacity}
+                    onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Power (kW)</label>
+                  <input
+                    type="text"
+                    value={form.power}
+                    onChange={(e) => setForm({ ...form, power: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : selectedMachine ? 'Update Machine' : 'Create Machine'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

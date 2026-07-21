@@ -14,7 +14,15 @@ import {
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
-import { AttendanceService } from '@/services/attendance.service';
+import { AttendanceService, AttendanceStatus } from '@/services/attendance.service';
+
+const UI_TO_STATUS: Record<string, AttendanceStatus> = {
+    Present: AttendanceStatus.PRESENT,
+    Absent: AttendanceStatus.ABSENT,
+    Late: AttendanceStatus.LATE,
+    'Half Day': AttendanceStatus.HALF_DAY,
+    'On Leave': AttendanceStatus.ON_LEAVE,
+};
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const fmtTime = (v: any): string | null => {
@@ -56,6 +64,36 @@ export default function DailyAttendancePage() {
     const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+
+    // Inline status edits keyed by record id; only dirty rows are persisted.
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [statusEdits, setStatusEdits] = useState<Record<string, AttendanceRecord['status']>>({});
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveOk, setSaveOk] = useState<string | null>(null);
+
+    const handleSaveChanges = async () => {
+        const dirty = Object.entries(statusEdits);
+        if (dirty.length === 0) { setSaveOk('No changes to save'); return; }
+        setSaving(true); setSaveError(null); setSaveOk(null);
+        try {
+            await Promise.all(
+                dirty.map(([id, status]) =>
+                    AttendanceService.updateAttendance(id, { status: UI_TO_STATUS[status] })
+                )
+            );
+            setAttendanceData((prev) =>
+                prev.map((r) => (statusEdits[r.id] ? { ...r, status: statusEdits[r.id] } : r))
+            );
+            setStatusEdits({});
+            setEditingId(null);
+            setSaveOk(`Saved ${dirty.length} change(s)`);
+        } catch (e) {
+            setSaveError(e instanceof Error ? e.message : 'Failed to save');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -118,6 +156,8 @@ export default function DailyAttendancePage() {
 
                 {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
                 {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
+                {saveError && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{saveError}</div>)}
+                {saveOk && (<div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">{saveOk}</div>)}
 
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
@@ -143,9 +183,13 @@ export default function DailyAttendancePage() {
                                 <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg shadow-green-900/20">
+                        <button
+                            onClick={handleSaveChanges}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors shadow-lg shadow-green-900/20"
+                        >
                             <Save className="w-4 h-4" />
-                            Save Changes
+                            {saving ? 'Saving…' : 'Save Changes'}
                         </button>
                     </div>
                 </div>
@@ -279,10 +323,29 @@ export default function DailyAttendancePage() {
                                             )}
                                         </td>
                                         <td className="px-3 py-2 text-center">
-                                            {getStatusBadge(record.status)}
+                                            {editingId === record.id ? (
+                                                <select
+                                                    value={statusEdits[record.id] ?? record.status}
+                                                    onChange={(e) => setStatusEdits((prev) => ({ ...prev, [record.id]: e.target.value as AttendanceRecord['status'] }))}
+                                                    className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                >
+                                                    <option value="Present">Present</option>
+                                                    <option value="Absent">Absent</option>
+                                                    <option value="Late">Late</option>
+                                                    <option value="Half Day">Half Day</option>
+                                                    <option value="On Leave">On Leave</option>
+                                                </select>
+                                            ) : (
+                                                getStatusBadge(statusEdits[record.id] ?? record.status)
+                                            )}
                                         </td>
                                         <td className="px-3 py-2 text-center">
-                                            <button className="text-blue-400 hover:text-blue-300 text-sm font-medium">Edit</button>
+                                            <button
+                                                onClick={() => setEditingId(editingId === record.id ? null : record.id)}
+                                                className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+                                            >
+                                                {editingId === record.id ? 'Done' : 'Edit'}
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}

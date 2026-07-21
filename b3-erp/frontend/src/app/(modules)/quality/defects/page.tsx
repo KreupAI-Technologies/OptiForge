@@ -7,6 +7,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
     AlertTriangle,
@@ -23,6 +34,7 @@ import {
     Search,
     Building2,
     Loader2,
+    Plus,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
 import { defectService } from '@/services/defect.service';
@@ -94,6 +106,47 @@ export default function DefectManagementPage() {
     const [filterSeverity, setFilterSeverity] = useState<string>('all');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [loading, setLoading] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // Create dialog state
+    const [createOpen, setCreateOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [form, setForm] = useState({
+        title: '',
+        description: '',
+        severity: 'Major',
+        ncrType: 'Product',
+        reportedByName: '',
+    });
+
+    const resetForm = () =>
+        setForm({ title: '', description: '', severity: 'Major', ncrType: 'Product', reportedByName: '' });
+
+    const handleCreate = async () => {
+        if (!form.title.trim() || !form.description.trim()) {
+            toast({ title: 'Missing fields', description: 'Title and description are required.', variant: 'destructive' });
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await defectService.create({
+                title: form.title.trim(),
+                description: form.description.trim(),
+                severity: form.severity,
+                ncrType: form.ncrType,
+                reportedByName: form.reportedByName.trim() || undefined,
+            });
+            toast({ title: 'Defect Created', description: `${form.title} was created successfully.` });
+            setCreateOpen(false);
+            resetForm();
+            setRefreshKey((k) => k + 1);
+        } catch (error) {
+            console.error('Failed to create defect:', error);
+            toast({ title: 'Error', description: 'Failed to create defect', variant: 'destructive' });
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     // Load projects
     useEffect(() => {
@@ -163,7 +216,7 @@ export default function DefectManagementPage() {
         return () => {
             cancelled = true;
         };
-    }, [selectedProject, toast]);
+    }, [selectedProject, toast, refreshKey]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
         setSelectedProject(project);
@@ -300,10 +353,16 @@ export default function DefectManagementPage() {
                             <h1 className="text-3xl font-bold text-gray-900">Defect Management & Rework</h1>
                             <p className="text-sm text-gray-600 mt-1">{selectedProject.name} • {selectedProject.clientName}</p>
                         </div>
-                        <Button variant="outline" onClick={() => setSelectedProject(null)}>
-                            <FolderKanban className="w-4 h-4 mr-2" />
-                            Change Project
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => setSelectedProject(null)}>
+                                <FolderKanban className="w-4 h-4 mr-2" />
+                                Change Project
+                            </Button>
+                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setCreateOpen(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Create Defect
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -435,6 +494,66 @@ export default function DefectManagementPage() {
                     </>
                 )}
             </div>
+
+            {/* Create Defect Dialog */}
+            <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm(); }}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Report a Defect</DialogTitle>
+                        <DialogDescription>Log a new defect (non-conformance) for {selectedProject.name}.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="defect-title">Title *</Label>
+                            <Input id="defect-title" placeholder="e.g. Surface finish out of spec"
+                                value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="defect-description">Description *</Label>
+                            <Textarea id="defect-description" rows={3} placeholder="Describe the defect"
+                                value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="defect-severity">Severity</Label>
+                                <select id="defect-severity" className="w-full px-3 py-2 border rounded-md text-sm"
+                                    value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
+                                    <option value="Critical">Critical</option>
+                                    <option value="Major">Major</option>
+                                    <option value="Minor">Minor</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="defect-type">Type</Label>
+                                <select id="defect-type" className="w-full px-3 py-2 border rounded-md text-sm"
+                                    value={form.ncrType} onChange={(e) => setForm({ ...form, ncrType: e.target.value })}>
+                                    <option value="Product">Product</option>
+                                    <option value="Process">Process</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Supplier">Supplier</option>
+                                    <option value="Customer Complaint">Customer Complaint</option>
+                                    <option value="Audit Finding">Audit Finding</option>
+                                    <option value="System">System</option>
+                                    <option value="Documentation">Documentation</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="defect-reportedBy">Reported By</Label>
+                            <Input id="defect-reportedBy" placeholder="Your name"
+                                value={form.reportedByName} onChange={(e) => setForm({ ...form, reportedByName: e.target.value })} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
+                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleCreate} disabled={submitting}>
+                            {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Create Defect
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

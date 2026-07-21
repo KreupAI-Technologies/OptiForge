@@ -94,12 +94,84 @@ export default function ItemGroupMasterPage() {
     setToast({ message, type });
   };
 
-  const handleEditGroup = (group: ItemGroup) => {
-    showToast(`Editing group: ${group.groupName}`, 'info');
+  // Reload item groups from the API (used after create/update/delete)
+  const reloadItemGroups = async () => {
+    try {
+      const rows = await commonMastersService.getAllItemGroups();
+      const mapped: ItemGroup[] = rows.map((row) => ({
+        id: row.id,
+        groupCode: row.id ? row.id.slice(0, 8).toUpperCase() : '',
+        groupName: row.name,
+        parentGroupId: null,
+        parentGroupName: undefined,
+        level: 0,
+        category: (row.category?.name ?? 'raw_material') as ItemGroup['category'],
+        description: '',
+        defaultPurchaseAccount: undefined,
+        defaultSalesAccount: undefined,
+        defaultInventoryAccount: undefined,
+        isAsset: false,
+        isStockItem: false,
+        allowNegativeStock: false,
+        valuationMethod: 'FIFO' as ItemGroup['valuationMethod'],
+        hasSerialNo: false,
+        hasBatchNo: false,
+        hasExpiryDate: false,
+        shelfLife: undefined,
+        isManufactured: false,
+        isPurchased: false,
+        isSold: false,
+        requiresQualityInspection: false,
+        inspectionCriteria: undefined,
+        defaultTaxCategory: '',
+        hsnCode: undefined,
+        totalItems: 0,
+        activeItems: 0,
+        isActive: row.isActive,
+        createdAt: '',
+        updatedAt: '',
+        createdBy: '',
+      }));
+      setItemGroups(mapped);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to reload item groups', 'error');
+    }
   };
 
-  const handleAddSubGroup = (group: ItemGroup) => {
-    showToast(`Adding sub-group to: ${group.groupName}`, 'info');
+  const companyId = 'MAIN_COMPANY_ID';
+
+  const handleEditGroup = async (group: ItemGroup) => {
+    const newName = window.prompt('Update item group name', group.groupName);
+    if (newName === null) return;
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      showToast('Group name is required', 'error');
+      return;
+    }
+    try {
+      await commonMastersService.updateItemGroup(group.id, { name: trimmed });
+      await reloadItemGroups();
+      showToast('Item group updated', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update item group', 'error');
+    }
+  };
+
+  const handleAddSubGroup = async (group: ItemGroup) => {
+    const name = window.prompt(`Add sub-group under "${group.groupName}"`, '');
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      showToast('Group name is required', 'error');
+      return;
+    }
+    try {
+      await commonMastersService.createItemGroup({ name: trimmed, categoryId: group.id, companyId });
+      await reloadItemGroups();
+      showToast('Sub-group created', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create sub-group', 'error');
+    }
   };
 
   const handleExport = () => {
@@ -107,8 +179,34 @@ export default function ItemGroupMasterPage() {
     showToast('Exporting item groups data...', 'success');
   };
 
-  const handleAddItemGroup = () => {
-    showToast('Opening add item group form...', 'info');
+  const handleAddItemGroup = async () => {
+    const name = window.prompt('New item group name', '');
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      showToast('Group name is required', 'error');
+      return;
+    }
+    const categoryId = window.prompt('Category ID for this group', '');
+    if (categoryId === null) return;
+    try {
+      await commonMastersService.createItemGroup({ name: trimmed, categoryId: categoryId.trim(), companyId });
+      await reloadItemGroups();
+      showToast('Item group created', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create item group', 'error');
+    }
+  };
+
+  const handleDeleteGroup = async (group: ItemGroup) => {
+    if (!confirm(`Delete ${group.groupName}? This will affect ${group.totalItems} items.`)) return;
+    try {
+      await commonMastersService.deleteItemGroup(group.id);
+      await reloadItemGroups();
+      showToast(`Deleted group: ${group.groupName}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete item group', 'error');
+    }
   };
 
   // Toggle group expansion
@@ -317,10 +415,7 @@ export default function ItemGroupMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete ${row.groupName}? This will affect ${row.totalItems} items.`)) {
-                setItemGroups(prev => prev.filter(g => g.id !== row.id));
-                showToast(`Deleted group: ${row.groupName}`, 'success');
-              }
+              handleDeleteGroup(row);
             }}
           >
             Delete

@@ -33,14 +33,43 @@ export default function VendorCategoryMaster() {
         }
     };
 
+    const companyId = 'MAIN_COMPANY_ID';
+
     const handleEdit = (category: VendorCategory) => {
         setSelectedCategory(category);
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (confirm('Are you sure you want to delete this category?')) {
-            // Logic for deletion would go here
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this category?')) return;
+        try {
+            await commonMastersService.deleteVendorCategory(id);
+            await loadCategories();
+        } catch (error) {
+            console.error('Failed to delete vendor category:', error);
+            alert('Failed to delete vendor category.');
+        }
+    };
+
+    const handleSave = async (form: HTMLFormElement) => {
+        const fd = new FormData(form);
+        const name = String(fd.get('name') || '').trim();
+        const description = String(fd.get('description') || '').trim();
+        if (!name) {
+            alert('Category name is required.');
+            return;
+        }
+        try {
+            if (selectedCategory) {
+                await commonMastersService.updateVendorCategory(selectedCategory.id, { name, description });
+            } else {
+                await commonMastersService.createVendorCategory({ name, description, companyId });
+            }
+            setIsModalOpen(false);
+            await loadCategories();
+        } catch (error) {
+            console.error('Failed to save vendor category:', error);
+            alert('Failed to save vendor category.');
         }
     };
 
@@ -149,11 +178,18 @@ export default function VendorCategoryMaster() {
                         <h3 className="text-lg font-semibold mb-4">
                             {selectedCategory ? 'Edit Vendor Category' : 'Add New Vendor Category'}
                         </h3>
-                        <div className="space-y-4">
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                handleSave(e.currentTarget);
+                            }}
+                            className="space-y-4"
+                        >
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Category Name *</label>
                                 <input
                                     type="text"
+                                    name="name"
                                     defaultValue={selectedCategory?.name}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     placeholder="Enter category name"
@@ -162,6 +198,7 @@ export default function VendorCategoryMaster() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                 <textarea
+                                    name="description"
                                     defaultValue={selectedCategory?.description || ''}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                     rows={3}
@@ -170,16 +207,17 @@ export default function VendorCategoryMaster() {
                             </div>
                             <div className="flex justify-end gap-2 mt-6">
                                 <button
+                                    type="button"
                                     onClick={() => setIsModalOpen(false)}
                                     className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
                                 >
                                     Cancel
                                 </button>
-                                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                                     Save Category
                                 </button>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
             )}

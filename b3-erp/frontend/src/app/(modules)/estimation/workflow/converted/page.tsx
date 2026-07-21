@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import { costEstimateService } from '@/services/estimation-cost-estimate.service'
 import {
   CheckCircle2,
@@ -96,6 +97,30 @@ export default function EstimateWorkflowConvertedPage() {
     }
   }, [])
 
+  const handleView = (estimateId: string) => {
+    router.push(`/estimation/pricing/view/${estimateId}`)
+  }
+
+  const handleExportRow = async (estimateId: string) => {
+    try {
+      const { blob, filename } = await costEstimateService.downloadExport(companyId, estimateId, 'pdf')
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to export estimate.')
+    }
+  }
+
+  const handleExport = () => {
+    exportToCsv('converted-estimates', convertedEstimates)
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'order-confirmed':
@@ -132,7 +157,10 @@ export default function EstimateWorkflowConvertedPage() {
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
@@ -280,13 +308,25 @@ export default function EstimateWorkflowConvertedPage() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                      <button
+                        onClick={() => handleView(estimate.id)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                        title="View Details"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
+                      <button
+                        onClick={() => handleView(estimate.id)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                        title="Open Order"
+                      >
                         <ExternalLink className="h-4 w-4" />
                       </button>
-                      <button className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+                      <button
+                        onClick={() => handleExportRow(estimate.id)}
+                        className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg"
+                        title="Export PDF"
+                      >
                         <FileText className="h-4 w-4" />
                       </button>
                     </div>

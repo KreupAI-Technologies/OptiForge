@@ -16,6 +16,7 @@ import {
   Printer
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface LaserJob {
   id: string;
@@ -64,11 +65,16 @@ export default function LaserCuttingPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setJobs([
-        { id: 'LJ-001', partName: 'Main Frame - Top', material: 'SS 304', thickness: '2mm', quantity: 10, status: 'Pending', logoEtchVerified: false },
-        { id: 'LJ-002', partName: 'Side Panel - Left', material: 'MS CRCA', thickness: '1.5mm', quantity: 25, status: 'In Progress', logoEtchVerified: true },
-        { id: 'LJ-003', partName: 'Mounting Bracket', material: 'Aluminium 5052', thickness: '3mm', quantity: 50, status: 'Completed', logoEtchVerified: true },
-      ]);
+      const rows = await ProductionJobService.listJobs(id, 'laser');
+      setJobs(rows.map((r) => ({
+        id: r.jobCode || r.id,
+        partName: r.partName || '',
+        material: r.material || '',
+        thickness: r.thickness || '',
+        quantity: r.quantity ?? 0,
+        status: (r.status as LaserJob['status']) || 'Pending',
+        logoEtchVerified: !!r.extra?.logoEtchVerified,
+      })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/production/laser-cutting');

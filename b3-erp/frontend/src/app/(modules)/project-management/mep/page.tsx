@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { Project, projectManagementService, MEPDrawing } from '@/services/ProjectManagementService';
+import { mepDrawingService, MepDrawing } from '@/services/MepDrawingService';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -79,15 +80,35 @@ export default function MEPManagementPage() {
     }
   };
 
+  // Map a persisted backend MEP drawing row into the shape the table renders.
+  const mapDrawing = (d: MepDrawing, projectName?: string): MEPDrawing => ({
+    id: d.id,
+    mepNumber: d.drawingNumber || d.id,
+    projectId: d.projectId,
+    projectName: projectName || d.projectId,
+    drawingType: (d.discipline as any) || 'Other',
+    drawingName: d.drawingName || '',
+    version: d.revision || 'R0',
+    status: (d.status as any) || 'Draft',
+    createdDate: d.createdAt ? d.createdAt.split('T')[0] : '',
+    createdBy: d.createdBy || '',
+    siteWorkProgress: 0,
+    siteWorkStatus: 'Not Started',
+    assignedTo: Array.isArray(d.sharedWith) && d.sharedWith.length
+      ? d.sharedWith.join(', ')
+      : 'Pending Assignment',
+    fileSize: '—',
+  } as MEPDrawing);
+
   const loadProjectData = async (id: string) => {
     setLoading(true);
     try {
       const [project, mepDrawings] = await Promise.all([
         projectManagementService.getProject(id),
-        projectManagementService.getMEPDrawings(id)
+        mepDrawingService.list(id),
       ]);
       setSelectedProject(project);
-      setDrawings(mepDrawings);
+      setDrawings(mepDrawings.map((d) => mapDrawing(d, project?.name)));
     } catch (error) {
       toast({
         variant: "destructive",
@@ -105,9 +126,7 @@ export default function MEPManagementPage() {
     drawingName: '',
   });
 
-  // NEEDS BACKEND: there is no MEP-drawing controller/endpoint in the PM module
-  // yet, so create/share operate on the local list only (read is also seeded).
-  const handleCreateDrawing = () => {
+  const handleCreateDrawing = async () => {
     if (!newDrawing.projectName || !newDrawing.drawingType || !newDrawing.drawingName) {
       toast({
         title: "Missing Fields",
@@ -117,43 +136,71 @@ export default function MEPManagementPage() {
       return;
     }
 
-    const newEntry: MEPDrawing = {
-      id: Math.random().toString(36).substring(7),
-      mepNumber: `MEP-2025-${(drawings.length + 1).toString().padStart(3, '0')}`,
-      projectId: 'PRJ-2025-NEW', // Mock project ID
-      projectName: newDrawing.projectName,
-      drawingType: newDrawing.drawingType as any,
-      drawingName: newDrawing.drawingName,
-      version: '1.0',
-      status: 'Draft',
-      createdDate: new Date().toISOString().split('T')[0],
-      createdBy: 'Current User',
-      siteWorkProgress: 0,
-      siteWorkStatus: 'Not Started',
-      assignedTo: 'Pending Assignment',
-      fileSize: '0 MB', // Placeholder
-    };
-
-    setDrawings([newEntry, ...drawings]);
-    setIsCreateOpen(false);
-    setNewDrawing({ projectName: '', drawingType: '', drawingName: '' });
-    toast({
-      title: "Drawing Created",
-      description: `${newEntry.mepNumber} has been created successfully.`,
-    });
+    try {
+      const created = await mepDrawingService.create({
+        projectId: projectId || newDrawing.projectName,
+        drawingName: newDrawing.drawingName,
+        drawingNumber: `MEP-2025-${(drawings.length + 1).toString().padStart(3, '0')}`,
+        discipline: newDrawing.drawingType,
+        status: 'Draft',
+        revision: 'R0',
+        createdBy: 'Current User',
+      });
+      setDrawings([mapDrawing(created, selectedProject?.name), ...drawings]);
+      setIsCreateOpen(false);
+      setNewDrawing({ projectName: '', drawingType: '', drawingName: '' });
+      toast({
+        title: "Drawing Created",
+        description: `${created?.drawingNumber || 'Drawing'} has been created successfully.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create MEP drawing.",
+      });
+    }
   };
 
-  const handleShare = (id: string) => {
-    setDrawings(drawings.map(d => {
-      if (d.id === id) {
-        return { ...d, status: 'Shared with Site', siteWorkStatus: 'Not Started' };
-      }
-      return d;
-    }));
-    toast({
-      title: "Shared with Site",
-      description: "Drawing has been shared with the site team.",
-    });
+  const handleShare = async (id: string) => {
+    try {
+      const updated = await mepDrawingService.update(id, {
+        status: 'Shared with Site',
+        sharedWith: ['Site Team'],
+      });
+      setDrawings(drawings.map((d) =>
+        d.id === id
+          ? { ...d, status: 'Shared with Site', siteWorkStatus: 'Not Started', assignedTo: 'Site Team' }
+          : d,
+      ));
+      toast({
+        title: "Shared with Site",
+        description: "Drawing has been shared with the site team.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to share drawing.",
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await mepDrawingService.remove(id);
+      setDrawings(drawings.filter((d) => d.id !== id));
+      toast({
+        title: "Drawing Deleted",
+        description: "The MEP drawing has been removed.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete drawing.",
+      });
+    }
   };
 
   const filteredDrawings = drawings.filter(
@@ -587,6 +634,13 @@ export default function MEPManagementPage() {
                                 <Share2 className="w-4 h-4 text-blue-600" />
                               </button>
                             )}
+                            <button
+                              className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Delete Drawing"
+                              onClick={() => handleDelete(drawing.id)}
+                            >
+                              <X className="w-4 h-4 text-red-600" />
+                            </button>
                           </div>
                         </td>
                       </tr>

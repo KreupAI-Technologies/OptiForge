@@ -35,6 +35,7 @@ export default function Page() {
   const [items, setItems] = useState<Grievance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +76,18 @@ export default function Page() {
     })();
     return () => { active = false; };
   }, []);
+
+  const handleGrievanceStatus = async (id: string, next: Grievance['status']) => {
+    try {
+      setUpdatingId(id);
+      await HrComplianceDocsService.updateGrievance(id, { status: next });
+      setItems(prev => prev.map(g => g.id === id ? { ...g, status: next } : g));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update grievance');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const sourceGrievances = items;
 
@@ -344,13 +357,21 @@ export default function Page() {
                 View Full Details
               </button>
               {(grievance.status === 'filed' || grievance.status === 'under_review') && (
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                  Start Investigation
+                <button
+                  onClick={() => handleGrievanceStatus(grievance.id, 'investigating')}
+                  disabled={updatingId === grievance.id}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {updatingId === grievance.id ? 'Starting...' : 'Start Investigation'}
                 </button>
               )}
               {grievance.status === 'investigating' && (
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
-                  Mark as Resolved
+                <button
+                  onClick={() => handleGrievanceStatus(grievance.id, 'resolved')}
+                  disabled={updatingId === grievance.id}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {updatingId === grievance.id ? 'Updating...' : 'Mark as Resolved'}
                 </button>
               )}
               <div className="flex items-center gap-2 ml-auto">

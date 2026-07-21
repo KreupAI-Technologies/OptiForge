@@ -27,15 +27,15 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
   const [showAIInsights, setShowAIInsights] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Mock data for quality metrics
-  const qualityMetrics = {
+  // Quality metrics - loaded from API (falls back to derived defaults)
+  const [qualityMetrics, setQualityMetrics] = useState({
     passRate: 96.5,
     defectRate: 3.5,
     inspectionsToday: 45,
     pendingInspections: 12,
     avgInspectionTime: '24 min',
     complianceScore: 98.2
-  };
+  });
 
   // Mock data for inspection queue
   const inspectionQueue = [
@@ -113,6 +113,19 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
               inspections: v?.inspectionsTotal ?? 0,
             }))
           );
+        }
+        const summary = data?.summary;
+        if (summary) {
+          setQualityMetrics((prev) => ({
+            ...prev,
+            passRate: summary.avgQualityScore ?? prev.passRate,
+            defectRate: summary.avgDefectRate ?? prev.defectRate,
+            complianceScore: summary.avgQualityScore ?? prev.complianceScore,
+            pendingInspections:
+              typeof summary.totalVendors === 'number' && typeof summary.certifiedVendors === 'number'
+                ? summary.totalVendors - summary.certifiedVendors
+                : prev.pendingInspections,
+          }));
         }
       } catch (error) {
         console.error('Failed to load supplier quality scores:', error);

@@ -7,6 +7,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { capaService as CAPAService, CAPA, CAPAStatus } from '@/services/capa.service';
 import {
@@ -24,6 +35,7 @@ import {
     Building2,
     Loader2,
     ArrowRight,
+    Plus,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
 
@@ -50,6 +62,62 @@ export default function CAPAPage() {
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterType, setFilterType] = useState<string>('all');
     const [loading, setLoading] = useState(false);
+
+    // Create dialog state
+    const [createOpen, setCreateOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [form, setForm] = useState({
+        title: '',
+        description: '',
+        priority: 'Medium',
+        capaType: 'Corrective',
+        problemStatement: '',
+        rootCauseAnalysis: '',
+        actionPlan: '',
+        targetDate: '',
+    });
+
+    const resetForm = () =>
+        setForm({
+            title: '',
+            description: '',
+            priority: 'Medium',
+            capaType: 'Corrective',
+            problemStatement: '',
+            rootCauseAnalysis: '',
+            actionPlan: '',
+            targetDate: '',
+        });
+
+    const handleCreate = async () => {
+        if (!form.title.trim() || !form.description.trim() || !form.problemStatement.trim()
+            || !form.rootCauseAnalysis.trim() || !form.actionPlan.trim() || !form.targetDate) {
+            toast({ title: 'Missing fields', description: 'Title, description, problem statement, root cause, action plan and target date are required.', variant: 'destructive' });
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await CAPAService.create({
+                title: form.title.trim(),
+                description: form.description.trim(),
+                priority: form.priority,
+                capaType: form.capaType,
+                problemStatement: form.problemStatement.trim(),
+                rootCauseAnalysis: form.rootCauseAnalysis.trim(),
+                actionPlan: form.actionPlan.trim(),
+                targetDate: form.targetDate,
+            });
+            toast({ title: 'CAPA Created', description: `${form.title} was created successfully.` });
+            setCreateOpen(false);
+            resetForm();
+            await loadCAPAs();
+        } catch (error) {
+            console.error('Failed to create CAPA:', error);
+            toast({ title: 'Error', description: 'Failed to create CAPA', variant: 'destructive' });
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     // Load projects
     useEffect(() => {
@@ -239,6 +307,10 @@ export default function CAPAPage() {
                                 <FolderKanban className="w-4 h-4 mr-2" />
                                 Change Project
                             </Button>
+                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setCreateOpen(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Create CAPA
+                            </Button>
                             <Button onClick={() => router.push(`/quality/defects?projectId=${selectedProject.id}`)}>
                                 Defects <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
@@ -372,6 +444,77 @@ export default function CAPAPage() {
                     </>
                 )}
             </div>
+
+            {/* Create CAPA Dialog */}
+            <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm(); }}>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Create Corrective / Preventive Action</DialogTitle>
+                        <DialogDescription>Log a new CAPA for {selectedProject.name}.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="capa-title">Title *</Label>
+                            <Input id="capa-title" placeholder="e.g. Tool wear monitoring improvement"
+                                value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="capa-description">Description *</Label>
+                            <Textarea id="capa-description" rows={2} placeholder="Describe the action"
+                                value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="capa-type">Type</Label>
+                                <select id="capa-type" className="w-full px-3 py-2 border rounded-md text-sm"
+                                    value={form.capaType} onChange={(e) => setForm({ ...form, capaType: e.target.value })}>
+                                    <option value="Corrective">Corrective</option>
+                                    <option value="Preventive">Preventive</option>
+                                    <option value="Combined">Combined</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="capa-priority">Priority</Label>
+                                <select id="capa-priority" className="w-full px-3 py-2 border rounded-md text-sm"
+                                    value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Urgent">Urgent</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="capa-problem">Problem Statement *</Label>
+                            <Textarea id="capa-problem" rows={2} placeholder="What is the problem?"
+                                value={form.problemStatement} onChange={(e) => setForm({ ...form, problemStatement: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="capa-rca">Root Cause Analysis *</Label>
+                            <Textarea id="capa-rca" rows={2} placeholder="Identified root cause"
+                                value={form.rootCauseAnalysis} onChange={(e) => setForm({ ...form, rootCauseAnalysis: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="capa-plan">Action Plan *</Label>
+                            <Textarea id="capa-plan" rows={2} placeholder="Planned corrective/preventive actions"
+                                value={form.actionPlan} onChange={(e) => setForm({ ...form, actionPlan: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="capa-target">Target Date *</Label>
+                            <Input id="capa-target" type="date"
+                                value={form.targetDate} onChange={(e) => setForm({ ...form, targetDate: e.target.value })} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
+                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleCreate} disabled={submitting}>
+                            {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Create CAPA
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

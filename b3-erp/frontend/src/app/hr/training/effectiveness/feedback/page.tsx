@@ -12,9 +12,11 @@ import {
   Smile,
   Meh,
   Frown,
+  Plus,
   AlertCircle
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
 import {
   AreaChart,
   Area,
@@ -51,39 +53,92 @@ export default function FeedbackPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    programId: '',
+    overallRating: 4,
+    contentRating: 4,
+    instructorRating: 4,
+    relevanceRating: 4,
+    paceRating: 4,
+    strengths: '',
+    improvements: '',
+    additionalComments: '',
+    wouldRecommend: true,
+  });
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await HrPagesService.trainingEnrollments()) as any[];
+      const mapped: Review[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+        id: r.id ?? '',
+        employee: r.employee ?? r.employeeName ?? '',
+        role: r.role ?? '',
+        course: r.course ?? r.courseName ?? r.programName ?? '',
+        rating: Number(r.rating ?? 0),
+        date: r.date ?? r.createdAt ?? '',
+        comment: r.comment ?? r.feedback ?? '',
+        sentiment: r.sentiment ?? 'neutral',
+      }));
+      setReviews(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load feedback');
+      setReviews([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.trainingEnrollments()) as any[];
-        const mapped: Review[] = (Array.isArray(raw) ? raw : []).map((r) => ({
-          id: r.id ?? '',
-          employee: r.employee ?? r.employeeName ?? '',
-          role: r.role ?? '',
-          course: r.course ?? r.courseName ?? r.programName ?? '',
-          rating: Number(r.rating ?? 0),
-          date: r.date ?? r.createdAt ?? '',
-          comment: r.comment ?? r.feedback ?? '',
-          sentiment: r.sentiment ?? 'neutral',
-        }));
-        if (!cancelled) setReviews(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load feedback');
-          setReviews([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSubmitFeedback = async () => {
+    if (!form.programId) {
+      setSubmitError('Please provide a training program.');
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await TrainingDevelopmentService.submitTrainingFeedback({
+        programId: form.programId,
+        overallRating: form.overallRating,
+        contentRating: form.contentRating,
+        instructorRating: form.instructorRating,
+        relevanceRating: form.relevanceRating,
+        paceRating: form.paceRating,
+        strengths: form.strengths || undefined,
+        improvements: form.improvements || undefined,
+        additionalComments: form.additionalComments || undefined,
+        wouldRecommend: form.wouldRecommend,
+        isAnonymous: false,
+      });
+      setShowFeedbackModal(false);
+      setForm({
+        programId: '',
+        overallRating: 4,
+        contentRating: 4,
+        instructorRating: 4,
+        relevanceRating: 4,
+        paceRating: 4,
+        strengths: '',
+        improvements: '',
+        additionalComments: '',
+        wouldRecommend: true,
+      });
+      await load();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit feedback.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const renderStars = (rating: number) => {
     return [...Array(5)].map((_, i) => (
@@ -106,6 +161,13 @@ export default function FeedbackPage() {
           <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Export Report
+          </button>
+          <button
+            onClick={() => setShowFeedbackModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-purple-700 shadow-sm transition-colors"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Submit Feedback
           </button>
         </div>
       </div>
@@ -295,6 +357,118 @@ export default function FeedbackPage() {
           ))}
         </div>
       </div>
+
+      {/* Submit Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-3 m-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-bold text-gray-900">Submit Training Feedback</h2>
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Training Program</label>
+                <input
+                  type="text"
+                  value={form.programId}
+                  onChange={(e) => setForm({ ...form, programId: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="Program ID or name"
+                />
+              </div>
+
+              {([
+                ['overallRating', 'Overall'],
+                ['contentRating', 'Content'],
+                ['instructorRating', 'Instructor'],
+                ['relevanceRating', 'Relevance'],
+                ['paceRating', 'Pace'],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {label} Rating (1-5): {form[key]}
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    step="1"
+                    value={form[key]}
+                    onChange={(e) => setForm({ ...form, [key]: Number(e.target.value) })}
+                    className="w-full accent-purple-600"
+                  />
+                </div>
+              ))}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Strengths</label>
+                <textarea
+                  rows={2}
+                  value={form.strengths}
+                  onChange={(e) => setForm({ ...form, strengths: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Improvements</label>
+                <textarea
+                  rows={2}
+                  value={form.improvements}
+                  onChange={(e) => setForm({ ...form, improvements: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Additional Comments</label>
+                <textarea
+                  rows={2}
+                  value={form.additionalComments}
+                  onChange={(e) => setForm({ ...form, additionalComments: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                ></textarea>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.wouldRecommend}
+                  onChange={(e) => setForm({ ...form, wouldRecommend: e.target.checked })}
+                  className="accent-purple-600"
+                />
+                Would recommend this training
+              </label>
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                disabled={submitting}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitFeedback}
+                disabled={submitting}
+                className="px-4 py-2 bg-purple-600 rounded-lg text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                {submitting ? 'Submitting…' : 'Submit Feedback'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

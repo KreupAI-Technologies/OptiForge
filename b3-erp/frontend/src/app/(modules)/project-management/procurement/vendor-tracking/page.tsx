@@ -11,14 +11,38 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from "@/components/ui/progress";
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { vendorShipmentService, VendorShipment } from '@/services/VendorShipmentService';
 
 interface Shipment {
+  id: string;
   poId: string;
   vendor: string;
   items: string;
   status: 'Dispatched' | 'In Transit' | 'Delivered' | 'Pending';
   eta: string;
   progress: number;
+  lastLocation: string;
+}
+
+const STATUS_PROGRESS: Record<string, number> = {
+  Pending: 0,
+  Dispatched: 30,
+  'In Transit': 60,
+  Delivered: 100,
+};
+
+function toShipment(s: VendorShipment): Shipment {
+  const status = (s.status as Shipment['status']) || 'Pending';
+  return {
+    id: s.id,
+    poId: s.poId || s.id,
+    vendor: s.vendorName || 'Unknown Vendor',
+    items: s.itemDescription || '—',
+    status,
+    eta: s.expectedDelivery || 'TBD',
+    progress: STATUS_PROGRESS[status] ?? 0,
+    lastLocation: s.lastLocation || 'Vendor Warehouse',
+  };
 }
 
 export default function VendorTrackingPage() {
@@ -57,11 +81,8 @@ export default function VendorTrackingPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setShipments([
-        { poId: 'PO-2025-088', vendor: 'Merino Industries', items: 'Laminates (25 sheets)', status: 'In Transit', eta: '2025-02-14', progress: 60 },
-        { poId: 'PO-2025-089', vendor: 'Hettich India', items: 'Hinges (100 pcs)', status: 'Dispatched', eta: '2025-02-15', progress: 30 },
-        { poId: 'PO-2025-090', vendor: 'Greenlam', items: 'Plywood (50 sheets)', status: 'Pending', eta: 'TBD', progress: 0 },
-      ]);
+      const rows = await vendorShipmentService.list(id);
+      setShipments(rows.map(toShipment));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/procurement/vendor-tracking');
@@ -70,10 +91,20 @@ export default function VendorTrackingPage() {
     }
   };
 
-  // NEEDS BACKEND: no PO-shipment tracking endpoint exists yet, so this only
-  // acknowledges the refresh request in the UI.
-  const handleTrack = (id: string) => {
-    toast({ title: "Tracking Updated", description: `Fetched latest status for ${id}` });
+  // Persist a tracking-refresh event and reflect the returned status.
+  const handleTrack = async (shipment: Shipment) => {
+    try {
+      const updated = await vendorShipmentService.updateTracking(shipment.id, {
+        status: shipment.status,
+        location: shipment.lastLocation,
+        event: 'Status refreshed from UI',
+      });
+      const next = toShipment(updated);
+      setShipments((prev) => prev.map((s) => (s.id === next.id ? next : s)));
+      toast({ title: "Tracking Updated", description: `${next.poId} — status: ${next.status}` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: `Failed to refresh ${shipment.poId}.` });
+    }
   };
 
   // View 1: Project Selection
@@ -206,7 +237,7 @@ export default function VendorTrackingPage() {
             <CardContent className="p-4">
               <div className="space-y-4">
                 {shipments.map((shipment) => (
-                  <div key={shipment.poId} className="border rounded-xl p-4 space-y-3 bg-white ring-1 ring-gray-100">
+                  <div key={shipment.id} className="border rounded-xl p-4 space-y-3 bg-white ring-1 ring-gray-100">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-gray-100 rounded-full">
@@ -240,14 +271,14 @@ export default function VendorTrackingPage() {
                       <div className="flex gap-4 text-xs text-gray-600 font-medium">
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
-                          Current: {shipment.status === 'In Transit' ? 'Hub, Mumbai' : 'Vendor Warehouse'}
+                          Current: {shipment.lastLocation}
                         </div>
                         <div className="flex items-center gap-1">
                           <Phone className="w-3 h-3" />
                           Driver: +91 98765 43210
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" className="h-8 text-xs font-bold" onClick={() => handleTrack(shipment.poId)}>
+                      <Button size="sm" variant="outline" className="h-8 text-xs font-bold" onClick={() => handleTrack(shipment)}>
                         Refresh Status
                       </Button>
                     </div>

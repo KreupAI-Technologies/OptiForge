@@ -40,9 +40,48 @@ export default function CustomerCategoryMaster() {
     setCurrentTab('basic');
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this category? This may affect customer classifications.')) {
-      setCategories(categories.filter(c => c.id !== id));
+  const companyId = 'MAIN_COMPANY_ID';
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category? This may affect customer classifications.')) return;
+    try {
+      await commonMastersService.deleteCustomerCategory(id);
+      await loadCategories();
+    } catch (error) {
+      console.error('Failed to delete customer category:', error);
+      alert('Failed to delete customer category.');
+    }
+  };
+
+  const handleSave = async (form: HTMLFormElement) => {
+    const fd = new FormData(form);
+    const code = String(fd.get('code') || '').trim();
+    const name = String(fd.get('name') || '').trim();
+    if (!code || !name) {
+      alert('Category code and name are required.');
+      return;
+    }
+    const payload = {
+      code,
+      name,
+      description: String(fd.get('description') || ''),
+      level: String(fd.get('level') || ''),
+      classification: String(fd.get('classification') || ''),
+      status: String(fd.get('status') || 'Active'),
+      color: String(fd.get('color') || ''),
+      icon: String(fd.get('icon') || ''),
+    };
+    try {
+      if (selectedCategory) {
+        await commonMastersService.updateCustomerCategory(selectedCategory.id, payload);
+      } else {
+        await commonMastersService.createCustomerCategory({ ...payload, companyId });
+      }
+      setIsModalOpen(false);
+      await loadCategories();
+    } catch (error) {
+      console.error('Failed to save customer category:', error);
+      alert('Failed to save customer category.');
     }
   };
 
@@ -52,12 +91,12 @@ export default function CustomerCategoryMaster() {
       'Inactive': { bg: 'bg-gray-100', text: 'text-gray-800', icon: XCircle },
       'Archived': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: AlertCircle }
     };
-    const config = statusConfig[status as keyof typeof statusConfig];
+    const config = statusConfig[status as keyof typeof statusConfig] ?? statusConfig['Inactive'];
     const Icon = config.icon;
     return (
       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
         <Icon className="h-3 w-3" />
-        {status}
+        {status || 'Unknown'}
       </span>
     );
   };
@@ -70,6 +109,7 @@ export default function CustomerCategoryMaster() {
       'Basic': { bg: 'bg-gray-100', text: 'text-gray-800', icon: Users }
     };
     const config = classConfig[classification as keyof typeof classConfig];
+    if (!config) return null;
     const Icon = config.icon;
     return (
       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
@@ -86,6 +126,7 @@ export default function CustomerCategoryMaster() {
       'Tertiary': { bg: 'bg-teal-100', text: 'text-teal-800' }
     };
     const config = levelConfig[level as keyof typeof levelConfig];
+    if (!config) return null;
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
         {level}
@@ -130,19 +171,19 @@ export default function CustomerCategoryMaster() {
         {getMetricCard('Total Categories', categories.length, Tag, 'text-blue-600')}
         {getMetricCard(
           'Total Customers',
-          categories.reduce((sum, c) => sum + c.metrics.customerCount, 0).toLocaleString(),
+          categories.reduce((sum, c) => sum + (c.metrics?.customerCount ?? 0), 0).toLocaleString(),
           Users,
           'text-green-600'
         )}
         {getMetricCard(
           'Total Revenue',
-          `₹${(categories.reduce((sum, c) => sum + c.metrics.totalRevenue, 0) / 1000000).toFixed(1)}M`,
+          `₹${(categories.reduce((sum, c) => sum + (c.metrics?.totalRevenue ?? 0), 0) / 1000000).toFixed(1)}M`,
           DollarSign,
           'text-purple-600'
         )}
         {getMetricCard(
           'Avg Churn Rate',
-          `${(categories.reduce((sum, c) => sum + c.metrics.churnRate, 0) / categories.length).toFixed(1)}%`,
+          `${(categories.reduce((sum, c) => sum + (c.metrics?.churnRate ?? 0), 0) / (categories.length || 1)).toFixed(1)}%`,
           TrendingUp,
           'text-orange-600'
         )}
@@ -255,18 +296,18 @@ export default function CustomerCategoryMaster() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="text-sm space-y-1">
-                      {category.criteria.minRevenue && (
+                      {category.criteria?.minRevenue && (
                         <div className="flex items-center gap-1">
                           <DollarSign className="h-3 w-3 text-gray-400" />
                           <span>₹{(category.criteria.minRevenue / 100000).toFixed(1)}L+</span>
                         </div>
                       )}
-                      {category.criteria.minOrders && (
+                      {category.criteria?.minOrders && (
                         <div className="text-xs text-gray-500">
                           Min Orders: {category.criteria.minOrders}
                         </div>
                       )}
-                      {category.criteria.creditScore && (
+                      {category.criteria?.creditScore && (
                         <div className="text-xs text-gray-500">
                           Credit: {category.criteria.creditScore}
                         </div>
@@ -277,18 +318,18 @@ export default function CustomerCategoryMaster() {
                     <div className="text-sm space-y-1">
                       <div className="flex items-center gap-1">
                         <Percent className="h-3 w-3 text-gray-400" />
-                        <span>{category.benefits.discountPercent}% discount</span>
+                        <span>{category.benefits?.discountPercent ?? 0}% discount</span>
                       </div>
                       <div className="text-xs text-gray-500">
-                        {category.benefits.creditDays} days credit
+                        {category.benefits?.creditDays ?? 0} days credit
                       </div>
                       <div className="flex gap-1">
-                        {category.benefits.prioritySupport && (
+                        {category.benefits?.prioritySupport && (
                           <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded">
                             Priority
                           </span>
                         )}
-                        {category.benefits.freeShipping && (
+                        {category.benefits?.freeShipping && (
                           <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
                             Free Ship
                           </span>
@@ -300,13 +341,13 @@ export default function CustomerCategoryMaster() {
                     <div className="text-sm">
                       <div className="flex items-center gap-1">
                         <Users className="h-3 w-3 text-gray-400" />
-                        <span>{category.metrics.customerCount} customers</span>
+                        <span>{category.metrics?.customerCount ?? 0} customers</span>
                       </div>
                       <div className="text-xs text-gray-500">
-                        ₹{(category.metrics.totalRevenue / 1000000).toFixed(1)}M revenue
+                        ₹{((category.metrics?.totalRevenue ?? 0) / 1000000).toFixed(1)}M revenue
                       </div>
                       <div className="text-xs text-gray-500">
-                        Churn: {category.metrics.churnRate}%
+                        Churn: {category.metrics?.churnRate ?? 0}%
                       </div>
                     </div>
                   </td>
@@ -360,7 +401,14 @@ export default function CustomerCategoryMaster() {
               ))}
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+            <form
+              id="customer-category-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave(e.currentTarget);
+              }}
+              className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]"
+            >
               {currentTab === 'basic' && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
@@ -370,6 +418,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="text"
+                        name="code"
                         defaultValue={selectedCategory?.code}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="CAT-XXX"
@@ -381,6 +430,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="text"
+                        name="name"
                         defaultValue={selectedCategory?.name}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter category name"
@@ -393,6 +443,7 @@ export default function CustomerCategoryMaster() {
                       Description
                     </label>
                     <textarea
+                      name="description"
                       defaultValue={selectedCategory?.description}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       rows={2}
@@ -405,7 +456,7 @@ export default function CustomerCategoryMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Level *
                       </label>
-                      <select defaultValue={selectedCategory?.level || 'Primary'}
+                      <select name="level" defaultValue={selectedCategory?.level || 'Primary'}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="Primary">Primary</option>
                         <option value="Secondary">Secondary</option>
@@ -416,7 +467,7 @@ export default function CustomerCategoryMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Classification *
                       </label>
-                      <select defaultValue={selectedCategory?.classification || 'Standard'}
+                      <select name="classification" defaultValue={selectedCategory?.classification || 'Standard'}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="VIP">VIP</option>
                         <option value="Premium">Premium</option>
@@ -428,7 +479,7 @@ export default function CustomerCategoryMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Status
                       </label>
-                      <select defaultValue={selectedCategory?.status || 'Active'}
+                      <select name="status" defaultValue={selectedCategory?.status || 'Active'}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="Active">Active</option>
                         <option value="Inactive">Inactive</option>
@@ -444,6 +495,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="color"
+                        name="color"
                         defaultValue={selectedCategory?.color || '#3B82F6'}
                         className="w-full h-10 px-1 py-1 border border-gray-300 rounded-lg"
                       />
@@ -454,6 +506,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="text"
+                        name="icon"
                         defaultValue={selectedCategory?.icon}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Optional icon or emoji"
@@ -472,7 +525,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedCategory?.criteria.minRevenue}
+                        defaultValue={selectedCategory?.criteria?.minRevenue}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="0"
                       />
@@ -483,7 +536,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedCategory?.criteria.minOrders}
+                        defaultValue={selectedCategory?.criteria?.minOrders}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="0"
                       />
@@ -497,7 +550,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedCategory?.criteria.minRetention}
+                        defaultValue={selectedCategory?.criteria?.minRetention}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="0"
                       />
@@ -506,7 +559,7 @@ export default function CustomerCategoryMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Minimum Credit Score
                       </label>
-                      <select defaultValue={selectedCategory?.criteria.creditScore}
+                      <select defaultValue={selectedCategory?.criteria?.creditScore}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="">No requirement</option>
                         <option value="AAA">AAA</option>
@@ -531,7 +584,7 @@ export default function CustomerCategoryMaster() {
                         type="number"
                         min="0"
                         max="100"
-                        defaultValue={selectedCategory?.benefits.discountPercent}
+                        defaultValue={selectedCategory?.benefits?.discountPercent}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -541,7 +594,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedCategory?.benefits.creditDays}
+                        defaultValue={selectedCategory?.benefits?.creditDays}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -551,7 +604,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedCategory?.benefits.creditLimit}
+                        defaultValue={selectedCategory?.benefits?.creditLimit}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -561,7 +614,7 @@ export default function CustomerCategoryMaster() {
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        defaultChecked={selectedCategory?.benefits.prioritySupport}
+                        defaultChecked={selectedCategory?.benefits?.prioritySupport}
                         className="rounded"
                       />
                       <span className="text-sm font-medium text-gray-700">Priority Support</span>
@@ -569,7 +622,7 @@ export default function CustomerCategoryMaster() {
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        defaultChecked={selectedCategory?.benefits.freeShipping}
+                        defaultChecked={selectedCategory?.benefits?.freeShipping}
                         className="rounded"
                       />
                       <span className="text-sm font-medium text-gray-700">Free Shipping</span>
@@ -577,7 +630,7 @@ export default function CustomerCategoryMaster() {
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        defaultChecked={selectedCategory?.benefits.dedicatedManager}
+                        defaultChecked={selectedCategory?.benefits?.dedicatedManager}
                         className="rounded"
                       />
                       <span className="text-sm font-medium text-gray-700">Dedicated Account Manager</span>
@@ -593,7 +646,7 @@ export default function CustomerCategoryMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Payment Terms *
                       </label>
-                      <select defaultValue={selectedCategory?.terms.paymentTerms || 'Net 30'}
+                      <select defaultValue={selectedCategory?.terms?.paymentTerms || 'Net 30'}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="COD">Cash on Delivery</option>
                         <option value="Net 15">Net 15</option>
@@ -607,7 +660,7 @@ export default function CustomerCategoryMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Delivery Priority *
                       </label>
-                      <select defaultValue={selectedCategory?.terms.deliveryPriority || 'Medium'}
+                      <select defaultValue={selectedCategory?.terms?.deliveryPriority || 'Medium'}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="High">High</option>
                         <option value="Medium">Medium</option>
@@ -623,7 +676,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedCategory?.terms.returnPolicy}
+                        defaultValue={selectedCategory?.terms?.returnPolicy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., 30 days"
                       />
@@ -634,7 +687,7 @@ export default function CustomerCategoryMaster() {
                       </label>
                       <input
                         type="number"
-                        defaultValue={selectedCategory?.terms.warrantyExtension}
+                        defaultValue={selectedCategory?.terms?.warrantyExtension}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="0"
                       />
@@ -684,7 +737,7 @@ export default function CustomerCategoryMaster() {
                   </div>
                 </div>
               )}
-            </div>
+            </form>
 
             <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
               <button
@@ -694,10 +747,8 @@ export default function CustomerCategoryMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Customer category saved successfully!');
-                }}
+                type="submit"
+                form="customer-category-form"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {selectedCategory ? 'Update' : 'Create'} Category

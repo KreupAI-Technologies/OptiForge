@@ -16,6 +16,7 @@ import {
   Users
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface AssemblyJob {
   id: string;
@@ -63,24 +64,15 @@ export default function FabricationPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setJobs([
-        {
-          id: 'ASM-001',
-          assemblyName: 'Main Structure Frame',
-          components: ['Main Frame - Top', 'Side Panel - Left', 'Side Panel - Right'],
-          assignedTeam: 'Team Alpha',
-          status: 'In Progress',
-          progress: 60
-        },
-        {
-          id: 'ASM-002',
-          assemblyName: 'Control Unit Housing',
-          components: ['Mounting Bracket', 'Housing Body', 'Door Panel'],
-          assignedTeam: 'Team Beta',
-          status: 'Pending',
-          progress: 0
-        },
-      ]);
+      const rows = await ProductionJobService.listJobs(id, 'fabrication');
+      setJobs(rows.map((r) => ({
+        id: r.jobCode || r.id,
+        assemblyName: r.partName || '',
+        components: Array.isArray(r.extra?.components) ? r.extra!.components : [],
+        assignedTeam: r.extra?.assignedTeam || '',
+        status: (r.status as AssemblyJob['status']) || 'Pending',
+        progress: r.extra?.progress ?? 0,
+      })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/production/fabrication');

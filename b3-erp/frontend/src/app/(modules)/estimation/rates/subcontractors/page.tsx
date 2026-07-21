@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
 import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
@@ -47,9 +47,42 @@ interface SubcontractorRate {
 export default function SubcontractorsRatesPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<number>(0)
+  const [activeOnly, setActiveOnly] = useState(false)
+  // Preserve the raw backend records so a rate edit can send the full
+  // `services[]` payload back (rate lives inside the first service).
+  const rawRecordsRef = useRef<Record<string, any>>({})
 
   const handleAddSubcontractor = () => {
     router.push('/estimation/rates/subcontractors/add')
+  }
+
+  const handleStartEdit = (subcontractor: SubcontractorRate) => {
+    setEditingId(subcontractor.id)
+    setEditValue(subcontractor.rate)
+  }
+
+  const handleSaveRate = async (subcontractorId: string) => {
+    try {
+      const raw = rawRecordsRef.current[subcontractorId]
+      const services = Array.isArray(raw?.services) ? [...raw.services] : []
+      if (services.length > 0) {
+        services[0] = { ...services[0], rate: editValue }
+      }
+      await estimationResourceRateService.updateSubcontractorRate(companyId, subcontractorId, {
+        services,
+      })
+      setSubcontractorRates((prev) =>
+        prev.map((s) =>
+          s.id === subcontractorId
+            ? { ...s, rate: editValue, lastUpdated: new Date().toISOString() }
+            : s,
+        ),
+      )
+      setEditingId(null)
+    } catch (error) {
+      console.error('Failed to update subcontractor rate:', error)
+    }
   }
 
   const handleExport = () => {
@@ -68,6 +101,9 @@ export default function SubcontractorsRatesPage() {
       try {
         const data = await estimationResourceRateService.findAllSubcontractorRates(companyId)
         const list = Array.isArray(data) ? data : []
+        rawRecordsRef.current = Object.fromEntries(
+          list.filter((s) => s?.id).map((s) => [s.id as string, s]),
+        )
         const mapped: SubcontractorRate[] = list.map((s) => {
           const firstService = Array.isArray(s?.services) && s.services.length > 0 ? s.services[0] : undefined
           return {
@@ -124,6 +160,10 @@ export default function SubcontractorsRatesPage() {
     return 'text-orange-600'
   }
 
+  const visibleSubcontractorRates = activeOnly
+    ? subcontractorRates.filter(s => s.status === 'active')
+    : subcontractorRates
+
   const totalSubcontractors = subcontractorRates.length
   const avgRating = totalSubcontractors > 0
     ? subcontractorRates.reduce((sum, s) => sum + s.rating, 0) / totalSubcontractors
@@ -148,9 +188,15 @@ export default function SubcontractorsRatesPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setActiveOnly((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              activeOnly
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
             <Filter className="h-4 w-4" />
-            Filter
+            {activeOnly ? 'Active Only' : 'Filter'}
           </button>
           <button
             onClick={handleExport}
@@ -245,7 +291,7 @@ export default function SubcontractorsRatesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {subcontractorRates.map((subcontractor) => (
+              {visibleSubcontractorRates.map((subcontractor) => (
                 <tr key={subcontractor.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>
@@ -268,7 +314,8 @@ export default function SubcontractorsRatesPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          defaultValue={subcontractor.rate}
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
                           className="w-24 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-xs text-gray-600">/{subcontractor.unit}</span>
@@ -321,17 +368,17 @@ export default function SubcontractorsRatesPage() {
                     <div className="flex items-center gap-2">
                       {editingId === subcontractor.id ? (
                         <button
-                          onClick={() => setEditingId(null)}
+                          onClick={() => handleSaveRate(subcontractor.id)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                         
+
                         >
                           <Save className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => setEditingId(subcontractor.id)}
+                          onClick={() => handleStartEdit(subcontractor)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                         
+
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>

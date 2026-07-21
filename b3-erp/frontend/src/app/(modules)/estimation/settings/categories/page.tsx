@@ -9,6 +9,7 @@ import {
   Edit2,
   Save,
   X,
+  Trash2,
   Folder,
   FolderOpen,
   TrendingUp,
@@ -50,6 +51,8 @@ export default function EstimationCategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [categories, setCategories] = useState<EstimationCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -122,16 +125,76 @@ export default function EstimationCategoriesPage() {
   });
 
   const handleEdit = (id: string) => {
+    const category = categories.find((c) => c.id === id);
     setEditingId(id);
+    setEditValue(category?.categoryName ?? '');
   };
 
-  const handleSave = () => {
-    setEditingId(null);
-    // Save logic would go here
+  const handleSave = async (id: string) => {
+    setSavingId(id);
+    setLoadError(null);
+    try {
+      await estimationCategoryService.updateCategory(id, { name: editValue });
+      setCategories((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, categoryName: editValue } : c)),
+      );
+      setEditingId(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update category');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handleCancel = () => {
     setEditingId(null);
+  };
+
+  const handleAdd = async () => {
+    setLoadError(null);
+    try {
+      const created = (await estimationCategoryService.createCategory({
+        name: 'New Category',
+      })) as any;
+      setCategories((prev) => [
+        ...prev,
+        {
+          id: String(created.id),
+          categoryCode: created.code ?? '',
+          categoryName: created.name ?? '',
+          parentCategory: '-',
+          level: 1,
+          description: created.description ?? '',
+          defaultMarkup: Number(created.defaultMarkup ?? 0),
+          minimumOrderValue: 0,
+          standardLeadTime: 0,
+          costAllocationMethod: 'direct',
+          allowSubcategories: false,
+          requiresApproval: false,
+          approvalThreshold: 0,
+          estimateCount: Number(created.itemCount ?? 0),
+          totalValue: 0,
+          avgEstimateValue: 0,
+          lastUsed: '',
+          createdBy: '',
+          createdDate: created.createdAt ?? '',
+          status: created.status === 'inactive' ? 'inactive' : 'active',
+        },
+      ]);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create category');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this category?')) return;
+    setLoadError(null);
+    try {
+      await estimationCategoryService.deleteCategory(id);
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete category');
+    }
   };
 
   const getCostAllocationBadge = (method: string) => {
@@ -171,7 +234,10 @@ export default function EstimationCategoriesPage() {
             <p className="text-sm text-gray-600">Configure product categories and estimation rules</p>
           </div>
         </div>
-        <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+        <button
+          onClick={handleAdd}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
           <Plus className="h-4 w-4" />
           New Category
         </button>
@@ -301,7 +367,16 @@ export default function EstimationCategoriesPage() {
                         {getLevelIcon(category.level)}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{category.categoryName}</div>
+                        {editingId === category.id ? (
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="w-40 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <div className="text-sm font-medium text-gray-900">{category.categoryName}</div>
+                        )}
                         <div className="text-xs text-gray-500">{category.categoryCode}</div>
                       </div>
                     </div>
@@ -358,8 +433,9 @@ export default function EstimationCategoriesPage() {
                     {editingId === category.id ? (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={handleSave}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm"
+                          onClick={() => handleSave(category.id)}
+                          disabled={savingId === category.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm disabled:opacity-50"
                         >
                           <Save className="h-4 w-4 text-green-600" />
                           <span className="text-green-600">Save</span>
@@ -373,12 +449,20 @@ export default function EstimationCategoriesPage() {
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => handleEdit(category.id)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleEdit(category.id)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(category.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

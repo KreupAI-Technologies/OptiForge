@@ -33,7 +33,8 @@ interface SurveillanceRow {
   status: string;
 }
 
-// Mock Data (chart)
+// Ambient sensor readings — distinct data shape not carried by the
+// surveillance-record list; left as reference thresholds pending a sensor feed.
 const exposureMetrics = [
   { label: 'Ambient Noise', value: '72 dB', limit: '85 dB', status: 'Safe', icon: Volume2, color: 'text-blue-500' },
   { label: 'Airborne Dust', value: '1.2 mg/m³', limit: '5.0 mg/m³', status: 'Safe', icon: Wind, color: 'text-teal-500' },
@@ -45,41 +46,62 @@ export default function OccupationalHealthPage() {
   const [surveillanceLog, setSurveillanceLog] = useState<SurveillanceRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ employeeName: '', exposureType: 'Noise' });
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getWellness('occupational');
+      const mapped: SurveillanceRow[] = rows.map((row: SafetyWellness) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          employee: row.employeeName ?? '',
+          hazard: row.exposureType ?? row.category ?? '',
+          lastCheck: row.completedDate ?? row.scheduledDate ?? '',
+          nextCheck: row.nextDue ?? '',
+          result: row.result ?? '',
+          status: row.status ?? '',
+        };
+      });
+      setSurveillanceLog(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load surveillance records');
+      setSurveillanceLog([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getWellness('occupational');
-        const mapped: SurveillanceRow[] = rows.map((row: SafetyWellness) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            employee: row.employeeName ?? '',
-            hazard: row.exposureType ?? row.category ?? '',
-            lastCheck: row.completedDate ?? row.scheduledDate ?? '',
-            nextCheck: row.nextDue ?? '',
-            result: row.result ?? '',
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setSurveillanceLog(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load surveillance records');
-          setSurveillanceLog([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleLogAssessment = async () => {
+    if (!form.employeeName.trim()) return;
+    setIsSaving(true);
+    setLoadError(null);
+    try {
+      await HrSafetyService.createWellness({
+        recordType: 'occupational',
+        employeeName: form.employeeName,
+        exposureType: form.exposureType,
+        completedDate: new Date().toISOString().slice(0, 10),
+        result: 'Normal',
+        status: 'Completed',
+      });
+      setShowCreate(false);
+      setForm({ employeeName: '', exposureType: 'Noise' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to log assessment');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3 text-sm font-medium">
@@ -96,11 +118,57 @@ export default function OccupationalHealthPage() {
           <button className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2">
             <Database className="w-4 h-4" /> Exposure Registry
           </button>
-          <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md">
+          <button
+            onClick={() => setShowCreate(true)}
+            disabled={isSaving}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md disabled:opacity-60"
+          >
             <Plus className="w-4 h-4" /> Log Assessment
           </button>
         </div>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Log Assessment</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Employee Name</label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={form.employeeName}
+                  onChange={(e) => setForm((f) => ({ ...f, employeeName: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Hazard / Exposure Type</label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={form.exposureType}
+                  onChange={(e) => setForm((f) => ({ ...f, exposureType: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogAssessment}
+                disabled={isSaving}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving…' : 'Log'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

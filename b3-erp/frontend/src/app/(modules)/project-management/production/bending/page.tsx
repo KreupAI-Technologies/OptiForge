@@ -16,6 +16,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface BendingJob {
   id: string;
@@ -63,11 +64,15 @@ export default function BendingPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setJobs([
-        { id: 'BJ-001', partName: 'Main Frame - Top', material: 'SS 304 (2mm)', bends: 4, status: 'Pending', instructions: '90° bend at 50mm, 45° bend at 150mm' },
-        { id: 'BJ-002', partName: 'Side Panel - Left', material: 'MS CRCA (1.5mm)', bends: 2, status: 'In Progress', instructions: 'Standard 90° flange bends' },
-        { id: 'BJ-003', partName: 'Mounting Bracket', material: 'Aluminium 5052 (3mm)', bends: 6, status: 'Completed', instructions: 'Complex multi-stage bending' },
-      ]);
+      const rows = await ProductionJobService.listJobs(id, 'bending');
+      setJobs(rows.map((r) => ({
+        id: r.jobCode || r.id,
+        partName: r.partName || '',
+        material: r.material || '',
+        bends: r.extra?.bends ?? 0,
+        status: (r.status as BendingJob['status']) || 'Pending',
+        instructions: r.extra?.instructions || '',
+      })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/production/bending');

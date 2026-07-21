@@ -84,8 +84,60 @@ export default function HSNSACMasterPage() {
     setToast({ message, type });
   };
 
-  const handleEditHSNSAC = (record: HSNSAC) => {
-    showToast(`Editing HSN/SAC code: ${record.code}`, 'info');
+  const reloadHsnSacs = async () => {
+    try {
+      const raw = (await commonMastersService.getAllHsnSacs(DEFAULT_COMPANY_ID)) as any[];
+      const mapped: HSNSAC[] = raw.map((h) => {
+        const totalGST = Number(h.totalGST ?? h.gstPercentage ?? 0);
+        const igst = Number(h.igstRate ?? totalGST);
+        return {
+          id: String(h.id ?? ''),
+          code: h.code ?? '',
+          codeType: (h.codeType ?? (h.applicableFor === 'services' ? 'SAC' : 'HSN')) as HSNSAC['codeType'],
+          description: h.description ?? '',
+          category: h.category ?? '',
+          cgstRate: Number(h.cgstRate ?? igst / 2),
+          sgstRate: Number(h.sgstRate ?? igst / 2),
+          igstRate: igst,
+          cessRate: h.cessRate !== null && h.cessRate !== undefined ? Number(h.cessRate) : undefined,
+          totalGST: totalGST || igst,
+          applicableFor: (h.applicableFor ?? 'goods') as HSNSAC['applicableFor'],
+          itemGroup: h.itemGroup ?? undefined,
+          isExempted: h.isExempted ?? undefined,
+          isNilRated: h.isNilRated ?? undefined,
+          isReverseCharge: h.isReverseCharge ?? undefined,
+          itemsCount: Number(h.itemsCount ?? 0),
+          transactionsCount: Number(h.transactionsCount ?? 0),
+          totalTaxableAmount: Number(h.totalTaxableAmount ?? 0),
+          totalTaxCollected: Number(h.totalTaxCollected ?? 0),
+          lastUsedDate: h.lastUsedDate ?? '',
+          isActive: h.isActive ?? true,
+          createdBy: h.createdBy ?? '',
+          createdDate: h.createdDate ?? h.createdAt ?? '',
+        };
+      });
+      setHsnSacRecords(mapped);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to reload HSN/SAC codes', 'error');
+    }
+  };
+
+  const handleEditHSNSAC = async (record: HSNSAC) => {
+    const newDesc = window.prompt(`Update description for ${record.code}`, record.description);
+    if (newDesc === null) return;
+    const gstStr = window.prompt(`GST % for ${record.code}`, String(record.totalGST ?? 0));
+    if (gstStr === null) return;
+    const gst = parseFloat(gstStr);
+    try {
+      await commonMastersService.updateHsnSac(record.id, {
+        description: newDesc.trim(),
+        gstPercentage: Number.isFinite(gst) ? gst : record.totalGST,
+      });
+      await reloadHsnSacs();
+      showToast(`Updated HSN/SAC code: ${record.code}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update HSN/SAC code', 'error');
+    }
   };
 
   const handleExport = () => {
@@ -93,8 +145,41 @@ export default function HSNSACMasterPage() {
     showToast('Exporting HSN/SAC codes...', 'success');
   };
 
-  const handleAddHSNSAC = () => {
-    showToast('Opening Add HSN/SAC form...', 'info');
+  const handleAddHSNSAC = async () => {
+    const code = window.prompt('New HSN/SAC code', '');
+    if (code === null) return;
+    const trimmed = code.trim();
+    if (!trimmed) {
+      showToast('Code is required', 'error');
+      return;
+    }
+    const description = window.prompt('Description', '') ?? '';
+    const gstStr = window.prompt('GST %', '18');
+    if (gstStr === null) return;
+    const gst = parseFloat(gstStr);
+    try {
+      await commonMastersService.createHsnSac({
+        code: trimmed,
+        description: description.trim(),
+        gstPercentage: Number.isFinite(gst) ? gst : 0,
+        companyId: DEFAULT_COMPANY_ID,
+      });
+      await reloadHsnSacs();
+      showToast(`Created HSN/SAC code: ${trimmed}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create HSN/SAC code', 'error');
+    }
+  };
+
+  const handleDeleteHSNSAC = async (record: HSNSAC) => {
+    if (!confirm(`Delete HSN/SAC code ${record.code}?`)) return;
+    try {
+      await commonMastersService.deleteHsnSac(record.id);
+      await reloadHsnSacs();
+      showToast(`Deleted HSN/SAC code: ${record.code}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete HSN/SAC code', 'error');
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -278,10 +363,7 @@ export default function HSNSACMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete HSN/SAC code ${row.code}?`)) {
-                setHsnSacRecords(prev => prev.filter(h => h.id !== row.id));
-                showToast(`Deleted HSN/SAC code: ${row.code}`, 'success');
-              }
+              handleDeleteHSNSAC(row);
             }}
           >
             Delete

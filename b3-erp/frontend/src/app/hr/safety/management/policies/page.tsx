@@ -28,20 +28,6 @@ import {
   Legend
 } from 'recharts';
 
-// Mock Data
-const policyStats = {
-  totalPolicies: 24,
-  needsReview: 3,
-  avgAdherence: 94,
-  newThisMonth: 2
-};
-
-const adherenceData = [
-  { name: 'Compliant', value: 85, color: '#10b981' },
-  { name: 'Minor Gaps', value: 10, color: '#f59e0b' },
-  { name: 'Non-Compliant', value: 5, color: '#ef4444' },
-];
-
 interface Policy {
   id: string;
   title: string;
@@ -59,42 +45,63 @@ export default function SafetyPoliciesPage() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', category: 'Operational Safety', version: '1.0', owner: '' });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getTrainings('policy');
+      const mapped: Policy[] = rows.map((row: SafetyTraining) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.code ?? row.id ?? ''),
+          title: row.title ?? '',
+          category: row.category ?? '',
+          version: row.version ?? '',
+          lastUpdated: row.effectiveDate ?? row.completedDate ?? '',
+          status: row.status ?? '',
+          adherence: row.compliancePercent ?? meta.adherence ?? 0,
+          owner: row.owner ?? '',
+        };
+      });
+      setPolicies(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load policies');
+      setPolicies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getTrainings('policy');
-        const mapped: Policy[] = rows.map((row: SafetyTraining) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.code ?? row.id ?? ''),
-            title: row.title ?? '',
-            category: row.category ?? '',
-            version: row.version ?? '',
-            lastUpdated: row.effectiveDate ?? row.completedDate ?? '',
-            status: row.status ?? '',
-            adherence: row.compliancePercent ?? meta.adherence ?? 0,
-            owner: row.owner ?? '',
-          };
-        });
-        if (!cancelled) setPolicies(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load policies');
-          setPolicies([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createTraining({
+        recordType: 'policy',
+        title: form.title.trim(),
+        category: form.category,
+        version: form.version,
+        owner: form.owner,
+        status: 'Active',
+        effectiveDate: new Date().toISOString().slice(0, 10),
+      });
+      setShowCreate(false);
+      setForm({ title: '', category: 'Operational Safety', version: '1.0', owner: '' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create policy');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredPolicies = policies.filter(policy => {
     const matchesSearch = policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,6 +109,25 @@ export default function SafetyPoliciesPage() {
     const matchesCategory = categoryFilter === 'All' || policy.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  const isActive = (s: string) => s === 'Active' || s === 'active';
+  const policyStats = {
+    totalPolicies: policies.length,
+    needsReview: policies.filter(p => !isActive(p.status)).length,
+    avgAdherence: policies.length
+      ? Math.round(policies.reduce((sum, p) => sum + (p.adherence || 0), 0) / policies.length)
+      : 0,
+    newThisMonth: 0,
+  };
+
+  const compliantCount = policies.filter(p => p.adherence >= 90).length;
+  const minorGapsCount = policies.filter(p => p.adherence >= 80 && p.adherence < 90).length;
+  const nonCompliantCount = policies.filter(p => p.adherence < 80).length;
+  const adherenceData = [
+    { name: 'Compliant', value: compliantCount, color: '#10b981' },
+    { name: 'Minor Gaps', value: minorGapsCount, color: '#f59e0b' },
+    { name: 'Non-Compliant', value: nonCompliantCount, color: '#ef4444' },
+  ];
 
   return (
     <div className="p-6 space-y-3">
@@ -126,11 +152,88 @@ export default function SafetyPoliciesPage() {
           </h1>
           <p className="text-gray-500 mt-1">Manage and track safety guidelines and compliance</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Create New Policy
         </button>
       </div>
+
+      {/* Create Policy Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Create New Policy</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Policy Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Lockout / Tagout Policy"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="Operational Safety">Operational Safety</option>
+                  <option value="Emergency Response">Emergency Response</option>
+                  <option value="Health & Wellness">Health & Wellness</option>
+                  <option value="Compliance">Compliance</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                  <input
+                    type="text"
+                    value={form.version}
+                    onChange={(e) => setForm({ ...form, version: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="1.0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
+                  <input
+                    type="text"
+                    value={form.owner}
+                    onChange={(e) => setForm({ ...form, owner: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="e.g. EHS"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.title.trim()}
+                className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Create Policy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

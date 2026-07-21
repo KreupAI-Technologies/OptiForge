@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { Target, Plus, Save, X, Calendar, TrendingUp, Users } from 'lucide-react';
 
 interface Goal {
@@ -48,9 +49,16 @@ export default function SetGoalsPage() {
     kpis: []
   });
 
-  const addGoal = () => {
-    if (newGoal.title && newGoal.description) {
-      setGoals([...goals, { ...newGoal, id: Date.now().toString() } as Goal]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const addGoal = async () => {
+    if (!newGoal.title || !newGoal.description) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const created = await HrTalentService.createPerformance<Goal>(newGoal as Goal, { recordType: 'set-goal' });
+      setGoals([...goals, { ...(newGoal as Goal), ...created }]);
       setShowAddModal(false);
       setNewGoal({
         category: 'individual',
@@ -58,6 +66,10 @@ export default function SetGoalsPage() {
         weight: 20,
         kpis: []
       });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save goal');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -294,6 +306,12 @@ export default function SetGoalsPage() {
                 </div>
               </div>
 
+              {saveError && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {saveError}
+                </div>
+              )}
+
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowAddModal(false)}
@@ -303,10 +321,11 @@ export default function SetGoalsPage() {
                 </button>
                 <button
                   onClick={addGoal}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
+                  disabled={isSaving}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
-                  Save Goal
+                  {isSaving ? 'Saving…' : 'Save Goal'}
                 </button>
               </div>
             </div>

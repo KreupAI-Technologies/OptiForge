@@ -85,8 +85,61 @@ export default function CustomerCategoryMasterPage() {
     setToast({ message, type });
   };
 
-  const handleEditCategory = (category: CustomerCategory) => {
-    showToast(`Editing category: ${category.categoryName}`, 'info');
+  const reloadCategories = async () => {
+    try {
+      const raw = (await commonMastersService.getAllCustomerCategories(DEFAULT_COMPANY_ID)) as any[];
+      const mapped: CustomerCategory[] = raw.map((c) => ({
+        id: String(c.id ?? ''),
+        categoryCode: c.code ?? c.categoryCode ?? '',
+        categoryName: c.name ?? c.categoryName ?? '',
+        description: c.description ?? '',
+        defaultDiscount: Number(c.criteria?.defaultDiscount ?? c.defaultDiscount ?? 0),
+        maxDiscountAllowed: Number(c.criteria?.maxDiscountAllowed ?? c.maxDiscountAllowed ?? 0),
+        priceListId: c.priceListId ?? '',
+        priceListName: c.priceListName ?? '',
+        defaultPriceList: c.defaultPriceList ?? undefined,
+        defaultCreditLimit: Number(c.terms?.defaultCreditLimit ?? c.defaultCreditLimit ?? 0),
+        defaultPaymentTerms: c.terms?.defaultPaymentTerms ?? c.defaultPaymentTerms ?? '',
+        creditPeriod: Number(c.terms?.creditPeriod ?? c.creditPeriod ?? 0),
+        requiresApproval: c.requiresApproval ?? false,
+        businessType: (c.classification ?? c.businessType ?? 'end_user') as CustomerCategory['businessType'],
+        priority: (c.priority ?? 'medium') as CustomerCategory['priority'],
+        tier: (c.level ?? c.tier) as CustomerCategory['tier'],
+        volumeDiscountApplicable: c.volumeDiscountApplicable ?? undefined,
+        creditDays: c.creditDays !== null && c.creditDays !== undefined ? Number(c.creditDays) : undefined,
+        specialPricingApplicable: c.specialPricingApplicable ?? undefined,
+        defaultTerritory: c.defaultTerritory ?? undefined,
+        shippingChargesApply: c.shippingChargesApply ?? false,
+        customersCount: Number(c.metrics?.customersCount ?? c.customersCount ?? 0),
+        totalSales: Number(c.metrics?.totalSales ?? c.totalSales ?? 0),
+        avgOrderValue: Number(c.metrics?.avgOrderValue ?? c.avgOrderValue ?? 0),
+        outstandingAmount: Number(c.metrics?.outstandingAmount ?? c.outstandingAmount ?? 0),
+        isActive: c.isActive ?? (c.status ? c.status === 'active' : true),
+        createdBy: c.createdBy ?? '',
+        createdDate: c.createdDate ?? c.createdAt ?? '',
+      }));
+      setCategories(mapped);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to reload customer categories', 'error');
+    }
+  };
+
+  const handleEditCategory = async (category: CustomerCategory) => {
+    const newName = window.prompt('Update category name', category.categoryName);
+    if (newName === null) return;
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      showToast('Category name is required', 'error');
+      return;
+    }
+    const description = window.prompt('Description', category.description) ?? category.description;
+    try {
+      await commonMastersService.updateCustomerCategory(category.id, { name: trimmed, description });
+      await reloadCategories();
+      showToast(`Updated category: ${trimmed}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update category', 'error');
+    }
   };
 
   const handleViewCustomers = (category: CustomerCategory) => {
@@ -98,8 +151,40 @@ export default function CustomerCategoryMasterPage() {
     showToast('Exporting customer categories data...', 'success');
   };
 
-  const handleAddCategory = () => {
-    showToast('Opening add category form...', 'info');
+  const handleAddCategory = async () => {
+    const code = window.prompt('New category code', '');
+    if (code === null) return;
+    const name = window.prompt('Category name', '');
+    if (name === null) return;
+    if (!code.trim() || !name.trim()) {
+      showToast('Category code and name are required', 'error');
+      return;
+    }
+    const description = window.prompt('Description', '') ?? '';
+    try {
+      await commonMastersService.createCustomerCategory({
+        code: code.trim(),
+        name: name.trim(),
+        description,
+        status: 'active',
+        companyId: DEFAULT_COMPANY_ID,
+      });
+      await reloadCategories();
+      showToast(`Created category: ${name.trim()}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create category', 'error');
+    }
+  };
+
+  const handleDeleteCategory = async (category: CustomerCategory) => {
+    if (!confirm(`Delete ${category.categoryName}? This affects ${category.customersCount} customers.`)) return;
+    try {
+      await commonMastersService.deleteCustomerCategory(category.id);
+      await reloadCategories();
+      showToast(`Deleted category: ${category.categoryName}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete category', 'error');
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -278,10 +363,7 @@ export default function CustomerCategoryMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete ${row.categoryName}? This affects ${row.customersCount} customers.`)) {
-                setCategories(prev => prev.filter(c => c.id !== row.id));
-                showToast(`Deleted category: ${row.categoryName}`, 'success');
-              }
+              handleDeleteCategory(row);
             }}
           >
             Delete

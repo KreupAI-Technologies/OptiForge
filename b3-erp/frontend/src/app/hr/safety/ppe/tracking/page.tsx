@@ -21,14 +21,6 @@ import {
 } from 'lucide-react';
 import { HrSafetyService, SafetyPpe } from '@/services/hr-safety.service';
 
-// Mock Data
-const trackingStats = {
-  totalItems: 842,
-  complianceRate: 98.4,
-  expiringSoon: 12,
-  replacementRequests: 5
-};
-
 interface AssignedPPE {
   id: string;
   employee: string;
@@ -44,38 +36,78 @@ export default function PPETrackingPage() {
   const [assignedPPE, setAssignedPPE] = useState<AssignedPPE[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    employee: '',
+    item: '',
+    issuedDate: '',
+    expiryDate: '',
+    condition: 'New',
+    status: 'Compliant',
+  });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getPpe('assignment');
+      const mapped: AssignedPPE[] = rows.map((row: SafetyPpe) => ({
+        id: String(row.itemCode ?? row.id ?? ''),
+        employee: row.employeeName ?? '',
+        item: row.itemName ?? '',
+        issuedDate: row.issuedDate ?? '',
+        expiryDate: row.expiryDate ?? '',
+        status: row.status ?? '',
+        condition: row.condition ?? '',
+      }));
+      setAssignedPPE(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load assigned PPE');
+      setAssignedPPE([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getPpe('assignment');
-        const mapped: AssignedPPE[] = rows.map((row: SafetyPpe) => ({
-          id: String(row.itemCode ?? row.id ?? ''),
-          employee: row.employeeName ?? '',
-          item: row.itemName ?? '',
-          issuedDate: row.issuedDate ?? '',
-          expiryDate: row.expiryDate ?? '',
-          status: row.status ?? '',
-          condition: row.condition ?? '',
-        }));
-        if (!cancelled) setAssignedPPE(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load assigned PPE');
-          setAssignedPPE([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const totalItems = assignedPPE.length;
+  const expiringSoon = assignedPPE.filter(
+    (u) => u.status === 'Expiring' || u.status === 'Expired',
+  ).length;
+  const compliantCount = assignedPPE.filter((u) => u.status === 'Compliant').length;
+  const complianceRate = totalItems
+    ? Math.round((compliantCount / totalItems) * 1000) / 10
+    : 0;
+  const replacementRequests = assignedPPE.filter(
+    (u) => u.condition === 'Poor' || u.status === 'Expired',
+  ).length;
+
+  const handleCreate = async () => {
+    if (!form.employee || !form.item) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createPpe({
+        recordType: 'assignment',
+        employeeName: form.employee,
+        itemName: form.item,
+        issuedDate: form.issuedDate,
+        expiryDate: form.expiryDate,
+        condition: form.condition,
+        status: form.status,
+      });
+      setShowModal(false);
+      setForm({ employee: '', item: '', issuedDate: '', expiryDate: '', condition: 'New', status: 'Compliant' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create assignment');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -105,7 +137,10 @@ export default function PPETrackingPage() {
             <History className="w-4 h-4 mr-2" />
             History
           </button>
-          <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Direct Assignment
           </button>
@@ -118,7 +153,7 @@ export default function PPETrackingPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Active Units</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{trackingStats.totalItems}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{totalItems}</p>
             </div>
             <div className="p-2 bg-blue-50 rounded-lg">
               <Package className="w-5 h-5 text-blue-500" />
@@ -133,14 +168,14 @@ export default function PPETrackingPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Site Compliance</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{trackingStats.complianceRate}%</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{complianceRate}%</p>
             </div>
             <div className="p-2 bg-green-50 rounded-lg">
               <ShieldCheck className="w-5 h-5 text-green-500" />
             </div>
           </div>
           <div className="w-full bg-gray-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div className="bg-green-500 h-full" style={{ width: `${trackingStats.complianceRate}%` }}></div>
+            <div className="bg-green-500 h-full" style={{ width: `${complianceRate}%` }}></div>
           </div>
         </div>
 
@@ -148,7 +183,7 @@ export default function PPETrackingPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expiring / Expired</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">{trackingStats.expiringSoon + 1}</p>
+              <p className="text-2xl font-bold text-red-600 mt-1">{expiringSoon}</p>
             </div>
             <div className="p-2 bg-red-50 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-red-500" />
@@ -161,7 +196,7 @@ export default function PPETrackingPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Review Requests</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{trackingStats.replacementRequests}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{replacementRequests}</p>
             </div>
             <div className="p-2 bg-orange-50 rounded-lg">
               <User className="w-5 h-5 text-orange-500" />
@@ -245,7 +280,7 @@ export default function PPETrackingPage() {
 
         <div className="p-6 border-t border-gray-100 bg-gray-50 flex flex-col md:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-500">Showing <strong>4</strong> of <strong>842</strong> assigned units</span>
+            <span className="text-gray-500">Showing <strong>{assignedPPE.length}</strong> of <strong>{totalItems}</strong> assigned units</span>
             <div className="h-4 w-px bg-gray-200"></div>
             <button className="text-orange-600 font-bold hover:underline">Download Comprehensive Tracking Report</button>
           </div>
@@ -257,6 +292,72 @@ export default function PPETrackingPage() {
           </div>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4">
+              <h3 className="font-bold text-gray-900">Direct Assignment</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Employee</label>
+                <input value={form.employee} onChange={(e) => setForm({ ...form, employee: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Equipment Item</label>
+                <input value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Issue Date</label>
+                  <input type="date" value={form.issuedDate} onChange={(e) => setForm({ ...form, issuedDate: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expiration</label>
+                  <input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Condition</label>
+                  <select value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500">
+                    <option>New</option>
+                    <option>Good</option>
+                    <option>Fair</option>
+                    <option>Poor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</label>
+                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500">
+                    <option>Compliant</option>
+                    <option>Expiring</option>
+                    <option>Expired</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
+              <button onClick={() => setShowModal(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleCreate} disabled={saving || !form.employee || !form.item}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-700 disabled:bg-gray-300">
+                {saving ? 'Saving…' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

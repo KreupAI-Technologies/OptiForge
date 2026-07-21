@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Package, AlertTriangle, TrendingUp, TrendingDown, IndianRupee } from 'lucide-react';
+import { Package, AlertTriangle, TrendingUp, TrendingDown, IndianRupee, X } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface StockItem {
@@ -141,6 +141,8 @@ export default function Page() {
   const [mockStock, setMockStock] = useState<StockItem[]>(fallbackStock);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<StockItem | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,7 +301,10 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button
+              onClick={() => setShowForm(true)}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+            >
               Add Stock Item
             </button>
           </div>
@@ -391,15 +396,24 @@ export default function Page() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button
+                  onClick={() => setDetailItem(item)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
                   View Details
                 </button>
                 {(item.status === 'low_stock' || item.status === 'reorder' || item.status === 'out_of_stock') && (
-                  <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+                  <button
+                    onClick={() => setDetailItem(item)}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm"
+                  >
                     Create PO
                   </button>
                 )}
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                <button
+                  onClick={() => setDetailItem(item)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                >
                   Adjust Stock
                 </button>
               </div>
@@ -407,6 +421,57 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3" onClick={() => setDetailItem(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-xl font-bold">Stock Item Details</h2>
+              <button onClick={() => setDetailItem(null)} className="text-white hover:bg-white/20 rounded-lg p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900">{detailItem.assetName}</h3>
+                <p className="text-sm text-gray-600">Code: {detailItem.assetCode} • {detailItem.brand} {detailItem.model}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><p className="text-xs text-gray-500 uppercase">Category</p><p className="font-medium text-gray-900 capitalize">{detailItem.category}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Status</p><p className="font-medium text-gray-900">{detailItem.status.replace(/_/g, ' ')}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Total Quantity</p><p className="font-medium text-gray-900">{detailItem.totalQuantity}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Allocated</p><p className="font-medium text-gray-900">{detailItem.allocated}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Available</p><p className="font-medium text-gray-900">{detailItem.available}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Min / Reorder Level</p><p className="font-medium text-gray-900">{detailItem.minStockLevel} / {detailItem.reorderLevel}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Unit Cost</p><p className="font-medium text-gray-900">₹{detailItem.unitCost.toLocaleString('en-IN')}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Total Value</p><p className="font-medium text-gray-900">₹{detailItem.totalValue.toLocaleString('en-IN')}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Location</p><p className="font-medium text-gray-900">{detailItem.location}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Supplier</p><p className="font-medium text-gray-900">{detailItem.supplier}</p></div>
+              </div>
+              <button onClick={() => setDetailItem(null)} className="w-full bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 font-semibold">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3" onClick={() => setShowForm(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-xl font-bold">Add Stock Item</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:bg-white/20 rounded-lg p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Adding stock items from this screen is not yet available — the inventory service endpoint is pending.
+              </div>
+              <button onClick={() => setShowForm(false)} className="w-full bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 font-semibold">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -53,28 +53,6 @@ interface UOMConversion {
   status: 'active' | 'inactive';
 }
 
-const mockConversions: UOMConversion[] = [
-  {
-    id: '1',
-    fromUOM: '4', // BOX
-    toUOM: '1',   // PCS
-    factor: 25,
-    isReversible: true,
-    validFrom: '2023-01-01',
-    status: 'active'
-  },
-  {
-    id: '2',
-    fromUOM: '2', // SQFT
-    toUOM: '3',   // LF
-    factor: 12,
-    formula: 'sqft * 12 = lf (for 1ft width)',
-    isReversible: false,
-    validFrom: '2023-01-01',
-    status: 'active'
-  }
-];
-
 const uomTypes = ['length', 'weight', 'volume', 'area', 'count', 'time', 'other'];
 const roundingOptions = ['round', 'round_up', 'round_down'];
 
@@ -82,7 +60,7 @@ export default function UOMMaster() {
   const [uoms, setUOMs] = useState<UOM[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [conversions, setConversions] = useState<UOMConversion[]>(mockConversions);
+  const [conversions, setConversions] = useState<UOMConversion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -144,8 +122,29 @@ export default function UOMMaster() {
       }
   };
 
+  const loadConversions = async () => {
+    try {
+      const rows = await commonMastersService.getAllUomConversions(companyId);
+      const mapped: UOMConversion[] = (rows ?? []).map((c: any) => ({
+        id: String(c.id),
+        fromUOM: String(c.fromUomId ?? c.fromUom?.id ?? ''),
+        toUOM: String(c.toUomId ?? c.toUom?.id ?? ''),
+        factor: Number(c.conversionFactor ?? c.factor ?? 0),
+        isReversible: Boolean(c.isReversible ?? false),
+        validFrom: c.validFrom ? String(c.validFrom) : '',
+        validTo: c.validTo ? String(c.validTo) : undefined,
+        status: c.isActive === false ? 'inactive' : 'active',
+      }));
+      setConversions(mapped);
+    } catch (error) {
+      console.error('Failed to load UOM conversions:', error);
+      setConversions([]);
+    }
+  };
+
   useEffect(() => {
     loadUOMs();
+    loadConversions();
   }, []);
 
   const handleImport = async () => {
@@ -238,27 +237,40 @@ export default function UOMMaster() {
     setShowConversionModal(true);
   };
 
-  const handleDeleteConversion = (id: string) => {
-    if (confirm('Are you sure you want to delete this conversion?')) {
-      setConversions(conversions.filter(conv => conv.id !== id));
+  const handleDeleteConversion = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this conversion?')) return;
+    try {
+      await commonMastersService.deleteUomConversion(id);
+      await loadConversions();
+    } catch (error) {
+      console.error('Failed to delete conversion:', error);
+      alert('Failed to delete conversion.');
     }
   };
 
-  const handleSaveConversion = (conversionData: any) => {
-    if (editingConversion) {
-      setConversions(conversions.map(conv =>
-        conv.id === editingConversion.id
-          ? { ...conv, ...conversionData }
-          : conv
-      ));
-    } else {
-      const newConversion: UOMConversion = {
-        id: Date.now().toString(),
-        ...conversionData
-      };
-      setConversions([...conversions, newConversion]);
+  const handleSaveConversion = async (conversionData: any) => {
+    try {
+      if (editingConversion) {
+        await commonMastersService.updateUomConversion(editingConversion.id, {
+          fromUomId: conversionData.fromUOM,
+          toUomId: conversionData.toUOM,
+          conversionFactor: Number(conversionData.factor),
+          isActive: conversionData.status ? conversionData.status === 'active' : true,
+        });
+      } else {
+        await commonMastersService.createUomConversion({
+          fromUomId: conversionData.fromUOM,
+          toUomId: conversionData.toUOM,
+          conversionFactor: Number(conversionData.factor),
+          companyId,
+        });
+      }
+      setShowConversionModal(false);
+      await loadConversions();
+    } catch (error) {
+      console.error('Failed to save conversion:', error);
+      alert('Failed to save conversion.');
     }
-    setShowConversionModal(false);
   };
 
   const getStatusBadge = (status: string) => {

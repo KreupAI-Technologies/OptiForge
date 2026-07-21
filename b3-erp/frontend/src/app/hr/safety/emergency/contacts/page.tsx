@@ -175,7 +175,7 @@ export default function EmergencyContactsPage() {
                 <div className="h-4 w-px bg-gray-200"></div>
                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-50 rounded text-[10px] font-bold text-green-600">
                   <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse"></div>
-                  12 Members Active
+                  {internalContacts.filter((c) => c.status === 'On Duty').length} Members Active
                 </div>
               </div>
               <div className="relative flex-1 max-w-xs">

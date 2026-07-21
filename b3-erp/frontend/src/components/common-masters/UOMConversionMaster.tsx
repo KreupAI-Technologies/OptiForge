@@ -1,163 +1,152 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Repeat, Plus, Search, Eye, Edit3, Calculator, ArrowRightLeft, CheckCircle, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Repeat, Plus, Search, Eye, Edit3, Calculator, ArrowRightLeft, CheckCircle, AlertTriangle, Trash2, X } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface UOMConversion {
   id: string;
   fromUOM: string;
   toUOM: string;
+  fromUomId: string;
+  toUomId: string;
   conversionFactor: number;
   conversionFormula?: string;
   category: string;
   isReversible: boolean;
-  
+
   validationRules?: {
     minQuantity?: number;
     maxQuantity?: number;
     decimalPlaces?: number;
   };
-  
+
   usageContext?: {
     applicableFor: 'all' | 'specific-items' | 'specific-categories';
     items?: string[];
     categories?: string[];
   };
-  
+
   status: 'active' | 'inactive';
   effectiveFrom: string;
   effectiveTo?: string;
-  
+
   createdBy: string;
   createdAt: string;
   updatedBy?: string;
   updatedAt?: string;
 }
 
+interface UomOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
+const COMPANY_ID = 'MAIN_COMPANY_ID';
+
 const UOMConversionMaster: React.FC = () => {
-  const [conversions, setConversions] = useState<UOMConversion[]>([
-    {
-      id: '1',
-      fromUOM: 'Cubic Meter',
-      toUOM: 'Cubic Feet',
-      conversionFactor: 35.3147,
-      conversionFormula: '1 m³ = 35.3147 ft³',
-      category: 'Volume',
-      isReversible: true,
-      validationRules: {
-        minQuantity: 0.001,
-        decimalPlaces: 4
-      },
-      usageContext: {
-        applicableFor: 'specific-categories',
-        categories: ['Timber', 'Wood Products']
-      },
-      status: 'active',
-      effectiveFrom: '2024-01-01',
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    },
-    {
-      id: '2',
-      fromUOM: 'Kilogram',
-      toUOM: 'Gram',
-      conversionFactor: 1000,
-      conversionFormula: '1 kg = 1000 g',
-      category: 'Weight',
-      isReversible: true,
-      validationRules: {
-        minQuantity: 0.001,
-        decimalPlaces: 3
-      },
-      usageContext: {
-        applicableFor: 'all'
-      },
-      status: 'active',
-      effectiveFrom: '2024-01-01',
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    },
-    {
-      id: '3',
-      fromUOM: 'Meter',
-      toUOM: 'Feet',
-      conversionFactor: 3.28084,
-      conversionFormula: '1 m = 3.28084 ft',
-      category: 'Length',
-      isReversible: true,
-      validationRules: {
-        minQuantity: 0.01,
-        decimalPlaces: 4
-      },
-      usageContext: {
-        applicableFor: 'all'
-      },
-      status: 'active',
-      effectiveFrom: '2024-01-01',
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    },
-    {
-      id: '4',
-      fromUOM: 'Sheet',
-      toUOM: 'Square Meter',
-      conversionFactor: 2.9768,
-      conversionFormula: '1 Sheet (8x4 ft) = 2.9768 m²',
-      category: 'Area',
-      isReversible: false,
-      validationRules: {
-        decimalPlaces: 4
-      },
-      usageContext: {
-        applicableFor: 'specific-categories',
-        categories: ['Plywood', 'Laminates', 'MDF']
-      },
-      status: 'active',
-      effectiveFrom: '2024-01-01',
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    },
-    {
-      id: '5',
-      fromUOM: 'Box',
-      toUOM: 'Pieces',
-      conversionFactor: 100,
-      conversionFormula: '1 Box = 100 Pieces',
-      category: 'Packaging',
-      isReversible: true,
-      validationRules: {
-        decimalPlaces: 0
-      },
-      usageContext: {
-        applicableFor: 'specific-items',
-        items: ['SCREW-001', 'NAIL-001', 'HINGE-001']
-      },
-      status: 'active',
-      effectiveFrom: '2024-01-01',
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
-    },
-    {
-      id: '6',
-      fromUOM: 'Running Meter',
-      toUOM: 'Pieces',
-      conversionFactor: 1,
-      conversionFormula: '1 RM = X Pieces (depends on cutting length)',
-      category: 'Length-to-Quantity',
-      isReversible: false,
-      validationRules: {
-        decimalPlaces: 2
-      },
-      usageContext: {
-        applicableFor: 'specific-categories',
-        categories: ['Edge Banding', 'Profiles']
-      },
-      status: 'active',
-      effectiveFrom: '2024-01-01',
-      createdBy: 'admin',
-      createdAt: '2024-01-01T10:00:00Z'
+  const [conversions, setConversions] = useState<UOMConversion[]>([]);
+  const [uomOptions, setUomOptions] = useState<UomOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingConversion, setEditingConversion] = useState<UOMConversion | null>(null);
+
+  const loadConversions = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [rows, uoms] = await Promise.all([
+        commonMastersService.getAllUomConversions(COMPANY_ID),
+        commonMastersService.getAllUoms(COMPANY_ID),
+      ]);
+      setUomOptions(
+        (uoms ?? []).map((u: any) => ({
+          id: String(u.id),
+          code: u.code ?? u.uomCode ?? '',
+          name: u.name ?? u.uomName ?? '',
+        })),
+      );
+      const mapped: UOMConversion[] = (rows ?? []).map((c: any) => {
+        const fromName = c.fromUom?.name ?? c.fromUom?.code ?? '';
+        const toName = c.toUom?.name ?? c.toUom?.code ?? '';
+        const factor = Number(c.conversionFactor ?? c.factor ?? 0);
+        return {
+          id: String(c.id),
+          fromUOM: fromName,
+          toUOM: toName,
+          fromUomId: String(c.fromUomId ?? c.fromUom?.id ?? ''),
+          toUomId: String(c.toUomId ?? c.toUom?.id ?? ''),
+          conversionFactor: factor,
+          conversionFormula: `1 ${fromName} = ${factor} ${toName}`,
+          category: 'General',
+          isReversible: Boolean(c.isReversible ?? false),
+          status: c.isActive === false ? 'inactive' : 'active',
+          effectiveFrom: c.createdAt ? String(c.createdAt).slice(0, 10) : '',
+          createdBy: 'system',
+          createdAt: c.createdAt ? String(c.createdAt) : '',
+        };
+      });
+      setConversions(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load conversions');
+      setConversions([]);
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadConversions();
+  }, []);
+
+  const handleAddConversion = () => {
+    setEditingConversion(null);
+    setShowModal(true);
+  };
+
+  const handleEditConversion = (conversion: UOMConversion) => {
+    setEditingConversion(conversion);
+    setShowModal(true);
+  };
+
+  const handleDeleteConversion = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this conversion?')) return;
+    try {
+      await commonMastersService.deleteUomConversion(id);
+      await loadConversions();
+    } catch (err) {
+      console.error('Failed to delete conversion:', err);
+      alert('Failed to delete conversion.');
+    }
+  };
+
+  const handleSaveConversion = async (data: { fromUomId: string; toUomId: string; conversionFactor: number; status: 'active' | 'inactive' }) => {
+    try {
+      if (editingConversion) {
+        await commonMastersService.updateUomConversion(editingConversion.id, {
+          fromUomId: data.fromUomId,
+          toUomId: data.toUomId,
+          conversionFactor: data.conversionFactor,
+          isActive: data.status === 'active',
+        });
+      } else {
+        await commonMastersService.createUomConversion({
+          fromUomId: data.fromUomId,
+          toUomId: data.toUomId,
+          conversionFactor: data.conversionFactor,
+          companyId: COMPANY_ID,
+        });
+      }
+      setShowModal(false);
+      await loadConversions();
+    } catch (err) {
+      console.error('Failed to save conversion:', err);
+      alert('Failed to save conversion.');
+    }
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -216,7 +205,10 @@ const UOMConversionMaster: React.FC = () => {
                 <Calculator className="w-4 h-4" />
                 {calculatorMode ? 'Close' : 'Calculator'}
               </button>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
+              <button
+                onClick={handleAddConversion}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+              >
                 <Plus className="w-4 h-4" />
                 Add Conversion
               </button>
@@ -246,6 +238,17 @@ const UOMConversionMaster: React.FC = () => {
             </select>
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+            Loading conversions…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         {/* Calculator Mode */}
         {calculatorMode && (
@@ -392,9 +395,19 @@ const UOMConversionMaster: React.FC = () => {
                     <Eye className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">View</span>
                   </button>
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                  <button
+                    onClick={() => handleEditConversion(conversion)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                  >
                     <Edit3 className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteConversion(conversion.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <span className="text-red-600">Delete</span>
                   </button>
                 </div>
               </div>
@@ -494,7 +507,7 @@ const UOMConversionMaster: React.FC = () => {
           ))}
         </div>
 
-        {filteredConversions.length === 0 && (
+        {!isLoading && filteredConversions.length === 0 && (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <AlertTriangle className="w-16 h-16 text-gray-300 mb-2" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No conversions found</h3>
@@ -502,8 +515,131 @@ const UOMConversionMaster: React.FC = () => {
           </div>
         )}
       </div>
+
+      {showModal && (
+        <ConversionModal
+          conversion={editingConversion}
+          uomOptions={uomOptions}
+          onSave={handleSaveConversion}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 };
+
+interface ConversionModalProps {
+  conversion: UOMConversion | null;
+  uomOptions: UomOption[];
+  onSave: (data: { fromUomId: string; toUomId: string; conversionFactor: number; status: 'active' | 'inactive' }) => void;
+  onClose: () => void;
+}
+
+function ConversionModal({ conversion, uomOptions, onSave, onClose }: ConversionModalProps) {
+  const [formData, setFormData] = useState({
+    fromUomId: conversion?.fromUomId || '',
+    toUomId: conversion?.toUomId || '',
+    conversionFactor: conversion?.conversionFactor ?? 1,
+    status: (conversion?.status || 'active') as 'active' | 'inactive',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.fromUomId || !formData.toUomId) {
+      alert('Please select both From and To units.');
+      return;
+    }
+    onSave({
+      fromUomId: formData.fromUomId,
+      toUomId: formData.toUomId,
+      conversionFactor: Number(formData.conversionFactor),
+      status: formData.status,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {conversion ? 'Edit Conversion' : 'Add New Conversion'}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-4 py-3 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">From UOM</label>
+            <select
+              value={formData.fromUomId}
+              onChange={(e) => setFormData({ ...formData, fromUomId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              required
+            >
+              <option value="">Select UOM</option>
+              {uomOptions.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">To UOM</label>
+            <select
+              value={formData.toUomId}
+              onChange={(e) => setFormData({ ...formData, toUomId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              required
+            >
+              <option value="">Select UOM</option>
+              {uomOptions.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Conversion Factor</label>
+            <input
+              type="number"
+              step="0.0001"
+              value={formData.conversionFactor}
+              onChange={(e) => setFormData({ ...formData, conversionFactor: Number(e.target.value) })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div className="pt-2 border-t border-gray-200 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              {conversion ? 'Update Conversion' : 'Create Conversion'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default UOMConversionMaster;

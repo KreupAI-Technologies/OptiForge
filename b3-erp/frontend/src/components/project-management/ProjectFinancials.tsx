@@ -40,34 +40,15 @@ const ProjectFinancials: React.FC<ProjectFinancialsProps> = ({ projectId }) => {
                 const response = await projectFinancialsApi.getFinancials(projectId);
 
                 if (response.success) {
-                    // Enhanced mock data for demonstration
-                    const monthlyData = [
-                        { name: 'Jan', income: 400000, expense: 240000, cashFlow: 160000 },
-                        { name: 'Feb', income: 300000, expense: 139800, cashFlow: 160200 },
-                        { name: 'Mar', income: 200000, expense: 980000, cashFlow: -780000 },
-                        { name: 'Apr', income: 278000, expense: 390800, cashFlow: -112800 },
-                        { name: 'May', income: 189000, expense: 480000, cashFlow: -291000 },
-                        { name: 'Jun', income: 239000, expense: 380000, cashFlow: -141000 },
-                        { name: 'Jul', income: 349000, expense: 430000, cashFlow: -81000 },
-                    ];
-
+                    const data: any = response.data || {};
                     setFinancials({
-                        ...response.data,
-                        expensesByCategory: [
-                            { name: 'Materials', value: response.data.totalExpenditure * 0.45, color: '#0088FE' },
-                            { name: 'Labor', value: response.data.totalExpenditure * 0.30, color: '#00C49F' },
-                            { name: 'Equipment', value: response.data.totalExpenditure * 0.15, color: '#FFBB28' },
-                            { name: 'Subcontractors', value: response.data.totalExpenditure * 0.05, color: '#FF8042' },
-                            { name: 'Overhead', value: response.data.totalExpenditure * 0.05, color: '#8884d8' },
-                        ],
-                        monthlyTrend: monthlyData,
-                        recentTransactions: [
-                            { id: 1, date: '2024-07-15', description: 'Steel Supply Payment', category: 'Materials', amount: -25000, status: 'Completed' },
-                            { id: 2, date: '2024-07-14', description: 'Client Milestone Payment', category: 'Income', amount: 150000, status: 'Completed' },
-                            { id: 3, date: '2024-07-12', description: 'Site Labor Wages', category: 'Labor', amount: -45000, status: 'Pending' },
-                            { id: 4, date: '2024-07-10', description: 'Excavator Rental', category: 'Equipment', amount: -12000, status: 'Completed' },
-                            { id: 5, date: '2024-07-08', description: 'Consulting Fees', category: 'Overhead', amount: -8000, status: 'Completed' },
-                        ]
+                        budget: data.budget ?? 0,
+                        totalIncome: data.totalIncome ?? 0,
+                        totalExpenditure: data.totalExpenditure ?? 0,
+                        margin: data.margin ?? 0,
+                        expensesByCategory: data.expensesByCategory ?? [],
+                        monthlyTrend: data.monthlyTrend ?? [],
+                        recentTransactions: data.recentTransactions ?? [],
                     });
                 }
             } catch (err) {

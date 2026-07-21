@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Package, User, Calendar, MapPin, CheckCircle, Clock, Send, Filter } from 'lucide-react';
+import { Package, User, Calendar, MapPin, CheckCircle, Clock, Send, Filter, X } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetAllocation {
@@ -28,6 +28,8 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [detailAllocation, setDetailAllocation] = useState<AssetAllocation | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const fallbackAllocations: AssetAllocation[] = [
     {
@@ -364,7 +366,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm flex items-center justify-center gap-2">
+            <button onClick={() => setShowForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm flex items-center justify-center gap-2">
               <Send className="h-4 w-4" />
               New Allocation
             </button>
@@ -459,21 +461,21 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Details
               </button>
               {allocation.status === 'in_use' && (
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                   Mark as Returned
                 </button>
               )}
               {allocation.status === 'overdue' && (
-                <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
                   Send Reminder
                 </button>
               )}
               {allocation.status === 'allocated' && (
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                   Confirm Handover
                 </button>
               )}
@@ -481,6 +483,112 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailAllocation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl px-4 py-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">Allocation Details</h2>
+              <button onClick={() => setDetailAllocation(null)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Asset Name</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.assetName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Asset Tag</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.assetTag}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Allocation ID</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.allocationId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Employee</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.employeeName}</p>
+                  <p className="text-xs text-gray-600">{detailAllocation.employeeCode} • {detailAllocation.designation}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Department</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.department}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Location</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.location}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Allocation Date</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.allocationDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Allocated By</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.allocatedBy}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Status</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.status}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium">Condition</p>
+                  <p className="text-gray-900 font-medium">{detailAllocation.condition}</p>
+                </div>
+                {detailAllocation.expectedReturnDate && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium">Expected Return</p>
+                    <p className="text-gray-900 font-medium">{detailAllocation.expectedReturnDate}</p>
+                  </div>
+                )}
+                {detailAllocation.actualReturnDate && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium">Actual Return</p>
+                    <p className="text-gray-900 font-medium">{detailAllocation.actualReturnDate}</p>
+                  </div>
+                )}
+                {detailAllocation.remarks && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase font-medium">Remarks</p>
+                    <p className="text-gray-900 font-medium">{detailAllocation.remarks}</p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setDetailAllocation(null)}
+                className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl px-4 py-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">New Asset Allocation</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Creating allocations from this screen is not yet available — the allocation service endpoint is pending.
+              </div>
+              <button
+                onClick={() => setShowForm(false)}
+                className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

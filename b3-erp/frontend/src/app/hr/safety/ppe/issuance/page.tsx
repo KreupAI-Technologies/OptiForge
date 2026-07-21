@@ -78,8 +78,30 @@ export default function PPEIssuancePage() {
     );
   };
 
-  const handleIssue = () => {
+  const handleIssue = async () => {
+    if (!selectedEmployee || selectedItems.length === 0) return;
     setIsIssued(true);
+    const issuedDate = new Date().toISOString().slice(0, 10);
+    try {
+      await Promise.all(
+        selectedItems.map((itemId) => {
+          const item = ppeCatalog.find((i) => i.id === itemId);
+          return HrSafetyService.createPpe({
+            recordType: 'issuance',
+            employeeId: selectedEmployee.id,
+            employeeName: selectedEmployee.name,
+            department: selectedEmployee.department,
+            itemCode: itemId,
+            itemName: item?.name ?? itemId,
+            category: item?.category ?? '',
+            issuedDate,
+            status: 'issued',
+          });
+        }),
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to record PPE issuance');
+    }
     setTimeout(() => {
       setIsIssued(false);
       setSelectedEmployee(null);

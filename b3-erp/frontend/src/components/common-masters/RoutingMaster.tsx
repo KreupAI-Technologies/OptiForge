@@ -107,19 +107,90 @@ export default function RoutingMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [expandedRouting, setExpandedRouting] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    code: '',
+    name: '',
+    itemCode: '',
+    version: 'V1.0',
+    status: 'Draft',
+    defaultRouting: false,
+    notes: ''
+  });
 
-  const handleEdit = (routing: Routing) => {
-    setSelectedRouting(routing);
+  const openCreateModal = () => {
+    setSelectedRouting(null);
+    setFormError(null);
+    setForm({
+      code: '',
+      name: '',
+      itemCode: '',
+      version: 'V1.0',
+      status: 'Draft',
+      defaultRouting: false,
+      notes: ''
+    });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this routing?')) {
-      setRoutings(routings.filter(r => r.id !== id));
+  const handleEdit = (routing: Routing) => {
+    setSelectedRouting(routing);
+    setFormError(null);
+    setForm({
+      code: routing.code,
+      name: routing.name,
+      itemCode: routing.itemCode,
+      version: routing.version,
+      status: routing.status,
+      defaultRouting: routing.defaultRouting,
+      notes: routing.notes
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      setFormError('Routing Code and Routing Name are required.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setFormError(null);
+      const payload = {
+        code: form.code,
+        name: form.name,
+        isDefault: form.defaultRouting,
+        companyId: '1'
+      };
+      if (selectedRouting) {
+        await manufacturingMastersService.updateRouting(selectedRouting.id, payload);
+      } else {
+        await manufacturingMastersService.createRouting(payload);
+      }
+      setIsModalOpen(false);
+      await fetchRoutings();
+    } catch (err) {
+      console.error('Error saving routing:', err);
+      setFormError('Failed to save routing. The backend write endpoint may not be available yet.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleCopy = (routing: Routing) => {
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this routing?')) {
+      try {
+        await manufacturingMastersService.deleteRouting(id);
+        setRoutings(routings.filter(r => r.id !== id));
+      } catch (err) {
+        console.error('Error deleting routing:', err);
+        alert('Failed to delete routing. The backend delete endpoint may not be available yet.');
+      }
+    }
+  };
+
+  const handleCopy = async (routing: Routing) => {
     const newRouting = {
       ...routing,
       id: Date.now().toString(),
@@ -129,6 +200,17 @@ export default function RoutingMaster() {
       defaultRouting: false
     };
     setRoutings([...routings, newRouting]);
+    try {
+      await manufacturingMastersService.createRouting({
+        code: newRouting.code,
+        name: newRouting.name,
+        isDefault: false,
+        companyId: '1'
+      });
+      await fetchRoutings();
+    } catch (err) {
+      console.error('Error persisting copied routing:', err);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -221,10 +303,7 @@ export default function RoutingMaster() {
               </select>
             </div>
             <button
-              onClick={() => {
-                setSelectedRouting(null);
-                setIsModalOpen(true);
-              }}
+              onClick={openCreateModal}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -388,7 +467,8 @@ export default function RoutingMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedRouting?.code}
+                      value={form.code}
+                      onChange={(e) => setForm({ ...form, code: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="RTG-XXX"
                     />
@@ -399,7 +479,8 @@ export default function RoutingMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedRouting?.name}
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Enter routing name"
                     />
@@ -413,7 +494,8 @@ export default function RoutingMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedRouting?.itemCode}
+                      value={form.itemCode}
+                      onChange={(e) => setForm({ ...form, itemCode: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Select item"
                     />
@@ -424,7 +506,8 @@ export default function RoutingMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedRouting?.version}
+                      value={form.version}
+                      onChange={(e) => setForm({ ...form, version: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="V1.0"
                     />
@@ -434,7 +517,8 @@ export default function RoutingMaster() {
                       Status
                     </label>
                     <select
-                      defaultValue={selectedRouting?.status || 'Draft'}
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Active">Active</option>
@@ -449,7 +533,8 @@ export default function RoutingMaster() {
                   <input
                     type="checkbox"
                     id="defaultRouting"
-                    defaultChecked={selectedRouting?.defaultRouting}
+                    checked={form.defaultRouting}
+                    onChange={(e) => setForm({ ...form, defaultRouting: e.target.checked })}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <label htmlFor="defaultRouting" className="text-sm text-gray-700">
@@ -462,7 +547,8 @@ export default function RoutingMaster() {
                     Notes
                   </label>
                   <textarea
-                    defaultValue={selectedRouting?.notes}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     rows={3}
                     placeholder="Additional notes about this routing"
@@ -471,15 +557,22 @@ export default function RoutingMaster() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+            <div className="p-4 border-t border-gray-200 flex justify-end items-center gap-2">
+              {formError && (
+                <span className="text-sm text-red-600 mr-auto">{formError}</span>
+              )}
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Save Routing
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save Routing'}
               </button>
             </div>
           </div>

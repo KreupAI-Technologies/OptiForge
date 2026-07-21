@@ -112,6 +112,48 @@ export default function Page() {
   const [mockRequests, setMockRequests] = useState<AssetRequest[]>(fallbackRequests);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [detailRequest, setDetailRequest] = useState<AssetRequest | null>(null);
+
+  const refresh = () => setReloadKey((k) => k + 1);
+
+  const handleUpdateStatus = async (
+    request: AssetRequest,
+    payload: Partial<{ status: string; approver: string; approvalDate: string; fulfillmentDate: string; remarks: string }>,
+  ) => {
+    setBusyId(request.id);
+    setActionError(null);
+    try {
+      await HrAssetsService.updateAssetRequest(request.id, payload);
+      refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleApprove = (request: AssetRequest) =>
+    handleUpdateStatus(request, {
+      status: 'approved',
+      approver: 'Admin Manager',
+      approvalDate: new Date().toISOString().split('T')[0],
+    });
+
+  const handleReject = (request: AssetRequest) =>
+    handleUpdateStatus(request, {
+      status: 'rejected',
+      approver: 'Admin Manager',
+      approvalDate: new Date().toISOString().split('T')[0],
+    });
+
+  const handleFulfill = (request: AssetRequest) =>
+    handleUpdateStatus(request, {
+      status: 'fulfilled',
+      fulfillmentDate: new Date().toISOString().split('T')[0],
+    });
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +195,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filteredRequests = mockRequests.filter(r => {
     const statusMatch = selectedStatus === 'all' || r.status === selectedStatus;
@@ -199,6 +241,11 @@ export default function Page() {
       {loadError && !isLoading && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {actionError}
         </div>
       )}
 
@@ -345,28 +392,75 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button
+                onClick={() => setDetailRequest(request)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+              >
                 View Details
               </button>
               {request.status === 'pending' && (
                 <>
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
-                    Approve
+                  <button
+                    onClick={() => handleApprove(request)}
+                    disabled={busyId === request.id}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-60"
+                  >
+                    {busyId === request.id ? 'Working…' : 'Approve'}
                   </button>
-                  <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                  <button
+                    onClick={() => handleReject(request)}
+                    disabled={busyId === request.id}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm disabled:opacity-60"
+                  >
                     Reject
                   </button>
                 </>
               )}
               {request.status === 'approved' && (
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
-                  Mark as Fulfilled
+                <button
+                  onClick={() => handleFulfill(request)}
+                  disabled={busyId === request.id}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60"
+                >
+                  {busyId === request.id ? 'Working…' : 'Mark as Fulfilled'}
                 </button>
               )}
             </div>
           </div>
         ))}
       </div>
+
+      {detailRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3" onClick={() => setDetailRequest(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-xl font-bold">Request Details</h2>
+              <button onClick={() => setDetailRequest(null)} className="text-white hover:bg-white/20 rounded-lg p-1">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900">{detailRequest.assetName}</h3>
+                <p className="text-sm text-gray-600">Request ID: {detailRequest.requestId}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><p className="text-xs text-gray-500 uppercase">Requester</p><p className="font-medium text-gray-900">{detailRequest.requester} ({detailRequest.employeeCode})</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Department</p><p className="font-medium text-gray-900">{detailRequest.department}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Asset Type</p><p className="font-medium text-gray-900 capitalize">{detailRequest.assetType}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Quantity</p><p className="font-medium text-gray-900">{detailRequest.quantity}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Priority</p><p className="font-medium text-gray-900 capitalize">{detailRequest.priority}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Status</p><p className="font-medium text-gray-900 capitalize">{detailRequest.status}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Request Date</p><p className="font-medium text-gray-900">{detailRequest.requestDate}</p></div>
+                {detailRequest.approver && <div><p className="text-xs text-gray-500 uppercase">Approver</p><p className="font-medium text-gray-900">{detailRequest.approver}</p></div>}
+              </div>
+              <div><p className="text-xs text-gray-500 uppercase">Purpose</p><p className="text-sm text-gray-700">{detailRequest.purpose}</p></div>
+              {detailRequest.remarks && <div><p className="text-xs text-gray-500 uppercase">Remarks</p><p className="text-sm text-gray-700">{detailRequest.remarks}</p></div>}
+              <button onClick={() => setDetailRequest(null)} className="w-full bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 font-semibold">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

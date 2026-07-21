@@ -238,9 +238,14 @@ export default function ProfitabilityAnalysisPage() {
     setShowForecastModal(true);
   };
 
-  const handleRevenueUpdate = (data: any) => {
-    console.log('Revenue update:', data);
+  const handleRevenueUpdate = async (data: any) => {
+    if (selectedProject) {
+      await projectManagementService.updateProfitability(String((selectedProject as any).id), data);
+      const rows = await projectManagementService.listProfitability();
+      if (Array.isArray(rows)) setMockProjects(rows as unknown as ProjectProfitability[]);
+    }
     setShowRevenueAnalysisModal(false);
+    setSelectedProject(null);
   };
 
   const handleExport = (format: string) => {
