@@ -27,38 +27,101 @@ export default function RolePoliciesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const emptyForm = {
+    name: '',
+    description: '',
+    type: 'security' as Policy['type'],
+    severity: 'medium' as Policy['severity'],
+    enabled: true,
+    appliedRoles: '',
+  };
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await ItAdminService.getSecurityPolicies();
+      const mapped: Policy[] = (Array.isArray(raw) ? raw : []).map((p) => ({
+        id: String(p.id),
+        name: p.name ?? '',
+        description: p.description ?? '',
+        type: (p.type ?? 'security') as Policy['type'],
+        enabled: p.enabled ?? true,
+        appliedRoles: Array.isArray(p.appliedRoles) ? p.appliedRoles : [],
+        severity: (p.severity ?? 'medium') as Policy['severity'],
+        config: p.config ?? {},
+      }));
+      setPolicies(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load security policies');
+      setPolicies([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await ItAdminService.getSecurityPolicies();
-        const mapped: Policy[] = (Array.isArray(raw) ? raw : []).map((p) => ({
-          id: String(p.id),
-          name: p.name ?? '',
-          description: p.description ?? '',
-          type: (p.type ?? 'security') as Policy['type'],
-          enabled: p.enabled ?? true,
-          appliedRoles: Array.isArray(p.appliedRoles) ? p.appliedRoles : [],
-          severity: (p.severity ?? 'medium') as Policy['severity'],
-          config: p.config ?? {},
-        }));
-        if (!cancelled) setPolicies(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load security policies');
-          setPolicies([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setSaveError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (policy: Policy) => {
+    setEditingId(policy.id);
+    setForm({
+      name: policy.name,
+      description: policy.description,
+      type: policy.type,
+      severity: policy.severity,
+      enabled: policy.enabled,
+      appliedRoles: policy.appliedRoles.join(', '),
+    });
+    setSaveError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      setSaveError('Policy name is required.');
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      type: form.type,
+      severity: form.severity,
+      enabled: form.enabled,
+      appliedRoles: form.appliedRoles
+        .split(',')
+        .map((r) => r.trim())
+        .filter(Boolean),
+    };
+    try {
+      if (editingId) {
+        await ItAdminService.updateSecurityPolicy(editingId, payload);
+      } else {
+        await ItAdminService.createSecurityPolicy(payload);
+      }
+      setIsModalOpen(false);
+      await load();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save policy');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
 
   const policyTypes = [
@@ -118,7 +181,7 @@ export default function RolePoliciesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Role Policies</h1>
           <p className="text-sm text-gray-500 mt-1">Configure security and access policies for roles</p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
+        <button onClick={openCreateModal} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Add Policy
         </button>
@@ -231,7 +294,7 @@ export default function RolePoliciesPage() {
                       </span>
                     </div>
                   </div>
-                  <button className="p-2 hover:bg-gray-100 rounded-lg">
+                  <button onClick={() => openEditModal(policy)} className="p-2 hover:bg-gray-100 rounded-lg">
                     <Edit className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>
@@ -291,6 +354,105 @@ export default function RolePoliciesPage() {
           </div>
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
+              {editingId ? 'Edit Policy' : 'Add Policy'}
+            </h2>
+            {saveError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {saveError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Type</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value as Policy['type'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="security">Security</option>
+                    <option value="access">Access Control</option>
+                    <option value="data">Data Protection</option>
+                    <option value="notification">Notifications</option>
+                    <option value="compliance">Compliance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Severity</label>
+                  <select
+                    value={form.severity}
+                    onChange={(e) => setForm({ ...form, severity: e.target.value as Policy['severity'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">
+                  Applied Roles (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={form.appliedRoles}
+                  onChange={(e) => setForm({ ...form, appliedRoles: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.enabled}
+                  onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+                />
+                Enabled
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Policy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

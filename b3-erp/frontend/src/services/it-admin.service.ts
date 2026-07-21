@@ -710,6 +710,12 @@ class ItAdminServiceClass {
     });
   }
 
+  async deleteScheduledJob(id: string): Promise<void> {
+    return request<void>(`/it-admin/scheduled-jobs/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // --- Automation Rules ---
   async getAutomationRules(params?: {
     companyId?: string;
@@ -721,6 +727,15 @@ class ItAdminServiceClass {
     );
   }
 
+  async createAutomationRule(
+    data: Partial<AutomationRuleDto>,
+  ): Promise<AutomationRuleDto> {
+    return request<AutomationRuleDto>('/it-admin/automation-rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async updateAutomationRule(
     id: string,
     data: Partial<AutomationRuleDto>,
@@ -728,6 +743,12 @@ class ItAdminServiceClass {
     return request<AutomationRuleDto>(`/it-admin/automation-rules/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAutomationRule(id: string): Promise<void> {
+    return request<void>(`/it-admin/automation-rules/${id}`, {
+      method: 'DELETE',
     });
   }
 
@@ -996,6 +1017,15 @@ class ItAdminServiceClass {
     );
   }
 
+  async createSecurityPolicy(
+    data: Partial<SecurityPolicyDto>,
+  ): Promise<SecurityPolicyDto> {
+    return request<SecurityPolicyDto>('/it-admin/security-policies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async updateSecurityPolicy(
     id: string,
     data: Partial<SecurityPolicyDto>,
@@ -1208,6 +1238,29 @@ class ItAdminServiceClass {
     return request<RoleDto>('/it-admin/roles', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async updateRole(id: string, data: Partial<RoleDto>): Promise<RoleDto> {
+    return request<RoleDto>(`/it-admin/roles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteRole(id: string): Promise<void> {
+    return request<void>(`/it-admin/roles/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async assignRolePermissions(
+    id: string,
+    permissionIds: string[],
+  ): Promise<RoleDto> {
+    return request<RoleDto>(`/it-admin/roles/${id}/assign-permissions`, {
+      method: 'PATCH',
+      body: JSON.stringify({ permissionIds }),
     });
   }
 

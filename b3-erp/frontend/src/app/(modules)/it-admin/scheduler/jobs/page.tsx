@@ -54,212 +54,58 @@ const SchedulerJobsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const loadJobs = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await ItAdminService.getScheduledJobs();
+      const mapped: ScheduledJob[] = (Array.isArray(raw) ? raw : []).map((j) => ({
+        id: String(j.id),
+        name: j.name ?? '',
+        description: j.description ?? '',
+        type: j.type ?? 'Custom',
+        schedule: j.schedule ?? '',
+        cronExpression: j.cronExpression ?? '',
+        status: j.status ?? 'Active',
+        lastRun: j.lastRun ?? undefined,
+        lastRunStatus: j.lastRunStatus ?? undefined,
+        nextRun: j.nextRun ?? '',
+        duration: j.duration ?? undefined,
+        successRate: Number(j.successRate ?? 0),
+        totalRuns: Number(j.totalRuns ?? 0),
+        failedRuns: Number(j.failedRuns ?? 0),
+        enabled: j.enabled ?? true,
+        priority: j.priority ?? 'Medium',
+        createdBy: j.createdBy ?? '',
+        createdAt: j.createdAt ?? '',
+      }));
+      setJobs(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load scheduled jobs');
+      setJobs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await ItAdminService.getScheduledJobs();
-        const mapped: ScheduledJob[] = (Array.isArray(raw) ? raw : []).map((j) => ({
-          id: String(j.id),
-          name: j.name ?? '',
-          description: j.description ?? '',
-          type: j.type ?? 'Custom',
-          schedule: j.schedule ?? '',
-          cronExpression: j.cronExpression ?? '',
-          status: j.status ?? 'Active',
-          lastRun: j.lastRun ?? undefined,
-          lastRunStatus: j.lastRunStatus ?? undefined,
-          nextRun: j.nextRun ?? '',
-          duration: j.duration ?? undefined,
-          successRate: Number(j.successRate ?? 0),
-          totalRuns: Number(j.totalRuns ?? 0),
-          failedRuns: Number(j.failedRuns ?? 0),
-          enabled: j.enabled ?? true,
-          priority: j.priority ?? 'Medium',
-          createdBy: j.createdBy ?? '',
-          createdAt: j.createdAt ?? '',
-        }));
-        if (!cancelled) setJobs(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load scheduled jobs');
-          setJobs([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadJobs();
   }, []);
 
-  const _mockJobsUnused: ScheduledJob[] = [
-    {
-      id: '1',
-      name: 'Database Backup',
-      description: 'Full database backup to remote storage',
-      type: 'Backup',
-      schedule: 'Every day at 2:00 AM',
-      cronExpression: '0 2 * * *',
-      status: 'Active',
-      lastRun: '2025-10-21 02:00:00',
-      lastRunStatus: 'Success',
-      nextRun: '2025-10-22 02:00:00',
-      duration: '45 minutes',
-      successRate: 98.5,
-      totalRuns: 365,
-      failedRuns: 5,
-      enabled: true,
-      priority: 'Critical',
-      createdBy: 'Admin',
-      createdAt: '2024-01-01',
-    },
-    {
-      id: '2',
-      name: 'Daily Sales Report',
-      description: 'Generate and email daily sales summary report',
-      type: 'Report',
-      schedule: 'Every day at 8:00 AM',
-      cronExpression: '0 8 * * *',
-      status: 'Active',
-      lastRun: '2025-10-21 08:00:00',
-      lastRunStatus: 'Success',
-      nextRun: '2025-10-22 08:00:00',
-      duration: '12 minutes',
-      successRate: 99.2,
-      totalRuns: 298,
-      failedRuns: 2,
-      enabled: true,
-      priority: 'High',
-      createdBy: 'Rajesh Kumar',
-      createdAt: '2024-02-15',
-    },
-    {
-      id: '3',
-      name: 'Cleanup Temp Files',
-      description: 'Remove temporary files older than 7 days',
-      type: 'Cleanup',
-      schedule: 'Every Sunday at 3:00 AM',
-      cronExpression: '0 3 * * 0',
-      status: 'Active',
-      lastRun: '2025-10-20 03:00:00',
-      lastRunStatus: 'Success',
-      nextRun: '2025-10-27 03:00:00',
-      duration: '8 minutes',
-      successRate: 100,
-      totalRuns: 52,
-      failedRuns: 0,
-      enabled: true,
-      priority: 'Medium',
-      createdBy: 'System',
-      createdAt: '2024-01-01',
-    },
-    {
-      id: '4',
-      name: 'Inventory Sync',
-      description: 'Synchronize inventory with external system',
-      type: 'Data Sync',
-      schedule: 'Every 4 hours',
-      cronExpression: '0 */4 * * *',
-      status: 'Active',
-      lastRun: '2025-10-21 16:00:00',
-      lastRunStatus: 'Failed',
-      nextRun: '2025-10-21 20:00:00',
-      duration: '23 minutes',
-      successRate: 94.5,
-      totalRuns: 1800,
-      failedRuns: 99,
-      enabled: true,
-      priority: 'High',
-      createdBy: 'Sneha Reddy',
-      createdAt: '2024-03-01',
-    },
-    {
-      id: '5',
-      name: 'Email Newsletter',
-      description: 'Send weekly newsletter to subscribers',
-      type: 'Email Campaign',
-      schedule: 'Every Friday at 10:00 AM',
-      cronExpression: '0 10 * * 5',
-      status: 'Paused',
-      lastRun: '2025-10-18 10:00:00',
-      lastRunStatus: 'Success',
-      nextRun: '2025-10-25 10:00:00',
-      duration: '35 minutes',
-      successRate: 97.8,
-      totalRuns: 45,
-      failedRuns: 1,
-      enabled: false,
-      priority: 'Low',
-      createdBy: 'Priya Sharma',
-      createdAt: '2024-06-01',
-    },
-    {
-      id: '6',
-      name: 'Data Archive',
-      description: 'Archive old transaction records to cold storage',
-      type: 'Archive',
-      schedule: 'First day of every month at 1:00 AM',
-      cronExpression: '0 1 1 * *',
-      status: 'Active',
-      lastRun: '2025-10-01 01:00:00',
-      lastRunStatus: 'Success',
-      nextRun: '2025-11-01 01:00:00',
-      duration: '2 hours 15 minutes',
-      successRate: 100,
-      totalRuns: 10,
-      failedRuns: 0,
-      enabled: true,
-      priority: 'Medium',
-      createdBy: 'Admin',
-      createdAt: '2024-01-01',
-    },
-    {
-      id: '7',
-      name: 'System Health Check',
-      description: 'Monitor system resources and send alerts',
-      type: 'Monitoring',
-      schedule: 'Every 15 minutes',
-      cronExpression: '*/15 * * * *',
-      status: 'Active',
-      lastRun: '2025-10-21 18:15:00',
-      lastRunStatus: 'Success',
-      nextRun: '2025-10-21 18:30:00',
-      duration: '2 minutes',
-      successRate: 99.8,
-      totalRuns: 35000,
-      failedRuns: 70,
-      enabled: true,
-      priority: 'Critical',
-      createdBy: 'System',
-      createdAt: '2024-01-01',
-    },
-    {
-      id: '8',
-      name: 'Customer Feedback Digest',
-      description: 'Compile and send customer feedback summary',
-      type: 'Report',
-      schedule: 'Every Monday at 9:00 AM',
-      cronExpression: '0 9 * * 1',
-      status: 'Active',
-      lastRun: '2025-10-21 09:00:00',
-      lastRunStatus: 'Success',
-      nextRun: '2025-10-28 09:00:00',
-      duration: '18 minutes',
-      successRate: 98.0,
-      totalRuns: 42,
-      failedRuns: 1,
-      enabled: true,
-      priority: 'Medium',
-      createdBy: 'Vikram Singh',
-      createdAt: '2024-04-15',
-    },
-  ];
-  void _mockJobsUnused;
+  const emptyForm = {
+    name: '',
+    description: '',
+    type: 'Custom',
+    schedule: '',
+    cronExpression: '',
+    priority: 'Medium',
+    enabled: true,
+  };
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+
 
   const stats: JobStats = {
     totalJobs: jobs.length,
@@ -413,18 +259,72 @@ const SchedulerJobsPage = () => {
     }
   };
 
+  const handleCreateJob = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setIsModalOpen(true);
+  };
+
   const handleEdit = (jobId: string) => {
     const job = jobs.find(j => j.id === jobId);
-    setToast({ message: `Editing "${job?.name}"...`, type: 'info' });
+    if (!job) return;
+    setEditingId(job.id);
+    setForm({
+      name: job.name,
+      description: job.description,
+      type: job.type,
+      schedule: job.schedule,
+      cronExpression: job.cronExpression,
+      priority: job.priority,
+      enabled: job.enabled,
+    });
+    setIsModalOpen(true);
   };
 
-  const handleDelete = (jobId: string) => {
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      setToast({ message: 'Job name is required', type: 'error' });
+      return;
+    }
+    setIsSaving(true);
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      type: form.type,
+      schedule: form.schedule.trim(),
+      cronExpression: form.cronExpression.trim(),
+      priority: form.priority,
+      enabled: form.enabled,
+      status: form.enabled ? 'Active' : 'Paused',
+    };
+    try {
+      if (editingId) {
+        await ItAdminService.updateScheduledJob(editingId, payload);
+        setToast({ message: 'Job updated', type: 'success' });
+      } else {
+        await ItAdminService.createScheduledJob(payload);
+        setToast({ message: 'Job created', type: 'success' });
+      }
+      setIsModalOpen(false);
+      await loadJobs();
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Failed to save job', type: 'error' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (jobId: string) => {
     const job = jobs.find(j => j.id === jobId);
-    setToast({ message: `Deleting "${job?.name}"...`, type: 'error' });
-  };
-
-  const handleCreateJob = () => {
-    setToast({ message: 'Opening job creation form...', type: 'info' });
+    if (!job) return;
+    if (!confirm(`Delete scheduled job "${job.name}"?`)) return;
+    try {
+      await ItAdminService.deleteScheduledJob(jobId);
+      setToast({ message: `Job "${job.name}" deleted`, type: 'success' });
+      await loadJobs();
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Failed to delete job', type: 'error' });
+    }
   };
 
   return (
@@ -883,6 +783,106 @@ const SchedulerJobsPage = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Run Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
+              {editingId ? 'Edit Scheduled Job' : 'Create Scheduled Job'}
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-600">Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-600">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-600">Type</label>
+                  <input
+                    type="text"
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-600">Priority</label>
+                  <select
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-600">Schedule</label>
+                  <input
+                    type="text"
+                    placeholder="Every day at 2:00 AM"
+                    value={form.schedule}
+                    onChange={(e) => setForm({ ...form, schedule: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-600">Cron Expression</label>
+                  <input
+                    type="text"
+                    placeholder="0 2 * * *"
+                    value={form.cronExpression}
+                    onChange={(e) => setForm({ ...form, cronExpression: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.enabled}
+                  onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+                />
+                Enabled
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Job'}
               </button>
             </div>
           </div>

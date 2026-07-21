@@ -30,40 +30,105 @@ export default function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadTemplates = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await ItAdminService.getTemplates();
+      setTemplates(
+        (Array.isArray(data) ? data : []).map((t: any) => ({
+          id: String(t.id),
+          name: t.name ?? '',
+          description: t.description ?? '',
+          type: (t.type as Template['type']) ?? 'document',
+          category: t.category ?? '',
+          content: t.content ?? '',
+          variables: Array.isArray(t.variables) ? t.variables : [],
+          format: (t.format as Template['format']) ?? 'html',
+          lastModified: t.lastModified ?? '',
+          usageCount: t.usageCount ?? 0,
+          isDefault: !!t.isDefault,
+          active: t.active !== false,
+        })),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load templates');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await ItAdminService.getTemplates();
-        if (!mounted) return;
-        setTemplates(
-          (Array.isArray(data) ? data : []).map((t: any) => ({
-            id: String(t.id),
-            name: t.name ?? '',
-            description: t.description ?? '',
-            type: (t.type as Template['type']) ?? 'document',
-            category: t.category ?? '',
-            content: t.content ?? '',
-            variables: Array.isArray(t.variables) ? t.variables : [],
-            format: (t.format as Template['format']) ?? 'html',
-            lastModified: t.lastModified ?? '',
-            usageCount: t.usageCount ?? 0,
-            isDefault: !!t.isDefault,
-            active: t.active !== false,
-          })),
-        );
-      } catch (err) {
-        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load templates');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    loadTemplates();
   }, []);
+
+  const emptyForm = {
+    name: '',
+    description: '',
+    type: 'document' as Template['type'],
+    category: '',
+    format: 'html' as Template['format'],
+    content: '',
+    active: true,
+  };
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setSaveError(null);
+    setShowEditModal(true);
+  };
+
+  const openEditModal = (template: Template) => {
+    setEditingId(template.id);
+    setForm({
+      name: template.name,
+      description: template.description,
+      type: template.type,
+      category: template.category,
+      format: template.format,
+      content: template.content,
+      active: template.active,
+    });
+    setSaveError(null);
+    setShowEditModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      setSaveError('Template name is required.');
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      type: form.type,
+      category: form.category.trim(),
+      format: form.format,
+      content: form.content,
+      active: form.active,
+    };
+    try {
+      if (editingId) {
+        await ItAdminService.updateTemplate(editingId, payload);
+      } else {
+        await ItAdminService.createTemplate(payload);
+      }
+      setShowEditModal(false);
+      await loadTemplates();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save template');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const templateTypes = [
     { id: 'all', name: 'All Templates', icon: FileText, count: templates.length },
@@ -99,29 +164,36 @@ export default function TemplatesPage() {
     ? templates
     : templates.filter(t => t.type === selectedType);
 
-  const handleDuplicate = (templateId: string) => {
+  const handleDuplicate = async (templateId: string) => {
     const template = templates.find(t => t.id === templateId);
-    if (template) {
-      const newTemplate = {
-        ...template,
-        id: `${Date.now()}`,
+    if (!template) return;
+    try {
+      await ItAdminService.createTemplate({
         name: `${template.name} (Copy)`,
+        description: template.description,
+        type: template.type,
+        category: template.category,
+        format: template.format,
+        content: template.content,
+        variables: template.variables,
         isDefault: false,
-        usageCount: 0
-      };
-      setTemplates(prev => [...prev, newTemplate]);
+        active: template.active,
+      });
+      await loadTemplates();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to duplicate template');
     }
   };
 
-  const handleDelete = (templateId: string) => {
-    setTemplates(prev => prev.filter(t => t.id !== templateId));
-    void (async () => {
-      try {
-        await ItAdminService.deleteTemplate(templateId);
-      } catch {
-        // best-effort persistence; keep optimistic UI state
-      }
-    })();
+  const handleDelete = async (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (!confirm(`Delete template "${template?.name ?? ''}"?`)) return;
+    try {
+      await ItAdminService.deleteTemplate(templateId);
+      await loadTemplates();
+    } catch {
+      await loadTemplates();
+    }
   };
 
   const handleToggleActive = (templateId: string) => {
@@ -168,6 +240,7 @@ export default function TemplatesPage() {
           <p className="text-sm text-gray-500 mt-1">Manage templates for emails, documents, reports, and labels</p>
         </div>
         <button
+          onClick={openCreateModal}
           className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -357,8 +430,9 @@ export default function TemplatesPage() {
                       <Copy className="w-5 h-5" />
                     </button>
                     <button
+                      onClick={() => openEditModal(template)}
                       className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
-                     
+                      title="Edit template"
                     >
                       <Edit className="w-5 h-5" />
                     </button>
@@ -440,6 +514,114 @@ export default function TemplatesPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
+              {editingId ? 'Edit Template' : 'Create Template'}
+            </h2>
+            {saveError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {saveError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Name</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Category</label>
+                  <input
+                    type="text"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Description</label>
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Type</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value as Template['type'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="email">Email</option>
+                    <option value="document">Document</option>
+                    <option value="report">Report</option>
+                    <option value="invoice">Invoice</option>
+                    <option value="label">Label</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Format</label>
+                  <select
+                    value={form.format}
+                    onChange={(e) => setForm({ ...form, format: e.target.value as Template['format'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="html">HTML</option>
+                    <option value="pdf">PDF</option>
+                    <option value="docx">DOCX</option>
+                    <option value="plain">Plain</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Content</label>
+                <textarea
+                  value={form.content}
+                  onChange={(e) => setForm({ ...form, content: e.target.value })}
+                  rows={6}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                />
+                Active
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Template'}
+              </button>
             </div>
           </div>
         </div>

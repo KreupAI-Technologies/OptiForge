@@ -56,42 +56,111 @@ const SchedulerAutomationPage = () => {
 
   const [rules, setRules] = useState<AutomationRule[]>([]);
 
+  const emptyForm = {
+    name: '',
+    description: '',
+    category: 'workflow',
+    priority: 'Medium',
+    enabled: true,
+  };
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadRules = async () => {
+    try {
+      const data = await ItAdminService.getAutomationRules();
+      const mapped: AutomationRule[] = (data ?? []).map((dto) => ({
+        id: dto.id,
+        name: dto.name,
+        description: dto.description ?? '',
+        category: dto.category,
+        trigger: dto.trigger ?? '',
+        triggerType: dto.triggerType ?? '',
+        conditions: dto.conditions ?? [],
+        actions: dto.actions ?? [],
+        status: dto.status,
+        enabled: dto.enabled,
+        priority: dto.priority,
+        lastTriggered: dto.lastTriggered,
+        executionCount: dto.executionCount ?? 0,
+        successCount: dto.successCount ?? 0,
+        failureCount: dto.failureCount ?? 0,
+        successRate: dto.successRate ?? 0,
+        createdBy: dto.createdBy ?? '',
+        createdAt: dto.createdAt,
+        updatedAt: dto.updatedAt,
+      }));
+      setRules(mapped);
+    } catch {
+      setRules([]);
+    }
+  };
+
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const data = await ItAdminService.getAutomationRules();
-        if (!active) return;
-        const mapped: AutomationRule[] = (data ?? []).map((dto) => ({
-          id: dto.id,
-          name: dto.name,
-          description: dto.description ?? '',
-          category: dto.category,
-          trigger: dto.trigger ?? '',
-          triggerType: dto.triggerType ?? '',
-          conditions: dto.conditions ?? [],
-          actions: dto.actions ?? [],
-          status: dto.status,
-          enabled: dto.enabled,
-          priority: dto.priority,
-          lastTriggered: dto.lastTriggered,
-          executionCount: dto.executionCount ?? 0,
-          successCount: dto.successCount ?? 0,
-          failureCount: dto.failureCount ?? 0,
-          successRate: dto.successRate ?? 0,
-          createdBy: dto.createdBy ?? '',
-          createdAt: dto.createdAt,
-          updatedAt: dto.updatedAt,
-        }));
-        setRules(mapped);
-      } catch {
-        if (active) setRules([]);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+    loadRules();
   }, []);
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (rule: AutomationRule) => {
+    setEditingId(rule.id);
+    setForm({
+      name: rule.name,
+      description: rule.description,
+      category: rule.category,
+      priority: rule.priority,
+      enabled: rule.enabled,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      showToast('Rule name is required', 'error');
+      return;
+    }
+    setIsSaving(true);
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      priority: form.priority,
+      enabled: form.enabled,
+      status: form.enabled ? 'Active' : 'Paused',
+    };
+    try {
+      if (editingId) {
+        await ItAdminService.updateAutomationRule(editingId, payload);
+        showToast('Rule updated', 'success');
+      } else {
+        await ItAdminService.createAutomationRule(payload);
+        showToast('Rule created', 'success');
+      }
+      setIsModalOpen(false);
+      await loadRules();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save rule', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (rule: AutomationRule) => {
+    if (!confirm(`Delete automation rule "${rule.name}"?`)) return;
+    try {
+      await ItAdminService.deleteAutomationRule(rule.id);
+      showToast('Rule deleted', 'success');
+      await loadRules();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete rule', 'error');
+    }
+  };
 
   const stats: AutomationStats = {
     totalRules: rules.length,
@@ -203,6 +272,7 @@ const SchedulerAutomationPage = () => {
               Export
             </button>
             <button
+              onClick={openCreateModal}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-rose-300 text-rose-700 rounded-lg hover:bg-rose-50 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -407,10 +477,10 @@ const SchedulerAutomationPage = () => {
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                <button className="text-blue-600 hover:text-blue-700 p-1">
+                <button onClick={() => openEditModal(rule)} className="text-blue-600 hover:text-blue-700 p-1">
                   <Edit className="w-4 h-4" />
                 </button>
-                <button className="text-red-600 hover:text-red-700 p-1">
+                <button onClick={() => handleDelete(rule)} className="text-red-600 hover:text-red-700 p-1">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -553,6 +623,84 @@ const SchedulerAutomationPage = () => {
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
+              {editingId ? 'Edit Automation Rule' : 'Create Automation Rule'}
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-600">Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-600">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-600">Category</label>
+                  <input
+                    type="text"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-600">Priority</label>
+                  <select
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-pink-500"
+                  >
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.enabled}
+                  onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+                />
+                Enabled
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Rule'}
               </button>
             </div>
           </div>

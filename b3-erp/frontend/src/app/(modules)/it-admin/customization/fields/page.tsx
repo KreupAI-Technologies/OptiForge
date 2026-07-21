@@ -30,40 +30,103 @@ export default function CustomFieldsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadFields = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await ItAdminService.getCustomFields();
+      setCustomFields(
+        (Array.isArray(data) ? data : []).map((f: any) => ({
+          id: String(f.id),
+          name: f.name ?? '',
+          label: f.label ?? '',
+          module: f.module ?? '',
+          fieldType: (f.fieldType as CustomField['fieldType']) ?? 'text',
+          required: !!f.required,
+          defaultValue: f.defaultValue,
+          options: Array.isArray(f.options) ? f.options : undefined,
+          validation: f.validation,
+          helpText: f.helpText,
+          createdAt: f.createdAt ?? '',
+          active: f.active !== false,
+        })),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load custom fields');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await ItAdminService.getCustomFields();
-        if (!mounted) return;
-        setCustomFields(
-          (Array.isArray(data) ? data : []).map((f: any) => ({
-            id: String(f.id),
-            name: f.name ?? '',
-            label: f.label ?? '',
-            module: f.module ?? '',
-            fieldType: (f.fieldType as CustomField['fieldType']) ?? 'text',
-            required: !!f.required,
-            defaultValue: f.defaultValue,
-            options: Array.isArray(f.options) ? f.options : undefined,
-            validation: f.validation,
-            helpText: f.helpText,
-            createdAt: f.createdAt ?? '',
-            active: f.active !== false,
-          })),
-        );
-      } catch (err) {
-        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load custom fields');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    loadFields();
   }, []);
+
+  const emptyForm = {
+    name: '',
+    label: '',
+    module: 'Customers',
+    fieldType: 'text' as CustomField['fieldType'],
+    required: false,
+    helpText: '',
+    active: true,
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const openCreateModal = () => {
+    setEditingField(null);
+    setForm(emptyForm);
+    setSaveError(null);
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (field: CustomField) => {
+    setEditingField(field);
+    setForm({
+      name: field.name,
+      label: field.label,
+      module: field.module,
+      fieldType: field.fieldType,
+      required: field.required,
+      helpText: field.helpText ?? '',
+      active: field.active,
+    });
+    setSaveError(null);
+    setShowAddModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim() || !form.label.trim()) {
+      setSaveError('Field name and label are required.');
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    const payload = {
+      name: form.name.trim(),
+      label: form.label.trim(),
+      module: form.module,
+      fieldType: form.fieldType,
+      required: form.required,
+      helpText: form.helpText.trim() || undefined,
+      active: form.active,
+    };
+    try {
+      if (editingField) {
+        await ItAdminService.updateCustomField(editingField.id, payload);
+      } else {
+        await ItAdminService.createCustomField(payload);
+      }
+      setShowAddModal(false);
+      await loadFields();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save field');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const modules = [
     'all',
@@ -119,15 +182,15 @@ export default function CustomFieldsPage() {
     ? customFields
     : customFields.filter(f => f.module === selectedModule);
 
-  const handleDelete = (fieldId: string) => {
-    setCustomFields(prev => prev.filter(f => f.id !== fieldId));
-    void (async () => {
-      try {
-        await ItAdminService.deleteCustomField(fieldId);
-      } catch {
-        // best-effort persistence; keep optimistic UI state
-      }
-    })();
+  const handleDelete = async (fieldId: string) => {
+    const field = customFields.find(f => f.id === fieldId);
+    if (!confirm(`Delete custom field "${field?.label ?? field?.name ?? ''}"?`)) return;
+    try {
+      await ItAdminService.deleteCustomField(fieldId);
+      await loadFields();
+    } catch {
+      await loadFields();
+    }
   };
 
   const handleToggleActive = (fieldId: string) => {
@@ -174,7 +237,7 @@ export default function CustomFieldsPage() {
           <p className="text-sm text-gray-500 mt-1">Add custom fields to extend module functionality</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={openCreateModal}
           className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -384,9 +447,9 @@ export default function CustomFieldsPage() {
                         <ToggleLeft className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => setEditingField(field)}
+                        onClick={() => openEditModal(field)}
                         className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
-                       
+                        title="Edit field"
                       >
                         <Edit className="w-5 h-5" />
                       </button>
@@ -425,6 +488,112 @@ export default function CustomFieldsPage() {
           </div>
         </div>
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
+              {editingField ? 'Edit Custom Field' : 'Add Custom Field'}
+            </h2>
+            {saveError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {saveError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Name (key)</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Label</label>
+                  <input
+                    type="text"
+                    value={form.label}
+                    onChange={(e) => setForm({ ...form, label: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Module</label>
+                  <select
+                    value={form.module}
+                    onChange={(e) => setForm({ ...form, module: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    {modules.filter((m) => m !== 'all').map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Field Type</label>
+                  <select
+                    value={form.fieldType}
+                    onChange={(e) => setForm({ ...form, fieldType: e.target.value as CustomField['fieldType'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    {fieldTypes.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Help Text</label>
+                <input
+                  type="text"
+                  value={form.helpText}
+                  onChange={(e) => setForm({ ...form, helpText: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.required}
+                    onChange={(e) => setForm({ ...form, required: e.target.checked })}
+                  />
+                  Required
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.active}
+                    onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                  />
+                  Active
+                </label>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowAddModal(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving...' : editingField ? 'Save Changes' : 'Add Field'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

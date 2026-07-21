@@ -151,31 +151,10 @@ export default function DatabaseImportPage() {
     }
   };
 
-  const handlePauseImport = (jobId: string) => {
-    setImportJobs(prev =>
-      prev.map(job =>
-        job.id === jobId ? { ...job, status: 'paused' as const } : job
-      )
-    );
-  };
-
-  const handleResumeImport = (jobId: string) => {
-    setImportJobs(prev =>
-      prev.map(job =>
-        job.id === jobId ? { ...job, status: 'importing' as const } : job
-      )
-    );
-  };
-
-  const handleRetryImport = (jobId: string) => {
-    setImportJobs(prev =>
-      prev.map(job =>
-        job.id === jobId
-          ? { ...job, status: 'pending' as const, progress: 0, importedRecords: 0, failedRecords: 0 }
-          : job
-      )
-    );
-  };
+  // NOTE: Pause/Resume/Retry require an import-execution engine with dedicated
+  // backend routes (e.g. POST /it-admin/backup-records/:id/pause). No such route
+  // exists — the backup-records controller only exposes CRUD + /restore. These
+  // controls are disabled until that backend capability is built (see report).
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -507,27 +486,27 @@ export default function DatabaseImportPage() {
                   <div className="flex gap-2 ml-4">
                     {job.status === 'importing' && (
                       <button
-                        onClick={() => handlePauseImport(job.id)}
-                        className="p-2 hover:bg-yellow-50 rounded-lg text-yellow-600"
-
+                        disabled
+                        title="Pause requires an import-execution backend (not yet available)"
+                        className="p-2 rounded-lg text-yellow-600 opacity-40 cursor-not-allowed"
                       >
                         <Pause className="w-5 h-5" />
                       </button>
                     )}
                     {job.status === 'paused' && (
                       <button
-                        onClick={() => handleResumeImport(job.id)}
-                        className="p-2 hover:bg-green-50 rounded-lg text-green-600"
-
+                        disabled
+                        title="Resume requires an import-execution backend (not yet available)"
+                        className="p-2 rounded-lg text-green-600 opacity-40 cursor-not-allowed"
                       >
                         <Play className="w-5 h-5" />
                       </button>
                     )}
                     {job.status === 'failed' && (
                       <button
-                        onClick={() => handleRetryImport(job.id)}
-                        className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
-
+                        disabled
+                        title="Retry requires an import-execution backend (not yet available)"
+                        className="p-2 rounded-lg text-blue-600 opacity-40 cursor-not-allowed"
                       >
                         <RotateCcw className="w-5 h-5" />
                       </button>

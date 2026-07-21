@@ -35,7 +35,20 @@ export default function WorkflowsPage() {
 
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
 
-  useEffect(() => {
+  const emptyForm = {
+    name: '',
+    description: '',
+    module: 'all',
+    trigger: 'onCreate' as Workflow['trigger'],
+    priority: 'low' as Workflow['priority'],
+    active: true,
+  };
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const loadWorkflows = async () => {
     const allowedTriggers: Workflow['trigger'][] = ['onCreate', 'onUpdate', 'onDelete', 'onStatusChange', 'scheduled'];
     const allowedActionTypes: WorkflowAction['type'][] = ['email', 'notification', 'update_field', 'create_record', 'approval', 'webhook'];
     const allowedPriorities: Workflow['priority'][] = ['low', 'medium', 'high'];
@@ -71,20 +84,16 @@ export default function WorkflowsPage() {
       };
     };
 
-    let cancelled = false;
-    (async () => {
-      try {
-        const rules = await ItAdminService.getAutomationRules({ category: 'workflow' });
-        if (!cancelled) {
-          setWorkflows(Array.isArray(rules) ? rules.map(mapRule) : []);
-        }
-      } catch {
-        if (!cancelled) setWorkflows([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const rules = await ItAdminService.getAutomationRules({ category: 'workflow' });
+      setWorkflows(Array.isArray(rules) ? rules.map(mapRule) : []);
+    } catch {
+      setWorkflows([]);
+    }
+  };
+
+  useEffect(() => {
+    loadWorkflows();
   }, []);
 
   const modules = [
@@ -167,8 +176,68 @@ export default function WorkflowsPage() {
     })();
   };
 
-  const handleDelete = (workflowId: string) => {
-    setWorkflows(prev => prev.filter(w => w.id !== workflowId));
+  const handleDelete = async (workflowId: string) => {
+    const wf = workflows.find(w => w.id === workflowId);
+    if (!confirm(`Delete workflow "${wf?.name ?? ''}"?`)) return;
+    try {
+      await ItAdminService.deleteAutomationRule(workflowId);
+      await loadWorkflows();
+    } catch {
+      // reload to resync on failure
+      await loadWorkflows();
+    }
+  };
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setSaveError(null);
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (workflow: Workflow) => {
+    setEditingId(workflow.id);
+    setForm({
+      name: workflow.name,
+      description: workflow.description,
+      module: workflow.module,
+      trigger: workflow.trigger,
+      priority: workflow.priority,
+      active: workflow.active,
+    });
+    setSaveError(null);
+    setShowAddModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      setSaveError('Workflow name is required.');
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      category: 'workflow',
+      triggerType: form.trigger,
+      priority: form.priority,
+      enabled: form.active,
+      status: form.active ? 'Active' : 'Paused',
+    };
+    try {
+      if (editingId) {
+        await ItAdminService.updateAutomationRule(editingId, payload);
+      } else {
+        await ItAdminService.createAutomationRule(payload);
+      }
+      setShowAddModal(false);
+      await loadWorkflows();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save workflow');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const stats = {
@@ -189,7 +258,7 @@ export default function WorkflowsPage() {
           <p className="text-sm text-gray-500 mt-1">Automate business processes with custom workflows</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={openCreateModal}
           className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -404,8 +473,9 @@ export default function WorkflowsPage() {
                       {workflow.active ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                     </button>
                     <button
+                      onClick={() => openEditModal(workflow)}
                       className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
-                     
+                      title="Edit workflow"
                     >
                       <Edit className="w-5 h-5" />
                     </button>
@@ -443,6 +513,91 @@ export default function WorkflowsPage() {
           </div>
         </div>
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
+              {editingId ? 'Edit Workflow' : 'New Workflow'}
+            </h2>
+            {saveError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {saveError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Trigger</label>
+                  <select
+                    value={form.trigger}
+                    onChange={(e) => setForm({ ...form, trigger: e.target.value as Workflow['trigger'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    {triggers.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Priority</label>
+                  <select
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value as Workflow['priority'] })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                />
+                Active
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowAddModal(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSaving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Workflow'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

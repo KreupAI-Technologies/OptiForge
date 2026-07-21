@@ -64,74 +64,67 @@ const SystemHealthPage = () => {
     exportToCsv('system-health', filteredServices as unknown as Record<string, unknown>[]);
   };
 
-  const handleRefresh = () => {
-    showToast('Refreshing health metrics...', 'info');
-  };
-
   const handleViewDetails = (itemId: string) => {
     showToast(`Viewing details for: ${itemId}`, 'info');
   };
 
   const [services, setServices] = useState<SystemHealthMetric[]>([]);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const data = await ItAdminService.getMonitoring({ kind: 'health' });
-        if (!active) return;
-        const mapped: SystemHealthMetric[] = (data ?? []).map((dto) => ({
-          id: dto.id,
-          category: dto.category ?? 'General',
-          service: dto.name,
-          status: dto.status,
-          uptime: (dto.metadata?.uptime as string) ?? (dto.unit === '%' && dto.value !== undefined && dto.value !== null ? `${dto.value}%` : 'N/A'),
-          responseTime: (dto.metadata?.responseTime as number) ?? dto.value ?? 0,
-          lastCheck: dto.lastOccurred ?? dto.updatedAt ?? '',
-          endpoint: (dto.metadata?.endpoint as string) ?? dto.source,
-          errorCount: (dto.metadata?.errorCount as number) ?? 0,
-          warningCount: (dto.metadata?.warningCount as number) ?? 0,
-        }));
-        setServices(mapped);
-      } catch {
-        if (active) setServices([]);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const [servers, setServers] = useState<ServerHealth[]>([]);
 
+  const loadServices = async () => {
+    try {
+      const data = await ItAdminService.getMonitoring({ kind: 'health' });
+      const mapped: SystemHealthMetric[] = (data ?? []).map((dto) => ({
+        id: dto.id,
+        category: dto.category ?? 'General',
+        service: dto.name,
+        status: dto.status,
+        uptime: (dto.metadata?.uptime as string) ?? (dto.unit === '%' && dto.value !== undefined && dto.value !== null ? `${dto.value}%` : 'N/A'),
+        responseTime: (dto.metadata?.responseTime as number) ?? dto.value ?? 0,
+        lastCheck: dto.lastOccurred ?? dto.updatedAt ?? '',
+        endpoint: (dto.metadata?.endpoint as string) ?? dto.source,
+        errorCount: (dto.metadata?.errorCount as number) ?? 0,
+        warningCount: (dto.metadata?.warningCount as number) ?? 0,
+      }));
+      setServices(mapped);
+    } catch {
+      setServices([]);
+    }
+  };
+
+  const loadServers = async () => {
+    try {
+      const rows: MonitoredServerDto[] = await ItAdminService.getMonitoredServers();
+      setServers(
+        (Array.isArray(rows) ? rows : []).map((s) => ({
+          id: s.id,
+          serverName: s.name,
+          type: s.role,
+          status: s.status,
+          cpu: s.cpuPct ?? 0,
+          memory: s.memPct ?? 0,
+          disk: s.diskPct ?? 0,
+          network: s.networkPct ?? 0,
+          uptime: s.uptime ?? '',
+          lastRestart: s.lastRestartAt ?? '',
+          location: s.location ?? '',
+        })),
+      );
+    } catch {
+      setServers([]);
+    }
+  };
+
   useEffect(() => {
-    let active = true;
-    ItAdminService.getMonitoredServers()
-      .then((rows: MonitoredServerDto[]) => {
-        if (!active) return;
-        setServers(
-          (Array.isArray(rows) ? rows : []).map((s) => ({
-            id: s.id,
-            serverName: s.name,
-            type: s.role,
-            status: s.status,
-            cpu: s.cpuPct ?? 0,
-            memory: s.memPct ?? 0,
-            disk: s.diskPct ?? 0,
-            network: s.networkPct ?? 0,
-            uptime: s.uptime ?? '',
-            lastRestart: s.lastRestartAt ?? '',
-            location: s.location ?? '',
-          })),
-        );
-      })
-      .catch(() => {
-        if (active) setServers([]);
-      });
-    return () => {
-      active = false;
-    };
+    loadServices();
+    loadServers();
   }, []);
+
+  const handleRefresh = async () => {
+    showToast('Refreshing health metrics...', 'info');
+    await Promise.all([loadServices(), loadServers()]);
+    showToast('Health metrics refreshed', 'success');
+  };
 
   const stats: HealthStats = {
     overallHealth: 92,
