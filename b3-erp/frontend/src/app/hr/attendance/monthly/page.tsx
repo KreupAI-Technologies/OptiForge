@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Calendar, Users, CheckCircle, XCircle, Clock, Search, Filter, Download, TrendingUp, TrendingDown } from 'lucide-react';
 import DataTable, { Column } from '@/components/DataTable';
 import { HrAttendanceService } from '@/services/hr-payroll.service';
+import { exportToCsv } from '@/lib/export';
 
 interface MonthlyAttendance {
   id: string;
@@ -92,6 +93,30 @@ export default function MonthlyAttendancePage() {
     const poorAttendance = rows.filter(a => a.attendancePercentage < 90).length;
     return { totalEmployees, avgAttendance, avgPunctuality, perfectAttendance, poorAttendance };
   }, [rows]);
+
+  const handleExport = () => {
+    if (!filteredData.length) { alert('Nothing to export'); return; }
+    exportToCsv('monthly-attendance', filteredData.map(r => ({
+      employeeCode: r.employeeCode,
+      name: r.name,
+      department: r.department,
+      designation: r.designation,
+      totalDays: r.totalDays,
+      workingDays: r.workingDays,
+      presentDays: r.presentDays,
+      absentDays: r.absentDays,
+      lateMarks: r.lateMarks,
+      halfDays: r.halfDays,
+      paidLeaves: r.paidLeaves,
+      unpaidLeaves: r.unpaidLeaves,
+      weekOffs: r.weekOffs,
+      holidays: r.holidays,
+      workHours: r.workHours,
+      expectedHours: r.expectedHours,
+      attendancePercentage: r.attendancePercentage,
+      punctualityScore: r.punctualityScore,
+    })));
+  };
 
   const getAttendanceBadge = (percentage: number) => {
     if (percentage >= 95) return 'text-green-600 bg-green-50';
@@ -272,7 +297,7 @@ export default function MonthlyAttendancePage() {
             </div>
           </div>
           <div className="flex items-center gap-2 pt-7">
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
               <Download className="h-4 w-4" />
               Export Report
             </button>

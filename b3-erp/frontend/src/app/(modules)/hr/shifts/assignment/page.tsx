@@ -71,6 +71,17 @@ export default function ShiftAssignmentPage() {
         }
     };
 
+    const handleDelete = async (assignment: ShiftAssignment) => {
+        if (!assignment.id) return;
+        if (!window.confirm(`Delete shift assignment for ${assignment.employeeName || assignment.employeeId}?`)) return;
+        try {
+            await HrShiftsService.deleteShiftAssignment(assignment.id);
+            setAssignments((prev) => prev.filter((a) => a.id !== assignment.id));
+        } catch (e) {
+            setLoadError(e instanceof Error ? e.message : 'Failed to delete assignment');
+        }
+    };
+
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -295,7 +306,7 @@ export default function ShiftAssignmentPage() {
                                             <button className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded">
                                                 <Edit className="w-4 h-4" />
                                             </button>
-                                            <button className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded">
+                                            <button onClick={() => handleDelete(assignment)} className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded">
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                         </div>

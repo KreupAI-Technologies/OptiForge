@@ -16,6 +16,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { exportToCsv } from '@/lib/export';
 import {
   RadarChart,
   PolarGrid,
@@ -105,6 +106,21 @@ export default function EmployeeReportsPage() {
     };
   }, []);
 
+  const handleExport = () => {
+    if (!selectedEmployee.history.length) { alert('Nothing to export'); return; }
+    exportToCsv(`training-profile-${selectedEmployee.name.replace(/\s+/g, '-').toLowerCase()}`,
+      selectedEmployee.history.map(h => ({
+        employee: selectedEmployee.name,
+        role: selectedEmployee.role,
+        department: selectedEmployee.department,
+        course: h.course,
+        completionDate: h.date,
+        status: h.status,
+        score: h.score,
+        credits: h.credits,
+      })));
+  };
+
   return (
     <div className="p-6 space-y-3">
       {/* Header */}
@@ -127,7 +143,7 @@ export default function EmployeeReportsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
+          <button onClick={handleExport} className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Export Profile
           </button>

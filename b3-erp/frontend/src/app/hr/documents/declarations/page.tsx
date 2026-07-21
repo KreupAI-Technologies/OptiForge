@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { FileSignature, Plus, Eye, Edit, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { DocumentManagementService, ComplianceDocument } from '@/services/document-management.service';
 
 interface Declaration {
   id: string;
@@ -23,6 +24,36 @@ export default function DeclarationsPage() {
   const [mockDeclarations, setMockDeclarations] = useState<Declaration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Declaration | null>(null);
+  const [editForm, setEditForm] = useState<{ declarationType: string; financialYear: string; amount: number }>({ declarationType: '', financialYear: '', amount: 0 });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const openEdit = (dec: Declaration) => {
+    setEditing(dec);
+    setEditForm({
+      declarationType: dec.declarationType,
+      financialYear: dec.financialYear,
+      amount: dec.amount ?? 0,
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        documentName: editForm.declarationType,
+        financialYear: editForm.financialYear,
+      } as Partial<ComplianceDocument>;
+      await DocumentManagementService.updateComplianceDocument(editing.id, payload);
+      setMockDeclarations(prev => prev.map(d => d.id === editing.id ? { ...d, ...editForm } : d));
+      setEditing(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update declaration');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -253,7 +284,10 @@ export default function DeclarationsPage() {
                 View Details
               </button>
               {dec.status === 'draft' && (
-                <button className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm">
+                <button
+                  onClick={() => openEdit(dec)}
+                  className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm"
+                >
                   <Edit className="h-4 w-4" />
                   Edit & Submit
                 </button>
@@ -292,6 +326,59 @@ export default function DeclarationsPage() {
           <li>• Failure to submit proofs will result in TDS recovery in salary</li>
         </ul>
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-xl">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">Edit Declaration</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Declaration Type</label>
+                <input
+                  type="text"
+                  value={editForm.declarationType}
+                  onChange={(e) => setEditForm(f => ({ ...f, declarationType: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Financial Year</label>
+                <input
+                  type="text"
+                  value={editForm.financialYear}
+                  onChange={(e) => setEditForm(f => ({ ...f, financialYear: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Declared Amount</label>
+                <input
+                  type="number"
+                  value={editForm.amount}
+                  onChange={(e) => setEditForm(f => ({ ...f, amount: Number(e.target.value) }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setEditing(null)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={isSaving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

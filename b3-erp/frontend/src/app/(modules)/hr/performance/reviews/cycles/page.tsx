@@ -41,6 +41,48 @@ export default function ReviewCyclesPage() {
     const [createError, setCreateError] = useState<string | null>(null);
     const [createForm, setCreateForm] = useState({ cycleName: '', cycleType: 'quarterly', startDate: '', endDate: '', description: '' });
 
+    const [editCycle, setEditCycle] = useState<ReviewCycle | null>(null);
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState({ cycleName: '', startDate: '', endDate: '', description: '' });
+
+    const openEditCycle = (cycle: ReviewCycle) => {
+        setEditCycle(cycle);
+        setEditError(null);
+        setEditForm({
+            cycleName: cycle.name,
+            startDate: cycle.startDate,
+            endDate: cycle.endDate,
+            description: cycle.description,
+        });
+    };
+
+    const handleUpdateCycle = async () => {
+        if (!editCycle) return;
+        setEditSaving(true);
+        setEditError(null);
+        try {
+            await PerformanceManagementService.updateReviewCycle(editCycle.id, {
+                cycleName: editForm.cycleName,
+                startDate: editForm.startDate,
+                endDate: editForm.endDate,
+                description: editForm.description,
+            });
+            setCycles((prev) => prev.map((c) => (c.id === editCycle.id ? {
+                ...c,
+                name: editForm.cycleName,
+                startDate: editForm.startDate,
+                endDate: editForm.endDate,
+                description: editForm.description,
+            } : c)));
+            setEditCycle(null);
+        } catch (e) {
+            setEditError(e instanceof Error ? e.message : 'Failed to update review cycle');
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
     const loadCycles = async () => {
         setIsLoading(true);
         setLoadError(null);
@@ -214,7 +256,7 @@ export default function ReviewCyclesPage() {
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm font-medium">
+                                        <button onClick={() => openEditCycle(cycle)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm font-medium">
                                             Settings
                                         </button>
                                         <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium">
@@ -275,6 +317,39 @@ export default function ReviewCyclesPage() {
                         <div className="flex justify-end gap-2 mt-4">
                             <button onClick={() => setShowCreate(false)} className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm">Cancel</button>
                             <button onClick={handleCreateCycle} disabled={saving} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Create Cycle'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {editCycle && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setEditCycle(null)}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-lg font-bold text-white mb-3">Edit Review Cycle</h2>
+                        {editError && (
+                            <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">{editError}</div>
+                        )}
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Cycle Name</label>
+                                <input type="text" value={editForm.cycleName} onChange={(e) => setEditForm({ ...editForm, cycleName: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Start Date</label>
+                                <input type="date" value={editForm.startDate} onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">End Date</label>
+                                <input type="date" value={editForm.endDate} onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                                <textarea rows={3} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button onClick={() => setEditCycle(null)} className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm">Cancel</button>
+                            <button onClick={handleUpdateCycle} disabled={editSaving} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm disabled:opacity-50">{editSaving ? 'Saving…' : 'Save Changes'}</button>
                         </div>
                     </div>
                 </div>

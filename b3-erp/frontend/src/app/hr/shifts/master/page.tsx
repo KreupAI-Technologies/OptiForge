@@ -52,6 +52,7 @@ interface Shift {
 
 export default function ShiftMasterPage() {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [editShift, setEditShift] = useState<Shift | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,6 +98,17 @@ export default function ShiftMasterPage() {
       cancelled = true;
     };
   }, []);
+
+  const handleDeleteShift = async (shift: Shift) => {
+    if (!shift.id) return;
+    if (!window.confirm(`Delete shift "${shift.name}" (${shift.code})?`)) return;
+    try {
+      await HrPagesService.deleteShift(shift.id);
+      setShifts((prev) => prev.filter((s) => s.id !== shift.id));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete shift');
+    }
+  };
 
   const getTypeIcon = (type: string) => {
     const icons = {
@@ -286,13 +298,13 @@ export default function ShiftMasterPage() {
 
             <div className="flex gap-2">
               <button
-                onClick={() => setSelectedShift(shift)}
+                onClick={() => setEditShift(shift)}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
               >
                 <Edit className="h-4 w-4" />
                 Edit
               </button>
-              <button className="px-3 py-2 bg-white text-red-600 rounded-lg hover:bg-red-50 transition-colors">
+              <button onClick={() => handleDeleteShift(shift)} className="px-3 py-2 bg-white text-red-600 rounded-lg hover:bg-red-50 transition-colors" title="Delete shift">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -438,6 +450,74 @@ export default function ShiftMasterPage() {
           }
         }}
       />
+
+      {/* Edit Shift Modal */}
+      {editShift && (
+        <CreateShiftModal
+          isOpen={!!editShift}
+          title="Edit Shift Template"
+          submitLabel="Save Changes"
+          initialData={{
+            name: editShift.name,
+            code: editShift.code,
+            type: editShift.type,
+            startTime: editShift.startTime,
+            endTime: editShift.endTime,
+            breakDuration: String(editShift.breakDuration),
+            workingHours: String(editShift.workingHours),
+            gracePeriod: String(editShift.gracePeriod),
+            overtimeEligible: editShift.overtimeEligible,
+            nightShiftAllowance: editShift.nightShiftAllowance,
+            daysApplicable: editShift.daysApplicable,
+            status: editShift.status,
+          }}
+          onClose={() => setEditShift(null)}
+          onSubmit={async (data) => {
+            const breakMinutes = Number(data.breakDuration ?? 0);
+            const id = editShift.id;
+            try {
+              await HrPagesService.updateShift<any>(id, {
+                name: data.name,
+                code: data.code,
+                type: data.type,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                breakHours: breakMinutes / 60,
+                workingHours: Number(data.workingHours ?? 0),
+                graceMinutes: Number(data.gracePeriod ?? 0),
+                allowOvertime: Boolean(data.overtimeEligible),
+                isNightShift: Boolean(data.nightShiftAllowance),
+                status: data.status ?? 'active',
+                workingDays: (data.daysApplicable as string[]).map((d) => DAY_NAMES.indexOf(d)),
+              });
+              setShifts((prev) =>
+                prev.map((s) =>
+                  s.id === id
+                    ? {
+                        ...s,
+                        name: data.name,
+                        code: data.code,
+                        type: normalizeShiftType(data.type),
+                        startTime: trimTime(data.startTime),
+                        endTime: trimTime(data.endTime),
+                        breakDuration: breakMinutes,
+                        workingHours: Number(data.workingHours ?? 0),
+                        gracePeriod: Number(data.gracePeriod ?? 0),
+                        overtimeEligible: Boolean(data.overtimeEligible),
+                        nightShiftAllowance: Boolean(data.nightShiftAllowance),
+                        status: (data.status ?? 'active') as Shift['status'],
+                        daysApplicable: data.daysApplicable as string[],
+                      }
+                    : s,
+                ),
+              );
+              setEditShift(null);
+            } catch (err) {
+              setLoadError(err instanceof Error ? err.message : 'Failed to update shift');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1028,6 +1028,24 @@ export class PerformanceManagementService {
     return response.json();
   }
 
+  static async updateReviewCycle(id: string, data: Partial<PerformanceReviewCycle>): Promise<PerformanceReviewCycle> {
+    if (USE_MOCK_DATA) {
+      const index = mockReviewCycles.findIndex(c => c.id === id);
+      if (index !== -1) {
+        mockReviewCycles[index] = { ...mockReviewCycles[index], ...data };
+        return mockReviewCycles[index];
+      }
+      throw new Error('Review cycle not found');
+    }
+    const response = await fetch(`/api/hr/performance/review-cycles/${id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
   // ========== Performance Reviews ==========
 
   static async getPerformanceReviews(options?: {

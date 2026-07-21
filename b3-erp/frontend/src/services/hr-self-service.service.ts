@@ -44,6 +44,18 @@ async function putJson<T>(path: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+async function deleteJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 function qs(params: Record<string, string | undefined>): string {
   const parts = Object.entries(params)
     .filter(([, v]) => v != null && v !== '')
@@ -375,6 +387,9 @@ export class HrSelfServiceService {
   }
   static updateOvertimeRate(id: string, payload: Partial<OvertimeRate>) {
     return putJson<OvertimeRate>(`/hr/overtime-settings/rates/${id}`, payload);
+  }
+  static deleteOvertimeRate(id: string) {
+    return deleteJson<{ affected?: number } | OvertimeRate>(`/hr/overtime-settings/rates/${id}`);
   }
   static getOvertimeSettings(companyId?: string) {
     return getJson<OvertimeSettings | null>(`/hr/overtime-settings${qs({ companyId })}`);

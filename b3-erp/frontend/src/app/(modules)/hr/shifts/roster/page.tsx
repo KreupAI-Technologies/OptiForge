@@ -14,6 +14,7 @@ import {
     Clock
 } from 'lucide-react';
 import { HrShiftsService } from '@/services/hr-shifts.service';
+import { exportToCsv } from '@/lib/export';
 
 interface RosterEntry {
     employeeId: string;
@@ -102,6 +103,16 @@ export default function ShiftRosterPage() {
 
     const weekDates = getWeekDates();
 
+    const handleExport = () => {
+        if (!filteredRoster.length) { alert('Nothing to export'); return; }
+        exportToCsv('shift-roster', filteredRoster.map(entry => ({
+            employeeId: entry.employeeId,
+            employeeName: entry.employeeName,
+            department: entry.department,
+            ...weekDays.reduce((acc, day) => ({ ...acc, [day]: entry.shifts[day] ?? '' }), {} as Record<string, string>),
+        })));
+    };
+
     const shiftCounts = {
         day: filteredRoster.reduce((sum, r) => sum + Object.values(r.shifts).filter(s => s === 'DAY').length, 0),
         morning: filteredRoster.reduce((sum, r) => sum + Object.values(r.shifts).filter(s => s === 'MOR').length, 0),
@@ -138,7 +149,7 @@ export default function ShiftRosterPage() {
                         >
                             <ChevronRight className="w-5 h-5" />
                         </button>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg ml-2">
+                        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg ml-2">
                             <Download className="w-4 h-4" />
                             Export
                         </button>

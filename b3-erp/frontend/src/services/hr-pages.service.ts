@@ -187,6 +187,17 @@ export class HrPagesService {
       body: JSON.stringify(payload),
     });
   }
+  static updateShift<T = any>(id: string, payload: Record<string, unknown>): Promise<T> {
+    return request<T>(`/hr/shifts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+  static deleteShift<T = any>(id: string): Promise<T> {
+    return request<T>(`/hr/shifts/${id}`, {
+      method: 'DELETE',
+    });
+  }
 
   // ---- Timesheets --------------------------------------------------------
   static timesheets<T = any[]>(): Promise<T> {

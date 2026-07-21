@@ -27,6 +27,26 @@ export default function Page() {
   const [rows, setRows] = useState<PositionProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<PositionProfile | null>(null);
+  const [editForm, setEditForm] = useState<Partial<PositionProfile>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { id, ...rest } = { ...editRow, ...editForm } as any;
+      await HrTalentService.updateSuccession(editRow.id, { data: rest });
+      setRows(prev => prev.map(r => (r.id === editRow.id ? { ...r, ...editForm } : r)));
+      setEditRow(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -172,7 +192,7 @@ export default function Page() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => router.push('/hr/succession/positions/profiles')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => { setEditRow(profile); setEditForm({ ...profile }); setSaveError(null); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 Edit Profile
               </button>
               <button onClick={() => router.push('/hr/succession/positions/profiles')} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm">
@@ -182,6 +202,63 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {editRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Edit Position Profile</h2>
+              <p className="text-sm text-gray-600">{editRow.title}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-5 py-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" value={editForm.title ?? ''} onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input type="text" value={editForm.department ?? ''} onChange={(e) => setEditForm(f => ({ ...f, department: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                <select value={editForm.level ?? 'mid'} onChange={(e) => setEditForm(f => ({ ...f, level: e.target.value as PositionProfile['level'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="executive">Executive</option>
+                  <option value="senior">Senior</option>
+                  <option value="mid">Mid</option>
+                  <option value="junior">Junior</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reporting To</label>
+                <input type="text" value={editForm.reportingTo ?? ''} onChange={(e) => setEditForm(f => ({ ...f, reportingTo: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Direct Reports</label>
+                <input type="number" value={editForm.directReports ?? 0} onChange={(e) => setEditForm(f => ({ ...f, directReports: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Required Experience (years)</label>
+                <input type="number" value={editForm.requiredExperience ?? 0} onChange={(e) => setEditForm(f => ({ ...f, requiredExperience: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Budget Responsibility</label>
+                <input type="text" value={editForm.budgetResponsibility ?? ''} onChange={(e) => setEditForm(f => ({ ...f, budgetResponsibility: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+            {saveError && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <button onClick={() => setEditRow(null)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm disabled:opacity-50">
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

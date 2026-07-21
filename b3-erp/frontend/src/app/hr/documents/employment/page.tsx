@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Briefcase, Upload, Download, Eye, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { HrComplianceDocsService, HrDocument } from '@/services/hr-compliance-docs.service';
+import { DocumentManagementService } from '@/services/document-management.service';
 
 interface EmploymentDocument {
   id: string;
@@ -67,6 +68,16 @@ export default function EmploymentDocumentsPage() {
   }, []);
 
   const sourceDocuments = items;
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this document?')) return;
+    try {
+      await DocumentManagementService.deleteEmployeeDocument(id);
+      setItems(prev => prev.filter(d => d.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete document');
+    }
+  };
 
   const filteredDocuments = useMemo(() => {
     return sourceDocuments.filter(doc => {
@@ -275,7 +286,10 @@ export default function EmploymentDocumentsPage() {
                   Download
                 </button>
                 {doc.status === 'pending' && (
-                  <button className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium text-sm ml-auto">
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium text-sm ml-auto"
+                  >
                     Delete
                   </button>
                 )}

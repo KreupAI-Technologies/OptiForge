@@ -93,6 +93,18 @@ async function putJson<T>(path: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+async function deleteJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 export class HrShiftsService {
   static async getShiftAssignments(companyId = 'company-1'): Promise<ShiftAssignment[]> {
     const data = await getJson<ShiftAssignment[]>(
@@ -122,6 +134,10 @@ export class HrShiftsService {
       companyId: 'company-1',
       ...payload,
     });
+  }
+
+  static async deleteShiftAssignment(id: string): Promise<{ success: boolean }> {
+    return deleteJson<{ success: boolean }>(`/hr/shift-assignments/${id}`);
   }
 
   static async updateShiftSwap(

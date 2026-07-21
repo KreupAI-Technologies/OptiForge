@@ -14,6 +14,7 @@ import {
     Printer
 } from 'lucide-react';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { exportToCsv } from '@/lib/export';
 
 interface OvertimeReport {
     id: string;
@@ -102,6 +103,31 @@ export default function OvertimeReportsPage() {
         totalCost: employeeReports.reduce((sum, r) => sum + r.totalAmount, 0)
     };
 
+    const handleExport = () => {
+        if (reportType === 'department') {
+            if (!departmentSummaries.length) { alert('Nothing to export'); return; }
+            exportToCsv('overtime-report-by-department', departmentSummaries.map(d => ({
+                department: d.department,
+                totalHours: d.totalHours,
+                totalEmployees: d.totalEmployees,
+                totalCost: d.totalCost,
+                avgHoursPerEmployee: d.avgHoursPerEmployee,
+            })));
+            return;
+        }
+        if (!filteredReports.length) { alert('Nothing to export'); return; }
+        exportToCsv('overtime-report-by-employee', filteredReports.map(r => ({
+            employeeId: r.employeeId,
+            employeeName: r.employeeName,
+            department: r.department,
+            month: r.month,
+            totalHours: r.totalHours,
+            paidHours: r.paidHours,
+            compOffHours: r.compOffHours,
+            totalAmount: r.totalAmount,
+        })));
+    };
+
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
@@ -124,11 +150,11 @@ export default function OvertimeReportsPage() {
                         <p className="text-gray-400 mt-1">Analyze overtime trends and costs</p>
                     </div>
                     <div className="flex gap-2">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                        <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
                             <Printer className="w-4 h-4" />
                             Print
                         </button>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
                             <Download className="w-4 h-4" />
                             Export
                         </button>

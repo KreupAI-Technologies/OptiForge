@@ -63,6 +63,31 @@ export class HrTalentService {
     return getRows<T>('/hr/succession-plans', recordType, companyId);
   }
 
+  // --- Succession fetch-by-id (GET /hr/succession-plans/:id) ---
+  static getSuccessionById(id: string): Promise<HrTalentRecord> {
+    return getJson<HrTalentRecord>(`/hr/succession-plans/${id}`);
+  }
+
+  // --- Succession update (PUT /hr/succession-plans/:id) ---
+  // Generic update over the single succession_plans table. `getSuccession`
+  // returns { id, ...data }, so the row's `id` is the DB row id used here.
+  // Callers pass the new row model in `data` (merged into the jsonb column).
+  static async updateSuccession<T = Record<string, any>>(
+    id: string,
+    payload: { data?: Partial<T>; title?: string; status?: string },
+  ): Promise<HrTalentRecord<T>> {
+    const res = await fetch(`${API_BASE_URL}/hr/succession-plans/${id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      throw new Error(`Request failed (${res.status})`);
+    }
+    return res.json();
+  }
+
   // --- Probation (/hr/probation/*) ---
   static getProbation<T = Record<string, any>>(
     recordType: string,

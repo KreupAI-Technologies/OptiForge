@@ -387,6 +387,33 @@ export class DocumentManagementService {
     return response.json();
   }
 
+  static async updateEmployeeDocument(id: string, data: Partial<EmployeeDocument>): Promise<EmployeeDocument> {
+    if (USE_MOCK_DATA) {
+      const doc = mockEmployeeDocuments.find(d => d.id === id);
+      if (doc) Object.assign(doc, data);
+      return doc!;
+    }
+    const response = await docFetch(`/api/hr/employee-documents/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  static async deleteEmployeeDocument(id: string): Promise<{ success: boolean }> {
+    if (USE_MOCK_DATA) {
+      const idx = mockEmployeeDocuments.findIndex(d => d.id === id);
+      if (idx >= 0) mockEmployeeDocuments.splice(idx, 1);
+      return { success: true };
+    }
+    const response = await docFetch(`/api/hr/employee-documents/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.json();
+  }
+
   static async verifyDocument(id: string, verifiedBy: string, remarks?: string): Promise<EmployeeDocument> {
     if (USE_MOCK_DATA) {
       const doc = mockEmployeeDocuments.find(d => d.id === id);
@@ -470,6 +497,20 @@ export class DocumentManagementService {
     }
     const response = await docFetch('/api/hr/compliance-documents', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  static async updateComplianceDocument(id: string, data: Partial<ComplianceDocument>): Promise<ComplianceDocument> {
+    if (USE_MOCK_DATA) {
+      const doc = mockComplianceDocuments.find(d => d.id === id);
+      if (doc) Object.assign(doc, data);
+      return doc!;
+    }
+    const response = await docFetch(`/api/hr/compliance-documents/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -769,6 +810,22 @@ export class DocumentManagementService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rejectedBy, reason }),
+    });
+    return response.json();
+  }
+
+  static async cancelCertificateRequest(id: string): Promise<CertificateRequest> {
+    if (USE_MOCK_DATA) {
+      const request = mockCertificateRequests.find(r => r.id === id);
+      if (request) {
+        request.status = CertificateRequestStatus.CANCELLED;
+      }
+      return request!;
+    }
+    const response = await docFetch(`/api/hr/certificate-requests/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: CertificateRequestStatus.CANCELLED }),
     });
     return response.json();
   }

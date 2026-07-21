@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { History, Eye, Download, Upload, Edit, Trash2, FileText, AlertCircle } from 'lucide-react';
 import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { exportToCsv } from '@/lib/export';
 
 interface AuditLog {
   id: string;
@@ -96,6 +97,22 @@ export default function AuditTrailPage() {
     views: filteredLogs.filter(l => l.action === 'view').length,
     downloads: filteredLogs.filter(l => l.action === 'download').length,
     modifications: filteredLogs.filter(l => ['edit', 'delete', 'verify', 'reject'].includes(l.action)).length
+  };
+
+  const handleExport = () => {
+    if (!filteredLogs.length) { alert('Nothing to export'); return; }
+    exportToCsv('document-audit-log', filteredLogs.map(log => ({
+      timestamp: log.timestamp,
+      action: log.action,
+      documentType: log.documentType,
+      documentId: log.documentId,
+      employeeId: log.employeeId,
+      employeeName: log.employeeName,
+      performedBy: log.performedBy,
+      performedByRole: log.performedByRole,
+      ipAddress: log.ipAddress,
+      remarks: log.remarks ?? '',
+    })));
   };
 
   const actionIcons = {
@@ -234,7 +251,7 @@ export default function AuditTrailPage() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+            <button onClick={handleExport} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
               Export Audit Log
             </button>
           </div>

@@ -61,6 +61,16 @@ export default function OTSettingsPage() {
     }
   };
 
+  const handleDeleteRate = async (rate: OTRate) => {
+    if (!window.confirm(`Delete OT rate for ${rate.grade} - ${rate.designation}?`)) return;
+    try {
+      await HrSelfServiceService.deleteOvertimeRate(rate.id);
+      setOtRates((prev) => prev.filter((r) => r.id !== rate.id));
+    } catch (err) {
+      setRateError(err instanceof Error ? err.message : 'Failed to delete OT rate');
+    }
+  };
+
   // OT Rate Configuration
   const [otRates, setOtRates] = useState<OTRate[]>([]);
 
@@ -158,9 +168,7 @@ export default function OTSettingsPage() {
           <button onClick={() => openEditRate(row)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
             <Edit className="h-4 w-4" />
           </button>
-          {/* Delete requires a DELETE /hr/overtime-settings/rates/:id endpoint + service method
-              that do not exist yet. See NEEDS-BACKEND. */}
-          <button disabled title="Delete not available (needs backend)" className="p-2 text-red-300 rounded cursor-not-allowed">
+          <button onClick={() => handleDeleteRate(row)} className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete rate">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>

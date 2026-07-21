@@ -7,44 +7,60 @@ interface CreateShiftModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
+  /** When provided, the modal opens in edit mode prefilled with these values. */
+  initialData?: Partial<{
+    name: string;
+    code: string;
+    type: 'day' | 'night' | 'morning' | 'evening' | 'flexible' | 'rotational';
+    startTime: string;
+    endTime: string;
+    breakDuration: string;
+    workingHours: string;
+    gracePeriod: string;
+    overtimeEligible: boolean;
+    nightShiftAllowance: boolean;
+    daysApplicable: string[];
+    status: 'active' | 'inactive';
+  }>;
+  title?: string;
+  submitLabel?: string;
 }
 
-export function CreateShiftModal({ isOpen, onClose, onSubmit }: CreateShiftModalProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    type: 'day' as 'day' | 'night' | 'morning' | 'evening' | 'flexible' | 'rotational',
-    startTime: '',
-    endTime: '',
-    breakDuration: '60',
-    workingHours: '',
-    gracePeriod: '15',
-    overtimeEligible: true,
-    nightShiftAllowance: false,
-    daysApplicable: [] as string[],
-    status: 'active' as 'active' | 'inactive'
-  });
+const emptyShiftForm = {
+  name: '',
+  code: '',
+  type: 'day' as 'day' | 'night' | 'morning' | 'evening' | 'flexible' | 'rotational',
+  startTime: '',
+  endTime: '',
+  breakDuration: '60',
+  workingHours: '',
+  gracePeriod: '15',
+  overtimeEligible: true,
+  nightShiftAllowance: false,
+  daysApplicable: [] as string[],
+  status: 'active' as 'active' | 'inactive'
+};
+
+export function CreateShiftModal({ isOpen, onClose, onSubmit, initialData, title, submitLabel }: CreateShiftModalProps) {
+  const isEdit = !!initialData;
+  const [formData, setFormData] = useState({ ...emptyShiftForm });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormData({ ...emptyShiftForm, ...(initialData ?? {}) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialData]);
 
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
-    // Reset form
-    setFormData({
-      name: '',
-      code: '',
-      type: 'day',
-      startTime: '',
-      endTime: '',
-      breakDuration: '60',
-      workingHours: '',
-      gracePeriod: '15',
-      overtimeEligible: true,
-      nightShiftAllowance: false,
-      daysApplicable: [],
-      status: 'active'
-    });
+    // Reset form (create mode only; edit mode re-syncs from initialData on open)
+    if (!isEdit) {
+      setFormData({ ...emptyShiftForm });
+    }
   };
 
   const toggleDay = (day: string) => {
@@ -135,7 +151,7 @@ export function CreateShiftModal({ isOpen, onClose, onSubmit }: CreateShiftModal
             <div>
               <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Clock className="w-7 h-7 text-blue-600" />
-                Create New Shift Template
+                {title ?? 'Create New Shift Template'}
               </h2>
               <p className="text-gray-600 mt-1">Define a new shift schedule for employees</p>
             </div>
@@ -425,7 +441,7 @@ export function CreateShiftModal({ isOpen, onClose, onSubmit }: CreateShiftModal
               className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <CheckCircle className="w-4 h-4" />
-              Create Shift Template
+              {submitLabel ?? 'Create Shift Template'}
             </button>
           </div>
         </form>

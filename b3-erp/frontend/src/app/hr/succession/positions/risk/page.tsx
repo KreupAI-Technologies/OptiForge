@@ -28,6 +28,26 @@ export default function Page() {
   const [rows, setRows] = useState<PositionRisk[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<PositionRisk | null>(null);
+  const [editForm, setEditForm] = useState<Partial<PositionRisk>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { id, ...rest } = { ...editRow, ...editForm } as any;
+      await HrTalentService.updateSuccession(editRow.id, { data: rest });
+      setRows(prev => prev.map(r => (r.id === editRow.id ? { ...r, ...editForm } : r)));
+      setEditRow(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -201,13 +221,74 @@ export default function Page() {
               <button onClick={() => router.push('/hr/succession/positions/risk')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Assessment
               </button>
-              <button onClick={() => router.push('/hr/succession/positions/risk')} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+              <button onClick={() => { setEditRow(risk); setEditForm({ ...risk }); setSaveError(null); }} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
                 Update Mitigation Plan
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {editRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Update Risk Assessment</h2>
+              <p className="text-sm text-gray-600">{editRow.title} • {editRow.currentHolder}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
+                <select value={editForm.riskLevel ?? 'medium'} onChange={(e) => setEditForm(f => ({ ...f, riskLevel: e.target.value as PositionRisk['riskLevel'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Risk Score</label>
+                <input type="number" value={editForm.riskScore ?? 0} onChange={(e) => setEditForm(f => ({ ...f, riskScore: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Retirement Risk (%)</label>
+                <input type="number" value={editForm.retirementRisk ?? 0} onChange={(e) => setEditForm(f => ({ ...f, retirementRisk: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Turnover Risk (%)</label>
+                <input type="number" value={editForm.turnoverRisk ?? 0} onChange={(e) => setEditForm(f => ({ ...f, turnoverRisk: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Knowledge Concentration (%)</label>
+                <input type="number" value={editForm.knowledgeConcentration ?? 0} onChange={(e) => setEditForm(f => ({ ...f, knowledgeConcentration: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Successor Readiness (%)</label>
+                <input type="number" value={editForm.successorReadiness ?? 0} onChange={(e) => setEditForm(f => ({ ...f, successorReadiness: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Business Impact (%)</label>
+                <input type="number" value={editForm.businessImpact ?? 0} onChange={(e) => setEditForm(f => ({ ...f, businessImpact: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Timeline</label>
+                <input type="text" value={editForm.timeline ?? ''} onChange={(e) => setEditForm(f => ({ ...f, timeline: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+            {saveError && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <button onClick={() => setEditRow(null)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm disabled:opacity-50">
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
