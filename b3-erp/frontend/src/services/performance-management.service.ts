@@ -1013,11 +1013,14 @@ export class PerformanceManagementService {
       if (options?.status) filtered = filtered.filter(c => c.status === options.status);
       return filtered;
     }
+    // NestJS: GET /hr/review-cycles?companyId&status&cycleType -> bare ReviewCycle[].
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.status) params.append('status', options.status);
     if (options?.cycleType) params.append('cycleType', options.cycleType);
-    const response = await fetch(`/api/hr/performance/review-cycles?${params.toString()}`);
-    return response.json();
+    const response = await perfFetch(`/hr/review-cycles?${params.toString()}`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as PerformanceReviewCycle[];
   }
 
   static async getReviewCycleById(id: string): Promise<PerformanceReviewCycle> {
@@ -1026,7 +1029,8 @@ export class PerformanceManagementService {
       if (!cycle) throw new Error('Review cycle not found');
       return cycle;
     }
-    const response = await fetch(`/api/hr/performance/review-cycles/${id}`);
+    // NestJS: GET /hr/review-cycles/:id
+    const response = await perfFetch(`/hr/review-cycles/${id}`);
     return response.json();
   }
 
@@ -1050,11 +1054,11 @@ export class PerformanceManagementService {
       mockReviewCycles.push(newCycle);
       return newCycle;
     }
-    const response = await fetch('/api/hr/performance/review-cycles', {
+    // NestJS: POST /hr/review-cycles (companyId in body).
+    const response = await perfFetch('/hr/review-cycles', {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -1068,9 +1072,9 @@ export class PerformanceManagementService {
       }
       throw new Error('Review cycle not found');
     }
-    const response = await fetch(`/api/hr/performance/review-cycles/${id}`, {
+    // NestJS: PUT /hr/review-cycles/:id
+    const response = await perfFetch(`/hr/review-cycles/${id}`, {
       method: 'PUT',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1443,12 +1447,14 @@ export class PerformanceManagementService {
       if (options?.isActive !== undefined) filtered = filtered.filter(k => k.isActive === options.isActive);
       return filtered;
     }
+    // NestJS: GET /hr/kpi-masters?companyId&category&kpiType -> bare KPIMaster[].
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.category) params.append('category', options.category);
     if (options?.kpiType) params.append('kpiType', options.kpiType);
-    if (options?.applicableTo) params.append('applicableTo', options.applicableTo);
-    const response = await fetch(`/api/hr/performance/kpi-masters?${params.toString()}`);
-    return response.json();
+    const response = await perfFetch(`/hr/kpi-masters?${params.toString()}`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as KPIMaster[];
   }
 
   static async createKPIMaster(data: Partial<KPIMaster>): Promise<KPIMaster> {
@@ -1469,12 +1475,41 @@ export class PerformanceManagementService {
       mockKPIs.push(newKPI);
       return newKPI;
     }
-    const response = await fetch('/api/hr/performance/kpi-masters', {
+    // NestJS: POST /hr/kpi-masters (companyId in body).
+    const response = await perfFetch('/hr/kpi-masters', {
       method: 'POST',
-      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
+    });
+    return response.json();
+  }
+
+  static async updateKPIMaster(id: string, data: Partial<KPIMaster>): Promise<KPIMaster> {
+    if (USE_MOCK_DATA) {
+      const index = mockKPIs.findIndex(k => k.id === id);
+      if (index !== -1) {
+        mockKPIs[index] = { ...mockKPIs[index], ...data };
+        return mockKPIs[index];
+      }
+      throw new Error('KPI not found');
+    }
+    // NestJS: PUT /hr/kpi-masters/:id
+    const response = await perfFetch(`/hr/kpi-masters/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    return response.json();
+  }
+
+  static async deleteKPIMaster(id: string): Promise<{ success: boolean }> {
+    if (USE_MOCK_DATA) {
+      const index = mockKPIs.findIndex(k => k.id === id);
+      if (index !== -1) mockKPIs.splice(index, 1);
+      return { success: true };
+    }
+    // NestJS: DELETE /hr/kpi-masters/:id
+    const response = await perfFetch(`/hr/kpi-masters/${id}`, { method: 'DELETE' });
     return response.json();
   }
 

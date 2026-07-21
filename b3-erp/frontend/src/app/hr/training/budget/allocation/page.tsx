@@ -40,6 +40,9 @@ export default function BudgetAllocationPage() {
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [totalBudget, setTotalBudget] = useState(300000);
   const [isEditing, setIsEditing] = useState<number | string | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+  const [rowBusy, setRowBusy] = useState<number | string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -108,6 +111,45 @@ export default function BudgetAllocationPage() {
     }
   };
 
+  const startEdit = (item: Allocation) => {
+    setRowError(null);
+    setEditAmount(String(item.amount));
+    setIsEditing(item.id);
+  };
+
+  const saveRow = async (item: Allocation) => {
+    setRowBusy(item.id);
+    setRowError(null);
+    try {
+      await TrainingDevelopmentService.updateTrainingBudget(String(item.id), {
+        totalBudget: Number(editAmount),
+        allocatedBudget: Number(editAmount),
+        usedBudget: item.spend,
+        departmentName: item.department,
+      });
+      setIsEditing(null);
+      await load();
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to save allocation.');
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
+  const deleteRow = async (item: Allocation) => {
+    if (!window.confirm(`Delete the "${item.department}" budget allocation?`)) return;
+    setRowBusy(item.id);
+    setRowError(null);
+    try {
+      await TrainingDevelopmentService.deleteTrainingBudget(String(item.id));
+      await load();
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to delete allocation.');
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value);
   };
@@ -124,11 +166,18 @@ export default function BudgetAllocationPage() {
           <p className="text-gray-500 mt-1">Plan and distribute annual training funds</p>
         </div>
         <div className="flex gap-3">
-          <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
+          <button
+            onClick={() => { setIsEditing(null); setRowError(null); load(); }}
+            disabled={isLoading}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50"
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Reset
           </button>
-          <button className="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-purple-700 shadow-sm transition-colors">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-purple-700 shadow-sm transition-colors"
+          >
             <Save className="w-4 h-4 mr-2" />
             Save Changes
           </button>
@@ -145,6 +194,12 @@ export default function BudgetAllocationPage() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {rowError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {rowError}
         </div>
       )}
 
@@ -238,36 +293,44 @@ export default function BudgetAllocationPage() {
                     {item.department}
                   </td>
                   <td className="px-3 py-2">
+                    {item.allocated + '%'}
+                  </td>
+                  <td className="px-3 py-2 font-semibold">
                     {isEditing === item.id ? (
                       <input
                         type="number"
-                        className="w-16 px-2 py-1 border rounded text-sm"
-                        defaultValue={item.allocated}
+                        className="w-28 px-2 py-1 border rounded text-sm"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
                       />
                     ) : (
-                      item.allocated + '%'
+                      formatCurrency(item.amount)
                     )}
                   </td>
-                  <td className="px-3 py-2 font-semibold">{formatCurrency(item.amount)}</td>
                   <td className="px-3 py-2 text-gray-500">{formatCurrency(item.spend)}</td>
                   <td className="px-3 py-2 font-medium text-green-600">{formatCurrency(item.amount - item.spend)}</td>
                   <td className="px-3 py-2 text-right flex items-center justify-end gap-2">
                     {isEditing === item.id ? (
                       <button
-                        className="text-green-600 hover:text-green-800 p-1"
-                        onClick={() => setIsEditing(null)}
+                        className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
+                        onClick={() => saveRow(item)}
+                        disabled={rowBusy === item.id}
                       >
                         <Save className="w-4 h-4" />
                       </button>
                     ) : (
                       <button
                         className="text-gray-400 hover:text-gray-600 p-1"
-                        onClick={() => setIsEditing(item.id)}
+                        onClick={() => startEdit(item)}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                     )}
-                    <button className="text-gray-400 hover:text-red-600 p-1">
+                    <button
+                      className="text-gray-400 hover:text-red-600 p-1 disabled:opacity-50"
+                      onClick={() => deleteRow(item)}
+                      disabled={rowBusy === item.id}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>

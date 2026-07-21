@@ -111,6 +111,10 @@ const MIGRATION_ORDER: string[] = [
     'orphan_pm_project_categories.sql',
     'orphan_itadmin_compliance_requirements.sql',
     'orphan_sourcing_strategy.sql',
+    // Net-new HR features (KPI master, training budget, review cycle)
+    'orphan_hr_kpi_master.sql',
+    'orphan_hr_training_budget.sql',
+    'orphan_hr_review_cycle.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

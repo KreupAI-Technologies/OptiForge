@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Target, Plus, Search, Filter, Edit, Trash2, TrendingUp } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
-import { HrTalentService } from '@/services/hr-talent.service';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 
 interface KPI {
   id: string;
@@ -21,6 +21,34 @@ interface KPI {
   status: 'active' | 'inactive';
 }
 
+/** Map a NestJS KPIMaster row onto the local KPI view-model. */
+function mapKpi(r: any): KPI {
+  return {
+    id: r.id ?? '',
+    code: r.kpiCode ?? '',
+    name: r.kpiName ?? '',
+    description: r.description ?? '',
+    category: (r.category ?? 'production') as KPI['category'],
+    measurementType: (r.measurementUnit ?? 'count') as KPI['measurementType'],
+    unit: r.measurementUnit ?? '',
+    frequency: (r.measurementFrequency ?? 'monthly') as KPI['frequency'],
+    targetValue: Number(r.defaultTarget ?? 0),
+    calculationFormula: r.calculationFormula ?? '',
+    department: Array.isArray(r.applicableDepartments) ? (r.applicableDepartments[0] ?? '') : (r.department ?? ''),
+    status: r.isActive === false ? 'inactive' : 'active',
+  };
+}
+
+const emptyKpiForm = {
+  kpiName: '',
+  description: '',
+  category: 'production',
+  measurementUnit: 'number',
+  measurementFrequency: 'monthly',
+  defaultTarget: '',
+  department: '',
+};
+
 export default function KPIMasterPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -30,23 +58,100 @@ export default function KPIMasterPage() {
   const [rows, setRows] = useState<KPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Add / Edit modal state
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...emptyKpiForm });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const data = await PerformanceManagementService.getKPIMasters();
+      setRows(Array.isArray(data) ? data.map(mapKpi) : []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      setRows([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await HrTalentService.getPerformance<KPI>('kpi');
-        if (!cancelled) setRows(Array.isArray(data) ? data : []);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
-          setRows([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const openAdd = () => {
+    setEditingId(null);
+    setForm({ ...emptyKpiForm });
+    setSubmitError(null);
+    setShowModal(true);
+  };
+
+  const openEdit = (kpi: KPI) => {
+    setEditingId(kpi.id);
+    setForm({
+      kpiName: kpi.name,
+      description: kpi.description,
+      category: kpi.category,
+      measurementUnit: kpi.unit || 'number',
+      measurementFrequency: kpi.frequency,
+      defaultTarget: String(kpi.targetValue ?? ''),
+      department: kpi.department,
+    });
+    setSubmitError(null);
+    setShowModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.kpiName.trim()) {
+      setSubmitError('KPI name is required.');
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const payload: any = {
+        kpiName: form.kpiName,
+        description: form.description,
+        category: form.category,
+        kpiType: 'quantitative',
+        measurementUnit: form.measurementUnit,
+        measurementFrequency: form.measurementFrequency,
+        defaultTarget: form.defaultTarget ? Number(form.defaultTarget) : undefined,
+        applicableDepartments: form.department ? [form.department] : [],
+      };
+      if (editingId) {
+        await PerformanceManagementService.updateKPIMaster(editingId, payload);
+      } else {
+        await PerformanceManagementService.createKPIMaster(payload);
+      }
+      setShowModal(false);
+      await load();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save KPI.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (kpi: KPI) => {
+    if (!window.confirm(`Delete KPI "${kpi.name}"? This cannot be undone.`)) return;
+    setDeletingId(kpi.id);
+    try {
+      await PerformanceManagementService.deleteKPIMaster(kpi.id);
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete KPI.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const departments = ['all', ...Array.from(new Set(rows.map(k => k.department)))];
 
@@ -130,12 +235,21 @@ export default function KPIMasterPage() {
       render: (v: string) => <StatusBadge status={v as BadgeStatus} />
     },
     { key: 'id', label: 'Actions', sortable: false,
-      render: () => (
+      render: (_v: string, row: KPI) => (
         <div className="flex gap-2">
-          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
+          <button
+            onClick={() => openEdit(row)}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="Edit KPI"
+          >
             <Edit className="h-4 w-4" />
           </button>
-          <button className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors">
+          <button
+            onClick={() => handleDelete(row)}
+            disabled={deletingId === row.id}
+            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+            title="Delete KPI"
+          >
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -245,7 +359,10 @@ export default function KPIMasterPage() {
             <Filter className="h-4 w-4" />
             Filters
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
             <Plus className="h-4 w-4" />
             Add KPI
           </button>
@@ -307,6 +424,77 @@ export default function KPIMasterPage() {
           <li>• <strong>Financial:</strong> Cost metrics, profitability, and budget performance</li>
         </ul>
       </div>
+
+      {/* Add / Edit KPI Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Edit KPI' : 'Add KPI'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            {submitError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{submitError}</div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">KPI Name</label>
+                <input type="text" value={form.kpiName} onChange={(e) => setForm({ ...form, kpiName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    <option value="production">Production</option>
+                    <option value="quality">Quality</option>
+                    <option value="safety">Safety</option>
+                    <option value="efficiency">Efficiency</option>
+                    <option value="customer">Customer</option>
+                    <option value="financial">Financial</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Measurement Unit</label>
+                  <select value={form.measurementUnit} onChange={(e) => setForm({ ...form, measurementUnit: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    <option value="number">Number</option>
+                    <option value="percentage">Percentage</option>
+                    <option value="currency">Currency</option>
+                    <option value="rating">Rating</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                  <select value={form.measurementFrequency} onChange={(e) => setForm({ ...form, measurementFrequency: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Target</label>
+                  <input type="number" value={form.defaultTarget} onChange={(e) => setForm({ ...form, defaultTarget: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input type="text" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button onClick={() => setShowModal(false)} disabled={submitting} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleSubmit} disabled={submitting} className="px-4 py-2 bg-emerald-600 rounded-lg text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60">{submitting ? 'Saving…' : editingId ? 'Save Changes' : 'Add KPI'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

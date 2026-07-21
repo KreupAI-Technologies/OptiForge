@@ -1774,13 +1774,25 @@ export class TrainingDevelopmentService {
       if (options?.status) filtered = filtered.filter(b => b.status === options.status);
       return filtered;
     }
-    // TODO(needs-backend): no NestJS route for training budgets (hr/training-budgets).
+    // NestJS: GET /hr/training-budgets?companyId&fiscalYear&departmentId&status -> bare rows.
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.fiscalYear) params.append('fiscalYear', options.fiscalYear);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/training/budgets?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/training-budgets?${params.toString()}`);
+    const rows = await response.json();
+    const arr: any[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    // Map the NestJS entity shape (allocatedAmount/utilizedAmount/remainingAmount)
+    // onto the FE view model (totalBudget/usedBudget/availableBudget).
+    return arr.map((r) => ({
+      ...r,
+      budgetName: r.budgetName ?? r.notes ?? r.budgetCode,
+      totalBudget: Number(r.allocatedAmount ?? r.totalBudget ?? 0),
+      allocatedBudget: Number(r.allocatedAmount ?? r.allocatedBudget ?? 0),
+      usedBudget: Number(r.utilizedAmount ?? r.usedBudget ?? 0),
+      availableBudget: Number(r.remainingAmount ?? r.availableBudget ?? 0),
+    })) as TrainingBudget[];
   }
 
   static async createTrainingBudget(data: Partial<TrainingBudget>): Promise<TrainingBudget> {
@@ -1803,13 +1815,67 @@ export class TrainingDevelopmentService {
       mockBudgets.push(newBudget);
       return newBudget;
     }
-    // TODO(needs-backend): no NestJS route for training budgets (hr/training-budgets).
-    const response = await fetch('/api/hr/training/budgets', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-budgets (companyId in body). Map the FE view-model
+    // fields (totalBudget/allocatedBudget/budgetName) onto the entity columns.
+    const allocated = Number(data.allocatedBudget ?? data.totalBudget ?? 0);
+    const utilized = Number(data.usedBudget ?? 0);
+    const response = await trainFetch('/hr/training-budgets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        companyId: COMPANY_ID,
+        budgetType: data.budgetType || 'company',
+        fiscalYear: data.fiscalYear,
+        departmentId: data.departmentId,
+        departmentName: data.departmentName,
+        allocatedAmount: allocated,
+        utilizedAmount: utilized,
+        remainingAmount: allocated - utilized,
+        status: data.status,
+        notes: data.budgetName,
+      }),
     });
+    return response.json();
+  }
+
+  static async updateTrainingBudget(id: string, data: Partial<TrainingBudget>): Promise<TrainingBudget> {
+    if (USE_MOCK_DATA) {
+      const index = mockBudgets.findIndex(b => b.id === id);
+      if (index !== -1) {
+        mockBudgets[index] = { ...mockBudgets[index], ...data };
+        return mockBudgets[index];
+      }
+      throw new Error('Training budget not found');
+    }
+    // NestJS: PUT /hr/training-budgets/:id. Map the FE view-model fields onto the
+    // entity columns (only the ones provided).
+    const body: Record<string, any> = {};
+    if (data.allocatedBudget != null || data.totalBudget != null) {
+      body.allocatedAmount = Number(data.allocatedBudget ?? data.totalBudget);
+    }
+    if (data.usedBudget != null) body.utilizedAmount = Number(data.usedBudget);
+    if (data.fiscalYear != null) body.fiscalYear = data.fiscalYear;
+    if (data.budgetType != null) body.budgetType = data.budgetType;
+    if (data.departmentId != null) body.departmentId = data.departmentId;
+    if (data.departmentName != null) body.departmentName = data.departmentName;
+    if (data.status != null) body.status = data.status;
+    if (data.budgetName != null) body.notes = data.budgetName;
+    const response = await trainFetch(`/hr/training-budgets/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return response.json();
+  }
+
+  static async deleteTrainingBudget(id: string): Promise<{ success: boolean }> {
+    if (USE_MOCK_DATA) {
+      const index = mockBudgets.findIndex(b => b.id === id);
+      if (index !== -1) mockBudgets.splice(index, 1);
+      return { success: true };
+    }
+    // NestJS: DELETE /hr/training-budgets/:id
+    const response = await trainFetch(`/hr/training-budgets/${id}`, { method: 'DELETE' });
     return response.json();
   }
 

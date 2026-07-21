@@ -167,6 +167,17 @@ import { ComplianceReturnService } from './services/compliance-return.service';
 import { DisciplinaryActionService } from './services/disciplinary-action.service';
 import { PolicyViolationService } from './services/policy-violation.service';
 import { ComplianceRegisterService } from './services/compliance-register.service';
+
+// Net-new HR features (KPI master, training budget, review cycle) — direct imports
+import { KpiMaster } from './entities/kpi-master.entity';
+import { TrainingBudget } from './entities/training-budget.entity';
+import { ReviewCycle } from './entities/review-cycle.entity';
+import { KpiMasterController } from './controllers/kpi-master.controller';
+import { TrainingBudgetController } from './controllers/training-budget.controller';
+import { ReviewCycleController } from './controllers/review-cycle.controller';
+import { KpiMasterService } from './services/kpi-master.service';
+import { TrainingBudgetService } from './services/training-budget.service';
+import { ReviewCycleService } from './services/review-cycle.service';
 import { ComplianceAuditService } from './services/compliance-audit.service';
 import { HrGrievanceService } from './services/hr-grievance.service';
 import { HrDocumentService } from './services/hr-document.service';
@@ -407,6 +418,10 @@ import { PrismaModule } from '../prisma/prisma.module';
       ComplianceAudit,
       HrGrievance,
       HrDocument,
+      // Net-new HR features
+      KpiMaster,
+      TrainingBudget,
+      ReviewCycle,
       // HR Asset Management
       AssetItem,
       AssetRequest,
@@ -523,6 +538,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     ComplianceAuditController,
     HrGrievanceController,
     HrDocumentController,
+    // Net-new HR features
+    KpiMasterController,
+    TrainingBudgetController,
+    ReviewCycleController,
     // HR Asset Management
     AssetItemController,
     AssetRequestController,
@@ -632,6 +651,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     ComplianceAuditService,
     HrGrievanceService,
     HrDocumentService,
+    // Net-new HR features
+    KpiMasterService,
+    TrainingBudgetService,
+    ReviewCycleService,
     // HR Asset Management
     AssetItemService,
     AssetRequestService,

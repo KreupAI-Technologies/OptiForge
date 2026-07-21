@@ -14,7 +14,6 @@ import {
     MoreHorizontal,
     ArrowRight
 } from 'lucide-react';
-import { HrMovementsService } from '@/services/hr-movements.service';
 import { PerformanceManagementService } from '@/services/performance-management.service';
 
 interface ReviewCycle {
@@ -87,18 +86,27 @@ export default function ReviewCyclesPage() {
         setIsLoading(true);
         setLoadError(null);
         try {
-            const raw = await HrMovementsService.getTransfersPromotions();
+            const raw = await PerformanceManagementService.getReviewCycles();
             const rows: any[] = Array.isArray(raw) ? raw : [];
+            const typeMap: Record<string, ReviewCycle['type']> = {
+                annual: 'Annual', semi_annual: 'Mid-Year', 'half-yearly': 'Mid-Year',
+                quarterly: 'Project-Based', monthly: 'Project-Based', probation: 'Probation',
+                'project-based': 'Project-Based',
+            };
+            const statusMap: Record<string, ReviewCycle['status']> = {
+                draft: 'Planned', active: 'Active', in_progress: 'Active',
+                completed: 'Completed', archived: 'Archived',
+            };
             const mapped: ReviewCycle[] = rows.map((r) => ({
                 id: r?.id ?? '',
-                name: r?.name ?? r?.title ?? 'Review Cycle',
-                type: r?.type ?? 'Annual',
-                startDate: r?.startDate ?? r?.effectiveDate ?? r?.createdAt ?? '',
+                name: r?.cycleName ?? r?.name ?? 'Review Cycle',
+                type: typeMap[r?.cycleType] ?? 'Annual',
+                startDate: r?.startDate ?? r?.createdAt ?? '',
                 endDate: r?.endDate ?? '',
-                status: r?.status ?? 'Planned',
+                status: statusMap[r?.status] ?? 'Planned',
                 participants: r?.participants ?? 0,
                 completionRate: r?.completionRate ?? 0,
-                description: r?.description ?? r?.remarks ?? '',
+                description: r?.description ?? '',
             }));
             setCycles(mapped);
         } catch (e) {
