@@ -8,7 +8,7 @@
 -- Compliance violations (audit/compliance page "Violations" tab)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "it_compliance_violations" (
-  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "companyId" varchar,
   "requirementId" varchar,
   "category" varchar(100) NOT NULL DEFAULT 'General',
@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS "IDX_it_compliance_violations_severity"
 -- service on first read when the table is empty.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "it_cleanup_tasks" (
-  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "companyId" varchar,
   "name" varchar(200) NOT NULL,
   "description" text,
@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS "IDX_it_cleanup_tasks_category"
 -- Export templates (database/export page). Defaults seeded on first read.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "it_export_templates" (
-  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "companyId" varchar,
   "name" varchar(200) NOT NULL,
   "description" text,
@@ -85,7 +85,7 @@ CREATE INDEX IF NOT EXISTS "IDX_it_export_templates_companyId"
 -- first read when the table is empty.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "it_monitored_servers" (
-  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "companyId" varchar,
   "name" varchar(200) NOT NULL,
   "host" varchar(200),
@@ -113,7 +113,7 @@ CREATE INDEX IF NOT EXISTS "IDX_it_monitored_servers_status"
 -- send is performed; this records the attempt + simulated outcome.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "it_email_test_logs" (
-  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "companyId" varchar,
   "toAddress" varchar(200) NOT NULL,
   "smtpHost" varchar(200),
