@@ -14,9 +14,9 @@ import {
   Edit,
   Eye,
   Trash2,
-  MoreVertical,
   CheckCircle,
-  XCircle
+  XCircle,
+  X
 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { FinanceService } from '@/services/finance.service';
@@ -50,6 +50,30 @@ export default function FixedAssetsPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [viewAsset, setViewAsset] = useState<FixedAsset | null>(null);
+  const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
+  const [formAsset, setFormAsset] = useState<FixedAsset | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [depreciatingId, setDepreciatingId] = useState<string | null>(null);
+
+  const emptyForm: FixedAsset = {
+    id: '',
+    assetCode: '',
+    assetName: '',
+    category: 'Office Equipment',
+    location: '',
+    purchaseDate: '',
+    purchaseValue: 0,
+    salvageValue: 0,
+    usefulLife: 0,
+    depreciationMethod: 'Straight Line',
+    accumulatedDepreciation: 0,
+    netBookValue: 0,
+    status: 'Active',
+    lastDepreciationDate: '',
+    nextDepreciationDate: '',
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +117,7 @@ export default function FixedAssetsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   // Toast notification handler
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -103,48 +127,78 @@ export default function FixedAssetsPage() {
 
   // Action handlers
   const handleAddAsset = () => {
-    // In a real app, this would open a modal/form to add a new asset
-    const assetName = prompt('Enter asset name:');
-    if (assetName) {
-      showToast(`Asset "${assetName}" would be added to the system`, 'success');
-      // Here you would typically:
-      // - Open a detailed form modal
-      // - Collect asset details (category, location, purchase info, etc.)
-      // - POST to /api/assets/fixed-assets
-      // - Refresh the asset list
+    setFormMode('add');
+    setFormAsset({ ...emptyForm });
+  };
+
+  const handleViewAsset = (asset: FixedAsset) => {
+    setViewAsset(asset);
+  };
+
+  const handleEditAsset = (asset: FixedAsset) => {
+    setFormMode('edit');
+    setFormAsset({ ...asset });
+  };
+
+  const handleSaveAsset = async () => {
+    if (!formAsset) return;
+    if (!formAsset.assetName.trim()) {
+      showToast('Asset name is required', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        assetCode: formAsset.assetCode,
+        assetName: formAsset.assetName,
+        category: formAsset.category,
+        location: formAsset.location,
+        purchaseDate: formAsset.purchaseDate || undefined,
+        purchaseValue: Number(formAsset.purchaseValue),
+        salvageValue: Number(formAsset.salvageValue),
+        usefulLife: Number(formAsset.usefulLife),
+        depreciationMethod: formAsset.depreciationMethod,
+        status: formAsset.status,
+      };
+      if (formMode === 'edit') {
+        await FinanceService.updateFixedAsset(formAsset.id, payload);
+        showToast(`Asset "${formAsset.assetName}" updated`, 'success');
+      } else {
+        await FinanceService.createFixedAsset(payload);
+        showToast(`Asset "${formAsset.assetName}" created`, 'success');
+      }
+      setFormMode(null);
+      setFormAsset(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save asset', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleViewAsset = (assetName: string) => {
-    // In a real app, this would open a detailed view modal
-    showToast(`Opening detailed view for: ${assetName}`, 'info');
-    // Here you would typically:
-    // - Fetch full asset details from API
-    // - Open a modal with complete asset information
-    // - Show depreciation schedule, maintenance history, etc.
-  };
-
-  const handleEditAsset = (assetName: string) => {
-    // In a real app, this would open an edit modal
-    showToast(`Edit mode activated for ${assetName}`, 'success');
-    // Here you would typically:
-    // - Fetch current asset details
-    // - Open edit form modal
-    // - Allow updates to asset information
-    // - PUT to /api/assets/fixed-assets/{id}
-  };
-
-  const handleDepreciation = (assetName: string) => {
-    // In a real app, this would calculate and post depreciation
-    const confirmed = confirm(`Run depreciation calculation for ${assetName}?`);
-    if (confirmed) {
-      showToast(`Depreciation calculated successfully for: ${assetName}`, 'success');
-      // Here you would typically:
-      // - Calculate depreciation based on method and useful life
-      // - Update accumulated depreciation
-      // - Update net book value
-      // - POST to /api/assets/depreciation/calculate
-      // - Update the asset in the list
+  const handleDepreciation = async (asset: FixedAsset) => {
+    // Compute this period's straight-line-equivalent monthly charge from the
+    // asset's own already-fetched fields, then post it as a manual entry.
+    const depreciableBase = Math.max(0, asset.purchaseValue - asset.salvageValue);
+    const monthly = asset.usefulLife > 0 ? depreciableBase / asset.usefulLife / 12 : 0;
+    if (!(monthly > 0)) {
+      showToast('Cannot compute depreciation: missing useful life or value', 'error');
+      return;
+    }
+    const confirmed = confirm(
+      `Post monthly depreciation of ${formatCurrency(monthly)} for ${asset.assetName}?`,
+    );
+    if (!confirmed) return;
+    setDepreciatingId(asset.id);
+    try {
+      await FinanceService.manualDepreciationEntry(asset.assetCode, Math.round(monthly));
+      showToast(`Depreciation of ${formatCurrency(monthly)} posted for ${asset.assetName}`, 'success');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to post depreciation', 'error');
+    } finally {
+      setDepreciatingId(null);
     }
   };
 
@@ -447,31 +501,26 @@ export default function FixedAssetsPage() {
                         <td className="px-3 py-2">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleViewAsset(asset.assetName)}
+                              onClick={() => handleViewAsset(asset)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="View Details"
                             >
                               <Eye className="w-4 h-4 text-blue-600" />
                             </button>
                             <button
-                              onClick={() => handleEditAsset(asset.assetName)}
+                              onClick={() => handleEditAsset(asset)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Edit Asset"
                             >
                               <Edit className="w-4 h-4 text-green-600" />
                             </button>
                             <button
-                              onClick={() => handleDepreciation(asset.assetName)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              onClick={() => handleDepreciation(asset)}
+                              disabled={depreciatingId === asset.id || asset.status === 'Disposed'}
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               title="Run Depreciation"
                             >
                               <TrendingDown className="w-4 h-4 text-orange-600" />
-                            </button>
-                            <button
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="More Options"
-                            >
-                              <MoreVertical className="w-4 h-4 text-gray-600" />
                             </button>
                           </div>
                         </td>
@@ -510,6 +559,138 @@ export default function FixedAssetsPage() {
           </div>
         </div>
       </div>
+
+      {/* View Asset Modal (from already-fetched data) */}
+      {viewAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">{viewAsset.assetName}</h2>
+              <button onClick={() => setViewAsset(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-3 text-sm">
+              {[
+                ['Asset Code', viewAsset.assetCode],
+                ['Category', viewAsset.category],
+                ['Location', viewAsset.location],
+                ['Status', viewAsset.status],
+                ['Purchase Date', viewAsset.purchaseDate ? new Date(viewAsset.purchaseDate).toLocaleDateString() : '-'],
+                ['Purchase Value', formatCurrency(viewAsset.purchaseValue)],
+                ['Salvage Value', formatCurrency(viewAsset.salvageValue)],
+                ['Useful Life', `${viewAsset.usefulLife} years`],
+                ['Depreciation Method', viewAsset.depreciationMethod],
+                ['Accumulated Depreciation', formatCurrency(viewAsset.accumulatedDepreciation)],
+                ['Net Book Value', formatCurrency(viewAsset.netBookValue)],
+                ['Last Depreciation', viewAsset.lastDepreciationDate ? new Date(viewAsset.lastDepreciationDate).toLocaleDateString() : '-'],
+                ['Next Depreciation', viewAsset.nextDepreciationDate ? new Date(viewAsset.nextDepreciationDate).toLocaleDateString() : '-'],
+                ['Warranty Expiry', viewAsset.warrantyExpiry ? new Date(viewAsset.warrantyExpiry).toLocaleDateString() : '-'],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="text-gray-500">{label}</div>
+                  <div className="font-medium text-gray-900">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setViewAsset(null)} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Asset Modal */}
+      {formMode && formAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">
+                {formMode === 'edit' ? 'Edit Asset' : 'Add Asset'}
+              </h2>
+              <button onClick={() => { setFormMode(null); setFormAsset(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-sm">
+                <span className="text-gray-700">Asset Code</span>
+                <input value={formAsset.assetCode} onChange={(e) => setFormAsset({ ...formAsset, assetCode: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Asset Name *</span>
+                <input value={formAsset.assetName} onChange={(e) => setFormAsset({ ...formAsset, assetName: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Category</span>
+                <select value={formAsset.category} onChange={(e) => setFormAsset({ ...formAsset, category: e.target.value as FixedAsset['category'] })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {['Land & Building', 'Plant & Machinery', 'Furniture & Fixtures', 'Vehicles', 'Computers', 'Office Equipment'].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Location</span>
+                <input value={formAsset.location} onChange={(e) => setFormAsset({ ...formAsset, location: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Purchase Date</span>
+                <input type="date" value={formAsset.purchaseDate?.slice(0, 10) ?? ''} onChange={(e) => setFormAsset({ ...formAsset, purchaseDate: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Depreciation Method</span>
+                <select value={formAsset.depreciationMethod} onChange={(e) => setFormAsset({ ...formAsset, depreciationMethod: e.target.value as FixedAsset['depreciationMethod'] })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {['Straight Line', 'Written Down Value', 'Double Declining', 'Units of Production', 'Sum of Years Digits'].map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Purchase Value</span>
+                <input type="number" value={formAsset.purchaseValue} onChange={(e) => setFormAsset({ ...formAsset, purchaseValue: Number(e.target.value) })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Salvage Value</span>
+                <input type="number" value={formAsset.salvageValue} onChange={(e) => setFormAsset({ ...formAsset, salvageValue: Number(e.target.value) })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Useful Life (years)</span>
+                <input type="number" value={formAsset.usefulLife} onChange={(e) => setFormAsset({ ...formAsset, usefulLife: Number(e.target.value) })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Status</span>
+                <select value={formAsset.status} onChange={(e) => setFormAsset({ ...formAsset, status: e.target.value as FixedAsset['status'] })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {['Active', 'Disposed', 'Under Maintenance', 'Idle'].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => { setFormMode(null); setFormAsset(null); }}
+                className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg">
+                Cancel
+              </button>
+              <button onClick={handleSaveAsset} disabled={saving}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50">
+                {saving ? 'Saving…' : formMode === 'edit' ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

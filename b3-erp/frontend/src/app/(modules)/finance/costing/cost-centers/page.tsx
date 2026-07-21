@@ -72,6 +72,15 @@ export default function CostCentersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Detail / analytics modal + toast state (replaces window.alert flows)
+  const [detailCenter, setDetailCenter] = useState<CostCenter | null>(null);
+  const [analyticsCenter, setAnalyticsCenter] = useState<CostCenter | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
   const mapCostCenter = (r: any): CostCenter => {
     const budgetAllocated = Number(r.budgetAllocated ?? r.budget ?? 0);
     const actualCost = Number(r.actualCost ?? 0);
@@ -132,6 +141,13 @@ export default function CostCentersPage() {
 
     return matchesSearch && matchesType && matchesStatus && matchesDepartment;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredCostCenters.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedCostCenters = filteredCostCenters.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage,
+  );
 
   // Calculate statistics
   const totalBudget = costCenters.reduce((sum, cc) => sum + cc.budgetAllocated, 0);
@@ -268,9 +284,10 @@ export default function CostCentersPage() {
     }
     try {
       await FinanceService.deleteCostCenter(center.id);
+      showToast(`Cost center "${center.name}" deleted`, 'success');
       await loadCostCenters();
     } catch (e) {
-      alert('Failed to delete cost center: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      showToast('Failed to delete cost center: ' + (e instanceof Error ? e.message : 'Unknown error'), 'error');
     }
   };
 
@@ -335,72 +352,16 @@ export default function CostCentersPage() {
       link.click();
       document.body.removeChild(link);
 
-      setTimeout(() => {
-        alert(
-          '✅ Export Successful!\n\n' +
-          `Exported ${filteredCostCenters.length} cost center(s) to CSV.\n\n` +
-          'The file includes all fields:\n' +
-          '• Cost Center ID & Code\n' +
-          '• Name, Type, Department\n' +
-          '• Manager & Status\n' +
-          '• Budget, Actual Cost, Variance\n' +
-          '• Utilization & Employee Count\n' +
-          '• Opening Date & Description\n\n' +
-          'File name: cost_centers_export_' + new Date().toISOString().split('T')[0] + '.csv'
-        );
-        setIsExporting(false);
-      }, 500);
+      showToast(`Exported ${filteredCostCenters.length} cost center(s) to CSV.`, 'success');
+      setIsExporting(false);
     } catch (error) {
-      alert('❌ Export failed: ' + (error as Error).message);
+      showToast('Export failed: ' + (error as Error).message, 'error');
       setIsExporting(false);
     }
   };
 
   const handleViewCostCenter = (center: CostCenter) => {
-    const utilizationPercent = (center.actualCost / center.budgetAllocated) * 100;
-    const allocationPercent = (center.budgetAllocated / totalBudget) * 100;
-
-    alert(
-      `📊 Cost Center Details: ${center.name}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `BASIC INFORMATION\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Code: ${center.code}\n` +
-      `Name: ${center.name}\n` +
-      `Type: ${center.type}\n` +
-      `Department: ${center.department}\n` +
-      `Manager: ${center.manager}\n` +
-      `Status: ${center.status}\n` +
-      `Opening Date: ${center.openingDate}\n` +
-      `Employees: ${center.employeeCount}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `FINANCIAL DETAILS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Budget Allocated: ${formatCurrency(center.budgetAllocated)}\n` +
-      `Actual Cost: ${formatCurrency(center.actualCost)}\n` +
-      `Variance: ${center.variance >= 0 ? '+' : ''}${formatCurrency(center.variance)} (${center.variancePercent >= 0 ? '+' : ''}${center.variancePercent.toFixed(1)}%)\n` +
-      `Utilization: ${utilizationPercent.toFixed(1)}%\n` +
-      `Budget Allocation: ${allocationPercent.toFixed(1)}% of total budget\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `DESCRIPTION\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `${center.description}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `COST ALLOCATIONS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `In production, this would show:\n` +
-      `• Monthly cost breakdown\n` +
-      `• Cost categories (Labor, Materials, Overhead)\n` +
-      `• Historical spending trends\n` +
-      `• Budget vs Actual comparison charts\n` +
-      `• Employee allocation details\n` +
-      `• Associated projects/activities\n\n` +
-      `In production, this would:\n` +
-      `1. Fetch from: GET /api/finance/cost-centers/${center.id}\n` +
-      `2. Display in a detailed modal/drawer\n` +
-      `3. Show interactive charts and graphs\n` +
-      `4. Include download/print options`
-    );
+    setDetailCenter(center);
   };
 
   const handleEditCostCenter = (center: CostCenter) => {
@@ -423,96 +384,12 @@ export default function CostCentersPage() {
   };
 
   const handleViewAnalytics = (center: CostCenter) => {
-    const utilizationPercent = (center.actualCost / center.budgetAllocated) * 100;
-    const monthlyAverage = center.actualCost / 12;
-    const costPerEmployee = center.actualCost / center.employeeCount;
-    const remainingBudget = center.budgetAllocated - center.actualCost;
-    const runwayMonths = remainingBudget > 0 ? (remainingBudget / monthlyAverage).toFixed(1) : '0';
-
-    alert(
-      `📈 Analytics Dashboard: ${center.name}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `KEY PERFORMANCE INDICATORS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Budget Utilization: ${utilizationPercent.toFixed(1)}%\n` +
-      `Variance: ${center.variance >= 0 ? '+' : ''}${formatCurrency(center.variance)} (${center.variancePercent >= 0 ? '+' : ''}${center.variancePercent.toFixed(1)}%)\n` +
-      `Monthly Avg Spend: ${formatCurrency(monthlyAverage)}\n` +
-      `Cost per Employee: ${formatCurrency(costPerEmployee)}\n` +
-      `Remaining Budget: ${formatCurrency(remainingBudget)}\n` +
-      `Budget Runway: ${runwayMonths} months\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `SPENDING TRENDS (YTD)\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Total Spent: ${formatCurrency(center.actualCost)}\n` +
-      `vs Budget: ${utilizationPercent.toFixed(1)}%\n` +
-      `Trend: ${center.variance >= 0 ? '📉 Under Budget' : '📈 Over Budget'}\n` +
-      `Status: ${utilizationPercent > 100 ? '⚠️ OVER BUDGET' : utilizationPercent > 90 ? '⚠️ CRITICAL' : '✅ HEALTHY'}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `COST BREAKDOWN (Estimated)\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Labor Costs: ${formatCurrency(center.actualCost * 0.60)} (60%)\n` +
-      `Operating Expenses: ${formatCurrency(center.actualCost * 0.25)} (25%)\n` +
-      `Materials/Resources: ${formatCurrency(center.actualCost * 0.10)} (10%)\n` +
-      `Other Expenses: ${formatCurrency(center.actualCost * 0.05)} (5%)\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `EFFICIENCY METRICS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `Employees: ${center.employeeCount}\n` +
-      `Cost per Employee: ${formatCurrency(costPerEmployee)}\n` +
-      `Budget per Employee: ${formatCurrency(center.budgetAllocated / center.employeeCount)}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `COMPARATIVE ANALYSIS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `In production, this would show:\n` +
-      `• Month-over-month trends (line charts)\n` +
-      `• Year-over-year comparison\n` +
-      `• Budget vs Actual comparison (bar charts)\n` +
-      `• Cost category breakdown (pie charts)\n` +
-      `• Benchmark against similar cost centers\n` +
-      `• Forecasting and projections\n` +
-      `• Alert thresholds and notifications\n` +
-      `• Drill-down into expense categories\n` +
-      `• Export analytics reports\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `RECOMMENDATIONS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      (utilizationPercent > 100
-        ? `⚠️ IMMEDIATE ACTION REQUIRED\n• Cost center is over budget\n• Review and reduce expenses\n• Consider budget reallocation\n• Implement cost control measures`
-        : utilizationPercent > 90
-          ? `⚠️ MONITOR CLOSELY\n• Approaching budget limit\n• Review remaining expenses\n• Prepare for potential overage\n• Consider spending freeze`
-          : `✅ PERFORMING WELL\n• Budget utilization healthy\n• Continue current operations\n• Monitor for any anomalies\n• Maintain cost efficiency`
-      ) +
-      `\n\n` +
-      `In production, this would:\n` +
-      `1. Fetch analytics from: GET /api/finance/cost-centers/${center.id}/analytics\n` +
-      `2. Display interactive dashboard with charts\n` +
-      `3. Allow date range selection\n` +
-      `4. Export analytics reports (PDF/Excel)\n` +
-      `5. Set up custom alerts and thresholds\n` +
-      `6. Compare with other cost centers\n` +
-      `7. Show predictive analytics and forecasts`
-    );
+    setAnalyticsCenter(center);
   };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    alert(
-      `📄 Page Navigation\n\n` +
-      `Navigating to page ${page}\n\n` +
-      `In production, this would:\n` +
-      `1. Update currentPage state to: ${page}\n` +
-      `2. Calculate offset: ${(page - 1) * itemsPerPage}\n` +
-      `3. Fetch data from API with pagination:\n` +
-      `   GET /api/finance/cost-centers?page=${page}&limit=${itemsPerPage}\n` +
-      `4. Update the displayed cost centers\n` +
-      `5. Scroll to top of table\n` +
-      `6. Update pagination UI\n\n` +
-      `Current settings:\n` +
-      `• Items per page: ${itemsPerPage}\n` +
-      `• Total items: ${filteredCostCenters.length}\n` +
-      `• Total pages: ${Math.ceil(filteredCostCenters.length / itemsPerPage)}`
-    );
   };
 
   const handlePreviousPage = () => {
@@ -703,7 +580,7 @@ export default function CostCentersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCostCenters.map((cc) => {
+                {paginatedCostCenters.map((cc) => {
                   const utilizationPercent = (cc.actualCost / cc.budgetAllocated) * 100;
 
                   return (
@@ -820,28 +697,32 @@ export default function CostCentersPage() {
         {filteredCostCenters.length > 0 && (
           <div className="flex items-center justify-between bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-700">
             <div className="text-gray-400 text-sm">
-              Showing {filteredCostCenters.length} of {costCenters.length} cost centers
+              Showing {paginatedCostCenters.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}
+              –{(safePage - 1) * itemsPerPage + paginatedCostCenters.length} of {filteredCostCenters.length} cost centers
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handlePreviousPage}
-                disabled={currentPage === 1}
+                disabled={safePage === 1}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
-              <button
-                onClick={() => handlePageChange(1)}
-                className={`px-4 py-2 rounded-lg transition-colors ${currentPage === 1
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-700 hover:bg-gray-600 text-white'
-                  }`}
-              >
-                1
-              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`px-4 py-2 rounded-lg transition-colors ${safePage === page
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
+                    }`}
+                >
+                  {page}
+                </button>
+              ))}
               <button
                 onClick={handleNextPage}
-                disabled={currentPage >= Math.ceil(filteredCostCenters.length / itemsPerPage)}
+                disabled={safePage >= totalPages}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
@@ -1014,6 +895,116 @@ export default function CostCentersPage() {
           </div>
         </div>
       )}
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[60] px-4 py-3 rounded-lg shadow-lg border-l-4 ${
+          toast.type === 'success' ? 'bg-green-50 border-green-500 text-green-800' :
+          toast.type === 'error' ? 'bg-red-50 border-red-500 text-red-800' :
+          'bg-blue-50 border-blue-500 text-blue-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
+            {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-red-600" />}
+            <span className="font-medium text-sm">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal (from already-fetched data) */}
+      {detailCenter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h2 className="text-lg font-semibold text-white">{detailCenter.name} — Details</h2>
+              <button onClick={() => setDetailCenter(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
+              {(() => {
+                const utilization = detailCenter.budgetAllocated ? (detailCenter.actualCost / detailCenter.budgetAllocated) * 100 : 0;
+                const allocation = totalBudget ? (detailCenter.budgetAllocated / totalBudget) * 100 : 0;
+                return [
+                  ['Code', detailCenter.code],
+                  ['Type', detailCenter.type],
+                  ['Department', detailCenter.department],
+                  ['Manager', detailCenter.manager],
+                  ['Status', detailCenter.status],
+                  ['Opening Date', detailCenter.openingDate || '-'],
+                  ['Employees', String(detailCenter.employeeCount)],
+                  ['Budget Allocated', formatCurrency(detailCenter.budgetAllocated)],
+                  ['Actual Cost', formatCurrency(detailCenter.actualCost)],
+                  ['Variance', `${detailCenter.variance >= 0 ? '+' : ''}${formatCurrency(detailCenter.variance)} (${detailCenter.variancePercent.toFixed(1)}%)`],
+                  ['Utilization', `${utilization.toFixed(1)}%`],
+                  ['Budget Allocation', `${allocation.toFixed(1)}% of total`],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <div className="text-gray-400">{label}</div>
+                    <div className="font-medium text-white">{value}</div>
+                  </div>
+                ));
+              })()}
+              {detailCenter.description && (
+                <div className="col-span-2">
+                  <div className="text-gray-400">Description</div>
+                  <div className="font-medium text-white">{detailCenter.description}</div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+              <button onClick={() => setDetailCenter(null)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Modal (derived from already-fetched data) */}
+      {analyticsCenter && (() => {
+        const c = analyticsCenter;
+        const utilization = c.budgetAllocated ? (c.actualCost / c.budgetAllocated) * 100 : 0;
+        const monthlyAverage = c.actualCost / 12;
+        const costPerEmployee = c.employeeCount ? c.actualCost / c.employeeCount : 0;
+        const remainingBudget = c.budgetAllocated - c.actualCost;
+        const runwayMonths = remainingBudget > 0 && monthlyAverage > 0 ? (remainingBudget / monthlyAverage).toFixed(1) : '0';
+        const health = utilization > 100 ? 'Over Budget' : utilization > 90 ? 'Critical' : 'Healthy';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+                <h2 className="text-lg font-semibold text-white">{c.name} — Analytics</h2>
+                <button onClick={() => setAnalyticsCenter(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    ['Budget Utilization', `${utilization.toFixed(1)}%`],
+                    ['Health', health],
+                    ['Monthly Avg Spend', formatCurrency(monthlyAverage)],
+                    ['Cost / Employee', formatCurrency(costPerEmployee)],
+                    ['Remaining Budget', formatCurrency(remainingBudget)],
+                    ['Budget Runway', `${runwayMonths} months`],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg bg-gray-700/50 px-3 py-2">
+                      <div className="text-gray-400 text-xs">{label}</div>
+                      <div className="font-semibold text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div className={`h-2 rounded-full ${utilization > 100 ? 'bg-red-500' : utilization > 90 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ width: `${Math.min(100, utilization).toFixed(1)}%` }} />
+                </div>
+              </div>
+              <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+                <button onClick={() => setAnalyticsCenter(null)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

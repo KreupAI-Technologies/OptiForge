@@ -24,6 +24,7 @@ export default function ProductionIntegrationPage() {
   const [syncData, setSyncData] = useState<ProductionSync[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
   // Job cost sheets (finance ↔ production WIP / job costing) mapped into the
   // ProductionSync shape the table reads.
@@ -57,25 +58,34 @@ export default function ProductionIntegrationPage() {
     }
   }
 
+  const loadData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await FinanceService.getJobCostSheets()
+      setSyncData((Array.isArray(data) ? data : []).map(mapJobCostSheet))
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load job cost sheets')
+      setSyncData([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    let active = true
-    ;(async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await FinanceService.getJobCostSheets()
-        if (active) setSyncData((Array.isArray(data) ? data : []).map(mapJobCostSheet))
-      } catch (e: any) {
-        if (active) {
-          setError(e?.message || 'Failed to load job cost sheets')
-          setSyncData([])
-        }
-      } finally {
-        if (active) setLoading(false)
-      }
-    })()
-    return () => { active = false }
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Re-synchronise finance ↔ production data by refetching the latest job cost sheets.
+  const handleSyncNow = async () => {
+    setSyncing(true)
+    try {
+      await loadData()
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   // Derived integration stats from the loaded job cost sheets.
   const integrationStats = {
@@ -103,9 +113,13 @@ export default function ProductionIntegrationPage() {
             <h1 className="text-3xl font-bold text-gray-900">Production Integration</h1>
             <p className="text-gray-600 mt-1">Finance-Production module synchronization</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700">
-            <RefreshCw className="h-5 w-5" />
-            Sync Now
+          <button
+            onClick={handleSyncNow}
+            disabled={syncing || loading}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync Now'}
           </button>
         </div>
 

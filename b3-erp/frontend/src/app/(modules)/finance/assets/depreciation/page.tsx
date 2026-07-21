@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Eye,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { FinanceService } from '@/services/finance.service';
@@ -62,6 +63,11 @@ export default function DepreciationPage() {
   const [expandedAsset, setExpandedAsset] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [scheduleModal, setScheduleModal] = useState<DepreciationSchedule | null>(null);
+  const [pausingId, setPausingId] = useState<string | null>(null);
+  const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const [manualForm, setManualForm] = useState({ assetCode: '', amount: '' });
+  const [manualSaving, setManualSaving] = useState(false);
 
   // Toast notification handler
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -87,20 +93,34 @@ export default function DepreciationPage() {
     }
   };
 
-  const handleManualEntry = async () => {
-    const assetCode = prompt('Enter asset code for manual depreciation entry:');
-    if (!assetCode) return;
-    const amount = prompt('Enter depreciation amount:');
-    if (!amount || !(Number(amount) > 0)) return;
+  const handleManualEntry = () => {
+    setManualForm({ assetCode: '', amount: '' });
+    setManualEntryOpen(true);
+  };
+
+  const submitManualEntry = async () => {
+    const { assetCode, amount } = manualForm;
+    if (!assetCode.trim()) {
+      showToast('Asset code is required', 'error');
+      return;
+    }
+    if (!(Number(amount) > 0)) {
+      showToast('Enter a valid depreciation amount', 'error');
+      return;
+    }
+    setManualSaving(true);
     try {
       await FinanceService.manualDepreciationEntry(assetCode, Number(amount));
       showToast(
         `Manual depreciation of ₹${Number(amount).toLocaleString('en-IN')} recorded for ${assetCode}`,
         'success',
       );
+      setManualEntryOpen(false);
       setRefreshKey((k) => k + 1);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to record manual entry', 'error');
+    } finally {
+      setManualSaving(false);
     }
   };
 
@@ -108,25 +128,51 @@ export default function DepreciationPage() {
     exportToCsv('depreciation-schedules', filteredSchedules as unknown as Record<string, unknown>[]);
   };
 
-  const handleViewSchedule = (assetName: string) => {
-    showToast(`Opening depreciation schedule for: ${assetName}`, 'info');
-    // In a real app, you would:
-    // - Fetch detailed depreciation schedule from API
-    // - Open a modal showing month-by-month depreciation breakdown
-    // - Display depreciation amounts, accumulated totals, net book values
-    // - Show historical and projected depreciation
+  const handleViewSchedule = (schedule: DepreciationSchedule) => {
+    setScheduleModal(schedule);
   };
 
-  const handlePauseSchedule = (assetName: string) => {
-    const confirmed = confirm(`Pause automatic depreciation for ${assetName}?`);
-    if (confirmed) {
-      showToast(`Depreciation paused for: ${assetName}`, 'success');
-      // In a real app, you would:
-      // - PUT to /api/assets/depreciation/pause/{assetId}
-      // - Update asset status to prevent auto-depreciation
-      // - Log the pause action with reason
-      // - Refresh the schedule list
+  const handlePauseSchedule = async (schedule: DepreciationSchedule) => {
+    const confirmed = confirm(`Pause automatic depreciation for ${schedule.assetName}?`);
+    if (!confirmed) return;
+    setPausingId(schedule.assetId);
+    try {
+      await FinanceService.updateFixedAsset(schedule.assetId, { isDepreciable: false });
+      showToast(`Depreciation paused for: ${schedule.assetName}`, 'success');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to pause depreciation', 'error');
+    } finally {
+      setPausingId(null);
     }
+  };
+
+  // Build a month-by-month depreciation breakdown from an already-fetched schedule row.
+  const buildMonthlyBreakdown = (s: DepreciationSchedule) => {
+    const rows: {
+      period: string;
+      depreciation: number;
+      accumulated: number;
+      netBookValue: number;
+    }[] = [];
+    const monthly = s.monthlyDepreciation;
+    const depreciableBase = Math.max(0, s.purchaseValue - s.salvageValue);
+    const totalMonths = monthly > 0 ? Math.ceil(depreciableBase / monthly) : 0;
+    const start = s.startDate ? new Date(s.startDate) : new Date();
+    let accumulated = 0;
+    for (let i = 0; i < totalMonths && i < 600; i++) {
+      const remainingBase = depreciableBase - accumulated;
+      const dep = Math.min(monthly, remainingBase);
+      accumulated += dep;
+      const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+      rows.push({
+        period: d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+        depreciation: dep,
+        accumulated,
+        netBookValue: s.purchaseValue - accumulated,
+      });
+    }
+    return rows;
   };
 
   // Depreciation schedules (derived from fixed assets) + entries, loaded from backend
@@ -532,14 +578,15 @@ export default function DepreciationPage() {
                             <td className="px-3 py-2">
                               <div className="flex items-center justify-center gap-2">
                                 <button
-                                  onClick={() => handleViewSchedule(schedule.assetName)}
+                                  onClick={() => handleViewSchedule(schedule)}
                                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                   title="View Schedule">
                                   <Eye className="w-4 h-4 text-blue-600" />
                                 </button>
                                 <button
-                                  onClick={() => handlePauseSchedule(schedule.assetName)}
-                                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                  onClick={() => handlePauseSchedule(schedule)}
+                                  disabled={pausingId === schedule.assetId || schedule.status !== 'Active'}
+                                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                   title="Pause Depreciation">
                                   <Pause className="w-4 h-4 text-orange-600" />
                                 </button>
@@ -675,6 +722,135 @@ export default function DepreciationPage() {
           </div>
         </div>
       </div>
+
+      {/* Manual Depreciation Entry Modal */}
+      {manualEntryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">Manual Depreciation Entry</h2>
+              <button onClick={() => setManualEntryOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="block text-sm">
+                <span className="text-gray-700">Asset Code *</span>
+                <input
+                  value={manualForm.assetCode}
+                  onChange={(e) => setManualForm({ ...manualForm, assetCode: e.target.value })}
+                  placeholder="e.g. FA-0012"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500" />
+              </label>
+              <label className="block text-sm">
+                <span className="text-gray-700">Depreciation Amount (₹) *</span>
+                <input
+                  type="number"
+                  value={manualForm.amount}
+                  onChange={(e) => setManualForm({ ...manualForm, amount: e.target.value })}
+                  placeholder="0"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setManualEntryOpen(false)}
+                className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg">
+                Cancel
+              </button>
+              <button onClick={submitManualEntry} disabled={manualSaving}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50">
+                {manualSaving ? 'Recording…' : 'Record Entry'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Schedule Modal — month-by-month breakdown derived from fetched asset data */}
+      {scheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Depreciation Schedule — {scheduleModal.assetName}
+                </h2>
+                <p className="text-sm text-gray-600 font-mono">{scheduleModal.assetCode}</p>
+              </div>
+              <button
+                onClick={() => setScheduleModal(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 py-3 border-b border-gray-200 text-sm">
+              <div>
+                <div className="text-gray-500">Method</div>
+                <div className="font-medium text-gray-900">{scheduleModal.depreciationMethod}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Purchase Value</div>
+                <div className="font-medium text-gray-900">{formatCurrency(scheduleModal.purchaseValue)}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Salvage Value</div>
+                <div className="font-medium text-gray-900">{formatCurrency(scheduleModal.salvageValue)}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Monthly Depreciation</div>
+                <div className="font-medium text-gray-900">{formatCurrency(scheduleModal.monthlyDepreciation)}</div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Period</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Depreciation</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Accumulated</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Net Book Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buildMonthlyBreakdown(scheduleModal).map((row, idx) => (
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-900">{row.period}</td>
+                      <td className="px-4 py-2 text-right text-sm text-orange-600">{formatCurrency(row.depreciation)}</td>
+                      <td className="px-4 py-2 text-right text-sm text-red-600">{formatCurrency(row.accumulated)}</td>
+                      <td className="px-4 py-2 text-right text-sm text-green-600">{formatCurrency(row.netBookValue)}</td>
+                    </tr>
+                  ))}
+                  {buildMonthlyBreakdown(scheduleModal).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500">
+                        No depreciation schedule can be derived (missing monthly rate or life).
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button
+                onClick={() =>
+                  exportToCsv(
+                    `depreciation-schedule-${scheduleModal.assetCode}`,
+                    buildMonthlyBreakdown(scheduleModal) as unknown as Record<string, unknown>[],
+                  )
+                }
+                className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg transition-colors">
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+              <button
+                onClick={() => setScheduleModal(null)}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

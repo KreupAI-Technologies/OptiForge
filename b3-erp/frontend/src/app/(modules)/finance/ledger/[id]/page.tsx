@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, Filter } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { FinanceService } from '@/services/finance.service';
+import { exportToCsv } from '@/lib/export';
 
 interface LedgerTransaction {
     id: string;
@@ -120,8 +121,18 @@ export default function AccountLedgerPage() {
                     )}
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline"><Filter className="mr-2 h-4 w-4" />Filter</Button>
-                    <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                    <Button
+                        variant="outline"
+                        disabled={transactions.length === 0}
+                        onClick={() =>
+                            exportToCsv(
+                                `ledger-${account.code || account.id}`,
+                                transactions as unknown as Record<string, unknown>[],
+                            )
+                        }
+                    >
+                        <Download className="mr-2 h-4 w-4" />Export
+                    </Button>
                 </div>
             </div>
 

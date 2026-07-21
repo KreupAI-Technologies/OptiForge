@@ -203,8 +203,39 @@ export default function PaymentViewPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const paymentId = params.id as string;
+
+  const handleReconcile = async () => {
+    if (!paymentId) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await FinanceService.reconcilePayment(paymentId);
+      setReloadKey((k) => k + 1);
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to reconcile payment');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!paymentId) return;
+    if (!window.confirm('Cancel this payment? This action cannot be undone.')) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await FinanceService.cancelPayment(paymentId);
+      setReloadKey((k) => k + 1);
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to cancel payment');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -393,13 +424,23 @@ export default function PaymentViewPage() {
               <Edit className="h-4 w-4" />
               <span>Edit</span>
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button
+              disabled
+              title="Receipt download is not available yet (no backend endpoint)."
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed"
+            >
               <Download className="h-4 w-4" />
               <span>Download Receipt</span>
             </button>
           </div>
         </div>
       </div>
+      {actionError && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {actionError}
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -742,7 +783,11 @@ export default function PaymentViewPage() {
                 </div>
               )}
               {payment.reconciliationStatus === 'not_reconciled' && (
-                <button className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                <button
+                  onClick={handleReconcile}
+                  disabled={actionLoading}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
                   <CheckCircle className="h-4 w-4" />
                   <span>Reconcile Payment</span>
                 </button>
@@ -946,24 +991,40 @@ export default function PaymentViewPage() {
       {/* Action Buttons */}
       <div className="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
         {payment.status === 'completed' && payment.reconciliationStatus === 'not_reconciled' && (
-          <button className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+          <button
+            onClick={handleReconcile}
+            disabled={actionLoading}
+            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          >
             <CheckCircle className="h-4 w-4" />
             <span>Reconcile Payment</span>
           </button>
         )}
         {payment.status === 'completed' && (
-          <button className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+          <button
+            disabled
+            title="Refunds are not available yet (no backend endpoint)."
+            className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg opacity-50 cursor-not-allowed"
+          >
             <RefreshCw className="h-4 w-4" />
             <span>Refund Payment</span>
           </button>
         )}
-        {payment.status === 'failed' && (
-          <button className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+        {(payment.status === 'pending' || payment.status === 'processing') && (
+          <button
+            onClick={handleCancel}
+            disabled={actionLoading}
+            className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+          >
             <Ban className="h-4 w-4" />
-            <span>Mark as Failed</span>
+            <span>Cancel Payment</span>
           </button>
         )}
-        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+        <button
+          disabled
+          title="Receipt download is not available yet (no backend endpoint)."
+          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed"
+        >
           <Receipt className="h-4 w-4" />
           <span>Download Receipt</span>
         </button>

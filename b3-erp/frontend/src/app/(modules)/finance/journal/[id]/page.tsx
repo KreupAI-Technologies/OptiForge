@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Printer, FileText, AlertCircle } from 'lucide-react';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 
 export default function JournalEntryDetailPage() {
     const params = useParams();
@@ -102,13 +103,22 @@ export default function JournalEntryDetailPage() {
                 </div>
 
                 <div className="flex gap-2">
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={() => printCurrentView()}>
                         <Printer className="mr-2 h-4 w-4" />
                         Print
                     </Button>
-                    <Button variant="outline">
+                    <Button
+                        variant="outline"
+                        disabled={journal.lines.length === 0}
+                        onClick={() =>
+                            exportToCsv(
+                                `journal-entry-${journal.number}`,
+                                journal.lines as unknown as Record<string, unknown>[],
+                            )
+                        }
+                    >
                         <Download className="mr-2 h-4 w-4" />
-                        Export PDF
+                        Export
                     </Button>
                 </div>
             </div>

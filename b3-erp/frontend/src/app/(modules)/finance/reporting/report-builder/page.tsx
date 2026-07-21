@@ -35,6 +35,12 @@ export default function ReportBuilderPage() {
   const [reports, setReports] = useState<ReportTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [viewReport, setViewReport] = useState<ReportTemplate | null>(null)
+  const [editReport, setEditReport] = useState<ReportTemplate | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editStatus, setEditStatus] = useState<ReportTemplate['status']>('draft')
+  const [saving, setSaving] = useState(false)
 
   const mapTemplate = (t: any): ReportTemplate => ({
     id: String(t?.id ?? ''),
@@ -97,6 +103,63 @@ export default function ReportBuilderPage() {
     } catch (e: any) {
       setError(e?.message || 'Failed to delete report template')
     }
+  }
+
+  const handleDuplicateReport = async (report: ReportTemplate) => {
+    try {
+      await FinanceService.createReportTemplate({
+        name: `${report.name} (Copy)`,
+        description: report.description,
+        category: report.category,
+        reportType: report.reportType,
+        dataSources: report.dataSources,
+        columns: report.columns,
+        filters: report.filters,
+        groupBy: report.groupBy,
+        status: 'draft',
+      })
+      await loadReports()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to duplicate report template')
+    }
+  }
+
+  const openEdit = (report: ReportTemplate) => {
+    setEditReport(report)
+    setEditName(report.name)
+    setEditDescription(report.description)
+    setEditStatus(report.status)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editReport) return
+    try {
+      setSaving(true)
+      await FinanceService.updateReportTemplate(editReport.id, {
+        name: editName,
+        description: editDescription,
+        status: editStatus,
+      })
+      setEditReport(null)
+      await loadReports()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update report template')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Export the report template definition as JSON (real client-side export from fetched data).
+  const handleExportReport = (report: ReportTemplate) => {
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${report.name.replace(/\s+/g, '_')}_template.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   }
 
   const [dataSources] = useState<DataSource[]>([
@@ -267,19 +330,31 @@ export default function ReportBuilderPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button className="px-3 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm flex items-center gap-2">
+                  <button
+                    onClick={() => setViewReport(report)}
+                    className="px-3 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm flex items-center gap-2"
+                  >
                     <Eye className="h-4 w-4" />
                     Run Report
                   </button>
-                  <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2">
+                  <button
+                    onClick={() => openEdit(report)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2"
+                  >
                     <Edit className="h-4 w-4" />
                     Edit
                   </button>
-                  <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2">
+                  <button
+                    onClick={() => handleDuplicateReport(report)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2"
+                  >
                     <Copy className="h-4 w-4" />
                     Duplicate
                   </button>
-                  <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2">
+                  <button
+                    onClick={() => handleExportReport(report)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2"
+                  >
                     <Download className="h-4 w-4" />
                     Export
                   </button>
@@ -359,6 +434,81 @@ export default function ReportBuilderPage() {
           </div>
         </div>
       </div>
+
+      {viewReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewReport(null)}>
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <h2 className="text-xl font-bold text-gray-900">{viewReport.name}</h2>
+              <button onClick={() => setViewReport(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="mt-1 text-sm text-gray-600">{viewReport.description || 'No description'}</p>
+            <dl className="mt-4 space-y-2 text-sm">
+              <div className="flex justify-between"><dt className="text-gray-500">Category</dt><dd className="text-gray-900">{viewReport.category}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Type</dt><dd className="text-gray-900">{viewReport.reportType}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Status</dt><dd className="text-gray-900">{viewReport.status}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Data Sources</dt><dd className="text-gray-900">{viewReport.dataSources.join(', ') || '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Columns</dt><dd className="text-gray-900">{viewReport.columns.join(', ') || '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Filters</dt><dd className="text-gray-900">{viewReport.filters.join(', ') || '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Executions</dt><dd className="text-gray-900">{viewReport.executionCount}</dd></div>
+            </dl>
+            <div className="mt-6 flex justify-end">
+              <button onClick={() => setViewReport(null)} className="rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditReport(null)}>
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Edit Report</h2>
+              <button onClick={() => setEditReport(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as ReportTemplate['status'])}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setEditReport(null)} className="rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50">Cancel</button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving || !editName.trim()}
+                className="rounded-lg bg-sky-600 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -204,6 +204,39 @@ export default function PayablesPage() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedPayables = filteredPayables.slice(startIndex, startIndex + itemsPerPage);
 
+  // Client-side CSV export from already-fetched (filtered) payables
+  const handleExport = () => {
+    const headers = ['Payable', 'Vendor', 'Vendor ID', 'Invoice', 'Invoice Date', 'Due Date', 'PO', 'Category', 'Total', 'Paid', 'Balance', 'Status', 'Aging Days', 'Assigned To'];
+    const rows = filteredPayables.map((p) => [
+      p.payableNumber,
+      p.vendorName,
+      p.vendorId,
+      p.invoiceNumber,
+      p.invoiceDate,
+      p.dueDate,
+      p.purchaseOrder,
+      p.category,
+      p.totalAmount,
+      p.paidAmount,
+      p.totalAmount - p.paidAmount,
+      statusLabels[p.status],
+      p.agingDays,
+      p.assignedTo,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Payables_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const stats = {
     totalPayables: payables.reduce((sum, p) => sum + (p.totalAmount - p.paidAmount), 0),
     dueThisWeek: payables
@@ -402,7 +435,10 @@ export default function PayablesPage() {
           <option value="Packaging">Packaging</option>
           <option value="Maintenance">Maintenance</option>
         </select>
-        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+        <button
+          onClick={handleExport}
+          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
           <Download className="h-4 w-4" />
           <span>Export</span>
         </button>

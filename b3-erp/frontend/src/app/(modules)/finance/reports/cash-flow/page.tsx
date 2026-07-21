@@ -77,6 +77,69 @@ export default function CashFlowStatementPage() {
   const [openingCash, setOpeningCash] = useState({ current: 5200000, previous: 4100000 });
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const resolvePeriodRange = (): { startDate: Date; endDate: Date } => {
+    const end = new Date();
+    let start = new Date(end.getFullYear(), 0, 1);
+    switch (selectedPeriod) {
+      case 'current-month':
+        start = new Date(end.getFullYear(), end.getMonth(), 1);
+        break;
+      case 'current-quarter':
+        start = new Date(end.getFullYear(), Math.floor(end.getMonth() / 3) * 3, 1);
+        break;
+      case 'last-month':
+        start = new Date(end.getFullYear(), end.getMonth() - 1, 1);
+        break;
+      case 'last-year':
+        start = new Date(end.getFullYear() - 1, 0, 1);
+        break;
+      default:
+        start = new Date(end.getFullYear(), 0, 1);
+    }
+    return { startDate: start, endDate: end };
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const range = resolvePeriodRange();
+      const blob = await FinancialReportsService.exportToExcel('cash-flow', {
+        startDate: range.startDate,
+        endDate: range.endDate,
+        comparePeriod: showComparison,
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadBlob(blob, `Cash_Flow_Statement_${selectedPeriod}_${dateStr}.xlsx`);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Export failed');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShare = async () => {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -230,15 +293,25 @@ export default function CashFlowStatementPage() {
             <p className="text-gray-400">Cash inflows and outflows analysis</p>
           </div>
           <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
               <Download className="w-4 h-4" />
-              Export
+              {isExporting ? 'Exporting...' : 'Export'}
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
               <Printer className="w-4 h-4" />
               Print
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
               <Share2 className="w-4 h-4" />
               Share
             </button>

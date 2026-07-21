@@ -208,6 +208,47 @@ export default function PaymentsPage() {
     failed: payments.filter((p) => p.status === 'failed').length,
   };
 
+  // Client-side CSV export of the currently-filtered payments.
+  const handleExport = () => {
+    const headers = [
+      'Payment Number',
+      'Invoice',
+      'Customer',
+      'Date',
+      'Amount',
+      'Method',
+      'Transaction ID',
+      'Status',
+      'Reference',
+    ];
+    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows = filteredPayments.map((p) =>
+      [
+        p.paymentNumber,
+        p.invoiceNumber,
+        p.customerName,
+        p.paymentDate,
+        p.amount,
+        methodLabels[p.paymentMethod],
+        p.transactionId,
+        statusLabels[p.status],
+        p.referenceNumber,
+      ]
+        .map((c) => escape(String(c ?? '')))
+        .join(',')
+    );
+    const csv = [headers.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `payments-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Show loading skeleton
   if (loading && payments.length === 0) {
     return (
@@ -329,7 +370,11 @@ export default function PaymentsPage() {
           <option value="failed">Failed</option>
           <option value="refunded">Refunded</option>
         </select>
-        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+        <button
+          onClick={handleExport}
+          disabled={filteredPayments.length === 0}
+          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Download className="h-4 w-4" />
           <span>Export</span>
         </button>

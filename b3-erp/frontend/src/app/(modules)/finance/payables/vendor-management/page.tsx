@@ -64,16 +64,6 @@ export default function VendorManagementPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
 
-  // Mock data
-  const vendorStats = {
-    totalVendors: 47,
-    activeVendors: 42,
-    totalCreditLimit: 35000000,
-    totalOutstanding: 8750000,
-    availableCredit: 26250000,
-    highRiskVendors: 8
-  };
-
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -137,6 +127,38 @@ export default function VendorManagementPage() {
   }, []);
 
 
+  // Stats derived from live vendors (no fabricated numbers)
+  const vendorStats = {
+    totalVendors: vendors.length,
+    activeVendors: vendors.filter((v) => v.status === 'active').length,
+    totalCreditLimit: vendors.reduce((s, v) => s + v.creditLimit, 0),
+    totalOutstanding: vendors.reduce((s, v) => s + v.currentOutstanding, 0),
+    availableCredit: vendors.reduce((s, v) => s + v.availableCredit, 0),
+    highRiskVendors: vendors.filter((v) => v.riskRating === 'high').length,
+  };
+
+  // Client-side CSV export from already-fetched (filtered) vendors
+  const handleExport = () => {
+    const headers = ['Vendor ID', 'Vendor Name', 'Contact Person', 'Email', 'Phone', 'City', 'State', 'Category', 'Credit Limit', 'Outstanding', 'Available Credit', 'Payment Terms', 'Risk', 'Status'];
+    const rows = filteredVendors.map((v) => [
+      v.vendorId, v.vendorName, v.contactPerson, v.email, v.phone, v.city, v.state,
+      v.vendorCategory, v.creditLimit, v.currentOutstanding, v.availableCredit,
+      v.paymentTerms, v.riskRating, v.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Vendors_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'low': return 'text-green-600 bg-green-100';
@@ -199,7 +221,10 @@ export default function VendorManagementPage() {
                 <Filter className="h-4 w-4" />
                 <span>Filters</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+              <button
+                onClick={handleExport}
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
                 <Download className="h-4 w-4" />
                 <span>Export</span>
               </button>
@@ -236,7 +261,7 @@ export default function VendorManagementPage() {
                 <DollarSign className="h-5 w-5 text-yellow-600" />
               </div>
               <p className="text-2xl font-bold text-yellow-900">₹{(vendorStats.totalOutstanding / 1000000).toFixed(1)}M</p>
-              <p className="text-xs text-yellow-600 mt-1">{((vendorStats.totalOutstanding / vendorStats.totalCreditLimit) * 100).toFixed(1)}% utilized</p>
+              <p className="text-xs text-yellow-600 mt-1">{vendorStats.totalCreditLimit > 0 ? ((vendorStats.totalOutstanding / vendorStats.totalCreditLimit) * 100).toFixed(1) : '0.0'}% utilized</p>
             </div>
 
             <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">

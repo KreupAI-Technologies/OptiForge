@@ -20,8 +20,7 @@ import {
   ArrowUpCircle,
   ChevronLeft,
   ChevronRight,
-  Mail,
-  Phone,
+  X,
 } from 'lucide-react';
 
 interface AnticipatedReceipt {
@@ -101,15 +100,6 @@ export default function AnticipatedReceiptsPage() {
     loadReceipts();
   }, [loadReceipts]);
 
-  const handleCreateReceipt = async (data: any) => {
-    try {
-      await FinanceService.createAnticipatedReceipt(data);
-      await loadReceipts();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create receipt');
-    }
-  };
-
   const handleUpdateReceipt = async (id: string, data: any) => {
     try {
       await FinanceService.updateAnticipatedReceipt(id, data);
@@ -132,6 +122,113 @@ export default function AnticipatedReceiptsPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const emptyForm = {
+    id: '',
+    receiptNumber: '',
+    customerName: '',
+    customerId: '',
+    expectedDate: '',
+    expectedAmount: '',
+    receivedAmount: '',
+    status: 'Pending',
+    confidenceLevel: '',
+    referenceType: 'Reference',
+    referenceNumber: '',
+    description: '',
+    paymentMethod: '',
+    contactPerson: '',
+    contactEmail: '',
+  };
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [formData, setFormData] = useState<typeof emptyForm>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [viewReceipt, setViewReceipt] = useState<AnticipatedReceipt | null>(null);
+
+  const openCreateModal = () => {
+    setFormMode('create');
+    setFormData(emptyForm);
+    setFormModalOpen(true);
+  };
+
+  const openEditModal = (receipt: AnticipatedReceipt) => {
+    setFormMode('edit');
+    setFormData({
+      id: receipt.id,
+      receiptNumber: receipt.receiptNumber,
+      customerName: receipt.customerName,
+      customerId: receipt.customerId,
+      expectedDate: receipt.expectedDate,
+      expectedAmount: String(receipt.expectedAmount ?? ''),
+      receivedAmount: String(receipt.receivedAmount ?? ''),
+      status: receipt.status,
+      confidenceLevel: String(receipt.confidenceLevel ?? ''),
+      referenceType: receipt.referenceType,
+      referenceNumber: receipt.referenceNumber,
+      description: receipt.description,
+      paymentMethod: receipt.paymentMethod,
+      contactPerson: receipt.contactPerson,
+      contactEmail: receipt.contactEmail,
+    });
+    setFormModalOpen(true);
+  };
+
+  const handleSubmitForm = async () => {
+    setSaving(true);
+    setError(null);
+    const payload: any = {
+      receiptNumber: formData.receiptNumber || undefined,
+      customerName: formData.customerName,
+      customerId: formData.customerId || undefined,
+      expectedDate: formData.expectedDate || undefined,
+      expectedAmount: formData.expectedAmount ? Number(formData.expectedAmount) : 0,
+      receivedAmount: formData.receivedAmount ? Number(formData.receivedAmount) : 0,
+      status: formData.status,
+      confidenceLevel: formData.confidenceLevel ? Number(formData.confidenceLevel) : 0,
+      referenceType: formData.referenceType || undefined,
+      referenceNumber: formData.referenceNumber || undefined,
+      description: formData.description || undefined,
+      expectedPaymentMethod: formData.paymentMethod || undefined,
+      contactPerson: formData.contactPerson || undefined,
+      contactEmail: formData.contactEmail || undefined,
+    };
+    try {
+      if (formMode === 'create') {
+        await FinanceService.createAnticipatedReceipt(payload);
+      } else {
+        await FinanceService.updateAnticipatedReceipt(formData.id, payload);
+      }
+      setFormModalOpen(false);
+      await loadReceipts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save receipt');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExportCsv = () => {
+    const headers = [
+      'Receipt Number', 'Customer', 'Customer ID', 'Expected Date', 'Expected Amount',
+      'Received Amount', 'Balance', 'Status', 'Confidence %', 'Reference Type',
+      'Reference Number', 'Payment Method', 'Contact Person', 'Contact Email', 'Description',
+    ];
+    const escape = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = filteredReceipts.map((r) => [
+      r.receiptNumber, r.customerName, r.customerId, r.expectedDate, r.expectedAmount,
+      r.receivedAmount, r.balanceAmount, r.status, r.confidenceLevel, r.referenceType,
+      r.referenceNumber, r.paymentMethod, r.contactPerson, r.contactEmail, r.description,
+    ].map(escape).join(','));
+    const csv = [headers.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `anticipated-receipts-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const stats = {
     totalExpected: receipts.reduce((sum, r) => sum + r.expectedAmount, 0),
@@ -216,7 +313,7 @@ export default function AnticipatedReceiptsPage() {
                 <p className="text-gray-600 mt-1">Track and manage expected customer payments</p>
               </div>
               <button
-                onClick={() => handleCreateReceipt({ status: 'Pending' })}
+                onClick={openCreateModal}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"
               >
                 <Plus className="w-5 h-5" />
@@ -311,13 +408,12 @@ export default function AnticipatedReceiptsPage() {
             </div>
 
             <div className="flex items-center gap-2 mt-4">
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+              <button
+                onClick={handleExportCsv}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
                 <Download className="w-4 h-4" />
-                <span>Export to Excel</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors">
-                <Mail className="w-4 h-4" />
-                <span>Send Reminders</span>
+                <span>Export to CSV</span>
               </button>
             </div>
           </div>
@@ -445,22 +541,25 @@ export default function AnticipatedReceiptsPage() {
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           <button
+                            onClick={() => setViewReceipt(receipt)}
+                            title="View details"
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleUpdateReceipt(receipt.id, { status: receipt.status })}
+                            onClick={() => openEditModal(receipt)}
+                            title="Edit receipt"
                             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteReceipt(receipt.id)}
+                            title="Delete receipt"
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
-                            <Mail className="w-4 h-4" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -499,6 +598,123 @@ export default function AnticipatedReceiptsPage() {
           </div>
         </div>
       </div>
+
+      {/* Create / Edit Modal */}
+      {formModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {formMode === 'create' ? 'Add New Receipt' : 'Edit Receipt'}
+              </h3>
+              <button onClick={() => setFormModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-sm">
+                <span className="text-gray-700">Receipt Number</span>
+                <input value={formData.receiptNumber} onChange={(e) => setFormData({ ...formData, receiptNumber: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Customer Name</span>
+                <input value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Customer ID</span>
+                <input value={formData.customerId} onChange={(e) => setFormData({ ...formData, customerId: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Expected Date</span>
+                <input type="date" value={formData.expectedDate} onChange={(e) => setFormData({ ...formData, expectedDate: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Expected Amount</span>
+                <input type="number" value={formData.expectedAmount} onChange={(e) => setFormData({ ...formData, expectedAmount: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Received Amount</span>
+                <input type="number" value={formData.receivedAmount} onChange={(e) => setFormData({ ...formData, receivedAmount: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Status</span>
+                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="Pending">Pending</option>
+                  <option value="Partially Received">Partially Received</option>
+                  <option value="Fully Received">Fully Received</option>
+                  <option value="Overdue">Overdue</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Confidence Level (%)</span>
+                <input type="number" min={0} max={100} value={formData.confidenceLevel} onChange={(e) => setFormData({ ...formData, confidenceLevel: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Payment Method</span>
+                <input value={formData.paymentMethod} onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Reference Type</span>
+                <input value={formData.referenceType} onChange={(e) => setFormData({ ...formData, referenceType: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Reference Number</span>
+                <input value={formData.referenceNumber} onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Contact Person</span>
+                <input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm">
+                <span className="text-gray-700">Contact Email</span>
+                <input type="email" value={formData.contactEmail} onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+              <label className="text-sm md:col-span-2">
+                <span className="text-gray-700">Description</span>
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setFormModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button onClick={handleSubmitForm} disabled={saving || !formData.customerName} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50">
+                {saving ? 'Saving…' : formMode === 'create' ? 'Create Receipt' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Details Modal */}
+      {viewReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">{viewReceipt.receiptNumber}</h3>
+              <button onClick={() => setViewReceipt(null)} className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">Customer</span><span className="font-medium">{viewReceipt.customerName} ({viewReceipt.customerId})</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Contact</span><span className="font-medium">{viewReceipt.contactPerson}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Email</span><span className="font-medium">{viewReceipt.contactEmail || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Expected Date</span><span className="font-medium">{viewReceipt.expectedDate}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Expected Amount</span><span className="font-medium">{formatCurrency(viewReceipt.expectedAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Received Amount</span><span className="font-medium">{formatCurrency(viewReceipt.receivedAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Balance</span><span className="font-medium">{formatCurrency(viewReceipt.balanceAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Status</span><span className="font-medium">{viewReceipt.status}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Confidence</span><span className="font-medium">{viewReceipt.confidenceLevel}%</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Payment Method</span><span className="font-medium">{viewReceipt.paymentMethod}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Reference</span><span className="font-medium">{viewReceipt.referenceType}: {viewReceipt.referenceNumber}</span></div>
+              <div className="pt-2 border-t border-gray-100"><span className="text-gray-500">Description</span><p className="mt-1 text-gray-800">{viewReceipt.description || '—'}</p></div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => { const r = viewReceipt; setViewReceipt(null); openEditModal(r); }} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">Edit</button>
+              <button onClick={() => setViewReceipt(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

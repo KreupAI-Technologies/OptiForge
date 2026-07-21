@@ -183,6 +183,11 @@ export default function TDSManagementPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // View-detail modals (replace prior window.alert flows)
+  const [viewTxn, setViewTxn] = useState<TDSTransaction | null>(null);
+  const [viewReturn, setViewReturn] = useState<TDSReturn | null>(null);
+  const [viewChallan, setViewChallan] = useState<any | null>(null);
+
   const loadReturnsAndChallans = React.useCallback(async (): Promise<void> => {
     try {
       const [rets, chs] = await Promise.all([
@@ -435,7 +440,7 @@ export default function TDSManagementPage() {
   };
 
   const handleViewTransaction = (txn: TDSTransaction) => {
-    alert(`TDS Transaction Details\n\nPayment Ref: ${txn.paymentRef}\nDate: ${txn.date}\nDeductee: ${txn.deductee}\nPAN: ${txn.pan}\nSection: ${txn.section}\n\nGross Amount: ${formatCurrency(txn.grossAmount)}\nTDS Rate: ${txn.tdsRate}%\nTDS Amount: ${formatCurrency(txn.tdsAmount)}\nNet Payment: ${formatCurrency(txn.netPayment)}\n\nQuarter: ${txn.quarter}\n${txn.challanNumber ? `Challan: ${txn.challanNumber}\nChallan Date: ${txn.challanDate}` : 'Challan: Not deposited yet'}\nStatus: ${txn.deposited ? 'Deposited' : 'Pending Deposit'}`);
+    setViewTxn(txn);
   };
 
   const handleDownloadTransactionCertificate = async (txn: TDSTransaction) => {
@@ -468,7 +473,7 @@ export default function TDSManagementPage() {
   };
 
   const handleViewReturn = (ret: TDSReturn) => {
-    alert(`TDS Return Details\n\nForm: ${ret.formType}\nQuarter: ${ret.quarter}\nDue Date: ${ret.dueDate}\nStatus: ${ret.status}\n${ret.filedDate ? `\nFiled Date: ${ret.filedDate}` : ''}${ret.acknowledgementNumber ? `\nAcknowledgement: ${ret.acknowledgementNumber}` : ''}\n\nTotal Deductions: ${formatCurrency(ret.totalDeductions)}\nTotal Deposited: ${formatCurrency(ret.totalDeposited)}\nNumber of Deductees: ${ret.deducteeCount}\n\n${ret.totalDeductions === ret.totalDeposited ? 'All TDS deposited ✓' : 'Pending deposit: ' + formatCurrency(ret.totalDeductions - ret.totalDeposited)}`);
+    setViewReturn(ret);
   };
 
   // File a TDS return. If the row is a not-yet-persisted draft, file it fresh;
@@ -522,7 +527,7 @@ export default function TDSManagementPage() {
   };
 
   const handleViewChallan = (challan: any) => {
-    alert(`Challan Details\n\nChallan Number: ${challan.challanNumber}\nDate: ${challan.date}\nAmount: ${formatCurrency(challan.amount)}\nSection: ${challan.section}\nBank: ${challan.bankName}\nStatus: ${challan.status}\n\nThis challan covers TDS deposits made for the specified section and period.`);
+    setViewChallan(challan);
   };
 
   const handleDownloadChallan = async (challan: any) => {
@@ -1134,6 +1139,111 @@ export default function TDSManagementPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View TDS Transaction Modal */}
+      {viewTxn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h3 className="text-lg font-semibold text-white">TDS Transaction — {viewTxn.paymentRef}</h3>
+              <button onClick={() => setViewTxn(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
+              {[
+                ['Date', viewTxn.date],
+                ['Deductee', viewTxn.deductee],
+                ['PAN', viewTxn.pan],
+                ['Section', viewTxn.section],
+                ['Gross Amount', formatCurrency(viewTxn.grossAmount)],
+                ['TDS Rate', `${viewTxn.tdsRate}%`],
+                ['TDS Amount', formatCurrency(viewTxn.tdsAmount)],
+                ['Net Payment', formatCurrency(viewTxn.netPayment)],
+                ['Quarter', viewTxn.quarter],
+                ['Challan', viewTxn.challanNumber || 'Not deposited yet'],
+                ['Challan Date', viewTxn.challanDate || '-'],
+                ['Status', viewTxn.deposited ? 'Deposited' : 'Pending Deposit'],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="text-gray-400">{label}</div>
+                  <div className="font-medium text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+              <button onClick={() => setViewTxn(null)} className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View TDS Return Modal */}
+      {viewReturn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h3 className="text-lg font-semibold text-white">{viewReturn.formType} — {viewReturn.quarter}</h3>
+              <button onClick={() => setViewReturn(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
+              {[
+                ['Due Date', viewReturn.dueDate],
+                ['Status', viewReturn.status],
+                ['Filed Date', viewReturn.filedDate || '-'],
+                ['Acknowledgement', viewReturn.acknowledgementNumber || '-'],
+                ['Total Deductions', formatCurrency(viewReturn.totalDeductions)],
+                ['Total Deposited', formatCurrency(viewReturn.totalDeposited)],
+                ['Deductees', String(viewReturn.deducteeCount)],
+                ['Deposit Status', viewReturn.totalDeductions === viewReturn.totalDeposited
+                  ? 'All TDS deposited'
+                  : `Pending: ${formatCurrency(viewReturn.totalDeductions - viewReturn.totalDeposited)}`],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="text-gray-400">{label}</div>
+                  <div className="font-medium text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+              <button onClick={() => setViewReturn(null)} className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Challan Modal */}
+      {viewChallan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h3 className="text-lg font-semibold text-white">Challan — {viewChallan.challanNumber}</h3>
+              <button onClick={() => setViewChallan(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
+              {[
+                ['Date', viewChallan.date],
+                ['Amount', formatCurrency(Number(viewChallan.amount ?? 0))],
+                ['Section', viewChallan.section],
+                ['Bank', viewChallan.bankName],
+                ['Status', viewChallan.status],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="text-gray-400">{label}</div>
+                  <div className="font-medium text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+              <button onClick={() => setViewChallan(null)} className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">Close</button>
+            </div>
           </div>
         </div>
       )}

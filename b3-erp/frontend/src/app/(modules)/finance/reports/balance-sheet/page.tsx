@@ -76,6 +76,47 @@ export default function BalanceSheetPage() {
   const [balanceSheetData, setBalanceSheetData] = useState(INITIAL_BALANCE_SHEET_DATA);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShare = async () => {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      const end = asOfDate ? new Date(asOfDate) : new Date();
+      const start = new Date(end.getFullYear(), 0, 1);
+      const blob = await FinancialReportsService.exportToPdf('balance-sheet', {
+        startDate: start,
+        endDate: end,
+        comparePeriod: showComparison,
+      });
+      downloadBlob(blob, `Balance_Sheet_${asOfDate || new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Export failed');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -338,17 +379,27 @@ export default function BalanceSheetPage() {
             <p className="text-gray-600 mt-1">Statement of financial position</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
               <Printer className="w-5 h-5" />
               <span>Print</span>
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
               <Share2 className="w-5 h-5" />
               <span>Share</span>
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+            <button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
               <Download className="w-5 h-5" />
-              <span>Export PDF</span>
+              <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
             </button>
           </div>
         </div>

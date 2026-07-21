@@ -55,68 +55,102 @@ export default function BankReconciliationPage() {
   const [erpTransactions, setErpTransactions] = useState<ERPTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [autoMatching, setAutoMatching] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const load = React.useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [payments, dash] = await Promise.all([
+        FinanceService.getPayments() as Promise<any[]>,
+        FinanceService.getCashDashboard() as Promise<any>,
+      ]);
+      const bankRows: any[] = Array.isArray(dash?.transactions) ? dash.transactions : [];
+      let running = Number(dash?.stats?.currentBalance ?? 0);
+      const bank: BankTransaction[] = bankRows.map((t, i) => {
+        const debit = Number(t.debit ?? t.debitAmount ?? (t.type === 'outflow' ? t.amount : 0) ?? 0);
+        const credit = Number(t.credit ?? t.creditAmount ?? (t.type === 'inflow' ? t.amount : 0) ?? 0);
+        running = running + credit - debit;
+        return {
+          id: t.id ?? `BT-${i}`,
+          date: t.date ?? t.transactionDate ?? '',
+          description: t.description ?? t.narration ?? '-',
+          reference: t.reference ?? t.referenceNumber ?? '-',
+          debit,
+          credit,
+          balance: Number(t.balance ?? running),
+          matched: Boolean(t.matched ?? t.isMatched),
+          erpTransactionId: t.erpTransactionId ?? undefined,
+        };
+      });
+      const erp: ERPTransaction[] = (payments ?? []).map((p, i) => {
+        const isPayment = String(p.paymentType ?? p.type ?? '').toLowerCase().includes('pay');
+        const amount = Number(p.amount ?? p.netAmount ?? 0);
+        return {
+          id: p.id ?? `ERP-${i}`,
+          date: p.paymentDate ?? p.date ?? '',
+          description: p.description ?? p.narration ?? p.paymentNumber ?? '-',
+          reference: p.paymentNumber ?? p.reference ?? p.referenceNumber ?? '-',
+          debit: isPayment ? amount : 0,
+          credit: isPayment ? 0 : amount,
+          matched: Boolean(p.matched ?? p.isReconciled),
+          bankTransactionId: p.bankTransactionId ?? undefined,
+        };
+      });
+      setBankTransactions(bank);
+      setErpTransactions(erp);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load reconciliation data');
+      setBankTransactions([]);
+      setErpTransactions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const [payments, dash] = await Promise.all([
-          FinanceService.getPayments() as Promise<any[]>,
-          FinanceService.getCashDashboard() as Promise<any>,
-        ]);
-        const bankRows: any[] = Array.isArray(dash?.transactions) ? dash.transactions : [];
-        let running = Number(dash?.stats?.currentBalance ?? 0);
-        const bank: BankTransaction[] = bankRows.map((t, i) => {
-          const debit = Number(t.debit ?? t.debitAmount ?? (t.type === 'outflow' ? t.amount : 0) ?? 0);
-          const credit = Number(t.credit ?? t.creditAmount ?? (t.type === 'inflow' ? t.amount : 0) ?? 0);
-          running = running + credit - debit;
-          return {
-            id: t.id ?? `BT-${i}`,
-            date: t.date ?? t.transactionDate ?? '',
-            description: t.description ?? t.narration ?? '-',
-            reference: t.reference ?? t.referenceNumber ?? '-',
-            debit,
-            credit,
-            balance: Number(t.balance ?? running),
-            matched: Boolean(t.matched ?? t.isMatched),
-            erpTransactionId: t.erpTransactionId ?? undefined,
-          };
-        });
-        const erp: ERPTransaction[] = (payments ?? []).map((p, i) => {
-          const isPayment = String(p.paymentType ?? p.type ?? '').toLowerCase().includes('pay');
-          const amount = Number(p.amount ?? p.netAmount ?? 0);
-          return {
-            id: p.id ?? `ERP-${i}`,
-            date: p.paymentDate ?? p.date ?? '',
-            description: p.description ?? p.narration ?? p.paymentNumber ?? '-',
-            reference: p.paymentNumber ?? p.reference ?? p.referenceNumber ?? '-',
-            debit: isPayment ? amount : 0,
-            credit: isPayment ? 0 : amount,
-            matched: Boolean(p.matched ?? p.isReconciled),
-            bankTransactionId: p.bankTransactionId ?? undefined,
-          };
-        });
-        if (!cancelled) {
-          setBankTransactions(bank);
-          setErpTransactions(erp);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load reconciliation data');
-          setBankTransactions([]);
-          setErpTransactions([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [load]);
+
+  // Run auto-match for the selected bank account, then reload data.
+  const handleAutoMatch = async () => {
+    if (!selectedAccount) return;
+    setAutoMatching(true);
+    setActionError(null);
+    try {
+      await FinanceService.autoMatchBankAccount(selectedAccount);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Auto-match failed');
+    } finally {
+      setAutoMatching(false);
+    }
+  };
+
+  // Export the reconciliation report for the selected account as a JSON download.
+  const handleExportReport = async () => {
+    if (!selectedAccount) return;
+    setExporting(true);
+    setActionError(null);
+    try {
+      const report = await FinanceService.getReconciliationReport(selectedAccount, selectedPeriod);
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `reconciliation-report-${selectedAccount}-${selectedPeriod}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const matchedTransactions = bankTransactions.filter(t => t.matched);
   const unmatchedBankTxns = bankTransactions.filter(t => !t.matched);
@@ -173,6 +207,11 @@ export default function BankReconciliationPage() {
                 {loadError}
               </div>
             )}
+            {actionError && (
+              <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {actionError}
+              </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
@@ -184,13 +223,21 @@ export default function BankReconciliationPage() {
                   <Upload className="w-4 h-4" />
                   Import Statement
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-                  <RefreshCw className="w-4 h-4" />
-                  Auto Match
+                <button
+                  onClick={handleAutoMatch}
+                  disabled={!selectedAccount || autoMatching}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-4 h-4 ${autoMatching ? 'animate-spin' : ''}`} />
+                  {autoMatching ? 'Matching…' : 'Auto Match'}
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                <button
+                  onClick={handleExportReport}
+                  disabled={!selectedAccount || exporting}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <Download className="w-4 h-4" />
-                  Export Report
+                  {exporting ? 'Exporting…' : 'Export Report'}
                 </button>
               </div>
             </div>

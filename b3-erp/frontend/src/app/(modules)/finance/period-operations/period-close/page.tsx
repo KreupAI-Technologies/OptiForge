@@ -16,43 +16,69 @@ export default function PeriodClosePage() {
   const [tasks, setTasks] = useState<CloseTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPeriod, setCurrentPeriod] = useState<{ id: string; name: string } | null>(null)
+  const [closing, setClosing] = useState(false)
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const periods = await FinanceService.getFinancialPeriods()
+      const list = Array.isArray(periods) ? periods : []
+      // Pick the current (or most recent open) period and derive its
+      // closing checklist into the task list the JSX renders.
+      const current =
+        list.find((p: any) => p?.isCurrent) ||
+        list.find((p: any) => String(p?.status).toLowerCase() === 'open') ||
+        list[0]
+      setCurrentPeriod(
+        current
+          ? { id: String(current.id), name: current.periodName ?? current.periodCode ?? 'Current Period' }
+          : null,
+      )
+      const checklist: any[] = Array.isArray(current?.closingChecklist)
+        ? current.closingChecklist
+        : []
+      const mapped: CloseTask[] = checklist.map((c: any, i: number) => ({
+        id: String(i + 1),
+        task: c?.taskName ?? c?.task ?? `Task ${i + 1}`,
+        status: c?.completed ? 'completed' : 'pending',
+        assignedTo: c?.completedBy ?? 'Finance Team',
+        dueDate: current?.endDate ?? new Date().toISOString().slice(0, 10),
+      }))
+      setTasks(mapped)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load period close data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let active = true
-    const load = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const periods = await FinanceService.getFinancialPeriods()
-        const list = Array.isArray(periods) ? periods : []
-        // Pick the current (or most recent open) period and derive its
-        // closing checklist into the task list the JSX renders.
-        const current =
-          list.find((p: any) => p?.isCurrent) ||
-          list.find((p: any) => String(p?.status).toLowerCase() === 'open') ||
-          list[0]
-        const checklist: any[] = Array.isArray(current?.closingChecklist)
-          ? current.closingChecklist
-          : []
-        const mapped: CloseTask[] = checklist.map((c: any, i: number) => ({
-          id: String(i + 1),
-          task: c?.taskName ?? c?.task ?? `Task ${i + 1}`,
-          status: c?.completed ? 'completed' : 'pending',
-          assignedTo: c?.completedBy ?? 'Finance Team',
-          dueDate: current?.endDate ?? new Date().toISOString().slice(0, 10),
-        }))
-        if (active) setTasks(mapped)
-      } catch (e: any) {
-        if (active) setError(e?.message ?? 'Failed to load period close data')
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      active = false
-    }
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // No dedicated close endpoint; PATCH period status to Closed.
+  const handleClosePeriod = async () => {
+    if (!currentPeriod) {
+      setActionMessage({ type: 'error', text: 'No open period available to close.' })
+      return
+    }
+    if (!confirm(`Close period "${currentPeriod.name}"? Posted transactions will be locked.`)) return
+    setClosing(true)
+    setActionMessage(null)
+    try {
+      await FinanceService.updateFinancialPeriod(currentPeriod.id, { status: 'Closed' })
+      setActionMessage({ type: 'success', text: `Period "${currentPeriod.name}" closed.` })
+      await load()
+    } catch (e: any) {
+      setActionMessage({ type: 'error', text: e?.message ?? 'Failed to close period.' })
+    } finally {
+      setClosing(false)
+    }
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -109,9 +135,18 @@ export default function PeriodClosePage() {
             ))}
           </div>
 
-          <button className="mt-6 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 font-semibold">
+          {actionMessage && (
+            <div className={`mt-4 rounded-lg px-4 py-2 text-sm ${actionMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {actionMessage.text}
+            </div>
+          )}
+          <button
+            onClick={handleClosePeriod}
+            disabled={closing || !currentPeriod}
+            className="mt-6 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Lock className="h-5 w-5" />
-            Close Period
+            {closing ? 'Closing…' : 'Close Period'}
           </button>
         </div>
       </div>

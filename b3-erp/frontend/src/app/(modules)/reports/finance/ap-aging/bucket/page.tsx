@@ -6,6 +6,7 @@ import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fetchReportRows } from '@/services/reports-management.service';
+import { exportToCsv } from '@/lib/export';
 
 interface BillRow {
     id: string;
@@ -64,6 +65,8 @@ function AgingBucketContent() {
                 { label: 'AP Aging', href: '/reports/finance/ap-aging' },
                 { label: bucket }
             ]}
+            onBack={() => router.back()}
+            onExport={() => exportToCsv(`ap-aging-${bucket}`, bills)}
         >
             <Card>
                 <CardHeader>

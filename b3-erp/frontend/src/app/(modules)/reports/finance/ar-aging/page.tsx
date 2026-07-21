@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download, Users, DollarSign, AlertTriangle } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { fetchReportDataset } from '@/services/reports-management.service';
+import { exportToCsv } from '@/lib/export';
 
 interface ARAgingData {
     totalAR: number;
@@ -73,7 +74,7 @@ export default function ARAgingReport() {
                     <h1 className="text-3xl font-bold mb-2">Accounts Receivable Aging Report</h1>
                     <p className="text-gray-600">Customer payment tracking and collection analysis</p>
                 </div>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                <Button variant="outline" onClick={() => exportToCsv('ar-aging', data.agingBuckets)} disabled={data.agingBuckets.length === 0}><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
 
             {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}

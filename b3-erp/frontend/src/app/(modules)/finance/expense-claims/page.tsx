@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Upload, CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
 import Link from 'next/link';
+import { FinanceService } from '@/services/finance.service';
 
 interface ExpenseClaim {
     id: string;
@@ -27,6 +28,36 @@ export default function ExpenseClaimsPage() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [filter, setFilter] = useState('all');
+    const [form, setForm] = useState({ category: '', amount: '', description: '' });
+    const [submitting, setSubmitting] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+
+    const handleSubmitClaim = async () => {
+        if (!form.category) {
+            setFormError('Please select a category');
+            return;
+        }
+        if (!(Number(form.amount) > 0)) {
+            setFormError('Please enter a valid amount');
+            return;
+        }
+        setSubmitting(true);
+        setFormError(null);
+        try {
+            await FinanceService.createExpenseClaim({
+                category: form.category,
+                totalAmount: Number(form.amount),
+                description: form.description,
+            });
+            setShowForm(false);
+            setForm({ category: '', amount: '', description: '' });
+            await fetchClaims();
+        } catch (error) {
+            setFormError(error instanceof Error ? error.message : 'Failed to submit claim');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     useEffect(() => {
         fetchClaims();
@@ -35,11 +66,8 @@ export default function ExpenseClaimsPage() {
     const fetchClaims = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/finance/expense-claims');
-            const data = await response.json();
-            if (data.success) {
-                setClaims(data.data);
-            }
+            const data = await FinanceService.getExpenseClaims();
+            setClaims(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Failed to fetch claims:', error);
         } finally {
@@ -218,9 +246,14 @@ export default function ExpenseClaimsPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-2">
+                                {formError && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                        {formError}
+                                    </div>
+                                )}
                                 <div>
                                     <Label>Category</Label>
-                                    <Select>
+                                    <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select category" />
                                         </SelectTrigger>
@@ -235,11 +268,21 @@ export default function ExpenseClaimsPage() {
                                 </div>
                                 <div>
                                     <Label>Amount</Label>
-                                    <Input type="number" placeholder="0.00" />
+                                    <Input
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={form.amount}
+                                        onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                                    />
                                 </div>
                                 <div>
                                     <Label>Description</Label>
-                                    <Textarea rows={3} placeholder="Describe your expense..." />
+                                    <Textarea
+                                        rows={3}
+                                        placeholder="Describe your expense..."
+                                        value={form.description}
+                                        onChange={(e) => setForm({ ...form, description: e.target.value })}
+                                    />
                                 </div>
                                 <div>
                                     <Label>Receipts</Label>
@@ -249,8 +292,10 @@ export default function ExpenseClaimsPage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 pt-4">
-                                    <Button className="flex-1">Submit Claim</Button>
-                                    <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+                                    <Button className="flex-1" onClick={handleSubmitClaim} disabled={submitting}>
+                                        {submitting ? 'Submitting…' : 'Submit Claim'}
+                                    </Button>
+                                    <Button variant="outline" onClick={() => setShowForm(false)} disabled={submitting}>Cancel</Button>
                                 </div>
                             </div>
                         </CardContent>

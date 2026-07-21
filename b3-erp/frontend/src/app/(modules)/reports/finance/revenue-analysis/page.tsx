@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { fetchDomainList } from '@/services/reports-data.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function RevenueAnalysisReport() {
     const router = useRouter();
@@ -55,7 +56,7 @@ export default function RevenueAnalysisReport() {
                     <h1 className="text-3xl font-bold mb-2">Revenue Analysis</h1>
                     <p className="text-gray-600">Detailed breakdown of revenue by product/service</p>
                 </div>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                <Button variant="outline" onClick={() => exportToCsv('revenue-analysis', revenueStreams)} disabled={revenueStreams.length === 0}><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
 
             <Card>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FinanceService } from '@/services/finance.service';
+import { PaymentService } from '@/services/payment.service';
 import {
   CreditCard,
   Plus,
@@ -9,12 +10,10 @@ import {
   Filter,
   Download,
   Eye,
-  Edit,
   CheckCircle,
   Clock,
   AlertTriangle,
   XCircle,
-  Printer,
   Send,
   Calendar,
   DollarSign,
@@ -56,57 +55,93 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [viewPayment, setViewPayment] = useState<Payment | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadPayments = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await FinanceService.getPayments();
+      const rows = (Array.isArray(raw) ? raw : []).filter(
+        (r: any) => !r.partyType || String(r.partyType).toLowerCase() === 'vendor',
+      );
+      const methods = ['Bank Transfer', 'Cheque', 'Cash', 'Credit Card', 'UPI'];
+      const statuses = ['Draft', 'Pending Approval', 'Approved', 'Processed', 'Failed', 'Cancelled'];
+      const mapped: Payment[] = rows.map((r: any) => {
+        const amount = Number(r.amount ?? 0);
+        const tds = Number(r.tdsAmount ?? 0);
+        const method = methods.includes(r.paymentMethod) ? r.paymentMethod : 'Bank Transfer';
+        const status = statuses.includes(r.status) ? r.status : 'Draft';
+        const firstAlloc = Array.isArray(r.invoiceAllocations) ? r.invoiceAllocations[0] : undefined;
+        return {
+          id: r.id ?? '',
+          paymentNumber: r.paymentNumber ?? '',
+          paymentDate: r.paymentDate ? String(r.paymentDate).slice(0, 10) : '',
+          vendorName: r.partyName ?? '',
+          vendorCode: r.partyId ?? '',
+          paymentMethod: method as Payment['paymentMethod'],
+          bankAccount: r.bankName ?? r.bankAccountId ?? '',
+          referenceNumber: r.transactionReference ?? r.referenceNumber ?? undefined,
+          invoiceNumber: firstAlloc?.invoiceNumber ?? undefined,
+          amount,
+          tdsDeducted: tds,
+          netPayment: Number(r.netPayment ?? (amount - tds)),
+          status: status as Payment['status'],
+          approvedBy: r.approvedBy ?? undefined,
+          description: r.notes ?? r.description ?? '',
+          createdBy: r.createdBy ?? '',
+          createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+        };
+      });
+      setPayments(mapped);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load payments');
+      setPayments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await FinanceService.getPayments();
-        const rows = (Array.isArray(raw) ? raw : []).filter(
-          (r: any) => !r.partyType || String(r.partyType).toLowerCase() === 'vendor',
-        );
-        const methods = ['Bank Transfer', 'Cheque', 'Cash', 'Credit Card', 'UPI'];
-        const statuses = ['Draft', 'Pending Approval', 'Approved', 'Processed', 'Failed', 'Cancelled'];
-        const mapped: Payment[] = rows.map((r: any) => {
-          const amount = Number(r.amount ?? 0);
-          const tds = Number(r.tdsAmount ?? 0);
-          const method = methods.includes(r.paymentMethod) ? r.paymentMethod : 'Bank Transfer';
-          const status = statuses.includes(r.status) ? r.status : 'Draft';
-          const firstAlloc = Array.isArray(r.invoiceAllocations) ? r.invoiceAllocations[0] : undefined;
-          return {
-            id: r.id ?? '',
-            paymentNumber: r.paymentNumber ?? '',
-            paymentDate: r.paymentDate ? String(r.paymentDate).slice(0, 10) : '',
-            vendorName: r.partyName ?? '',
-            vendorCode: r.partyId ?? '',
-            paymentMethod: method as Payment['paymentMethod'],
-            bankAccount: r.bankName ?? r.bankAccountId ?? '',
-            referenceNumber: r.transactionReference ?? r.referenceNumber ?? undefined,
-            invoiceNumber: firstAlloc?.invoiceNumber ?? undefined,
-            amount,
-            tdsDeducted: tds,
-            netPayment: Number(r.netPayment ?? (amount - tds)),
-            status: status as Payment['status'],
-            approvedBy: r.approvedBy ?? undefined,
-            description: r.notes ?? r.description ?? '',
-            createdBy: r.createdBy ?? '',
-            createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
-          };
-        });
-        if (!cancelled) setPayments(mapped);
-      } catch (e) {
-        if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : 'Failed to load payments');
-          setPayments([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    loadPayments();
+  }, [loadPayments]);
+
+  // Client-side CSV export from already-fetched (filtered) payments
+  const handleExport = () => {
+    const headers = ['Payment #', 'Vendor', 'Vendor Code', 'Date', 'Method', 'Bank', 'Reference', 'Invoice', 'Amount', 'TDS', 'Net Payment', 'Status', 'Created By'];
+    const rows = filteredPayments.map((p) => [
+      p.paymentNumber, p.vendorName, p.vendorCode, p.paymentDate, p.paymentMethod,
+      p.bankAccount, p.referenceNumber ?? '', p.invoiceNumber ?? '', p.amount, p.tdsDeducted,
+      p.netPayment, p.status, p.createdBy,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Payments_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleApprove = async (payment: Payment) => {
+    setApprovingId(payment.id);
+    setActionError(null);
+    try {
+      await PaymentService.approvePayment(payment.id);
+      await loadPayments();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : `Failed to approve ${payment.paymentNumber}`);
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
 
   const filteredPayments = payments.filter(payment => {
@@ -200,6 +235,9 @@ export default function PaymentsPage() {
         {loadError && !isLoading && (
           <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{loadError}</div>
         )}
+        {actionError && (
+          <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{actionError}</div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -211,7 +249,10 @@ export default function PaymentsPage() {
               <Plus className="w-5 h-5" />
               Make Payment
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
               <Download className="w-4 h-4" />
               Export
             </button>
@@ -384,21 +425,20 @@ export default function PaymentsPage() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-center gap-2">
-                        <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+                        <button
+                          onClick={() => setViewPayment(payment)}
+                          className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                          title="View details"
+                        >
                           <Eye className="w-4 h-4 text-blue-400" />
                         </button>
-                        {(payment.status === 'Draft' || payment.status === 'Failed') && (
-                          <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                            <Edit className="w-4 h-4 text-green-400" />
-                          </button>
-                        )}
-                        {payment.status === 'Processed' && (
-                          <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                            <Printer className="w-4 h-4 text-purple-400" />
-                          </button>
-                        )}
                         {payment.status === 'Pending Approval' && (
-                          <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+                          <button
+                            onClick={() => handleApprove(payment)}
+                            disabled={approvingId === payment.id}
+                            className="p-2 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+                            title="Approve payment"
+                          >
                             <CheckCircle className="w-4 h-4 text-green-400" />
                           </button>
                         )}
@@ -434,6 +474,84 @@ export default function PaymentsPage() {
               <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
                 Next
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Details Modal (from already-fetched row data) */}
+        {viewPayment && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setViewPayment(null)}>
+            <div className="bg-gray-800 border border-gray-700 rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white font-mono">{viewPayment.paymentNumber}</h2>
+                    <p className="text-sm text-gray-400 mt-1">{viewPayment.vendorName}</p>
+                  </div>
+                  <button onClick={() => setViewPayment(null)} className="text-gray-400 hover:text-white text-xl">✕</button>
+                </div>
+                <div className="mb-4">{getStatusBadge(viewPayment.status)}</div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-400 mb-1">Vendor Code</p>
+                    <p className="text-white font-mono">{viewPayment.vendorCode || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Payment Date</p>
+                    <p className="text-white">{viewPayment.paymentDate || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Method</p>
+                    <p className="text-white">{viewPayment.paymentMethod}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Bank Account</p>
+                    <p className="text-white">{viewPayment.bankAccount || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Reference</p>
+                    <p className="text-white">{viewPayment.referenceNumber || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Invoice</p>
+                    <p className="text-white">{viewPayment.invoiceNumber || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Amount</p>
+                    <p className="text-white font-medium">{formatCurrency(viewPayment.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">TDS Deducted</p>
+                    <p className="text-orange-400 font-medium">{formatCurrency(viewPayment.tdsDeducted)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Net Payment</p>
+                    <p className="text-green-400 font-medium">{formatCurrency(viewPayment.netPayment)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 mb-1">Created By</p>
+                    <p className="text-white">{viewPayment.createdBy || '-'}</p>
+                  </div>
+                </div>
+                {viewPayment.description && (
+                  <div className="mt-4 pt-4 border-t border-gray-700 text-sm">
+                    <p className="text-gray-400 mb-1">Description</p>
+                    <p className="text-white">{viewPayment.description}</p>
+                  </div>
+                )}
+                {viewPayment.status === 'Pending Approval' && (
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <button
+                      onClick={() => { handleApprove(viewPayment); setViewPayment(null); }}
+                      disabled={approvingId === viewPayment.id}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Approve Payment
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

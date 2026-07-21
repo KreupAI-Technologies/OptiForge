@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FinanceService } from '@/services/finance.service'
+import { exportToCsv } from '@/lib/export'
 import {
   Building2,
   ArrowLeftRight,
@@ -229,7 +230,11 @@ export default function IntercompanyTransactionsPage() {
               <option value="reconciled">Reconciled</option>
             </select>
 
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button
+              onClick={() => exportToCsv('intercompany-transactions', filteredTransactions as unknown as Record<string, unknown>[])}
+              disabled={filteredTransactions.length === 0}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download className="h-4 w-4" />
               Export
             </button>

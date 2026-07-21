@@ -16,7 +16,8 @@ import {
   Lock,
   Unlock,
   CheckCircle,
-  XCircle
+  XCircle,
+  X
 } from 'lucide-react';
 import { FinanceService } from '@/services/finance.service';
 
@@ -62,6 +63,8 @@ export default function BudgetsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionInfo, setActionInfo] = useState<string | null>(null);
+  const [viewBudget, setViewBudget] = useState<Budget | null>(null);
   const [form, setForm] = useState({
     budgetName: '',
     budgetCode: '',
@@ -261,35 +264,13 @@ export default function BudgetsPage() {
       document.body.removeChild(link);
 
       setIsExporting(false);
-      alert(`Successfully exported ${filteredBudgets.length} budget(s) to CSV file with all fields including:\n- Budget details\n- Financial data\n- Variance analysis\n- Status information\n- Approval details`);
+      setActionInfo(`Successfully exported ${filteredBudgets.length} budget(s) to CSV.`);
+      setTimeout(() => setActionInfo(null), 3500);
     }, 500);
   };
 
   const handleViewBudget = (budget: Budget) => {
-    alert(
-      `View Budget Details\n\n` +
-      `Budget: ${budget.budgetName}\n` +
-      `Code: ${budget.budgetCode}\n` +
-      `Type: ${budget.budgetType}\n` +
-      `Department: ${budget.department}\n` +
-      `Status: ${budget.status}\n\n` +
-      `Financial Summary:\n` +
-      `- Total Budget: ${formatCurrency(budget.totalBudget)}\n` +
-      `- Allocated: ${formatCurrency(budget.allocated)}\n` +
-      `- Spent: ${formatCurrency(budget.spent)}\n` +
-      `- Remaining: ${formatCurrency(budget.remaining)}\n` +
-      `- Variance: ${formatCurrency(budget.variance)} (${budget.variancePercent}%)\n\n` +
-      `Period: ${new Date(budget.startDate).toLocaleDateString()} - ${new Date(budget.endDate).toLocaleDateString()}\n` +
-      `Approved By: ${budget.approvedBy || 'Pending'}\n` +
-      `Revisions: ${budget.revisions}\n\n` +
-      `In production, this would open a detailed view showing:\n` +
-      `- Budget line items breakdown\n` +
-      `- Spending history and timeline\n` +
-      `- Approval workflow\n` +
-      `- Variance analysis charts\n` +
-      `- Transaction details\n` +
-      `- Revision history`
-    );
+    setViewBudget(budget);
   };
 
   const handleEditBudget = (budget: Budget) => {
@@ -500,6 +481,12 @@ export default function BudgetsPage() {
           <div className="flex items-center justify-between gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             <span className="flex items-center gap-2"><AlertCircle className="h-4 w-4" />{actionError}</span>
             <button onClick={() => setActionError(null)} className="text-red-300 hover:text-red-100">✕</button>
+          </div>
+        )}
+        {actionInfo && (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+            <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4" />{actionInfo}</span>
+            <button onClick={() => setActionInfo(null)} className="text-green-300 hover:text-green-100">✕</button>
           </div>
         )}
 
@@ -928,6 +915,48 @@ export default function BudgetsPage() {
               >
                 {submitting ? 'Saving...' : editingId ? 'Update Budget' : 'Create Budget'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Budget Modal (from already-fetched data) */}
+      {viewBudget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">{viewBudget.budgetName}</h2>
+                <p className="text-sm text-gray-400 font-mono">{viewBudget.budgetCode}</p>
+              </div>
+              <button onClick={() => setViewBudget(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
+              {[
+                ['Type', viewBudget.budgetType],
+                ['Fiscal Year', viewBudget.fiscalYear || '-'],
+                ['Department', viewBudget.department || '-'],
+                ['Cost Center', viewBudget.costCenter || '-'],
+                ['Status', viewBudget.status],
+                ['Revisions', String(viewBudget.revisions)],
+                ['Total Budget', formatCurrency(viewBudget.totalBudget)],
+                ['Allocated', formatCurrency(viewBudget.allocated)],
+                ['Spent', formatCurrency(viewBudget.spent)],
+                ['Remaining', formatCurrency(viewBudget.remaining)],
+                ['Variance', `${formatCurrency(viewBudget.variance)} (${viewBudget.variancePercent}%)`],
+                ['Period', `${viewBudget.startDate ? new Date(viewBudget.startDate).toLocaleDateString() : '-'} – ${viewBudget.endDate ? new Date(viewBudget.endDate).toLocaleDateString() : '-'}`],
+                ['Approved By', viewBudget.approvedBy || 'Pending'],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="text-gray-400">{label}</div>
+                  <div className="font-medium text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+              <button onClick={() => setViewBudget(null)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">Close</button>
             </div>
           </div>
         </div>

@@ -25,6 +25,7 @@ export default function ProcurementIntegrationPage() {
   const [syncData, setSyncData] = useState<ProcurementSync[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
   // Payables from finance ↔ procurement (vendor bills / purchase invoices awaiting
   // payment). Mapped into the ProcurementSync shape the table reads.
@@ -63,25 +64,34 @@ export default function ProcurementIntegrationPage() {
     }
   }
 
+  const loadData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await FinanceService.getPayables()
+      setSyncData((Array.isArray(data) ? data : []).map(mapPayable))
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load procurement payables')
+      setSyncData([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    let active = true
-    ;(async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await FinanceService.getPayables()
-        if (active) setSyncData((Array.isArray(data) ? data : []).map(mapPayable))
-      } catch (e: any) {
-        if (active) {
-          setError(e?.message || 'Failed to load procurement payables')
-          setSyncData([])
-        }
-      } finally {
-        if (active) setLoading(false)
-      }
-    })()
-    return () => { active = false }
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Re-synchronise finance ↔ procurement data by refetching the latest payables.
+  const handleSyncAll = async () => {
+    setSyncing(true)
+    try {
+      await loadData()
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   // Derived integration stats from the loaded payables (replaces mock totals).
   const integrationStats = {
@@ -137,9 +147,13 @@ export default function ProcurementIntegrationPage() {
             <h1 className="text-3xl font-bold text-gray-900">Procurement Integration</h1>
             <p className="text-gray-600 mt-1">Finance-Procurement module synchronization</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700">
+          <button
+            onClick={handleSyncAll}
+            disabled={syncing || loading}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 disabled:opacity-50"
+          >
             <CheckCircle className="h-5 w-5" />
-            Sync All
+            {syncing ? 'Syncing...' : 'Sync All'}
           </button>
         </div>
 

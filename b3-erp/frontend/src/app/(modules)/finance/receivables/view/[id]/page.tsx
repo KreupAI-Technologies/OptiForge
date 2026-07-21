@@ -310,6 +310,41 @@ export default function ViewReceivablePage() {
     }
   };
 
+  const handleGenerateSOA = () => {
+    const headers = ['Invoice Number', 'Invoice Date', 'Due Date', 'SO Reference', 'Amount', 'Paid', 'Balance', 'Aging Days', 'Status'];
+    const rows = receivable.invoices.map((inv) => [
+      inv.invoiceNumber,
+      inv.invoiceDate,
+      inv.dueDate,
+      inv.soReference,
+      inv.amount,
+      inv.paidAmount,
+      inv.balanceAmount,
+      inv.agingDays,
+      inv.status,
+    ]);
+    const summary = [
+      ['Statement of Account'],
+      ['Customer', receivable.customerName],
+      ['Customer Code', receivable.customerCode],
+      ['Total Outstanding', receivable.totalOutstanding],
+      ['Overdue Amount', receivable.overdueAmount],
+      [],
+    ];
+    const csvContent = [...summary, headers, ...rows]
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SOA_${receivable.customerCode || receivableId}_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const getAgingStatus = (days: number) => {
     if (days <= 30) return { label: 'Current', color: 'text-green-700', bgColor: 'bg-green-100' };
     if (days <= 60) return { label: '31-60 Days', color: 'text-blue-700', bgColor: 'bg-blue-100' };
@@ -413,7 +448,10 @@ export default function ViewReceivablePage() {
                 <Send className="h-4 w-4" />
                 <span>Send Reminder</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              <button
+                onClick={handleGenerateSOA}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
                 <Download className="h-4 w-4" />
                 <span>Generate SOA</span>
               </button>

@@ -4,6 +4,7 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { fetchDomainList } from '@/services/reports-data.service';
+import { exportToCsv } from '@/lib/export';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -43,6 +44,8 @@ function TaxDetailsContent() {
                 { label: 'Tax Summary', href: '/reports/finance/tax-summary' },
                 { label: 'Details' }
             ]}
+            onBack={() => router.back()}
+            onExport={() => exportToCsv(`tax-details-${code}`, transactions)}
         >
             {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
             {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}

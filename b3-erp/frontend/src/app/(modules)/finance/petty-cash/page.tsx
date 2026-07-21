@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, DollarSign, TrendingDown, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface PettyCashTransaction {
     id: string;
@@ -26,6 +27,10 @@ export default function PettyCashPage() {
     const [balance, setBalance] = useState(0);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState({ amount: '', date: '', category: '', purpose: '', receiptNumber: '' });
+    const [submitting, setSubmitting] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [actionId, setActionId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTransactions();
@@ -35,11 +40,8 @@ export default function PettyCashPage() {
     const fetchTransactions = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/accounts/petty-cash');
-            const data = await response.json();
-            if (data.success) {
-                setTransactions(data.data);
-            }
+            const data = await FinanceService.getPettyCashTransactions();
+            setTransactions(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Failed to fetch transactions:', error);
         } finally {
@@ -49,13 +51,72 @@ export default function PettyCashPage() {
 
     const fetchBalance = async () => {
         try {
-            const response = await fetch('/api/accounts/petty-cash/balance/total');
-            const data = await response.json();
-            if (data.success) {
-                setBalance(data.data.balance);
-            }
+            const total = await FinanceService.getPettyCashBalance();
+            setBalance(Number(total) || 0);
         } catch (error) {
             console.error('Failed to fetch balance:', error);
+        }
+    };
+
+    const handleSaveTransaction = async () => {
+        if (!(Number(form.amount) > 0)) {
+            setFormError('Please enter a valid amount');
+            return;
+        }
+        if (!form.category) {
+            setFormError('Please select a category');
+            return;
+        }
+        setSubmitting(true);
+        setFormError(null);
+        try {
+            await FinanceService.createPettyCashTransaction({
+                amount: Number(form.amount),
+                date: form.date || undefined,
+                category: form.category,
+                purpose: form.purpose,
+                receiptNumber: form.receiptNumber || undefined,
+            });
+            setShowForm(false);
+            setForm({ amount: '', date: '', category: '', purpose: '', receiptNumber: '' });
+            await Promise.all([fetchTransactions(), fetchBalance()]);
+        } catch (error) {
+            setFormError(error instanceof Error ? error.message : 'Failed to save transaction');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleApprove = async (id: string) => {
+        setActionId(id);
+        try {
+            await FinanceService.approvePettyCash(id);
+            await Promise.all([fetchTransactions(), fetchBalance()]);
+        } catch (error) {
+            console.error('Failed to approve transaction:', error);
+        } finally {
+            setActionId(null);
+        }
+    };
+
+    const handleReject = async (id: string) => {
+        setActionId(id);
+        try {
+            await FinanceService.rejectPettyCash(id);
+            await Promise.all([fetchTransactions(), fetchBalance()]);
+        } catch (error) {
+            console.error('Failed to reject transaction:', error);
+        } finally {
+            setActionId(null);
+        }
+    };
+
+    const handleReplenish = async () => {
+        try {
+            await FinanceService.replenishPettyCash({});
+            await Promise.all([fetchTransactions(), fetchBalance()]);
+        } catch (error) {
+            console.error('Failed to request replenishment:', error);
         }
     };
 
@@ -92,7 +153,7 @@ export default function PettyCashPage() {
                     <p className="text-gray-600">Track and manage petty cash expenses</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={handleReplenish}>
                         <Plus className="mr-2 h-4 w-4" />
                         Request Replenishment
                     </Button>
@@ -205,10 +266,10 @@ export default function PettyCashPage() {
                                             <td className="px-4 py-3 text-center">
                                                 {txn.status === 'pending' && (
                                                     <div className="flex gap-1 justify-center">
-                                                        <Button size="sm" variant="outline">
+                                                        <Button size="sm" variant="outline" disabled={actionId === txn.id} onClick={() => handleApprove(txn.id)}>
                                                             <CheckCircle className="h-3 w-3" />
                                                         </Button>
-                                                        <Button size="sm" variant="outline">
+                                                        <Button size="sm" variant="outline" disabled={actionId === txn.id} onClick={() => handleReject(txn.id)}>
                                                             <XCircle className="h-3 w-3" />
                                                         </Button>
                                                     </div>
@@ -232,19 +293,24 @@ export default function PettyCashPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-2">
+                                {formError && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                        {formError}
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
                                         <Label>Amount</Label>
-                                        <Input type="number" placeholder="0.00" />
+                                        <Input type="number" placeholder="0.00" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
                                     </div>
                                     <div>
                                         <Label>Date</Label>
-                                        <Input type="date" />
+                                        <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
                                     </div>
                                 </div>
                                 <div>
                                     <Label>Category</Label>
-                                    <Select>
+                                    <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select category" />
                                         </SelectTrigger>
@@ -259,15 +325,17 @@ export default function PettyCashPage() {
                                 </div>
                                 <div>
                                     <Label>Purpose</Label>
-                                    <Textarea rows={3} placeholder="Describe the purpose of this expense..." />
+                                    <Textarea rows={3} placeholder="Describe the purpose of this expense..." value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} />
                                 </div>
                                 <div>
                                     <Label>Receipt Number (Optional)</Label>
-                                    <Input placeholder="Receipt #" />
+                                    <Input placeholder="Receipt #" value={form.receiptNumber} onChange={(e) => setForm({ ...form, receiptNumber: e.target.value })} />
                                 </div>
                                 <div className="flex gap-2 pt-4">
-                                    <Button className="flex-1">Save Transaction</Button>
-                                    <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+                                    <Button className="flex-1" onClick={handleSaveTransaction} disabled={submitting}>
+                                        {submitting ? 'Saving…' : 'Save Transaction'}
+                                    </Button>
+                                    <Button variant="outline" onClick={() => setShowForm(false)} disabled={submitting}>Cancel</Button>
                                 </div>
                             </div>
                         </CardContent>

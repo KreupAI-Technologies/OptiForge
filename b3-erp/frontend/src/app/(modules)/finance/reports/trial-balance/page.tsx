@@ -104,6 +104,33 @@ export default function TrialBalancePage() {
     }).format(amount);
   };
 
+  // Export the currently-filtered rows to CSV (opens in Excel). Real client-side export from fetched data.
+  const handleExportExcel = () => {
+    const headers = ['Account Code', 'Account Name', 'Type', 'Opening Balance', 'Debit', 'Credit', 'Closing Balance'];
+    const escape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows = filteredAccounts.map((a) =>
+      [a.accountCode, a.accountName, a.accountType, a.openingBalance, a.debit, a.credit, a.closingBalance]
+        .map(escape)
+        .join(',')
+    );
+    const totalRow = ['Total', '', '', '', totalDebit, totalCredit, ''].map(escape).join(',');
+    const csv = [headers.map(escape).join(','), ...rows, totalRow].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Trial_Balance_${selectedPeriod}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Print-to-PDF of the current view via the browser print dialog.
+  const handleExportPDF = () => {
+    window.print();
+  };
+
   const getTypeBadge = (type: string) => {
     const colors = {
       Asset: 'bg-blue-500/20 text-blue-400',
@@ -147,11 +174,18 @@ export default function TrialBalancePage() {
             <p className="text-gray-400">Verify the mathematical accuracy of the general ledger</p>
           </div>
           <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+            >
               <Download className="w-4 h-4" />
               Export PDF
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+            <button
+              onClick={handleExportExcel}
+              disabled={filteredAccounts.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
               <Download className="w-4 h-4" />
               Export Excel
             </button>

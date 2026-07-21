@@ -55,6 +55,27 @@ export default function AuditTrailPage() {
     loadLogs()
   }, [])
 
+  // Export the loaded audit logs to CSV (real client-side export from fetched data).
+  const handleExport = () => {
+    const headers = ['Timestamp', 'User', 'Action', 'Module', 'Record', 'Old Value', 'New Value', 'IP Address']
+    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`
+    const rows = logs.map((l) =>
+      [l.timestamp, l.user, l.action, l.module, l.record, l.oldValue, l.newValue, l.ipAddress]
+        .map(escape)
+        .join(',')
+    )
+    const csv = [headers.map(escape).join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `Audit_Trail_${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
   const getActionColor = (action: string) => {
     switch (action) {
       case 'CREATE': return 'bg-green-100 text-green-700'
@@ -73,7 +94,11 @@ export default function AuditTrailPage() {
             <h1 className="text-3xl font-bold text-gray-900">Audit Trail</h1>
             <p className="text-gray-600 mt-1">Complete transaction and change history</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button
+            onClick={handleExport}
+            disabled={logs.length === 0}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
             <Download className="h-4 w-4" />
             Export Logs
           </button>

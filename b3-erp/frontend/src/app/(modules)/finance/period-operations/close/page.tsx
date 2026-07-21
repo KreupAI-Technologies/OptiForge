@@ -6,9 +6,7 @@ import {
     CheckCircle,
     Clock,
     AlertTriangle,
-    Play,
     Lock,
-    FileText,
     BarChart,
     History,
     ArrowRight,
@@ -17,6 +15,7 @@ import {
     Download
 } from 'lucide-react';
 import { FinanceService } from '@/services/finance.service';
+import { exportToCsv } from '@/lib/export';
 
 interface CloseTask {
     id: string;
@@ -42,58 +41,87 @@ export default function PeriodClosePage() {
     const [history, setHistory] = useState<CloseHistory[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentPeriod, setCurrentPeriod] = useState<{ id: string; name: string; status: string } | null>(null);
+    const [closing, setClosing] = useState(false);
+    const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    const load = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const periods = await FinanceService.getFinancialPeriods();
+            const list = Array.isArray(periods) ? periods : [];
+            // Current/most-recent-open period → checklist tasks
+            const current =
+                list.find((p: any) => p?.isCurrent) ||
+                list.find((p: any) => String(p?.status).toLowerCase() === 'open') ||
+                list[0];
+            setCurrentPeriod(
+                current
+                    ? {
+                        id: String(current.id),
+                        name: current.periodName ?? current.periodCode ?? 'Current Period',
+                        status: String(current.status ?? ''),
+                    }
+                    : null,
+            );
+            const checklist: any[] = Array.isArray(current?.closingChecklist)
+                ? current.closingChecklist
+                : [];
+            const categories: CloseTask['category'][] = ['Reconciliation', 'Accruals', 'Review', 'Reporting'];
+            const mappedTasks: CloseTask[] = checklist.map((c: any, i: number) => ({
+                id: String(i + 1),
+                task: c?.taskName ?? c?.task ?? `Task ${i + 1}`,
+                category: categories[i % categories.length],
+                status: c?.completed ? 'completed' : 'pending',
+                assignedTo: c?.completedBy ?? 'Finance Team',
+                dueDate: current?.endDate ?? new Date().toISOString().slice(0, 10),
+            }));
+            // Closed periods → close history
+            const mappedHistory: CloseHistory[] = list
+                .filter((p: any) => ['closed', 'locked'].includes(String(p?.status).toLowerCase()))
+                .map((p: any, i: number) => ({
+                    id: p?.id ?? String(i + 1),
+                    period: p?.periodName ?? p?.periodCode ?? 'Period',
+                    closedBy: p?.closedBy ?? '—',
+                    closedDate: p?.closedAt ?? p?.endDate ?? '',
+                    status: 'Closed' as const,
+                    notes: p?.description ?? '',
+                }));
+            setTasks(mappedTasks);
+            setHistory(mappedHistory);
+        } catch (e: any) {
+            setError(e?.message ?? 'Failed to load period close data');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        let active = true;
-        const load = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const periods = await FinanceService.getFinancialPeriods();
-                const list = Array.isArray(periods) ? periods : [];
-                // Current/most-recent-open period → checklist tasks
-                const current =
-                    list.find((p: any) => p?.isCurrent) ||
-                    list.find((p: any) => String(p?.status).toLowerCase() === 'open') ||
-                    list[0];
-                const checklist: any[] = Array.isArray(current?.closingChecklist)
-                    ? current.closingChecklist
-                    : [];
-                const categories: CloseTask['category'][] = ['Reconciliation', 'Accruals', 'Review', 'Reporting'];
-                const mappedTasks: CloseTask[] = checklist.map((c: any, i: number) => ({
-                    id: String(i + 1),
-                    task: c?.taskName ?? c?.task ?? `Task ${i + 1}`,
-                    category: categories[i % categories.length],
-                    status: c?.completed ? 'completed' : 'pending',
-                    assignedTo: c?.completedBy ?? 'Finance Team',
-                    dueDate: current?.endDate ?? new Date().toISOString().slice(0, 10),
-                }));
-                // Closed periods → close history
-                const mappedHistory: CloseHistory[] = list
-                    .filter((p: any) => ['closed', 'locked'].includes(String(p?.status).toLowerCase()))
-                    .map((p: any, i: number) => ({
-                        id: p?.id ?? String(i + 1),
-                        period: p?.periodName ?? p?.periodCode ?? 'Period',
-                        closedBy: p?.closedBy ?? '—',
-                        closedDate: p?.closedAt ?? p?.endDate ?? '',
-                        status: 'Closed' as const,
-                        notes: p?.description ?? '',
-                    }));
-                if (active) {
-                    setTasks(mappedTasks);
-                    setHistory(mappedHistory);
-                }
-            } catch (e: any) {
-                if (active) setError(e?.message ?? 'Failed to load period close data');
-            } finally {
-                if (active) setLoading(false);
-            }
-        };
-        load();
-        return () => {
-            active = false;
-        };
+        void load();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // No dedicated close endpoint exists; PATCH the period status to Closed
+    // via updateFinancialPeriod (status enum: Open | Closed | Locked).
+    const handleClosePeriod = async () => {
+        if (!currentPeriod) {
+            setActionMessage({ type: 'error', text: 'No open period available to close.' });
+            return;
+        }
+        if (!confirm(`Close period "${currentPeriod.name}"? Posted transactions will be locked.`)) return;
+        setClosing(true);
+        setActionMessage(null);
+        try {
+            await FinanceService.updateFinancialPeriod(currentPeriod.id, { status: 'Closed' });
+            setActionMessage({ type: 'success', text: `Period "${currentPeriod.name}" closed.` });
+            await load();
+        } catch (e: any) {
+            setActionMessage({ type: 'error', text: e?.message ?? 'Failed to close period.' });
+        } finally {
+            setClosing(false);
+        }
+    };
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -128,13 +156,18 @@ export default function PeriodClosePage() {
                     <p className="text-sm text-gray-600 mt-1">Manage month-end closing procedures for <span className="font-semibold text-gray-900">October 2025</span></p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
-                        <FileText className="w-4 h-4" />
-                        Closing Guide
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm">
+                    {actionMessage && (
+                        <span className={`text-sm ${actionMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                            {actionMessage.text}
+                        </span>
+                    )}
+                    <button
+                        onClick={handleClosePeriod}
+                        disabled={closing || !currentPeriod}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                         <Lock className="w-4 h-4" />
-                        Close Period
+                        {closing ? 'Closing…' : 'Close Period'}
                     </button>
                 </div>
             </div>
@@ -202,8 +235,13 @@ export default function PeriodClosePage() {
                                         <option>Pending</option>
                                         <option>Completed</option>
                                     </select>
-                                    <button className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg">
-                                        <RefreshCw className="w-4 h-4" />
+                                    <button
+                                        onClick={() => void load()}
+                                        disabled={loading}
+                                        title="Refresh"
+                                        className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg disabled:opacity-50"
+                                    >
+                                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                                     </button>
                                 </div>
                             </div>
@@ -287,7 +325,11 @@ export default function PeriodClosePage() {
                         <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-bold text-gray-900">Close History</h2>
-                                <button className="flex items-center gap-2 text-sm text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg">
+                                <button
+                                    onClick={() => exportToCsv('period-close-history', history as unknown as Record<string, unknown>[])}
+                                    disabled={history.length === 0}
+                                    className="flex items-center gap-2 text-sm text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
                                     <Download className="w-4 h-4" /> Export Log
                                 </button>
                             </div>

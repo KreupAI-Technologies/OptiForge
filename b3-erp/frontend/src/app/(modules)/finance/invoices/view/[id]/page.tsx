@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { FinanceService } from '@/services/finance.service';
+import { InvoiceService } from '@/services/invoice.service';
 import {
   ArrowLeft,
   Edit,
@@ -120,18 +121,16 @@ export default function ViewInvoicePage() {
   const [shippingAddress, setShippingAddress] = useState<Address>(emptyAddress);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const [isVoiding, setIsVoiding] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!invoiceId) {
-      setIsLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const raw = await FinanceService.getInvoice(invoiceId);
-        if (cancelled) return;
-        const m: any = raw || {};
+  const loadInvoice = async () => {
+    if (!invoiceId) return;
+    try {
+      setIsLoading(true);
+      const raw = await FinanceService.getInvoice(invoiceId);
+      const m: any = raw || {};
         const validStatuses = ['draft', 'sent', 'partially_paid', 'paid', 'overdue', 'cancelled'];
         setInvoice({
           id: m.id != null ? String(m.id) : String(invoiceId),
@@ -153,20 +152,44 @@ export default function ViewInvoicePage() {
           paymentTerms: m.paymentTerms != null ? String(m.paymentTerms) : '',
           notes: m.notes != null ? String(m.notes) : '',
         });
-        setLineItems(Array.isArray(m.lineItems) ? m.lineItems : []);
-        setPayments(Array.isArray(m.payments) ? m.payments : []);
-        setBillingAddress(m.billingAddress ?? emptyAddress);
-        setShippingAddress(m.shippingAddress ?? emptyAddress);
-      } catch (err: any) {
-        if (!cancelled) setLoadError(err?.message || 'Failed to load invoice');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      setLineItems(Array.isArray(m.lineItems) ? m.lineItems : []);
+      setPayments(Array.isArray(m.payments) ? m.payments : []);
+      setBillingAddress(m.billingAddress ?? emptyAddress);
+      setShippingAddress(m.shippingAddress ?? emptyAddress);
+    } catch (err: any) {
+      setLoadError(err?.message || 'Failed to load invoice');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!invoiceId) {
+      setIsLoading(false);
+      return;
+    }
+    void loadInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
+
+  const handleVoid = async () => {
+    if (!invoiceId || !voidReason.trim()) return;
+    try {
+      setIsVoiding(true);
+      await InvoiceService.voidInvoice(invoiceId, voidReason.trim());
+      setShowVoidModal(false);
+      setVoidReason('');
+      await loadInvoice();
+    } catch (err: any) {
+      setLoadError(err?.message || 'Failed to void invoice');
+    } finally {
+      setIsVoiding(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (typeof window !== 'undefined') window.print();
+  };
 
   const [activeTab, setActiveTab] = useState<'overview' | 'line_items' | 'payment_history'>('overview');
 
@@ -270,14 +293,22 @@ export default function ViewInvoicePage() {
                 <CreditCard className="h-4 w-4" />
                 <span>Record Payment</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+              <button
+                onClick={handleDownloadPdf}
+                className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              >
                 <Download className="h-4 w-4" />
                 <span>Download PDF</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                <XCircle className="h-4 w-4" />
-                <span>Void</span>
-              </button>
+              {invoice.status !== 'cancelled' && (
+                <button
+                  onClick={() => setShowVoidModal(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <XCircle className="h-4 w-4" />
+                  <span>Void</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -685,6 +716,45 @@ export default function ViewInvoicePage() {
           </div>
         )}
       </div>
+
+      {/* Void Confirmation Modal */}
+      {showVoidModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <XCircle className="h-5 w-5 text-red-600" />
+              <h3 className="text-lg font-bold text-gray-900">Void Invoice</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Voiding <span className="font-semibold">{invoice.invoiceNumber}</span> cannot be undone. Please provide a reason.
+            </p>
+            <textarea
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Reason for voiding this invoice"
+            />
+            <div className="flex items-center justify-end space-x-2 mt-3">
+              <button
+                onClick={() => { setShowVoidModal(false); setVoidReason(''); }}
+                disabled={isVoiding}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleVoid}
+                disabled={isVoiding || !voidReason.trim()}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                <XCircle className="h-4 w-4" />
+                <span>{isVoiding ? 'Voiding…' : 'Void Invoice'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

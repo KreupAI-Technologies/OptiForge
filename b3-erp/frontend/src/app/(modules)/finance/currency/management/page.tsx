@@ -43,6 +43,18 @@ const CURRENCY_META: Record<string, { name: string; symbol: string; countries: s
   CNY: { name: 'Chinese Yuan', symbol: '¥', countries: ['China'] },
 }
 
+interface AddCurrencyForm {
+  code: string
+  rate: string
+  effectiveDate: string
+}
+
+const EMPTY_ADD_FORM: AddCurrencyForm = {
+  code: '',
+  rate: '',
+  effectiveDate: new Date().toISOString().slice(0, 10),
+}
+
 export default function CurrencyManagementPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -50,6 +62,15 @@ export default function CurrencyManagementPage() {
   const [currencies, setCurrencies] = useState<Currency[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Add currency modal
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addForm, setAddForm] = useState<AddCurrencyForm>(EMPTY_ADD_FORM)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  // View details modal
+  const [viewCurrency, setViewCurrency] = useState<Currency | null>(null)
 
   const loadCurrencies = useCallback(async () => {
     setLoading(true)
@@ -94,13 +115,69 @@ export default function CurrencyManagementPage() {
     loadCurrencies()
   }, [loadCurrencies])
 
-  const handleAddCurrency = async (data: any) => {
+  const openAddModal = () => {
+    setAddForm(EMPTY_ADD_FORM)
+    setFormError(null)
+    setShowAddModal(true)
+  }
+
+  const handleAddCurrency = async () => {
+    const code = addForm.code.trim().toUpperCase()
+    const rate = Number(addForm.rate)
+    if (!code || !addForm.rate || !Number.isFinite(rate) || rate <= 0) {
+      setFormError('Currency code and a valid positive rate are required.')
+      return
+    }
+    // Currencies are derived from exchange-rate pairs against the base currency.
+    const base = currencies.find(c => c.isBaseCurrency)?.code || 'INR'
+    setSubmitting(true)
+    setFormError(null)
     try {
-      await FinanceService.createExchangeRate(data)
+      await FinanceService.createExchangeRate({
+        fromCurrency: base,
+        toCurrency: code,
+        rate,
+        effectiveDate: addForm.effectiveDate,
+        source: 'Manual',
+        type: 'spot',
+      })
+      setShowAddModal(false)
       await loadCurrencies()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add currency')
+      setFormError(err instanceof Error ? err.message : 'Failed to add currency')
+    } finally {
+      setSubmitting(false)
     }
+  }
+
+  const handleExport = () => {
+    if (filteredCurrencies.length === 0) return
+    const rows = filteredCurrencies.map(c => ({
+      Code: c.code,
+      Name: c.name,
+      Symbol: c.symbol,
+      'Exchange Rate': c.currentRate.toFixed(6),
+      'Decimal Places': c.decimalPlaces,
+      'Base Currency': c.isBaseCurrency ? 'Yes' : 'No',
+      Status: c.isActive ? 'Active' : 'Inactive',
+      Countries: c.countries.join('; '),
+      'Last Updated': c.lastUpdated,
+    }))
+    const headers = Object.keys(rows[0])
+    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = [
+      headers.join(','),
+      ...rows.map(r => headers.map(h => escape((r as Record<string, unknown>)[h])).join(',')),
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `currencies-${new Date().getTime()}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   const filteredCurrencies = currencies.filter(currency => {
@@ -125,7 +202,7 @@ export default function CurrencyManagementPage() {
             <p className="text-gray-600 mt-1">Manage currencies and exchange rates for multi-currency transactions</p>
           </div>
           <button
-            onClick={() => handleAddCurrency({})}
+            onClick={openAddModal}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-md"
           >
             <Plus className="h-5 w-5" />
@@ -209,7 +286,11 @@ export default function CurrencyManagementPage() {
               </select>
             </div>
 
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              onClick={handleExport}
+              disabled={filteredCurrencies.length === 0}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download className="h-4 w-4" />
               Export
             </button>
@@ -303,7 +384,9 @@ export default function CurrencyManagementPage() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-center gap-2">
-                        <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                        <button
+                          onClick={() => setViewCurrency(currency)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
                           <Eye className="h-4 w-4 text-gray-600" />
                           <span className="text-gray-700">View</span>
                         </button>
@@ -324,6 +407,119 @@ export default function CurrencyManagementPage() {
           </div>
         </div>
       </div>
+
+      {/* Add Currency Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">Add Currency</h3>
+            {formError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {formError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Currency Code</label>
+                <input
+                  type="text"
+                  value={addForm.code}
+                  onChange={(e) => setAddForm({ ...addForm, code: e.target.value })}
+                  placeholder="USD"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Rate (1 {currencies.find(c => c.isBaseCurrency)?.code || 'INR'} = ? {addForm.code.trim().toUpperCase() || 'code'})
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={addForm.rate}
+                  onChange={(e) => setAddForm({ ...addForm, rate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Effective Date</label>
+                <input
+                  type="date"
+                  value={addForm.effectiveDate}
+                  onChange={(e) => setAddForm({ ...addForm, effectiveDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowAddModal(false)}
+                disabled={submitting}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCurrency}
+                disabled={submitting}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {submitting ? 'Saving...' : 'Add Currency'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Currency Details Modal */}
+      {viewCurrency && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {viewCurrency.code} — {viewCurrency.name}
+              </h3>
+              <span className="text-2xl font-semibold text-gray-700">{viewCurrency.symbol}</span>
+            </div>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Exchange Rate</dt>
+                <dd className="font-medium text-gray-900">{viewCurrency.currentRate.toFixed(6)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Decimal Places</dt>
+                <dd className="font-medium text-gray-900">{viewCurrency.decimalPlaces}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Base Currency</dt>
+                <dd className="font-medium text-gray-900">{viewCurrency.isBaseCurrency ? 'Yes' : 'No'}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Status</dt>
+                <dd className="font-medium text-gray-900">{viewCurrency.isActive ? 'Active' : 'Inactive'}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Countries</dt>
+                <dd className="font-medium text-gray-900">{viewCurrency.countries.join(', ') || '—'}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Last Updated</dt>
+                <dd className="font-medium text-gray-900">
+                  {viewCurrency.lastUpdated ? new Date(viewCurrency.lastUpdated).toLocaleDateString('en-IN') : '—'}
+                </dd>
+              </div>
+            </dl>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setViewCurrency(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

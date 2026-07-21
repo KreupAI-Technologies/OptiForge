@@ -325,18 +325,6 @@ export default function CashManagementDashboard() {
                 </h3>
                 <div className="text-3xl font-bold text-green-600 mb-2">{formatCurrency(stats.todayReceipts)}</div>
                 <p className="text-sm text-gray-600">Collected from customers</p>
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Sales Receipts:</span>
-                      <span className="font-medium">₹625,000</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Other Income:</span>
-                      <span className="font-medium">₹225,000</span>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
@@ -346,18 +334,6 @@ export default function CashManagementDashboard() {
                 </h3>
                 <div className="text-3xl font-bold text-red-600 mb-2">{formatCurrency(stats.todayPayments)}</div>
                 <p className="text-sm text-gray-600">Paid to suppliers & expenses</p>
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Supplier Payments:</span>
-                      <span className="font-medium">₹250,000</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Operating Expenses:</span>
-                      <span className="font-medium">₹70,000</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -462,7 +438,7 @@ export default function CashManagementDashboard() {
                   <BarChart3 className="h-5 w-5 text-gray-400" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.projectedBalance)}</p>
-                <p className="text-xs text-green-600 mt-1">+{((((stats.projectedBalance - stats.totalCash) / stats.totalCash) * 100).toFixed(1))}% increase</p>
+                <p className="text-xs text-green-600 mt-1">{stats.totalCash > 0 ? `${(((stats.projectedBalance - stats.totalCash) / stats.totalCash) * 100).toFixed(1)}% vs today` : 'vs today'}</p>
               </div>
 
               <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm">
@@ -479,8 +455,8 @@ export default function CashManagementDashboard() {
                   <h3 className="text-sm font-medium text-gray-600">Cash Coverage</h3>
                   <AlertCircle className="h-5 w-5 text-gray-400" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">45 days</p>
-                <p className="text-xs text-green-600 mt-1">Based on avg daily burn</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.todayPayments > 0 ? `${Math.round(stats.totalCash / stats.todayPayments)} days` : '—'}</p>
+                <p className="text-xs text-green-600 mt-1">Based on today's burn</p>
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { fetchReportDataset } from '@/services/reports-management.service';
+import { exportToCsv } from '@/lib/export';
 
 interface BalanceSheetData {
     totalAssets: number;
@@ -69,7 +70,7 @@ export default function BalanceSheetReport() {
                     <h1 className="text-3xl font-bold mb-2">Balance Sheet</h1>
                     <p className="text-gray-600">Statement of financial position - Click cards to drill down</p>
                 </div>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                <Button variant="outline" onClick={() => exportToCsv('balance-sheet', [data])}><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
 
             {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}

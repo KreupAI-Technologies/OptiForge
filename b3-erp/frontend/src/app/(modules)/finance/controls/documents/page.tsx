@@ -11,6 +11,7 @@ interface DocumentRow {
   uploadedBy: string
   uploadDate: string
   size: string
+  fileUrl: string
 }
 
 function formatFileSize(bytes: number): string {
@@ -24,6 +25,7 @@ export default function DocumentManagementPage() {
   const [documents, setDocuments] = useState<DocumentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [viewDoc, setViewDoc] = useState<DocumentRow | null>(null)
 
   const loadDocuments = async () => {
     try {
@@ -37,6 +39,7 @@ export default function DocumentManagementPage() {
         uploadedBy: d.uploadedBy ?? '-',
         uploadDate: d.createdAt ?? '',
         size: typeof d.fileSize === 'number' ? formatFileSize(d.fileSize) : (d.fileSize ?? '-'),
+        fileUrl: d.fileUrl ?? d.url ?? d.downloadUrl ?? '',
       }))
       setDocuments(mapped)
     } catch (e: any) {
@@ -67,6 +70,11 @@ export default function DocumentManagementPage() {
     } catch (e) {
       console.error('Failed to delete document', e)
     }
+  }
+
+  const handleDownload = (doc: DocumentRow) => {
+    if (!doc.fileUrl) return
+    window.open(doc.fileUrl, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -140,11 +148,19 @@ export default function DocumentManagementPage() {
                   <td className="px-3 py-2 text-sm text-gray-900">{doc.size}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-2">
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                      <button
+                        onClick={() => setViewDoc(doc)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                      >
                         <Eye className="h-4 w-4 text-gray-600" />
                         <span className="text-gray-700">View</span>
                       </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                      <button
+                        onClick={() => handleDownload(doc)}
+                        disabled={!doc.fileUrl}
+                        title={doc.fileUrl ? 'Download document' : 'No file attached'}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+                      >
                         <Download className="h-4 w-4 text-gray-600" />
                         <span className="text-gray-700">Download</span>
                       </button>
@@ -163,6 +179,41 @@ export default function DocumentManagementPage() {
           </table>
         </div>
       </div>
+
+      {viewDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setViewDoc(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Document Details</h2>
+              <button onClick={() => setViewDoc(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <dl className="mt-4 space-y-2 text-sm">
+              <div className="flex justify-between"><dt className="text-gray-500">Name</dt><dd className="font-medium text-gray-900">{viewDoc.name}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Category</dt><dd className="text-gray-900">{viewDoc.category}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Uploaded By</dt><dd className="text-gray-900">{viewDoc.uploadedBy}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Upload Date</dt><dd className="text-gray-900">{viewDoc.uploadDate ? new Date(viewDoc.uploadDate).toLocaleString('en-IN') : '-'}</dd></div>
+              <div className="flex justify-between"><dt className="text-gray-500">Size</dt><dd className="text-gray-900">{viewDoc.size}</dd></div>
+            </dl>
+            <div className="mt-6 flex justify-end gap-2">
+              {viewDoc.fileUrl && (
+                <button
+                  onClick={() => handleDownload(viewDoc)}
+                  className="flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-white hover:bg-orange-700"
+                >
+                  <Download className="h-4 w-4" /> Download
+                </button>
+              )}
+              <button onClick={() => setViewDoc(null)} className="rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

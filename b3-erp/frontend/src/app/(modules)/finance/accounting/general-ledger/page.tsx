@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FinanceService, Account } from '@/services/finance.service';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 import {
   BookOpen,
   Calendar,
@@ -226,11 +227,23 @@ export default function GeneralLedgerPage() {
             {/* Action Bar */}
             <div className="flex items-center justify-end">
               <div className="flex gap-3">
-                <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                <button
+                  onClick={() =>
+                    exportToCsv(
+                      `general-ledger-${ledgerData.accountCode || 'account'}`,
+                      filteredEntries as unknown as Record<string, unknown>[],
+                    )
+                  }
+                  disabled={filteredEntries.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <Download className="w-4 h-4" />
                   Export
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                <button
+                  onClick={() => printCurrentView()}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
                   <FileText className="w-4 h-4" />
                   Print Ledger
                 </button>
@@ -495,7 +508,11 @@ export default function GeneralLedgerPage() {
                                   <ChevronRight className="w-4 h-4 text-blue-400" />
                                 )}
                               </button>
-                              <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+                              <button
+                                onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
+                                title="View Entry Details"
+                                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                              >
                                 <Eye className="w-4 h-4 text-purple-400" />
                               </button>
                             </div>

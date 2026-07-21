@@ -61,6 +61,7 @@ export default function CollectionsPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +148,41 @@ export default function CollectionsPage() {
     return matchesSearch && matchesStatus && matchesMethod;
   });
 
+  const handleExport = () => {
+    setIsExporting(true);
+    try {
+      const headers = ['Collection Number', 'Collection Date', 'Customer Name', 'Customer Code', 'Payment Method', 'Invoice Number', 'Amount', 'TDS Deducted', 'Net Collection', 'Status', 'Collection Agent', 'Follow-up Required'];
+      const rows = filteredCollections.map(c => [
+        c.collectionNumber,
+        c.collectionDate,
+        c.customerName,
+        c.customerCode,
+        c.paymentMethod,
+        c.invoiceNumber ?? '',
+        c.amount,
+        c.tdsDeducted,
+        c.netCollection,
+        c.status,
+        c.collectionAgent,
+        c.followUpRequired ? 'Yes' : 'No',
+      ]);
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Collections_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const stats = {
     totalCollections: collections.length,
     totalAmount: collections.reduce((sum, c) => sum + c.netCollection, 0),
@@ -181,9 +217,13 @@ export default function CollectionsPage() {
             </div>
 
             <div className="flex gap-2">
-              <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+              <button
+                onClick={handleExport}
+                disabled={isExporting || filteredCollections.length === 0}
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Download className="h-4 w-4" />
-                <span>Export</span>
+                <span>{isExporting ? 'Exporting...' : 'Export'}</span>
               </button>
               <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                 <Plus className="h-4 w-4" />

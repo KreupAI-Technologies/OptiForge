@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { fetchDomainList } from '@/services/reports-data.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function TaxSummaryReport() {
     const router = useRouter();
@@ -43,7 +44,7 @@ export default function TaxSummaryReport() {
                     <h1 className="text-3xl font-bold mb-2">Tax Summary</h1>
                     <p className="text-gray-600">GST/VAT collection and payment summary</p>
                 </div>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                <Button variant="outline" onClick={() => exportToCsv('tax-summary', taxes)} disabled={taxes.length === 0}><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
 
             <Card>

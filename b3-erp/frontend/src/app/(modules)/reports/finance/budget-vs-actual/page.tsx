@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { fetchDomainList } from '@/services/reports-data.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function BudgetVsActualReport() {
     const router = useRouter();
@@ -37,7 +38,7 @@ export default function BudgetVsActualReport() {
                     <h1 className="text-3xl font-bold mb-2">Budget vs Actual</h1>
                     <p className="text-gray-600">Compare actual performance against budget</p>
                 </div>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                <Button variant="outline" onClick={() => exportToCsv('budget-vs-actual', budgetItems)} disabled={budgetItems.length === 0}><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
 
             <Card>

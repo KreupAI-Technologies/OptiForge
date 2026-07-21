@@ -159,6 +159,8 @@ export default function FinancialPeriodsPage() {
   const [showNewYearModal, setShowNewYearModal] = useState(false);
   const [newYear, setNewYear] = useState({ yearCode: '', yearName: '', startDate: '', endDate: '' });
   const [creatingYear, setCreatingYear] = useState(false);
+  const [detailYear, setDetailYear] = useState<FinancialYear | null>(null);
+  const [detailPeriod, setDetailPeriod] = useState<FinancialPeriod | null>(null);
 
   const handleCreateYear = async () => {
     if (!newYear.yearCode || !newYear.startDate || !newYear.endDate) {
@@ -439,14 +441,16 @@ export default function FinancialPeriodsPage() {
                       </span>
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={(e) => { e.stopPropagation(); setDetailYear(year); }}
+                          title="View Year Details"
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-
                         >
                           <Eye className="w-5 h-5" />
                         </button>
                         <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedYear(year.yearCode); setDetailYear(year); }}
+                          title="Manage Year"
                           className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-
                         >
                           <Settings className="w-5 h-5" />
                         </button>
@@ -525,8 +529,9 @@ export default function FinancialPeriodsPage() {
 
                         <div className="flex items-center gap-1">
                           <button
+                            onClick={() => setDetailPeriod(period)}
+                            title="View Period Details"
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -1043,6 +1048,96 @@ export default function FinancialPeriodsPage() {
               >
                 <Save className="w-4 h-4" />
                 {creatingYear ? 'Creating...' : 'Create Year'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Financial Year Details Modal */}
+      {detailYear && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-3 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-7 h-7" />
+                <h2 className="text-xl font-bold">{detailYear.yearName}</h2>
+              </div>
+              <button
+                onClick={() => setDetailYear(null)}
+                className="text-white hover:bg-purple-700 p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><p className="text-gray-500">Year Code</p><p className="font-semibold text-gray-900">{detailYear.yearCode}</p></div>
+                <div><p className="text-gray-500">Status</p><p className="font-semibold text-gray-900">{detailYear.status}</p></div>
+                <div><p className="text-gray-500">Start Date</p><p className="font-semibold text-gray-900">{detailYear.startDate}</p></div>
+                <div><p className="text-gray-500">End Date</p><p className="font-semibold text-gray-900">{detailYear.endDate}</p></div>
+                <div><p className="text-gray-500">Total Periods</p><p className="font-semibold text-gray-900">{detailYear.periodsCount}</p></div>
+                <div><p className="text-gray-500">Open Periods</p><p className="font-semibold text-green-600">{detailYear.openPeriodsCount}</p></div>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">Periods</p>
+                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg divide-y">
+                  {periods.filter((p) => p.yearCode === detailYear.yearCode).map((p) => (
+                    <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <span className="text-gray-900">{p.periodName}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(p.status)}`}>{p.status}</span>
+                    </div>
+                  ))}
+                  {periods.filter((p) => p.yearCode === detailYear.yearCode).length === 0 && (
+                    <div className="px-3 py-2 text-sm text-gray-500">No periods defined.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 px-3 py-2 flex justify-end border-t">
+              <button
+                onClick={() => setDetailYear(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Financial Period Details Modal */}
+      {detailPeriod && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-3 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-7 h-7" />
+                <h2 className="text-xl font-bold">{detailPeriod.periodName}</h2>
+              </div>
+              <button
+                onClick={() => setDetailPeriod(null)}
+                className="text-white hover:bg-blue-700 p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-gray-500">Period Code</p><p className="font-semibold text-gray-900">{detailPeriod.periodCode}</p></div>
+              <div><p className="text-gray-500">Type</p><p className="font-semibold text-gray-900">{detailPeriod.periodType}</p></div>
+              <div><p className="text-gray-500">Financial Year</p><p className="font-semibold text-gray-900">{detailPeriod.yearCode}</p></div>
+              <div><p className="text-gray-500">Status</p><p className="font-semibold text-gray-900">{detailPeriod.status}</p></div>
+              <div><p className="text-gray-500">Start Date</p><p className="font-semibold text-gray-900">{detailPeriod.startDate}</p></div>
+              <div><p className="text-gray-500">End Date</p><p className="font-semibold text-gray-900">{detailPeriod.endDate}</p></div>
+              <div><p className="text-gray-500">Transactions</p><p className="font-semibold text-gray-900">{detailPeriod.transactionsCount}</p></div>
+              <div><p className="text-gray-500">Current</p><p className="font-semibold text-gray-900">{detailPeriod.isCurrent ? 'Yes' : 'No'}</p></div>
+            </div>
+            <div className="bg-gray-50 px-3 py-2 flex justify-end border-t">
+              <button
+                onClick={() => setDetailPeriod(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100"
+              >
+                Close
               </button>
             </div>
           </div>

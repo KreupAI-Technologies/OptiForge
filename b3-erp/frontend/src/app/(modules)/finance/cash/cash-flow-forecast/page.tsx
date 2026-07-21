@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -87,64 +87,82 @@ export default function CashFlowForecastPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        const res = (await FinanceService.getCashFlowReport()) as any
-        const rows: any[] = Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res)
-            ? res
-            : []
-        let running = Number(res?.openingBalance ?? res?.summary?.openingBalance ?? 0)
-        const periods: ForecastPeriod[] = rows.map((r) => {
-          const openingBalance = Number(r.openingBalance ?? running)
-          const sales = Number(r.sales ?? r.salesReceipts ?? 0)
-          const collections = Number(r.collections ?? r.arCollections ?? 0)
-          const otherIncome = Number(r.otherIncome ?? 0)
-          const receiptsTotal = Number(
-            r.totalReceipts ?? r.inflow ?? sales + collections + otherIncome,
-          )
-          const suppliers = Number(r.suppliers ?? r.supplierPayments ?? 0)
-          const salaries = Number(r.salaries ?? 0)
-          const operating = Number(r.operating ?? r.operatingExpenses ?? 0)
-          const capex = Number(r.capex ?? r.capitalExpenditure ?? 0)
-          const paymentsTotal = Number(
-            r.totalPayments ?? r.outflow ?? suppliers + salaries + operating + capex,
-          )
-          const netCashFlow = Number(r.netCashFlow ?? receiptsTotal - paymentsTotal)
-          const closingBalance = Number(r.closingBalance ?? openingBalance + netCashFlow)
-          running = closingBalance
-          const status: ForecastPeriod['status'] =
-            closingBalance < 0 ? 'critical' : netCashFlow < 0 ? 'deficit' : 'surplus'
-          return {
-            date: r.date ?? r.period ?? r.periodStart ?? '',
-            openingBalance,
-            expectedReceipts: { sales, collections, otherIncome, total: receiptsTotal },
-            expectedPayments: { suppliers, salaries, operating, capex, total: paymentsTotal },
-            netCashFlow,
-            closingBalance,
-            status,
-          }
-        })
-        if (!cancelled) setForecast(periods)
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load cash flow forecast')
-          setForecast([])
+  const loadForecast = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      const res = (await FinanceService.getCashFlowReport()) as any
+      const rows: any[] = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+          ? res
+          : []
+      let running = Number(res?.openingBalance ?? res?.summary?.openingBalance ?? 0)
+      const periods: ForecastPeriod[] = rows.map((r) => {
+        const openingBalance = Number(r.openingBalance ?? running)
+        const sales = Number(r.sales ?? r.salesReceipts ?? 0)
+        const collections = Number(r.collections ?? r.arCollections ?? 0)
+        const otherIncome = Number(r.otherIncome ?? 0)
+        const receiptsTotal = Number(
+          r.totalReceipts ?? r.inflow ?? sales + collections + otherIncome,
+        )
+        const suppliers = Number(r.suppliers ?? r.supplierPayments ?? 0)
+        const salaries = Number(r.salaries ?? 0)
+        const operating = Number(r.operating ?? r.operatingExpenses ?? 0)
+        const capex = Number(r.capex ?? r.capitalExpenditure ?? 0)
+        const paymentsTotal = Number(
+          r.totalPayments ?? r.outflow ?? suppliers + salaries + operating + capex,
+        )
+        const netCashFlow = Number(r.netCashFlow ?? receiptsTotal - paymentsTotal)
+        const closingBalance = Number(r.closingBalance ?? openingBalance + netCashFlow)
+        running = closingBalance
+        const status: ForecastPeriod['status'] =
+          closingBalance < 0 ? 'critical' : netCashFlow < 0 ? 'deficit' : 'surplus'
+        return {
+          date: r.date ?? r.period ?? r.periodStart ?? '',
+          openingBalance,
+          expectedReceipts: { sales, collections, otherIncome, total: receiptsTotal },
+          expectedPayments: { suppliers, salaries, operating, capex, total: paymentsTotal },
+          netCashFlow,
+          closingBalance,
+          status,
         }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
+      })
+      setForecast(periods)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load cash flow forecast')
+      setForecast([])
+    } finally {
+      setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    loadForecast()
+  }, [loadForecast])
+
+  const handleExportCsv = () => {
+    const headers = [
+      'Period', 'Opening Balance', 'Sales Receipts', 'AR Collections', 'Other Income',
+      'Total Receipts', 'Supplier Payments', 'Salaries', 'Operating', 'Capex',
+      'Total Payments', 'Net Cash Flow', 'Closing Balance', 'Status',
+    ]
+    const escape = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const rows = forecast.map((p) => [
+      p.date, p.openingBalance, p.expectedReceipts.sales, p.expectedReceipts.collections,
+      p.expectedReceipts.otherIncome, p.expectedReceipts.total, p.expectedPayments.suppliers,
+      p.expectedPayments.salaries, p.expectedPayments.operating, p.expectedPayments.capex,
+      p.expectedPayments.total, p.netCashFlow, p.closingBalance, p.status,
+    ].map(escape).join(','))
+    const csv = [headers.map(escape).join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `cash-flow-forecast-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -199,8 +217,12 @@ export default function CashFlowForecastPage() {
                   <Settings className="h-5 w-5" />
                   Assumptions
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all shadow-md">
-                  <RefreshCw className="h-5 w-5" />
+                <button
+                  onClick={loadForecast}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all shadow-md disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
                   Refresh Forecast
                 </button>
               </div>
@@ -313,7 +335,11 @@ export default function CashFlowForecastPage() {
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Weekly Cash Flow Forecast</h2>
-                  <button className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  <button
+                    onClick={handleExportCsv}
+                    disabled={forecast.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
                     <Download className="h-4 w-4" />
                     Export
                   </button>

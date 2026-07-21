@@ -1844,12 +1844,150 @@ export class FinanceService {
   }
 
   // ==========================================================================
+  // Bank accounts (accounts module — /api/accounts/banks). Envelope: { success, data }.
+  // ==========================================================================
+  static async getBankAccounts(): Promise<any[]> {
+    const res = await this.request<any>('/api/accounts/banks');
+    return this.toArray(res && typeof res === 'object' && 'data' in res ? res.data : res);
+  }
+
+  static async getBankAccount(id: string): Promise<any> {
+    const res = await this.request<any>(`/api/accounts/banks/${id}`);
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async createBankAccount(payload: any): Promise<any> {
+    const res = await this.request<any>('/api/accounts/banks', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async updateBankAccount(id: string, payload: any): Promise<any> {
+    const res = await this.request<any>(`/api/accounts/banks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async deleteBankAccount(id: string): Promise<void> {
+    await this.request<any>(`/api/accounts/banks/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
   // Expense claims (reuses accounts module — GET /api/accounts/expense-claims/:id)
   // ==========================================================================
   static async getExpenseClaim(id: string): Promise<ExpenseClaimDetail> {
     const res = await this.request<any>(`/api/accounts/expense-claims/${id}`);
     // Controller wraps payload as { success, data }; unwrap defensively.
     return (res && typeof res === 'object' && 'data' in res ? res.data : res) as ExpenseClaimDetail;
+  }
+
+  // ==========================================================================
+  // Petty cash (accounts module — /api/accounts/petty-cash). Envelope: { success, data }.
+  // ==========================================================================
+  static async getPettyCashTransactions(): Promise<any[]> {
+    const res = await this.request<any>('/api/accounts/petty-cash');
+    return this.toArray(res && typeof res === 'object' && 'data' in res ? res.data : res);
+  }
+
+  static async getPettyCashBalance(): Promise<number> {
+    const res = await this.request<any>('/api/accounts/petty-cash/balance/total');
+    const data = res && typeof res === 'object' && 'data' in res ? res.data : res;
+    // Balance may arrive as { total } / { balance } / a bare number.
+    const raw =
+      data && typeof data === 'object'
+        ? (data.total ?? data.balance ?? data.amount ?? 0)
+        : data;
+    return Number(raw) || 0;
+  }
+
+  static async createPettyCashTransaction(payload: any): Promise<any> {
+    const res = await this.request<any>('/api/accounts/petty-cash', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async approvePettyCash(id: string): Promise<any> {
+    const res = await this.request<any>(`/api/accounts/petty-cash/${id}/approve`, {
+      method: 'POST',
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async rejectPettyCash(id: string): Promise<any> {
+    const res = await this.request<any>(`/api/accounts/petty-cash/${id}/reject`, {
+      method: 'POST',
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async replenishPettyCash(payload: any): Promise<any> {
+    const res = await this.request<any>('/api/accounts/petty-cash/replenish', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  // ==========================================================================
+  // Expense claims — list/create/submit/approve/reject (accounts module).
+  // ==========================================================================
+  static async getExpenseClaims(): Promise<any[]> {
+    const res = await this.request<any>('/api/accounts/expense-claims');
+    return this.toArray(res && typeof res === 'object' && 'data' in res ? res.data : res);
+  }
+
+  static async createExpenseClaim(payload: any): Promise<any> {
+    const res = await this.request<any>('/api/accounts/expense-claims', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async submitExpenseClaim(id: string): Promise<any> {
+    const res = await this.request<any>(`/api/accounts/expense-claims/${id}/submit`, {
+      method: 'POST',
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async approveExpenseClaim(id: string): Promise<any> {
+    const res = await this.request<any>(`/api/accounts/expense-claims/${id}/approve`, {
+      method: 'POST',
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async rejectExpenseClaim(id: string): Promise<any> {
+    const res = await this.request<any>(`/api/accounts/expense-claims/${id}/reject`, {
+      method: 'POST',
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  // ==========================================================================
+  // Payment lifecycle transitions (finance/payments). Envelope: { success, data }.
+  // ==========================================================================
+  static async reconcilePayment(id: string): Promise<any> {
+    const res = await this.request<any>(`/finance/payments/${id}/reconcile`, {
+      method: 'POST',
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async cancelPayment(id: string): Promise<any> {
+    const res = await this.request<any>(`/finance/payments/${id}/cancel`, {
+      method: 'POST',
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
   }
 }
 

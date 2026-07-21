@@ -166,6 +166,54 @@ export default function InvoicesPage() {
     }
   };
 
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  // Submit (Send) a draft invoice, then reload
+  const handleSend = async (id: string) => {
+    try {
+      setActionId(id);
+      await InvoiceService.submitInvoice(id);
+      await refreshInvoices();
+    } catch (err) {
+      console.error('Failed to send invoice:', err);
+      setError('Failed to send invoice. Please try again.');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  // Client-side CSV export of the currently filtered invoices
+  const handleExport = () => {
+    const headers = ['Invoice Number', 'Customer', 'Customer ID', 'Invoice Date', 'Due Date', 'Amount', 'Tax', 'Total', 'Paid', 'Balance', 'Status'];
+    const rows = filteredInvoices.map((inv) => [
+      inv.invoiceNumber,
+      inv.customerName,
+      inv.customerId,
+      inv.invoiceDate,
+      inv.dueDate,
+      inv.amount,
+      inv.taxAmount,
+      inv.totalAmount,
+      inv.paidAmount,
+      inv.totalAmount - inv.paidAmount,
+      statusLabels[inv.status],
+    ]);
+    const escape = (v: string | number) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredInvoices = invoices.filter((inv) => {
     const matchesSearch =
       inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -300,7 +348,10 @@ export default function InvoicesPage() {
           <option value="overdue">Overdue</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+        <button
+          onClick={handleExport}
+          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
           <Download className="h-4 w-4" />
           <span>Export</span>
         </button>
@@ -403,10 +454,11 @@ export default function InvoicesPage() {
                         </button>
                         {inv.status === 'draft' && (
                           <button
-                            className="flex items-center space-x-1 px-3 py-1.5 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-sm font-medium"
-
+                            onClick={() => handleSend(inv.id)}
+                            disabled={actionId === inv.id}
+                            className="flex items-center space-x-1 px-3 py-1.5 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
                           >
-                            <Send className="h-4 w-4" />
+                            {actionId === inv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                             <span>Send</span>
                           </button>
                         )}

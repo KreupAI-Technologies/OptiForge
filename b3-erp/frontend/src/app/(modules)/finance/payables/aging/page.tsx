@@ -160,6 +160,28 @@ export default function PayablesAgingPage() {
     return total > 0 ? ((amount / total) * 100).toFixed(1) : '0.0';
   };
 
+  // Client-side CSV export from already-fetched (filtered) aging rows
+  const handleExport = () => {
+    const headers = ['Vendor ID', 'Vendor Name', 'Total Outstanding', 'Current (0-30)', '31-60 Days', '61-90 Days', '90+ Days', 'Credit Limit', 'Payment Terms', 'Last Payment', 'Last Payment Amount', 'Contact Person', 'Risk'];
+    const rows = filteredVendors.map((v) => [
+      v.vendorId, v.vendorName, v.totalOutstanding, v.current, v.days31to60, v.days61to90,
+      v.over90days, v.creditLimit, v.paymentTerms, v.lastPayment, v.lastPaymentAmount,
+      v.contactPerson, v.riskRating,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Payables_Aging_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
@@ -193,7 +215,10 @@ export default function PayablesAgingPage() {
                 <Filter className="h-4 w-4" />
                 <span>Filters</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button
+                onClick={handleExport}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 <Download className="h-4 w-4" />
                 <span>Export Report</span>
               </button>
@@ -423,7 +448,11 @@ export default function PayablesAgingPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-center">
-                          <button className="text-blue-600 hover:text-blue-800">
+                          <button
+                            onClick={() => setExpandedVendor(expandedVendor === vendor.vendorId ? null : vendor.vendorId)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="View details"
+                          >
                             <Eye className="h-4 w-4" />
                           </button>
                         </td>

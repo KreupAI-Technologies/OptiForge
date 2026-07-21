@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { fetchReportDataset } from '@/services/reports-management.service';
+import { exportToCsv } from '@/lib/export';
 
 interface CashFlowData {
     operatingCashFlow: number;
@@ -66,7 +67,7 @@ export default function CashFlowReport() {
                     <h1 className="text-3xl font-bold mb-2">Cash Flow Statement</h1>
                     <p className="text-gray-600">Analysis of cash inflows and outflows</p>
                 </div>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                <Button variant="outline" onClick={() => exportToCsv('cash-flow', [data])}><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
 
             {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}

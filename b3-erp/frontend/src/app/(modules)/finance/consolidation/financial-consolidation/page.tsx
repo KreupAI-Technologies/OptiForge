@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FinanceService } from '@/services/finance.service'
+import { exportToCsv } from '@/lib/export'
 import {
   Building2,
   PieChart,
@@ -30,14 +31,11 @@ export default function FinancialConsolidationPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
+  const load = async () => {
       setLoading(true)
       setError(null)
       try {
         const data = await FinanceService.getConsolidation()
-        if (cancelled) return
         const byType: any[] = Array.isArray(data?.balancesByType) ? data.balancesByType : []
 
         // Group balances into a single consolidated group entity by account type.
@@ -71,18 +69,17 @@ export default function FinancialConsolidationPage() {
         })
         setEntities(revenue || expenses || assets || liabilities || equity ? [entity] : [])
       } catch (e: any) {
-        if (!cancelled) {
-          setError(e?.message || 'Failed to load consolidation')
-          setEntities([])
-          setEliminations({ revenue: 0, expenses: 0, assets: 0, liabilities: 0 })
-        }
+        setError(e?.message || 'Failed to load consolidation')
+        setEntities([])
+        setEliminations({ revenue: 0, expenses: 0, assets: 0, liabilities: 0 })
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
-    })()
-    return () => {
-      cancelled = true
-    }
+  }
+
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const consolidated = {
@@ -115,13 +112,34 @@ export default function FinancialConsolidationPage() {
             {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+            <button
+              onClick={() =>
+                exportToCsv('consolidated-statements', [
+                  ...(entities as unknown as Record<string, unknown>[]),
+                  {
+                    name: 'Consolidated Total',
+                    revenue: consolidated.revenue,
+                    expenses: consolidated.expenses,
+                    assets: consolidated.assets,
+                    liabilities: consolidated.liabilities,
+                    equity: consolidated.equity,
+                    netIncome: consolidated.netIncome,
+                  },
+                ])
+              }
+              disabled={entities.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download className="h-5 w-5" />
               Export Report
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg hover:from-violet-700 hover:to-purple-700 shadow-md">
-              <RefreshCw className="h-5 w-5" />
-              Run Consolidation
+            <button
+              onClick={() => void load()}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg hover:from-violet-700 hover:to-purple-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Running…' : 'Run Consolidation'}
             </button>
           </div>
         </div>

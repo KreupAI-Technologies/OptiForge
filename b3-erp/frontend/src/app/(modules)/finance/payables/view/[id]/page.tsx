@@ -20,7 +20,6 @@ import {
   Phone,
   MapPin,
   Download,
-  Send,
   IndianRupee,
   Package,
   User,
@@ -291,6 +290,27 @@ export default function ViewPayablePage() {
     return { label: '90+ Days', color: 'text-red-700', bgColor: 'bg-red-100' };
   };
 
+  // Client-side CSV report of this vendor's bills (already-fetched data)
+  const handleGenerateReport = () => {
+    const headers = ['Bill Number', 'Bill Date', 'Due Date', 'PO Reference', 'Amount', 'Paid', 'Balance', 'Aging Days', 'Status'];
+    const rows = payable.bills.map((b) => [
+      b.billNumber, b.billDate, b.dueDate, b.poReference, b.amount, b.paidAmount,
+      b.balanceAmount, b.agingDays, b.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Payable_${payable.vendorCode || payableId}_Bills_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
       {isLoading && (
@@ -373,15 +393,17 @@ export default function ViewPayablePage() {
                 <Edit className="h-4 w-4" />
                 <span>Edit</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+              <button
+                onClick={() => router.push('/finance/payables/payments')}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
                 <CreditCard className="h-4 w-4" />
                 <span>Record Payment</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                <Send className="h-4 w-4" />
-                <span>Send Reminder</span>
-              </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              <button
+                onClick={handleGenerateReport}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
                 <Download className="h-4 w-4" />
                 <span>Generate Report</span>
               </button>
@@ -655,7 +677,10 @@ export default function ViewPayablePage() {
               <h3 className="text-xl font-bold text-gray-900">Bills & Invoices</h3>
               <div className="flex items-center space-x-3">
                 <span className="text-sm text-gray-600">{payable.bills.length} bills</span>
-                <button className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                <button
+                  onClick={() => router.push('/finance/payables/add')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                >
                   <Receipt className="h-4 w-4" />
                   <span>Add Bill</span>
                 </button>
@@ -746,11 +771,11 @@ export default function ViewPayablePage() {
                     <p className="text-sm text-gray-900">{payment.billReference}</p>
                   </div>
                   <div className="mt-3 flex items-center space-x-2">
-                    <button className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+                    <button
+                      onClick={() => router.push('/finance/payables/payments')}
+                      className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                    >
                       Record Payment
-                    </button>
-                    <button className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
-                      View Bill
                     </button>
                   </div>
                 </div>

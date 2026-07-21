@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Download, BookOpen, Calendar, DollarSign, FileText, AlertCircle, CheckCircle, Clock, ChevronLeft, ChevronRight, User, TrendingUp, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { JournalService } from '@/services/journal.service';
+import { exportToCsv } from '@/lib/export';
 
 interface JournalEntry {
   id: string;
@@ -252,7 +253,16 @@ export default function AccountingPage() {
           <option value="4">4000 - Revenue</option>
           <option value="5">5000 - Expenses</option>
         </select>
-        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+        <button
+          onClick={() =>
+            exportToCsv(
+              'journal-entries',
+              filteredEntries as unknown as Record<string, unknown>[],
+            )
+          }
+          disabled={filteredEntries.length === 0}
+          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Download className="h-4 w-4" />
           <span>Export</span>
         </button>

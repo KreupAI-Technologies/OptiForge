@@ -15,7 +15,8 @@ import {
   Search,
   Filter,
   Eye,
-  Send
+  Send,
+  X
 } from 'lucide-react';
 import { FinanceService } from '@/services/finance.service';
 
@@ -236,6 +237,10 @@ export default function GSTManagementPage() {
   const [importRowsText, setImportRowsText] = useState('[]');
   const [importError, setImportError] = useState<string | null>(null);
 
+  // View-detail modals (replace prior window.alert flows)
+  const [viewTxn, setViewTxn] = useState<GSTTransaction | null>(null);
+  const [viewReturn, setViewReturn] = useState<GSTReturn | null>(null);
+
   // Load persisted GST return records (GSTR-2A imports + filed GSTR-1/3B).
   const loadGstReturns = React.useCallback(async (): Promise<void> => {
     try {
@@ -438,11 +443,11 @@ export default function GSTManagementPage() {
   };
 
   const handleViewTransaction = (txn: GSTTransaction) => {
-    alert(`GST Transaction Details\n\nInvoice: ${txn.invoiceNumber}\nDate: ${txn.date}\nParty: ${txn.partyName}\nGSTIN: ${txn.gstin}\nType: ${txn.transactionType}\n\nTaxable Amount: ${formatCurrency(txn.taxableAmount)}\nCGST: ${formatCurrency(txn.cgst)}\nSGST: ${formatCurrency(txn.sgst)}\nIGST: ${formatCurrency(txn.igst)}\nTotal Tax: ${formatCurrency(txn.totalTax)}\nTotal Amount: ${formatCurrency(txn.totalAmount)}\n\nGST Rate: ${txn.gstRate}%\nPlace of Supply: ${txn.placeOfSupply}\nHSN: ${txn.hsn || 'N/A'}\nReturn Period: ${txn.returnPeriod}\nFiled: ${txn.filed ? 'Yes' : 'No'}`);
+    setViewTxn(txn);
   };
 
   const handleViewReturn = (ret: GSTReturn) => {
-    alert(`GST Return Details\n\nReturn Type: ${ret.returnType}\nPeriod: ${ret.period}\nDue Date: ${ret.dueDate}\nStatus: ${ret.status}\n${ret.filedDate ? `\nFiled Date: ${ret.filedDate}` : ''}${ret.arn ? `\nARN: ${ret.arn}` : ''}\n\nTotal Sales: ${formatCurrency(ret.totalSales)}\nTotal Purchases: ${formatCurrency(ret.totalPurchases)}\nOutput Tax: ${formatCurrency(ret.outputTax)}\nInput Tax: ${formatCurrency(ret.inputTax)}\nNet Tax: ${formatCurrency(ret.netTax)}\n\n${ret.netTax >= 0 ? 'Tax Payable' : 'Tax Refund'}`);
+    setViewReturn(ret);
   };
 
   // File a GSTR-1 / GSTR-3B return. Persists a Filed record with an Ack number.
@@ -1115,6 +1120,82 @@ export default function GSTManagementPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View GST Transaction Modal */}
+      {viewTxn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h3 className="text-lg font-semibold text-white">GST Transaction — {viewTxn.invoiceNumber}</h3>
+              <button onClick={() => setViewTxn(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
+              {[
+                ['Date', viewTxn.date],
+                ['Party', viewTxn.partyName],
+                ['GSTIN', viewTxn.gstin],
+                ['Type', viewTxn.transactionType],
+                ['Taxable Amount', formatCurrency(viewTxn.taxableAmount)],
+                ['CGST', formatCurrency(viewTxn.cgst)],
+                ['SGST', formatCurrency(viewTxn.sgst)],
+                ['IGST', formatCurrency(viewTxn.igst)],
+                ['Total Tax', formatCurrency(viewTxn.totalTax)],
+                ['Total Amount', formatCurrency(viewTxn.totalAmount)],
+                ['GST Rate', `${viewTxn.gstRate}%`],
+                ['Place of Supply', viewTxn.placeOfSupply],
+                ['HSN', viewTxn.hsn || 'N/A'],
+                ['Return Period', viewTxn.returnPeriod],
+                ['Filed', viewTxn.filed ? 'Yes' : 'No'],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="text-gray-400">{label}</div>
+                  <div className="font-medium text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+              <button onClick={() => setViewTxn(null)} className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View GST Return Modal */}
+      {viewReturn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-5 py-3">
+              <h3 className="text-lg font-semibold text-white">{viewReturn.returnType} — {viewReturn.period}</h3>
+              <button onClick={() => setViewReturn(null)} className="p-1 rounded-lg hover:bg-gray-700 text-gray-400" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
+              {[
+                ['Due Date', viewReturn.dueDate],
+                ['Status', viewReturn.status],
+                ['Filed Date', viewReturn.filedDate || '-'],
+                ['ARN', viewReturn.arn || '-'],
+                ['Total Sales', formatCurrency(viewReturn.totalSales)],
+                ['Total Purchases', formatCurrency(viewReturn.totalPurchases)],
+                ['Output Tax', formatCurrency(viewReturn.outputTax)],
+                ['Input Tax', formatCurrency(viewReturn.inputTax)],
+                ['Net Tax', `${formatCurrency(viewReturn.netTax)} (${viewReturn.netTax >= 0 ? 'Payable' : 'Refund'})`],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div className="text-gray-400">{label}</div>
+                  <div className="font-medium text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-gray-700 px-5 py-3">
+              <button onClick={() => setViewReturn(null)} className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600">Close</button>
+            </div>
           </div>
         </div>
       )}

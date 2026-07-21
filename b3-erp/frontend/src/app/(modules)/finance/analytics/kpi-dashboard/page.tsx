@@ -29,7 +29,7 @@ interface KPI {
 }
 
 export default function KPIDashboardPage() {
-  const [period] = useState('This Month')
+  const [period, setPeriod] = useState('This Month')
 
   const [kpis, setKpis] = useState<KPI[]>([])
   const [loading, setLoading] = useState(true)
@@ -105,7 +105,11 @@ export default function KPIDashboardPage() {
             <p className="text-gray-600 mt-1">Monitor key performance indicators and metrics</p>
           </div>
           <div className="flex items-center gap-3">
-            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
               <option>This Month</option>
               <option>Last Month</option>
               <option>This Quarter</option>
