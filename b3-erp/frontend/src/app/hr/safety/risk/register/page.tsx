@@ -12,7 +12,12 @@ import {
   Info,
   ChevronRight
 } from 'lucide-react';
-import { HrSafetyService, SafetyHazard } from '@/services/hr-safety.service';
+import {
+  HrSafetyService,
+  SafetyHazard,
+  rowsToCsv,
+  downloadTextFile,
+} from '@/services/hr-safety.service';
 import {
   PieChart,
   Pie,
@@ -104,6 +109,23 @@ export default function RiskRegisterPage() {
     return r.hazard.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
   });
 
+  const handleExport = () => {
+    const csv = rowsToCsv(
+      filteredRegister.map((r) => ({
+        id: r.id,
+        hazard: r.hazard,
+        department: r.department,
+        likelihood: r.likelihood,
+        impact: r.impact,
+        rpn: r.rpn,
+        level: r.level,
+        controls: r.controls,
+        status: r.status,
+      })),
+    );
+    downloadTextFile(`risk-register-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  };
+
   // Derived risk exposure by department (bar) from fetched register
   const departmentRiskData = Object.entries(
     riskRegister.reduce<Record<string, { total: number; high: number; critical: number }>>((acc, r) => {
@@ -127,7 +149,11 @@ export default function RiskRegisterPage() {
           </h1>
           <p className="text-gray-500 mt-1">Central database of all identified risks, their evaluations, and current status</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm transition-colors">
+        <button
+          onClick={handleExport}
+          disabled={filteredRegister.length === 0}
+          className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Download className="w-4 h-4 mr-2" />
           Export Register
         </button>

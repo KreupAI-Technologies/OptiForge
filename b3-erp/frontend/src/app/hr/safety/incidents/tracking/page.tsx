@@ -36,6 +36,7 @@ export default function Page() {
   const [ltir, setLtir] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [detailIncident, setDetailIncident] = useState<SafetyIncident | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +200,11 @@ export default function Page() {
     },
     { key: 'actions', label: 'Actions', sortable: false,
       render: (_: any, row: SafetyIncident) => (
-        <button className="p-1 hover:bg-gray-100 rounded">
+        <button
+          onClick={() => setDetailIncident(row)}
+          className="p-1 hover:bg-gray-100 rounded"
+          title="View details"
+        >
           <Eye className="h-4 w-4 text-gray-600" />
         </button>
       )
@@ -413,6 +418,54 @@ export default function Page() {
           <li>• Corrective actions must be implemented within 7 days of investigation closure</li>
         </ul>
       </div>
+
+      {/* Incident Detail Modal */}
+      {detailIncident && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setDetailIncident(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-gray-900">
+                {detailIncident.incidentNumber || 'Incident Detail'}
+              </h2>
+              <button
+                onClick={() => setDetailIncident(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-4 px-6 py-4 text-sm">
+              <div><p className="text-xs text-gray-500">Date</p><p className="font-medium text-gray-900">{detailIncident.incidentDate} {detailIncident.incidentTime}</p></div>
+              <div><p className="text-xs text-gray-500">Location</p><p className="font-medium text-gray-900">{detailIncident.location} · {detailIncident.department}</p></div>
+              <div><p className="text-xs text-gray-500">Type</p><p className="font-medium text-gray-900">{getTypeLabel(detailIncident.type)}</p></div>
+              <div><p className="text-xs text-gray-500">Severity</p><p className="font-medium text-gray-900">{detailIncident.severity}</p></div>
+              <div><p className="text-xs text-gray-500">Employee Involved</p><p className="font-medium text-gray-900">{detailIncident.employeeInvolved || '—'}</p></div>
+              <div><p className="text-xs text-gray-500">Reported By</p><p className="font-medium text-gray-900">{detailIncident.reportedBy || '—'}</p></div>
+              <div><p className="text-xs text-gray-500">Days Lost</p><p className="font-medium text-gray-900">{detailIncident.daysLost}</p></div>
+              <div><p className="text-xs text-gray-500">Status</p><p className="font-medium text-gray-900">{detailIncident.status}</p></div>
+              <div className="col-span-2"><p className="text-xs text-gray-500">Investigator</p><p className="font-medium text-gray-900">{detailIncident.investigator || '—'}</p></div>
+              <div className="col-span-2"><p className="text-xs text-gray-500">Description</p><p className="font-medium text-gray-900">{detailIncident.description || '—'}</p></div>
+              {detailIncident.rootCause && (
+                <div className="col-span-2"><p className="text-xs text-gray-500">Root Cause</p><p className="font-medium text-gray-900">{detailIncident.rootCause}</p></div>
+              )}
+            </div>
+            <div className="flex justify-end border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setDetailIncident(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

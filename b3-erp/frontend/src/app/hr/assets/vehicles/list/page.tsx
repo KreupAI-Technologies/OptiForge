@@ -29,101 +29,6 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
 
-  const fallbackVehicles: Vehicle[] = [
-    {
-      id: '1',
-      vehicleNumber: 'VEH-2024-001',
-      vehicleType: 'sedan',
-      make: 'Maruti Suzuki',
-      model: 'Dzire',
-      year: 2024,
-      purchaseDate: '2024-01-15',
-      purchaseCost: 950000,
-      registrationNumber: 'MH-02-BX-1234',
-      insuranceExpiry: '2025-01-15',
-      pucExpiry: '2025-01-15',
-      fitnessExpiry: '2029-01-15',
-      currentOdometer: 12500,
-      fuelType: 'petrol',
-      status: 'assigned',
-      assignedTo: 'Rajesh Kumar (EMP345)',
-      location: 'Mumbai Office'
-    },
-    {
-      id: '2',
-      vehicleNumber: 'VEH-2024-002',
-      vehicleType: 'suv',
-      make: 'Mahindra',
-      model: 'XUV700',
-      year: 2024,
-      purchaseDate: '2024-02-20',
-      purchaseCost: 2200000,
-      registrationNumber: 'DL-3C-AB-5678',
-      insuranceExpiry: '2025-02-20',
-      pucExpiry: '2025-02-20',
-      fitnessExpiry: '2029-02-20',
-      currentOdometer: 8200,
-      fuelType: 'diesel',
-      status: 'assigned',
-      assignedTo: 'Sales Team',
-      location: 'Delhi Office'
-    },
-    {
-      id: '3',
-      vehicleNumber: 'VEH-2023-015',
-      vehicleType: 'hatchback',
-      make: 'Hyundai',
-      model: 'i20',
-      year: 2023,
-      purchaseDate: '2023-06-10',
-      purchaseCost: 850000,
-      registrationNumber: 'KA-03-MN-9012',
-      insuranceExpiry: '2025-06-10',
-      pucExpiry: '2024-12-10',
-      fitnessExpiry: '2028-06-10',
-      currentOdometer: 25400,
-      fuelType: 'petrol',
-      status: 'available',
-      location: 'Bangalore Office'
-    },
-    {
-      id: '4',
-      vehicleNumber: 'VEH-2024-003',
-      vehicleType: 'van',
-      make: 'Tata',
-      model: 'Winger',
-      year: 2024,
-      purchaseDate: '2024-03-15',
-      purchaseCost: 1650000,
-      registrationNumber: 'MH-12-DE-3456',
-      insuranceExpiry: '2025-03-15',
-      pucExpiry: '2025-03-15',
-      fitnessExpiry: '2029-03-15',
-      currentOdometer: 6800,
-      fuelType: 'diesel',
-      status: 'assigned',
-      assignedTo: 'Operations Team',
-      location: 'Pune Office'
-    },
-    {
-      id: '5',
-      vehicleNumber: 'VEH-2022-008',
-      vehicleType: 'sedan',
-      make: 'Honda',
-      model: 'City',
-      year: 2022,
-      purchaseDate: '2022-08-20',
-      purchaseCost: 1200000,
-      registrationNumber: 'TS-09-FG-7890',
-      insuranceExpiry: '2024-11-20',
-      pucExpiry: '2024-11-20',
-      fitnessExpiry: '2027-08-20',
-      currentOdometer: 45600,
-      fuelType: 'petrol',
-      status: 'maintenance',
-      location: 'Hyderabad Office'
-    }
-  ];
 
   const [mockVehicles, setMockVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -256,7 +161,7 @@ export default function Page() {
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load vehicles');
-          setMockVehicles(fallbackVehicles);
+          setMockVehicles([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);

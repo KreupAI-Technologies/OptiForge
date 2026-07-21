@@ -30,150 +30,74 @@ export default function Page() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [detailAllocation, setDetailAllocation] = useState<AssetAllocation | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const emptyAllocForm = {
+    assetTag: '',
+    assetName: '',
+    category: 'laptop' as AssetAllocation['category'],
+    employeeName: '',
+    employeeCode: '',
+    department: '',
+    designation: '',
+    location: '',
+    condition: 'good' as AssetAllocation['condition'],
+    allocatedBy: '',
+    remarks: '',
+  };
+  const [allocForm, setAllocForm] = useState(emptyAllocForm);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  const fallbackAllocations: AssetAllocation[] = [
-    {
-      id: '1',
-      allocationId: 'ALLOC-2025-001',
-      assetTag: 'LAP-2024-156',
-      assetName: 'Dell Latitude 5420',
-      category: 'laptop',
-      employeeName: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      designation: 'Sales Manager',
-      location: 'Mumbai Office',
-      allocationDate: '2025-01-15',
-      status: 'in_use',
-      condition: 'excellent',
-      allocatedBy: 'IT Admin',
-      remarks: 'For field work'
-    },
-    {
-      id: '2',
-      allocationId: 'ALLOC-2025-002',
-      assetTag: 'MON-2024-089',
-      assetName: 'Dell 24" Monitor',
-      category: 'monitor',
-      employeeName: 'Priya Sharma',
-      employeeCode: 'EMP412',
-      department: 'Marketing',
-      designation: 'Marketing Executive',
-      location: 'Delhi Office',
-      allocationDate: '2025-02-10',
-      status: 'in_use',
-      condition: 'good',
-      allocatedBy: 'IT Admin'
-    },
-    {
-      id: '3',
-      allocationId: 'ALLOC-2024-458',
-      assetTag: 'MOB-2023-234',
-      assetName: 'Samsung Galaxy S21',
-      category: 'mobile',
-      employeeName: 'Amit Patel',
-      employeeCode: 'EMP287',
-      department: 'Logistics',
-      designation: 'Logistics Coordinator',
-      location: 'Bangalore Office',
-      allocationDate: '2024-08-20',
-      expectedReturnDate: '2025-10-15',
-      actualReturnDate: '2025-10-20',
-      status: 'returned',
-      condition: 'good',
-      allocatedBy: 'HR Admin',
-      remarks: 'Employee resigned'
-    },
-    {
-      id: '4',
-      allocationId: 'ALLOC-2025-003',
-      assetTag: 'DESK-2024-045',
-      assetName: 'HP Elite Desktop',
-      category: 'desktop',
-      employeeName: 'Sneha Reddy',
-      employeeCode: 'EMP523',
-      department: 'HR',
-      designation: 'HR Executive',
-      location: 'Hyderabad Office',
-      allocationDate: '2025-03-05',
-      status: 'in_use',
-      condition: 'excellent',
-      allocatedBy: 'IT Admin'
-    },
-    {
-      id: '5',
-      allocationId: 'ALLOC-2024-512',
-      assetTag: 'LAP-2023-088',
-      assetName: 'Lenovo ThinkPad',
-      category: 'laptop',
-      employeeName: 'Vikram Singh',
-      employeeCode: 'EMP198',
-      department: 'IT',
-      designation: 'Software Developer',
-      location: 'Pune Office',
-      allocationDate: '2024-09-12',
-      expectedReturnDate: '2025-10-01',
-      status: 'overdue',
-      condition: 'fair',
-      allocatedBy: 'IT Manager',
-      remarks: 'Temporary allocation - project ended'
-    },
-    {
-      id: '6',
-      allocationId: 'ALLOC-2025-004',
-      assetTag: 'FURN-2025-012',
-      assetName: 'Ergonomic Chair',
-      category: 'furniture',
-      employeeName: 'Kavita Mehta',
-      employeeCode: 'EMP675',
-      department: 'Finance',
-      designation: 'Accountant',
-      location: 'Mumbai Office',
-      allocationDate: '2025-04-01',
-      status: 'allocated',
-      condition: 'excellent',
-      allocatedBy: 'Admin'
-    },
-    {
-      id: '7',
-      allocationId: 'ALLOC-2025-005',
-      assetTag: 'MOB-2024-156',
-      assetName: 'iPhone 13',
-      category: 'mobile',
-      employeeName: 'Arjun Kapoor',
-      employeeCode: 'EMP890',
-      department: 'Sales',
-      designation: 'Regional Manager',
-      location: 'Delhi Office',
-      allocationDate: '2025-03-20',
-      status: 'in_use',
-      condition: 'excellent',
-      allocatedBy: 'IT Admin',
-      remarks: 'Company SIM included'
-    },
-    {
-      id: '8',
-      allocationId: 'ALLOC-2024-389',
-      assetTag: 'LAP-2023-234',
-      assetName: 'HP ProBook',
-      category: 'laptop',
-      employeeName: 'Neha Gupta',
-      employeeCode: 'EMP456',
-      department: 'Operations',
-      designation: 'Operations Manager',
-      location: 'Chennai Office',
-      allocationDate: '2024-11-15',
-      expectedReturnDate: '2025-10-10',
-      actualReturnDate: '2025-10-12',
-      status: 'returned',
-      condition: 'good',
-      allocatedBy: 'IT Admin'
+  const handleCreateAllocation = async () => {
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await HrAssetsService.createAssetAllocation({
+        assetTag: allocForm.assetTag,
+        assetName: allocForm.assetName,
+        category: allocForm.category,
+        employeeName: allocForm.employeeName,
+        employeeCode: allocForm.employeeCode,
+        department: allocForm.department,
+        designation: allocForm.designation,
+        location: allocForm.location,
+        allocationDate: new Date().toISOString().slice(0, 10),
+        status: 'allocated',
+        condition: allocForm.condition,
+        allocatedBy: allocForm.allocatedBy,
+        remarks: allocForm.remarks || undefined,
+      });
+      setShowForm(false);
+      setAllocForm(emptyAllocForm);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create allocation');
+    } finally {
+      setCreating(false);
     }
-  ];
+  };
 
-  const [mockAllocations, setMockAllocations] = useState<AssetAllocation[]>(fallbackAllocations);
+
+  const [mockAllocations, setMockAllocations] = useState<AssetAllocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  const applyAllocationStatus = async (
+    allocation: AssetAllocation,
+    payload: Partial<{ status: string; actualReturnDate: string }>,
+  ) => {
+    setTransitioningId(allocation.id);
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateAssetAllocation(allocation.id, payload);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update allocation');
+    } finally {
+      setTransitioningId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +107,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetAllocations();
         if (cancelled) return;
-        if (rows.length) {
+        {
           setMockAllocations(
             rows.map((r) => ({
               id: r.id,
@@ -216,7 +140,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filteredAllocations = mockAllocations.filter(a => {
     const statusMatch = selectedStatus === 'all' || a.status === selectedStatus;
@@ -464,18 +388,13 @@ export default function Page() {
               <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Details
               </button>
-              {allocation.status === 'in_use' && (
-                <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+              {(allocation.status === 'in_use' || allocation.status === 'overdue') && (
+                <button onClick={() => applyAllocationStatus(allocation, { status: 'returned', actualReturnDate: new Date().toISOString().slice(0, 10) })} disabled={transitioningId === allocation.id} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
                   Mark as Returned
                 </button>
               )}
-              {allocation.status === 'overdue' && (
-                <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
-                  Send Reminder
-                </button>
-              )}
               {allocation.status === 'allocated' && (
-                <button onClick={() => setDetailAllocation(allocation)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                <button onClick={() => applyAllocationStatus(allocation, { status: 'in_use' })} disabled={transitioningId === allocation.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50">
                   Confirm Handover
                 </button>
               )}
@@ -576,15 +495,75 @@ export default function Page() {
               </button>
             </div>
             <div className="p-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Creating allocations from this screen is not yet available — the allocation service endpoint is pending.
+              {createError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {createError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Tag</label>
+                  <input value={allocForm.assetTag} onChange={(e) => setAllocForm({ ...allocForm, assetTag: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
+                  <input value={allocForm.assetName} onChange={(e) => setAllocForm({ ...allocForm, assetName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select value={allocForm.category} onChange={(e) => setAllocForm({ ...allocForm, category: e.target.value as AssetAllocation['category'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="monitor">Monitor</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                  <select value={allocForm.condition} onChange={(e) => setAllocForm({ ...allocForm, condition: e.target.value as AssetAllocation['condition'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="poor">Poor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                  <input value={allocForm.employeeName} onChange={(e) => setAllocForm({ ...allocForm, employeeName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                  <input value={allocForm.employeeCode} onChange={(e) => setAllocForm({ ...allocForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <input value={allocForm.department} onChange={(e) => setAllocForm({ ...allocForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                  <input value={allocForm.designation} onChange={(e) => setAllocForm({ ...allocForm, designation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input value={allocForm.location} onChange={(e) => setAllocForm({ ...allocForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Allocated By</label>
+                  <input value={allocForm.allocatedBy} onChange={(e) => setAllocForm({ ...allocForm, allocatedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                  <textarea value={allocForm.remarks} onChange={(e) => setAllocForm({ ...allocForm, remarks: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
               </div>
-              <button
-                onClick={() => setShowForm(false)}
-                className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm"
-              >
-                Close
-              </button>
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+                <button onClick={handleCreateAllocation} disabled={creating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
+                  {creating ? 'Saving…' : 'Create Allocation'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

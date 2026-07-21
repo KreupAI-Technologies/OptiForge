@@ -132,6 +132,25 @@ export default function KPIAssignmentPage() {
     }
   };
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteKPI = async (kpi: KPI) => {
+    if (!selectedEmployeeId || !kpi.id) return;
+    setDeletingId(kpi.id);
+    try {
+      await PerformanceManagementService.deleteKPIAssignment(kpi.id);
+      setEmployees(prev => prev.map(emp =>
+        emp.id === selectedEmployeeId
+          ? { ...emp, kpis: emp.kpis.filter(k => k.id !== kpi.id) }
+          : emp
+      ));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete KPI');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const columns = [
     { key: 'title', label: 'KPI Title', sortable: true },
     { key: 'target', label: 'Target', sortable: true },
@@ -148,8 +167,13 @@ export default function KPIAssignmentPage() {
     {
       key: 'actions',
       label: 'Actions',
-      render: () => (
-        <button className="text-red-500 hover:text-red-700">
+      render: (_v: unknown, row: KPI) => (
+        <button
+          onClick={() => handleDeleteKPI(row)}
+          disabled={deletingId === row.id}
+          className="text-red-500 hover:text-red-700 disabled:opacity-50"
+          title="Remove KPI"
+        >
           <Trash2 className="h-4 w-4" />
         </button>
       )

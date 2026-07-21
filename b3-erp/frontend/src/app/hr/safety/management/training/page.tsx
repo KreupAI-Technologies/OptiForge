@@ -13,7 +13,7 @@ import {
   ChevronRight,
   MoreHorizontal
 } from 'lucide-react';
-import { HrSafetyService, SafetyTraining } from '@/services/hr-safety.service';
+import { HrSafetyService, SafetyTraining, SafetyDrill } from '@/services/hr-safety.service';
 import {
   BarChart,
   Bar,
@@ -28,19 +28,16 @@ import {
   Legend
 } from 'recharts';
 
-// Mock Data
-const complianceData = [
-  { name: 'Fire Safety', completed: 145, pending: 5, total: 150, color: '#f59e0b' },
-  { name: 'PPE Usage', completed: 148, pending: 2, total: 150, color: '#10b981' },
-  { name: 'HazMat', completed: 45, pending: 5, total: 50, color: '#ef4444' },
-  { name: 'First Aid', completed: 25, pending: 5, total: 30, color: '#3b82f6' },
-];
+const CATEGORY_COLORS = ['#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#6b7280'];
 
-const upcomingDrills = [
-  { id: 1, name: 'Fire Evacuation Drill', date: '2024-04-15', time: '10:00 AM', status: 'Scheduled', type: 'Evacuation' },
-  { id: 2, name: 'Chemical Spill Response', date: '2024-05-02', time: '02:00 PM', status: 'Planned', type: 'Response' },
-  { id: 3, name: 'Severe Weather Drill', date: '2024-06-10', time: '11:00 AM', status: 'Proposed', type: 'Evacuation' },
-];
+interface DrillRow {
+  id: string;
+  name: string;
+  date: string;
+  time: string;
+  status: string;
+  type: string;
+}
 
 interface TrainingRecord {
   id: string;
@@ -54,6 +51,8 @@ interface TrainingRecord {
 export default function SafetyTrainingPage() {
   const [activeTab, setActiveTab] = useState('Compliance');
   const [trainingRecords, setTrainingRecords] = useState<TrainingRecord[]>([]);
+  const [rawRecords, setRawRecords] = useState<SafetyTraining[]>([]);
+  const [upcomingDrills, setUpcomingDrills] = useState<DrillRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
@@ -64,7 +63,10 @@ export default function SafetyTrainingPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const rows = await HrSafetyService.getTrainings('training');
+      const [rows, drillRows] = await Promise.all([
+        HrSafetyService.getTrainings('training'),
+        HrSafetyService.getDrills('drill'),
+      ]);
       const mapped: TrainingRecord[] = rows.map((row: SafetyTraining) => {
         const meta = (row.meta || {}) as any;
         return {
@@ -77,9 +79,27 @@ export default function SafetyTrainingPage() {
         };
       });
       setTrainingRecords(mapped);
+      setRawRecords(rows);
+      setUpcomingDrills(
+        drillRows
+          .filter((d) => (d.status ?? '').toLowerCase() !== 'completed')
+          .map((d: SafetyDrill) => {
+            const meta = (d.meta || {}) as any;
+            return {
+              id: String(d.id),
+              name: d.name ?? '',
+              date: d.scheduledDate ?? '',
+              time: meta.time ?? '',
+              status: d.status ?? 'Scheduled',
+              type: d.drillType ?? meta.type ?? '',
+            };
+          }),
+      );
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load training records');
       setTrainingRecords([]);
+      setRawRecords([]);
+      setUpcomingDrills([]);
     } finally {
       setLoading(false);
     }
@@ -93,10 +113,10 @@ export default function SafetyTrainingPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      await HrSafetyService.createTraining({
-        recordType: 'training',
-        title: form.name.trim(),
-        category: form.type,
+      await HrSafetyService.createDrill({
+        recordType: 'drill',
+        name: form.name.trim(),
+        drillType: form.type,
         scheduledDate: form.scheduledDate || undefined,
         status: 'Scheduled',
       });
@@ -116,6 +136,25 @@ export default function SafetyTrainingPage() {
   const overallCompliance = trainingRecords.length
     ? Math.round((trainingRecords.filter(r => isValid(r.status)).length / trainingRecords.length) * 100)
     : 0;
+
+  // Derived: completion by training category from fetched records
+  const complianceData = (() => {
+    const byCat = new Map<string, { completed: number; pending: number }>();
+    rawRecords.forEach((r) => {
+      const cat = r.category || r.title || 'Other';
+      const cur = byCat.get(cat) || { completed: 0, pending: 0 };
+      if (isValid(r.status ?? '')) cur.completed += 1;
+      else cur.pending += 1;
+      byCat.set(cat, cur);
+    });
+    return Array.from(byCat.entries()).map(([name, v], i) => ({
+      name,
+      completed: v.completed,
+      pending: v.pending,
+      total: v.completed + v.pending,
+      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+    }));
+  })();
 
   return (
     <div className="p-6 space-y-3">
@@ -238,7 +277,9 @@ export default function SafetyTrainingPage() {
           <div>
             <p className="text-sm font-medium text-gray-500">Upcoming Drills</p>
             <p className="text-3xl font-bold text-gray-900 mt-1">{upcomingDrills.length}</p>
-            <p className="text-xs text-blue-600 mt-1">Next: Apr 15</p>
+            <p className="text-xs text-blue-600 mt-1">
+              {upcomingDrills[0]?.date ? `Next: ${upcomingDrills[0].date}` : 'None scheduled'}
+            </p>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
             <Clock className="w-6 h-6 text-blue-600" />
@@ -287,7 +328,10 @@ export default function SafetyTrainingPage() {
                 </span>
               </div>
             ))}
-            <button className="w-full py-2 text-sm text-center text-gray-500 hover:text-orange-600 transition-colors border border-dashed border-gray-300 rounded-lg hover:border-orange-300 hover:bg-orange-50">
+            <button
+              onClick={() => setShowSchedule(true)}
+              className="w-full py-2 text-sm text-center text-gray-500 hover:text-orange-600 transition-colors border border-dashed border-gray-300 rounded-lg hover:border-orange-300 hover:bg-orange-50"
+            >
               + Plan New Drill
             </button>
           </div>

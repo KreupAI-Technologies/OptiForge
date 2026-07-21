@@ -4,13 +4,9 @@ import React, { useState, useEffect } from 'react';
 import {
   FileCheck,
   Search,
-  Filter,
-  Trophy,
-  Users,
   CheckCircle2,
   XCircle,
   MoreVertical,
-  ArrowUpRight,
   AlertCircle
 } from 'lucide-react';
 import { TrainingDevelopmentService } from '@/services/training-development.service';
@@ -24,21 +20,6 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
-
-// Mock Data
-const scoreDistribution = [
-  { range: '0-50%', count: 12, color: '#ef4444' },
-  { range: '51-70%', count: 45, color: '#f59e0b' },
-  { range: '71-85%', count: 128, color: '#3b82f6' },
-  { range: '86-100%', count: 86, color: '#22c55e' },
-];
-
-const topPerformers = [
-  { id: 1, name: 'Emma Wilson', role: 'UX Designer', avgScore: 98, assessments: 12 },
-  { id: 2, name: 'David Kim', role: 'Frontend Dev', avgScore: 96, assessments: 8 },
-  { id: 3, name: 'Sarah Connor', role: 'Product Manager', avgScore: 95, assessments: 10 },
-  { id: 4, name: 'James Rodriguez', role: 'Sales Lead', avgScore: 94, assessments: 15 },
-];
 
 interface AssessmentRow {
   id: number | string;
@@ -56,7 +37,6 @@ export default function AssessmentsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [selectedResult, setSelectedResult] = useState<AssessmentRow | null>(null);
   const [form, setForm] = useState({ title: '', assessmentType: 'quiz', passingMarks: 70, totalMarks: 100 });
   const [saving, setSaving] = useState(false);
@@ -65,6 +45,24 @@ export default function AssessmentsPage() {
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Derived from fetched assessments: distribution of passing thresholds across tests.
+  const scoreDistribution = React.useMemo(() => {
+    const buckets = [
+      { range: '0-50%', count: 0, color: '#ef4444' },
+      { range: '51-70%', count: 0, color: '#f59e0b' },
+      { range: '71-85%', count: 0, color: '#3b82f6' },
+      { range: '86-100%', count: 0, color: '#22c55e' },
+    ];
+    assessments.forEach((a) => {
+      const pct = a.totalMarks > 0 ? (a.passingMarks / a.totalMarks) * 100 : 0;
+      if (pct <= 50) buckets[0].count += 1;
+      else if (pct <= 70) buckets[1].count += 1;
+      else if (pct <= 85) buckets[2].count += 1;
+      else buckets[3].count += 1;
+    });
+    return buckets;
+  }, [assessments]);
 
   const load = async () => {
     setIsLoading(true);
@@ -205,10 +203,10 @@ export default function AssessmentsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {/* Score Distribution Chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-3">
-          <h2 className="text-lg font-bold text-gray-900 mb-3">Score Distribution</h2>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+          <h2 className="text-lg font-bold text-gray-900 mb-3">Passing Threshold Distribution</h2>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={scoreDistribution} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -247,39 +245,6 @@ export default function AssessmentsPage() {
               <span>Excellent</span>
             </div>
           </div>
-        </div>
-
-        {/* Top Performers Widget */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
-          <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-amber-500" />
-            Top Performers
-          </h2>
-          <div className="space-y-2">
-            {topPerformers.map((performer) => (
-              <div key={performer.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">
-                    {performer.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">{performer.name}</h3>
-                    <p className="text-xs text-gray-500">{performer.role}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-green-600">{performer.avgScore}%</span>
-                  <p className="text-xs text-gray-400">{performer.assessments} tests</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => setShowLeaderboard(true)}
-            className="w-full mt-4 text-sm text-purple-600 font-medium hover:text-purple-800 flex items-center justify-center"
-          >
-            View Leaderboard <ArrowUpRight className="w-4 h-4 ml-1" />
-          </button>
         </div>
       </div>
 
@@ -414,35 +379,6 @@ export default function AssessmentsPage() {
               >
                 {saving ? 'Saving…' : 'Create Test'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showLeaderboard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-500" /> Leaderboard
-              </h3>
-              <button onClick={() => setShowLeaderboard(false)} className="text-gray-400 hover:text-gray-600">
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              {topPerformers.map((performer, idx) => (
-                <div key={performer.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-400 w-5">#{idx + 1}</span>
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-900">{performer.name}</h4>
-                      <p className="text-xs text-gray-500">{performer.role}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-green-600">{performer.avgScore}%</span>
-                </div>
-              ))}
             </div>
           </div>
         </div>

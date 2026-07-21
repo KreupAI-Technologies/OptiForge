@@ -42,7 +42,12 @@ import {
   Legend,
   Cell
 } from 'recharts';
-import { HrSafetyService, SafetyReport } from '@/services/hr-safety.service';
+import {
+  HrSafetyService,
+  SafetyReport,
+  rowsToCsv,
+  downloadTextFile,
+} from '@/services/hr-safety.service';
 
 interface LeadingIndicatorRow {
   name: string;
@@ -180,6 +185,28 @@ export default function SafetyKPIsPage() {
     };
   }, [selectedPeriod]);
 
+  const handleExport = () => {
+    const csv = rowsToCsv([
+      ...leadingIndicators.map((i) => ({
+        kind: 'leading',
+        name: i.name,
+        current: i.current,
+        target: i.target,
+        unit: i.unit,
+        progress: i.progress,
+      })),
+      ...laggingIndicators.map((i) => ({
+        kind: 'lagging',
+        name: i.name,
+        current: i.current,
+        target: i.target,
+        yearAgo: i.yearAgo,
+        trend: i.trend,
+      })),
+    ]);
+    downloadTextFile(`safety-kpis-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'On Track': return 'text-green-600 bg-green-50';
@@ -213,7 +240,11 @@ export default function SafetyKPIsPage() {
             <option value="ytd">Year to Date</option>
             <option value="rolling12">Rolling 12 Months</option>
           </select>
-          <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">
+          <button
+            onClick={handleExport}
+            disabled={leadingIndicators.length === 0 && laggingIndicators.length === 0}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download className="w-4 h-4" /> Export KPIs
           </button>
         </div>

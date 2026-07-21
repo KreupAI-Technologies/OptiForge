@@ -107,24 +107,32 @@ export default function Page() {
     }
   };
 
-  const handleReturn = () => {
+  const handleReturn = async () => {
     if (!returnTarget) return;
     const targetId = returnTarget.id;
-    setAssignments(prev =>
-      prev.map(a =>
-        a.id === targetId
-          ? {
-              ...a,
-              status: 'returned',
-              returnDate: new Date().toISOString(),
-              odometerReadingEnd: Number(returnForm.odometerReadingEnd) || 0,
-              remarks: returnForm.remarks || a.remarks,
-            }
-          : a
-      )
-    );
-    setReturnTarget(null);
-    setReturnForm({ odometerReadingEnd: '', remarks: '' });
+    const returnDate = new Date().toISOString();
+    const odometerReadingEnd = Number(returnForm.odometerReadingEnd) || 0;
+    const remarks = returnForm.remarks || returnTarget.remarks;
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateVehicleAssignment(targetId, {
+        status: 'returned',
+        returnDate,
+        odometerReadingEnd,
+        remarks,
+      });
+      setAssignments(prev =>
+        prev.map(a =>
+          a.id === targetId
+            ? { ...a, status: 'returned', returnDate, odometerReadingEnd, remarks }
+            : a
+        )
+      );
+      setReturnTarget(null);
+      setReturnForm({ odometerReadingEnd: '', remarks: '' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to return vehicle');
+    }
   };
 
   useEffect(() => {

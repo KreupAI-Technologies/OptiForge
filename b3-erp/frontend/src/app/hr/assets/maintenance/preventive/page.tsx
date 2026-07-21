@@ -48,6 +48,29 @@ export default function Page() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailSchedule, setDetailSchedule] = useState<PreventiveMaintenance | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  const handleStartMaintenance = async (schedule: PreventiveMaintenance) => {
+    setTransitioningId(schedule.id);
+    setLoadError(null);
+    try {
+      await HrAssetsService.updatePreventiveMaintenance(schedule.id, {
+        status: 'completed',
+        lastMaintenanceDate: new Date().toISOString().slice(0, 10),
+      });
+      setSchedules(prev =>
+        prev.map(s =>
+          s.id === schedule.id
+            ? { ...s, status: 'completed', lastMaintenanceDate: new Date().toISOString().slice(0, 10) }
+            : s
+        )
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update schedule');
+    } finally {
+      setTransitioningId(null);
+    }
+  };
 
   const emptyForm = {
     assetTag: '',
@@ -398,7 +421,7 @@ export default function Page() {
                   </button>
                 )}
                 {(schedule.status === 'due' || schedule.status === 'overdue') && (
-                  <button onClick={() => setDetailSchedule(schedule)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => handleStartMaintenance(schedule)} disabled={transitioningId === schedule.id} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
                     Start Maintenance
                   </button>
                 )}

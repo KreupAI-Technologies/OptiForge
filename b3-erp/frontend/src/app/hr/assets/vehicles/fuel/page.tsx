@@ -27,95 +27,8 @@ export default function Page() {
   const [selectedVehicle, setSelectedVehicle] = useState('all');
   const [selectedFuelType, setSelectedFuelType] = useState('all');
 
-  const fallbackRecords: FuelRecord[] = [
-    {
-      id: '1',
-      recordId: 'FUEL-2024-001',
-      vehicleNumber: 'VEH-2024-001',
-      vehicleName: 'Maruti Suzuki Dzire',
-      registrationNumber: 'MH-02-BX-1234',
-      fuelDate: '2024-10-25',
-      fuelType: 'petrol',
-      quantity: 35,
-      pricePerLiter: 106.50,
-      totalCost: 3727.50,
-      odometer: 12500,
-      fuelStation: 'Indian Oil - Andheri',
-      billNumber: 'IO-2024-98765',
-      filledBy: 'Rajesh Kumar',
-      location: 'Mumbai'
-    },
-    {
-      id: '2',
-      recordId: 'FUEL-2024-002',
-      vehicleNumber: 'VEH-2024-002',
-      vehicleName: 'Mahindra XUV700',
-      registrationNumber: 'DL-3C-AB-5678',
-      fuelDate: '2024-10-24',
-      fuelType: 'diesel',
-      quantity: 50,
-      pricePerLiter: 94.20,
-      totalCost: 4710,
-      odometer: 8200,
-      fuelStation: 'HP Petrol Pump - Connaught Place',
-      billNumber: 'HP-2024-45632',
-      filledBy: 'Sales Team Driver',
-      location: 'Delhi'
-    },
-    {
-      id: '3',
-      recordId: 'FUEL-2024-003',
-      vehicleNumber: 'VEH-2023-015',
-      vehicleName: 'Hyundai i20',
-      registrationNumber: 'KA-03-MN-9012',
-      fuelDate: '2024-10-23',
-      fuelType: 'petrol',
-      quantity: 30,
-      pricePerLiter: 104.80,
-      totalCost: 3144,
-      odometer: 25400,
-      fuelStation: 'Bharat Petroleum - Indiranagar',
-      billNumber: 'BP-2024-12389',
-      filledBy: 'Priya Sharma',
-      location: 'Bangalore'
-    },
-    {
-      id: '4',
-      recordId: 'FUEL-2024-004',
-      vehicleNumber: 'VEH-2024-003',
-      vehicleName: 'Tata Winger',
-      registrationNumber: 'MH-12-DE-3456',
-      fuelDate: '2024-10-22',
-      fuelType: 'diesel',
-      quantity: 60,
-      pricePerLiter: 93.50,
-      totalCost: 5610,
-      odometer: 6800,
-      fuelStation: 'Indian Oil - Hinjewadi',
-      billNumber: 'IO-2024-87654',
-      filledBy: 'Operations Driver',
-      location: 'Pune'
-    },
-    {
-      id: '5',
-      recordId: 'FUEL-2024-005',
-      vehicleNumber: 'VEH-2022-008',
-      vehicleName: 'Honda City',
-      registrationNumber: 'TS-09-FG-7890',
-      fuelDate: '2024-10-21',
-      fuelType: 'petrol',
-      quantity: 40,
-      pricePerLiter: 105.20,
-      totalCost: 4208,
-      odometer: 45600,
-      fuelStation: 'Shell - Gachibowli',
-      billNumber: 'SH-2024-56789',
-      filledBy: 'Arjun Kapoor',
-      location: 'Hyderabad'
-    }
-  ];
 
-  const [mockRecords, setMockRecords] = useState<FuelRecord[]>(fallbackRecords);
+  const [mockRecords, setMockRecords] = useState<FuelRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -231,7 +144,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getVehicleFuel();
         if (cancelled) return;
-        if (rows.length) {
+        {
           setMockRecords(
             rows.map((r) => ({
               id: r.id,
@@ -275,7 +188,7 @@ export default function Page() {
     totalRecords: mockRecords.length,
     totalQuantity: mockRecords.reduce((sum, r) => sum + r.quantity, 0),
     totalCost: mockRecords.reduce((sum, r) => sum + r.totalCost, 0),
-    avgCostPerLiter: mockRecords.reduce((sum, r) => sum + r.pricePerLiter, 0) / mockRecords.length
+    avgCostPerLiter: mockRecords.length ? mockRecords.reduce((sum, r) => sum + r.pricePerLiter, 0) / mockRecords.length : 0
   }), [mockRecords]);
 
   const fuelTypeColors = {

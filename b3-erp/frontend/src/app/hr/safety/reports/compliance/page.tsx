@@ -38,7 +38,12 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { HrSafetyService, SafetyReport } from '@/services/hr-safety.service';
+import {
+  HrSafetyService,
+  SafetyReport,
+  rowsToCsv,
+  downloadTextFile,
+} from '@/services/hr-safety.service';
 
 interface NonComplianceRow {
   id: string;
@@ -145,6 +150,24 @@ export default function ComplianceReportsPage() {
     };
   }, []);
 
+  const handleExport = () => {
+    const csv = rowsToCsv(
+      nonComplianceItems.map((i) => ({
+        id: i.id,
+        requirement: i.requirement,
+        framework: i.framework,
+        severity: i.severity,
+        identified: i.identified,
+        status: i.status,
+        owner: i.owner,
+      })),
+    );
+    downloadTextFile(
+      `compliance-report-${new Date().toISOString().slice(0, 10)}.csv`,
+      csv,
+    );
+  };
+
   return (
     <div className="p-6 space-y-3 text-sm font-medium">
       {/* Header */}
@@ -162,7 +185,11 @@ export default function ComplianceReportsPage() {
           <button className="px-4 py-2 border border-blue-100 bg-blue-50 text-blue-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-blue-100 transition-colors flex items-center gap-2">
             <RefreshCcw className="w-4 h-4" /> Sync Status
           </button>
-          <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">
+          <button
+            onClick={handleExport}
+            disabled={nonComplianceItems.length === 0}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download className="w-4 h-4" /> Export Report
           </button>
         </div>

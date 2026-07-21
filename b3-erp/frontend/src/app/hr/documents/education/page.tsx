@@ -30,42 +30,86 @@ export default function EducationDocumentsPage() {
   const [items, setItems] = useState<EducationDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const emptyForm = {
+    educationLevel: '',
+    degree: '',
+    specialization: '',
+    institution: '',
+    university: '',
+    yearOfPassing: '',
+    percentage: '',
+    certificateNumber: '',
+    fileName: '',
+  };
+  const [form, setForm] = useState({ ...emptyForm });
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getDocuments('education');
+      const mapped: EducationDocument[] = rows.map((r: HrDocument) => ({
+        id: r.id,
+        educationLevel: r.meta?.educationLevel || '',
+        degree: r.meta?.degree || '',
+        specialization: r.meta?.specialization || '',
+        institution: r.meta?.institution || '',
+        university: r.meta?.university || '',
+        yearOfPassing: r.meta?.yearOfPassing || 0,
+        percentage: r.meta?.percentage || 0,
+        certificateNumber: r.documentNumber || '',
+        uploadedOn: r.uploadedOn || '',
+        status: (r.status as EducationDocument['status']) || 'pending',
+        fileSize: r.fileSize || '',
+        fileName: r.fileName || '',
+        verifiedBy: r.verifiedBy,
+        verifiedOn: r.verifiedOn,
+        remarks: r.remarks,
+      }));
+      setItems(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getDocuments('education');
-        if (!active) return;
-        const mapped: EducationDocument[] = rows.map((r: HrDocument) => ({
-          id: r.id,
-          educationLevel: r.meta?.educationLevel || '',
-          degree: r.meta?.degree || '',
-          specialization: r.meta?.specialization || '',
-          institution: r.meta?.institution || '',
-          university: r.meta?.university || '',
-          yearOfPassing: r.meta?.yearOfPassing || 0,
-          percentage: r.meta?.percentage || 0,
-          certificateNumber: r.documentNumber || '',
-          uploadedOn: r.uploadedOn || '',
-          status: (r.status as EducationDocument['status']) || 'pending',
-          fileSize: r.fileSize || '',
-          fileName: r.fileName || '',
-          verifiedBy: r.verifiedBy,
-          verifiedOn: r.verifiedOn,
-          remarks: r.remarks,
-        }));
-        setItems(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load documents');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    load();
   }, []);
+
+  const handleCreate = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await HrComplianceDocsService.createDocument({
+        docCategory: 'education',
+        documentType: form.degree || form.educationLevel,
+        documentNumber: form.certificateNumber,
+        title: form.degree,
+        fileName: form.fileName,
+        status: 'pending',
+        meta: {
+          educationLevel: form.educationLevel,
+          degree: form.degree,
+          specialization: form.specialization,
+          institution: form.institution,
+          university: form.university,
+          yearOfPassing: form.yearOfPassing ? Number(form.yearOfPassing) : 0,
+          percentage: form.percentage ? Number(form.percentage) : 0,
+        },
+      });
+      await load();
+      setForm({ ...emptyForm });
+      setShowUploadForm(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create document');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const sourceDocuments = items;
 
@@ -202,7 +246,10 @@ export default function EducationDocumentsPage() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full md:w-auto px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center gap-2">
+            <button
+              onClick={() => setShowUploadForm(true)}
+              className="w-full md:w-auto px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center gap-2"
+            >
               <Upload className="h-4 w-4" />
               Upload New
             </button>
@@ -322,6 +369,56 @@ export default function EducationDocumentsPage() {
           <li>• Provisional certificates are acceptable initially, but original degree must be submitted within 6 months</li>
         </ul>
       </div>
+
+      {showUploadForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">Add Education Document</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Education Level</label>
+                <input type="text" value={form.educationLevel} onChange={(e) => setForm(f => ({ ...f, educationLevel: e.target.value }))} placeholder="e.g., Graduation" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Degree</label>
+                <input type="text" value={form.degree} onChange={(e) => setForm(f => ({ ...f, degree: e.target.value }))} placeholder="e.g., B.Tech" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Specialization</label>
+                <input type="text" value={form.specialization} onChange={(e) => setForm(f => ({ ...f, specialization: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Institution</label>
+                <input type="text" value={form.institution} onChange={(e) => setForm(f => ({ ...f, institution: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">University/Board</label>
+                <input type="text" value={form.university} onChange={(e) => setForm(f => ({ ...f, university: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Year of Passing</label>
+                <input type="number" value={form.yearOfPassing} onChange={(e) => setForm(f => ({ ...f, yearOfPassing: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Percentage/CGPA</label>
+                <input type="number" step="0.01" value={form.percentage} onChange={(e) => setForm(f => ({ ...f, percentage: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Certificate Number</label>
+                <input type="text" value={form.certificateNumber} onChange={(e) => setForm(f => ({ ...f, certificateNumber: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">File Name</label>
+                <input type="text" value={form.fileName} onChange={(e) => setForm(f => ({ ...f, fileName: e.target.value }))} placeholder="e.g., degree_certificate.pdf" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => { setForm({ ...emptyForm }); setShowUploadForm(false); }} disabled={isSaving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleCreate} disabled={isSaving || !form.educationLevel.trim()} className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50">{isSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

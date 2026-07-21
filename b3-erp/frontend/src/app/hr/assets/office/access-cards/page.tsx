@@ -47,8 +47,8 @@ export default function Page() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ issuedTo: '', cardNumber: '', employeeCode: '', department: '', designation: '', cardType: 'employee' as AccessCard['cardType'], accessLevel: 'basic' as AccessCard['accessLevel'], accessZones: '', location: '', issuedBy: '' });
 
-  // NOTE: Issuance (handleAdd) persists via HrAssetsService.createAccessCard.
-  // Secondary deactivate/replace/renew actions still update local state only, pending backend transitions.
+  // Issuance (handleAdd) persists via HrAssetsService.createAccessCard.
+  // Secondary deactivate/replace/renew actions persist via updateAccessCard (PUT /hr/access-cards/:id).
   const handleAdd = async () => {
     const today = new Date().toISOString().split('T')[0];
     const accessZones = addForm.accessZones ? addForm.accessZones.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -95,20 +95,38 @@ export default function Page() {
     }
   };
 
-  const handleDeactivate = (card: AccessCard) => {
-    setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'inactive' } : c));
+  const handleDeactivate = async (card: AccessCard) => {
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateAccessCard(card.id, { status: 'inactive' });
+      setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'inactive' } : c));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to deactivate card');
+    }
   };
 
-  const handleReplace = (card: AccessCard) => {
+  const handleReplace = async (card: AccessCard) => {
     const today = new Date().toISOString().split('T')[0];
-    setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'active', remarks: `Replacement issued ${today}` } : c));
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateAccessCard(card.id, { status: 'active', remarks: `Replacement issued ${today}` });
+      setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'active', remarks: `Replacement issued ${today}` } : c));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to replace card');
+    }
   };
 
-  const handleRenew = (card: AccessCard) => {
+  const handleRenew = async (card: AccessCard) => {
     const next = new Date();
     next.setFullYear(next.getFullYear() + 1);
     const nextIso = next.toISOString().split('T')[0];
-    setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'active', expiryDate: nextIso } : c));
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateAccessCard(card.id, { status: 'active', expiryDate: nextIso });
+      setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'active', expiryDate: nextIso } : c));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to renew card');
+    }
   };
 
   useEffect(() => {

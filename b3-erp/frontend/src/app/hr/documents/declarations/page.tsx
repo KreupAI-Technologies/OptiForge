@@ -27,6 +27,35 @@ export default function DeclarationsPage() {
   const [editing, setEditing] = useState<Declaration | null>(null);
   const [editForm, setEditForm] = useState<{ declarationType: string; financialYear: string; amount: number }>({ declarationType: '', financialYear: '', amount: 0 });
   const [isSaving, setIsSaving] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const emptyAddForm = { declarationType: '', financialYear: '2025-26', amount: '' };
+  const [addForm, setAddForm] = useState({ ...emptyAddForm });
+
+  const handleCreate = async () => {
+    setIsCreating(true);
+    setLoadError(null);
+    try {
+      await HrComplianceDocsService.createDocument({
+        docCategory: 'declaration',
+        documentType: addForm.declarationType,
+        title: addForm.declarationType,
+        status: 'draft',
+        meta: {
+          financialYear: addForm.financialYear,
+          amount: addForm.amount ? Number(addForm.amount) : 0,
+          proofStatus: 'pending',
+        },
+      });
+      await load();
+      setAddForm({ ...emptyAddForm });
+      setShowAddForm(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create declaration');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const openEdit = (dec: Declaration) => {
     setEditing(dec);
@@ -55,42 +84,37 @@ export default function DeclarationsPage() {
     }
   };
 
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrComplianceDocsService.getDocuments('declaration');
+      const mapped: Declaration[] = rows.map((row) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          declarationType: row.documentType ?? '',
+          financialYear: meta.financialYear ?? '',
+          submittedOn: row.uploadedOn ?? '',
+          status: (row.status ?? 'draft') as Declaration['status'],
+          amount: Number(meta.amount ?? 0),
+          proofStatus: (meta.proofStatus ?? 'pending') as Declaration['proofStatus'],
+          approvedBy: row.verifiedBy ?? '',
+          approvedOn: row.verifiedOn ?? '',
+          remarks: row.remarks ?? '',
+        };
+      });
+      setMockDeclarations(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load declarations');
+      setMockDeclarations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getDocuments('declaration');
-        const mapped: Declaration[] = rows.map((row) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            declarationType: row.documentType ?? '',
-            financialYear: meta.financialYear ?? '',
-            submittedOn: row.uploadedOn ?? '',
-            status: (row.status ?? 'draft') as Declaration['status'],
-            amount: Number(meta.amount ?? 0),
-            proofStatus: (meta.proofStatus ?? 'pending') as Declaration['proofStatus'],
-            approvedBy: row.verifiedBy ?? '',
-            approvedOn: row.verifiedOn ?? '',
-            remarks: row.remarks ?? '',
-          };
-        });
-        if (!cancelled) setMockDeclarations(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load declarations');
-          setMockDeclarations([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const filteredDeclarations = useMemo(() => {
@@ -131,7 +155,10 @@ export default function DeclarationsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Tax Declarations</h1>
           <p className="text-sm text-gray-600 mt-1">Manage your tax saving investment declarations</p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+        >
           <Plus className="h-4 w-4" />
           New Declaration
         </button>
@@ -375,6 +402,36 @@ export default function DeclarationsPage() {
               >
                 {isSaving ? 'Saving…' : 'Save'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-xl">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">New Declaration</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Declaration Type</label>
+                <input type="text" value={addForm.declarationType} onChange={(e) => setAddForm(f => ({ ...f, declarationType: e.target.value }))} placeholder="e.g., Section 80C" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Financial Year</label>
+                <select value={addForm.financialYear} onChange={(e) => setAddForm(f => ({ ...f, financialYear: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="2025-26">FY 2025-26</option>
+                  <option value="2024-25">FY 2024-25</option>
+                  <option value="2023-24">FY 2023-24</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Declared Amount</label>
+                <input type="number" value={addForm.amount} onChange={(e) => setAddForm(f => ({ ...f, amount: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => { setAddForm({ ...emptyAddForm }); setShowAddForm(false); }} disabled={isCreating} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleCreate} disabled={isCreating || !addForm.declarationType.trim()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">{isCreating ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>

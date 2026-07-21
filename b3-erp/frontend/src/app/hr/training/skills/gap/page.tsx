@@ -24,16 +24,6 @@ import {
   Tooltip
 } from 'recharts';
 
-// Mock Data
-const gapData = [
-  { subject: 'Cloud Arch.', A: 4.2, B: 3.5, fullMark: 5 },
-  { subject: 'DevOps', A: 4.5, B: 2.8, fullMark: 5 },
-  { subject: 'Cybersecurity', A: 4.8, B: 3.2, fullMark: 5 },
-  { subject: 'AI/ML', A: 3.5, B: 2.1, fullMark: 5 },
-  { subject: 'Agile', A: 4.5, B: 4.2, fullMark: 5 },
-  { subject: 'Communication', A: 5.0, B: 4.5, fullMark: 5 },
-];
-
 interface SkillGap {
   id: number | string;
   skill: string;
@@ -45,17 +35,32 @@ interface SkillGap {
   employees: number;
 }
 
-const recommendations = [
-  { id: 1, title: 'Advanced Kubernetes Workshop', provider: 'CloudNative Training', duration: '3 Days', type: 'External' },
-  { id: 2, title: 'Applied AI for Business', provider: 'Internal Academy', duration: '4 Weeks', type: 'Internal' },
-  { id: 3, title: 'Enterprise Sales Mastery', provider: 'SalesPro', duration: '2 Days', type: 'External' },
-];
+interface Recommendation {
+  id: string;
+  title: string;
+  provider: string;
+  duration: string;
+  type: string;
+}
 
 export default function GapAnalysisPage() {
   const [selectedDept, setSelectedDept] = useState('Engineering');
   const [skillGaps, setSkillGaps] = useState<SkillGap[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Radar chart data derived from fetched skill gaps (expected vs actual).
+  const gapData = React.useMemo(
+    () =>
+      skillGaps.slice(0, 8).map((g) => ({
+        subject: g.skill,
+        A: g.expected,
+        B: g.actual,
+        fullMark: 5,
+      })),
+    [skillGaps],
+  );
 
   const [enrollFor, setEnrollFor] = useState<{ title: string } | null>(null);
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([]);
@@ -108,7 +113,10 @@ export default function GapAnalysisPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const raw = (await HrPagesService.get('/hr/skill-gaps')) as any[];
+        const [raw, programsRes] = await Promise.all([
+          HrPagesService.get('/hr/skill-gaps') as Promise<any[]>,
+          TrainingDevelopmentService.getTrainingPrograms().catch(() => ({ data: [] as any[] })),
+        ]);
         const mapped: SkillGap[] = (Array.isArray(raw) ? raw : []).map((r) => ({
           id: r.id ?? '',
           skill: r.skill ?? '',
@@ -119,7 +127,22 @@ export default function GapAnalysisPage() {
           impact: r.impact ?? 'Low',
           employees: Number(r.employees ?? 0),
         }));
-        if (!cancelled) setSkillGaps(mapped);
+        const programList = Array.isArray((programsRes as any)?.data)
+          ? (programsRes as any).data
+          : Array.isArray(programsRes)
+            ? (programsRes as any)
+            : [];
+        const recs: Recommendation[] = programList.slice(0, 5).map((p: any) => ({
+          id: String(p.id ?? ''),
+          title: p.programName ?? p.title ?? '',
+          provider: p.externalVendor ?? p.instructorName ?? 'Internal',
+          duration: p.durationHours ? `${p.durationHours} hrs` : (p.durationDays ? `${p.durationDays} days` : ''),
+          type: p.isExternal ? 'External' : 'Internal',
+        }));
+        if (!cancelled) {
+          setSkillGaps(mapped);
+          setRecommendations(recs);
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load skill gaps');
@@ -239,19 +262,27 @@ export default function GapAnalysisPage() {
                 </button>
               </div>
             ))}
+            {recommendations.length === 0 && (
+              <p className="text-sm text-gray-500">No training programs available to recommend.</p>
+            )}
           </div>
 
-          <div className="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-100">
-            <div className="flex gap-3">
-              <Lightbulb className="w-5 h-5 text-amber-600 flex-shrink-0" />
-              <div>
-                <h4 className="text-sm font-medium text-amber-900">Insight</h4>
-                <p className="text-xs text-amber-700 mt-1">
-                  The largest gap is in <strong>DevOps</strong> (-1.7). Prioritize external training budget for Kubernetes certifications this quarter.
-                </p>
+          {skillGaps.length > 0 && (() => {
+            const largest = [...skillGaps].sort((a, b) => b.gap - a.gap)[0];
+            return (
+              <div className="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                <div className="flex gap-3">
+                  <Lightbulb className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-medium text-amber-900">Insight</h4>
+                    <p className="text-xs text-amber-700 mt-1">
+                      The largest gap is in <strong>{largest.skill}</strong> (gap {largest.gap}), affecting {largest.employees} employee(s). Prioritise training budget to close this gap.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </div>
 

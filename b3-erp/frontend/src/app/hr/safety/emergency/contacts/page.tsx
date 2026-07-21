@@ -144,9 +144,13 @@ export default function EmergencyContactsPage() {
                 <h4 className="font-bold text-gray-900 text-sm mb-1">{service.name}</h4>
                 <div className="flex items-center justify-between mt-4">
                   <span className="text-lg font-black text-gray-900 tracking-tighter">{service.phone}</span>
-                  <button className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all">
+                  <a
+                    href={service.phone ? `tel:${service.phone.replace(/[^+\d]/g, '')}` : undefined}
+                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all"
+                    aria-label={`Call ${service.name}`}
+                  >
                     <Phone className="w-4 h-4" />
-                  </button>
+                  </a>
                 </div>
               </div>
             ))}
@@ -225,12 +229,20 @@ export default function EmergencyContactsPage() {
                   </div>
 
                   <div className="mt-6 flex items-center gap-2">
-                    <button className="flex-1 py-2 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center gap-2">
+                    <a
+                      href={contact.mobile ? `tel:${contact.mobile.replace(/[^+\d]/g, '')}` : undefined}
+                      className={`flex-1 py-2 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center gap-2 ${contact.mobile ? '' : 'pointer-events-none opacity-50'}`}
+                      aria-label={`Call ${contact.name}`}
+                    >
                       <Phone className="w-3.5 h-3.5" /> Call Mobile
-                    </button>
-                    <button className="flex-1 py-2 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center gap-2">
+                    </a>
+                    <a
+                      href={contact.mobile ? `sms:${contact.mobile.replace(/[^+\d]/g, '')}` : undefined}
+                      className={`flex-1 py-2 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center gap-2 ${contact.mobile ? '' : 'pointer-events-none opacity-50'}`}
+                      aria-label={`Message ${contact.name}`}
+                    >
                       <MessageCircle className="w-3.5 h-3.5" /> Send Alert
-                    </button>
+                    </a>
                   </div>
                 </div>
               ))}

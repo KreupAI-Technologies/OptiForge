@@ -302,11 +302,19 @@ export default function Page() {
               )}
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2">
+                <button
+                  onClick={() => certificate.documentUrl && window.open(certificate.documentUrl, '_blank', 'noopener,noreferrer')}
+                  disabled={!certificate.documentUrl}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                >
                   <Eye className="h-4 w-4" />
                   View Certificate
                 </button>
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2">
+                <button
+                  onClick={() => certificate.documentUrl && window.open(certificate.documentUrl, '_blank', 'noopener,noreferrer')}
+                  disabled={!certificate.documentUrl}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2 disabled:opacity-50"
+                >
                   <Download className="h-4 w-4" />
                   Download
                 </button>

@@ -28,48 +28,88 @@ interface PpeCatalogItem {
   stock: number;
 }
 
-const employeeList = [
-  { id: 'EMP-012', name: 'Alex Johnson', department: 'Maintenance', lastIssue: '2023-11-15' },
-  { id: 'EMP-045', name: 'Maria Garcia', department: 'Production', lastIssue: '2024-01-20' },
-  { id: 'EMP-089', name: 'Sam Taylor', department: 'Logistics', lastIssue: '2023-09-10' },
-];
+interface EmployeeRow {
+  id: string;
+  name: string;
+  department: string;
+  lastIssue: string;
+}
+
+interface RecentIssuance {
+  name: string;
+  items: string;
+  time: string;
+}
 
 export default function PPEIssuancePage() {
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRow | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isIssued, setIsIssued] = useState(false);
   const [ppeCatalog, setPpeCatalog] = useState<PpeCatalogItem[]>([]);
+  const [employeeList, setEmployeeList] = useState<EmployeeRow[]>([]);
+  const [recentIssuance, setRecentIssuance] = useState<RecentIssuance[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getPpe('issuance');
-        const mapped: PpeCatalogItem[] = rows.map((row: SafetyPpe) => ({
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [catalogRows, issuanceRows] = await Promise.all([
+        HrSafetyService.getPpe('inventory'),
+        HrSafetyService.getPpe('issuance'),
+      ]);
+      // Catalog from inventory records; fall back to distinct items in issuance
+      const catalogSource = catalogRows.length ? catalogRows : issuanceRows;
+      setPpeCatalog(
+        catalogSource.map((row: SafetyPpe) => ({
           id: String(row.itemCode ?? row.id ?? ''),
           name: row.itemName ?? '',
           icon: Shield,
           category: row.category ?? '',
           stock: row.inStock ?? row.quantity ?? 0,
-        }));
-        if (!cancelled) setPpeCatalog(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load PPE catalog');
-          setPpeCatalog([]);
+        })),
+      );
+      // Distinct employees from issuance history
+      const empMap = new Map<string, EmployeeRow>();
+      issuanceRows.forEach((row: SafetyPpe) => {
+        const id = row.employeeId ?? '';
+        if (!id) return;
+        const existing = empMap.get(id);
+        const issued = row.issuedDate ?? '';
+        if (!existing || issued > existing.lastIssue) {
+          empMap.set(id, {
+            id,
+            name: row.employeeName ?? id,
+            department: row.department ?? '',
+            lastIssue: issued,
+          });
         }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
+      });
+      setEmployeeList(Array.from(empMap.values()));
+      // Recent issuance activity, newest first
+      setRecentIssuance(
+        [...issuanceRows]
+          .sort((a, b) => (b.issuedDate ?? '').localeCompare(a.issuedDate ?? ''))
+          .slice(0, 5)
+          .map((row: SafetyPpe) => ({
+            name: row.employeeName ?? '',
+            items: row.itemName ?? '',
+            time: row.issuedDate ?? '',
+          })),
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load PPE catalog');
+      setPpeCatalog([]);
+      setEmployeeList([]);
+      setRecentIssuance([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const toggleItem = (id: string) => {
@@ -99,6 +139,7 @@ export default function PPEIssuancePage() {
           });
         }),
       );
+      await load();
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to record PPE issuance');
     }
@@ -237,11 +278,10 @@ export default function PPEIssuancePage() {
               Recent Issuance Activity
             </h3>
             <div className="space-y-3">
-              {[
-                { name: 'John Doe', items: 'Hard Hat, Gloves', time: '14 mins ago' },
-                { name: 'Maria Garcia', items: 'Safety Boots', time: '2 hours ago' },
-                { name: 'Robert Smith', items: 'Eye Protection', time: 'Yesterday' }
-              ].map((log, idx) => (
+              {recentIssuance.length === 0 && (
+                <p className="text-xs text-gray-400 italic py-2">No recent issuance activity.</p>
+              )}
+              {recentIssuance.map((log, idx) => (
                 <div key={idx} className="flex items-center justify-between text-xs py-2 border-b border-gray-50 last:border-0 italic">
                   <span className="text-gray-600"><span className="font-bold text-gray-800 not-italic uppercase">{log.name}</span> issued {log.items}</span>
                   <span className="text-gray-400 font-medium">{log.time}</span>

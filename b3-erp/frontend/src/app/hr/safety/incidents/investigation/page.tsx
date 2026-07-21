@@ -37,10 +37,56 @@ export default function IncidentInvestigationPage() {
   const [investigations, setInvestigations] = useState<InvestigationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<InvestigationRow | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getIncidents('investigation');
+      const mapped: InvestigationRow[] = rows.map((row: SafetyIncident) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          incidentId: row.incidentNumber ?? meta.incidentId ?? '',
+          title: meta.title ?? row.description ?? '',
+          leadInvestigator: row.investigator ?? '',
+          startDate: row.reportedDate ?? row.incidentDate ?? '',
+          status: row.status ?? '',
+          stage: meta.stage ?? row.rootCause ?? '',
+          completion: meta.completion ?? 0,
+        };
+      });
+      setInvestigations(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load investigations');
+      setInvestigations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleContinue = async (inv: InvestigationRow) => {
+    setSavingId(inv.id);
+    setLoadError(null);
+    try {
+      const nextCompletion = Math.min(100, (inv.completion || 0) + 25);
+      await HrSafetyService.updateIncident(inv.id, {
+        status: nextCompletion >= 100 ? 'Completed' : 'investigating',
+        meta: { completion: nextCompletion, stage: inv.stage } as any,
+      });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update investigation');
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
+    const loadInitial = async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
@@ -68,7 +114,7 @@ export default function IncidentInvestigationPage() {
         if (!cancelled) setIsLoading(false);
       }
     };
-    load();
+    loadInitial();
     return () => {
       cancelled = true;
     };
@@ -170,9 +216,19 @@ export default function IncidentInvestigationPage() {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-3">
-                  <button className="text-sm text-gray-600 hover:text-gray-900 font-medium">View Evidence</button>
-                  <button className="text-sm text-white bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center">
-                    Continue Investigation <ArrowRight className="w-3 h-3 ml-2" />
+                  <button
+                    onClick={() => setDetail(inv)}
+                    className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                  >
+                    View Evidence
+                  </button>
+                  <button
+                    onClick={() => handleContinue(inv)}
+                    disabled={savingId === inv.id || inv.completion >= 100}
+                    className="text-sm text-white bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingId === inv.id ? 'Saving…' : inv.completion >= 100 ? 'Completed' : 'Continue Investigation'}
+                    {inv.completion < 100 && savingId !== inv.id && <ArrowRight className="w-3 h-3 ml-2" />}
                   </button>
                 </div>
               </div>
@@ -226,12 +282,51 @@ export default function IncidentInvestigationPage() {
                 </div>
               </div>
             </div>
-            <button className="w-full mt-4 py-2 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors">
-              + Assign New Action
-            </button>
           </div>
         </div>
       </div>
+
+      {/* Investigation Detail / Evidence Modal */}
+      {detail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setDetail(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-gray-900">{detail.title || 'Investigation'}</h2>
+              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="grid grid-cols-2 gap-4 px-6 py-4 text-sm">
+              <div><p className="text-xs text-gray-500">Case ID</p><p className="font-medium text-gray-900">{detail.id}</p></div>
+              <div><p className="text-xs text-gray-500">Related Incident</p><p className="font-medium text-gray-900">{detail.incidentId || '—'}</p></div>
+              <div><p className="text-xs text-gray-500">Lead Investigator</p><p className="font-medium text-gray-900">{detail.leadInvestigator || '—'}</p></div>
+              <div><p className="text-xs text-gray-500">Started</p><p className="font-medium text-gray-900">{detail.startDate || '—'}</p></div>
+              <div><p className="text-xs text-gray-500">Stage</p><p className="font-medium text-gray-900">{detail.stage || '—'}</p></div>
+              <div><p className="text-xs text-gray-500">Status</p><p className="font-medium text-gray-900">{detail.status || '—'}</p></div>
+              <div className="col-span-2"><p className="text-xs text-gray-500">Progress</p><p className="font-medium text-gray-900">{detail.completion}%</p></div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setDetail(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { const d = detail; setDetail(null); handleContinue(d); }}
+                disabled={detail.completion >= 100}
+                className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                Advance Stage
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

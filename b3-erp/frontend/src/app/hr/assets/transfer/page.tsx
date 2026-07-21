@@ -35,144 +35,29 @@ export default function Page() {
   const [detailTransfer, setDetailTransfer] = useState<AssetTransfer | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const fallbackTransfers: AssetTransfer[] = [
-    {
-      id: '1',
-      transferId: 'TRF-2024-001',
-      assetTag: 'LAP-2023-089',
-      assetType: 'Dell Latitude 5430',
-      assetCategory: 'laptop',
-      fromEmployee: 'Rajesh Kumar',
-      fromEmployeeCode: 'EMP345',
-      fromDepartment: 'Sales',
-      fromLocation: 'Mumbai Office',
-      toEmployee: 'Amit Patel',
-      toEmployeeCode: 'EMP678',
-      toDepartment: 'Sales',
-      toLocation: 'Mumbai Office',
-      initiatedBy: 'HR Admin - Priya Sharma',
-      initiatedDate: '2024-10-20',
-      transferReason: 'replacement',
-      status: 'pending',
-      condition: 'good'
-    },
-    {
-      id: '2',
-      transferId: 'TRF-2024-002',
-      assetTag: 'DESK-2022-156',
-      assetType: 'HP ProDesk 600 G6',
-      assetCategory: 'desktop',
-      fromEmployee: 'Vikram Singh',
-      fromEmployeeCode: 'EMP234',
-      fromDepartment: 'Marketing',
-      fromLocation: 'Bangalore Office',
-      toEmployee: 'Neha Gupta',
-      toEmployeeCode: 'EMP567',
-      toDepartment: 'Marketing',
-      toLocation: 'Bangalore Office',
-      initiatedBy: 'Marketing Manager - Sunita Reddy',
-      initiatedDate: '2024-10-18',
-      transferReason: 'project_requirement',
-      status: 'completed',
-      approvedBy: 'IT Manager - Rajesh Kumar',
-      approvalDate: '2024-10-19',
-      completionDate: '2024-10-20',
-      handoverNotes: 'Asset transferred successfully. All accessories included. System wiped and reconfigured.',
-      condition: 'good'
-    },
-    {
-      id: '3',
-      transferId: 'TRF-2024-003',
-      assetTag: 'MOB-2024-045',
-      assetType: 'iPhone 14 Pro',
-      assetCategory: 'mobile',
-      fromEmployee: 'Sanjay Desai',
-      fromEmployeeCode: 'EMP123',
-      fromDepartment: 'IT',
-      fromLocation: 'Pune Office',
-      toEmployee: 'Arjun Kapoor',
-      toEmployeeCode: 'EMP890',
-      toDepartment: 'Sales',
-      toLocation: 'Delhi Office',
-      initiatedBy: 'IT Admin - Suresh Kumar',
-      initiatedDate: '2024-10-22',
-      transferReason: 'department_transfer',
-      status: 'approved',
-      approvedBy: 'COO - Meera Krishnan',
-      approvalDate: '2024-10-23',
-      condition: 'excellent'
-    },
-    {
-      id: '4',
-      transferId: 'TRF-2024-004',
-      assetTag: 'LAP-2022-178',
-      assetType: 'MacBook Pro 14"',
-      assetCategory: 'laptop',
-      fromEmployee: 'Priya Menon',
-      fromEmployeeCode: 'EMP456',
-      fromDepartment: 'Design',
-      fromLocation: 'Chennai Office',
-      toEmployee: 'Karthik Iyer',
-      toEmployeeCode: 'EMP901',
-      toDepartment: 'Design',
-      toLocation: 'Mumbai Office',
-      initiatedBy: 'Design Lead - Ananya Reddy',
-      initiatedDate: '2024-10-15',
-      transferReason: 'location_change',
-      status: 'in_transit',
-      approvedBy: 'IT Manager - Rajesh Kumar',
-      approvalDate: '2024-10-16',
-      condition: 'excellent'
-    },
-    {
-      id: '5',
-      transferId: 'TRF-2024-005',
-      assetTag: 'MON-2023-234',
-      assetType: 'Dell UltraSharp 32"',
-      assetCategory: 'monitor',
-      fromEmployee: 'Rahul Sharma',
-      fromEmployeeCode: 'EMP789',
-      fromDepartment: 'Finance',
-      fromLocation: 'Hyderabad Office',
-      toEmployee: 'Divya Nair',
-      toEmployeeCode: 'EMP234',
-      toDepartment: 'Finance',
-      toLocation: 'Hyderabad Office',
-      initiatedBy: 'Finance Manager - Kavita Singh',
-      initiatedDate: '2024-10-10',
-      transferReason: 'upgrade',
-      status: 'completed',
-      approvedBy: 'IT Admin - Suresh Kumar',
-      approvalDate: '2024-10-11',
-      completionDate: '2024-10-12',
-      handoverNotes: 'Monitor transferred in excellent condition. All cables included.',
-      condition: 'excellent'
-    },
-    {
-      id: '6',
-      transferId: 'TRF-2024-006',
-      assetTag: 'TAB-2023-067',
-      assetType: 'iPad Pro 11"',
-      assetCategory: 'tablet',
-      fromEmployee: 'Anjali Patel',
-      fromEmployeeCode: 'EMP567',
-      fromDepartment: 'Operations',
-      fromLocation: 'Pune Office',
-      toEmployee: 'Rohan Mehta',
-      toEmployeeCode: 'EMP789',
-      toDepartment: 'Operations',
-      toLocation: 'Bangalore Office',
-      initiatedBy: 'Operations Lead - Meera Shah',
-      initiatedDate: '2024-10-24',
-      transferReason: 'project_requirement',
-      status: 'cancelled',
-      condition: 'good'
-    }
-  ];
 
-  const [mockTransfers, setMockTransfers] = useState<AssetTransfer[]>(fallbackTransfers);
+  const [mockTransfers, setMockTransfers] = useState<AssetTransfer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  const applyTransition = async (
+    item: AssetTransfer,
+    payload: Partial<AssetTransfer>,
+  ) => {
+    setTransitioningId(item.id);
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateAssetTransfer(item.id, payload);
+      setDetailTransfer(null);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update transfer');
+    } finally {
+      setTransitioningId(null);
+    }
+  };
 
   const emptyForm = {
     assetTag: '',
@@ -260,7 +145,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetTransfers();
         if (cancelled) return;
-        if (rows.length) {
+        {
           setMockTransfers(
             rows.map((r) => ({
               id: r.id,
@@ -298,7 +183,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filteredTransfers = mockTransfers.filter(t => {
     if (selectedStatus !== 'all' && t.status !== selectedStatus) return false;
@@ -559,21 +444,21 @@ export default function Page() {
               </button>
               {transfer.status === 'pending' && (
                 <>
-                  <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                  <button onClick={() => applyTransition(transfer, { status: 'approved', approvalDate: new Date().toISOString().slice(0, 10) })} disabled={transitioningId === transfer.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50">
                     Approve Transfer
                   </button>
-                  <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                  <button onClick={() => applyTransition(transfer, { status: 'cancelled' })} disabled={transitioningId === transfer.id} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm disabled:opacity-50">
                     Cancel
                   </button>
                 </>
               )}
               {transfer.status === 'approved' && (
-                <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
+                <button onClick={() => applyTransition(transfer, { status: 'in_transit' })} disabled={transitioningId === transfer.id} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm disabled:opacity-50">
                   Mark In Transit
                 </button>
               )}
               {transfer.status === 'in_transit' && (
-                <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                <button onClick={() => applyTransition(transfer, { status: 'completed', completionDate: new Date().toISOString().slice(0, 10) })} disabled={transitioningId === transfer.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50">
                   Complete Transfer
                 </button>
               )}

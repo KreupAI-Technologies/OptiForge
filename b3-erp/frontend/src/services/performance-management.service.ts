@@ -1605,6 +1605,17 @@ export class PerformanceManagementService {
     return this.assignKPI(data);
   }
 
+  static async deleteKPIAssignment(id: string): Promise<{ success: boolean }> {
+    if (USE_MOCK_DATA) {
+      const index = mockKPIAssignments.findIndex(a => a.id === id);
+      if (index !== -1) mockKPIAssignments.splice(index, 1);
+      return { success: true };
+    }
+    // NestJS: DELETE /hr/kpi-assignments/:id
+    const response = await perfFetch(`/hr/kpi-assignments/${id}`, { method: 'DELETE' });
+    return response.json();
+  }
+
   static async assignKPI(data: Partial<KPIAssignment>): Promise<KPIAssignment> {
     if (USE_MOCK_DATA) {
       const newAssignment: KPIAssignment = {

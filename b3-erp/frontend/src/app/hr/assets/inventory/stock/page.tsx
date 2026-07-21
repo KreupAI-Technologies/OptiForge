@@ -27,122 +27,102 @@ export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const fallbackStock: StockItem[] = [
-    {
-      id: '1',
-      assetCode: 'LAP-DEL-5420',
-      assetName: 'Dell Latitude 5420',
-      category: 'laptop',
-      brand: 'Dell',
-      model: 'Latitude 5420',
-      totalQuantity: 50,
-      allocated: 35,
-      available: 15,
-      minStockLevel: 10,
-      reorderLevel: 15,
-      unitCost: 65000,
-      totalValue: 3250000,
-      location: 'Central Warehouse',
-      supplier: 'Dell India',
-      status: 'in_stock'
-    },
-    {
-      id: '2',
-      assetCode: 'MON-DEL-24',
-      assetName: 'Dell 24" Monitor',
-      category: 'monitor',
-      brand: 'Dell',
-      model: 'P2422H',
-      totalQuantity: 80,
-      allocated: 65,
-      available: 15,
-      minStockLevel: 20,
-      reorderLevel: 25,
-      unitCost: 12000,
-      totalValue: 960000,
-      location: 'Central Warehouse',
-      supplier: 'Dell India',
-      status: 'low_stock'
-    },
-    {
-      id: '3',
-      assetCode: 'MOB-SAM-S21',
-      assetName: 'Samsung Galaxy S21',
-      category: 'mobile',
-      brand: 'Samsung',
-      model: 'Galaxy S21',
-      totalQuantity: 30,
-      allocated: 28,
-      available: 2,
-      minStockLevel: 5,
-      reorderLevel: 8,
-      unitCost: 45000,
-      totalValue: 1350000,
-      location: 'IT Store',
-      supplier: 'Samsung India',
-      status: 'reorder'
-    },
-    {
-      id: '4',
-      assetCode: 'DESK-HP-800',
-      assetName: 'HP Elite 800 Desktop',
-      category: 'desktop',
-      brand: 'HP',
-      model: 'Elite 800 G8',
-      totalQuantity: 25,
-      allocated: 25,
-      available: 0,
-      minStockLevel: 5,
-      reorderLevel: 10,
-      unitCost: 55000,
-      totalValue: 1375000,
-      location: 'Central Warehouse',
-      supplier: 'HP India',
-      status: 'out_of_stock'
-    },
-    {
-      id: '5',
-      assetCode: 'FURN-CHR-ERG',
-      assetName: 'Ergonomic Office Chair',
-      category: 'furniture',
-      brand: 'Featherlite',
-      model: 'Amaze High Back',
-      totalQuantity: 100,
-      allocated: 75,
-      available: 25,
-      minStockLevel: 15,
-      reorderLevel: 20,
-      unitCost: 8500,
-      totalValue: 850000,
-      location: 'Furniture Warehouse',
-      supplier: 'Featherlite',
-      status: 'in_stock'
-    },
-    {
-      id: '6',
-      assetCode: 'LAP-LEN-T14',
-      assetName: 'Lenovo ThinkPad T14',
-      category: 'laptop',
-      brand: 'Lenovo',
-      model: 'ThinkPad T14 Gen 3',
-      totalQuantity: 40,
-      allocated: 32,
-      available: 8,
-      minStockLevel: 10,
-      reorderLevel: 12,
-      unitCost: 72000,
-      totalValue: 2880000,
-      location: 'Central Warehouse',
-      supplier: 'Lenovo India',
-      status: 'low_stock'
-    }
-  ];
 
   const [mockStock, setMockStock] = useState<StockItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<StockItem | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const emptyStockForm = {
+    assetCode: '',
+    assetName: '',
+    category: 'laptop' as StockItem['category'],
+    brand: '',
+    model: '',
+    totalQuantity: '',
+    minStockLevel: '',
+    reorderLevel: '',
+    unitCost: '',
+    location: '',
+    supplier: '',
+  };
+  const [stockForm, setStockForm] = useState(emptyStockForm);
+  const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [adjustTarget, setAdjustTarget] = useState<StockItem | null>(null);
+  const [adjustQty, setAdjustQty] = useState('');
+  const [adjusting, setAdjusting] = useState(false);
+
+  const computeStatus = (available: number, minStockLevel: number, reorderLevel: number): StockItem['status'] => {
+    if (available <= 0) return 'out_of_stock';
+    if (available <= minStockLevel) return 'reorder';
+    if (available <= reorderLevel) return 'low_stock';
+    return 'in_stock';
+  };
+
+  const handleAddStock = async () => {
+    setCreating(true);
+    setFormError(null);
+    const totalQuantity = Number(stockForm.totalQuantity) || 0;
+    const minStockLevel = Number(stockForm.minStockLevel) || 0;
+    const reorderLevel = Number(stockForm.reorderLevel) || 0;
+    const unitCost = Number(stockForm.unitCost) || 0;
+    try {
+      await HrAssetsService.createAssetInventory({
+        assetCode: stockForm.assetCode,
+        assetName: stockForm.assetName,
+        category: stockForm.category,
+        brand: stockForm.brand,
+        model: stockForm.model,
+        totalQuantity,
+        allocated: 0,
+        available: totalQuantity,
+        minStockLevel,
+        reorderLevel,
+        unitCost,
+        totalValue: totalQuantity * unitCost,
+        location: stockForm.location,
+        supplier: stockForm.supplier,
+        status: computeStatus(totalQuantity, minStockLevel, reorderLevel),
+      });
+      setShowForm(false);
+      setStockForm(emptyStockForm);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to add stock item');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleAdjustStock = async () => {
+    if (!adjustTarget) return;
+    setAdjusting(true);
+    setFormError(null);
+    const delta = Number(adjustQty) || 0;
+    const totalQuantity = Math.max(0, adjustTarget.totalQuantity + delta);
+    const available = Math.max(0, adjustTarget.available + delta);
+    const totalValue = totalQuantity * adjustTarget.unitCost;
+    const status = computeStatus(available, adjustTarget.minStockLevel, adjustTarget.reorderLevel);
+    try {
+      await HrAssetsService.updateAssetInventory(adjustTarget.id, {
+        totalQuantity,
+        available,
+        totalValue,
+        status,
+      });
+      setAdjustTarget(null);
+      setAdjustQty('');
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to adjust stock');
+    } finally {
+      setAdjusting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -175,7 +155,7 @@ export default function Page() {
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load stock');
-          setMockStock(fallbackStock);
+          setMockStock([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -184,7 +164,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filteredStock = mockStock.filter(s => {
     const categoryMatch = selectedCategory === 'all' || s.category === selectedCategory;
@@ -411,7 +391,7 @@ export default function Page() {
                   </button>
                 )}
                 <button
-                  onClick={() => setDetailItem(item)}
+                  onClick={() => { setAdjustTarget(item); setAdjustQty(''); }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
                 >
                   Adjust Stock
@@ -464,10 +444,98 @@ export default function Page() {
               </button>
             </div>
             <div className="p-6 space-y-3">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Adding stock items from this screen is not yet available — the inventory service endpoint is pending.
+              {formError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Code</label>
+                  <input value={stockForm.assetCode} onChange={(e) => setStockForm({ ...stockForm, assetCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
+                  <input value={stockForm.assetName} onChange={(e) => setStockForm({ ...stockForm, assetName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select value={stockForm.category} onChange={(e) => setStockForm({ ...stockForm, category: e.target.value as StockItem['category'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="monitor">Monitor</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="accessories">Accessories</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                  <input value={stockForm.brand} onChange={(e) => setStockForm({ ...stockForm, brand: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <input value={stockForm.model} onChange={(e) => setStockForm({ ...stockForm, model: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Quantity</label>
+                  <input type="number" value={stockForm.totalQuantity} onChange={(e) => setStockForm({ ...stockForm, totalQuantity: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Min Stock Level</label>
+                  <input type="number" value={stockForm.minStockLevel} onChange={(e) => setStockForm({ ...stockForm, minStockLevel: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level</label>
+                  <input type="number" value={stockForm.reorderLevel} onChange={(e) => setStockForm({ ...stockForm, reorderLevel: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
+                  <input type="number" value={stockForm.unitCost} onChange={(e) => setStockForm({ ...stockForm, unitCost: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input value={stockForm.location} onChange={(e) => setStockForm({ ...stockForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                  <input value={stockForm.supplier} onChange={(e) => setStockForm({ ...stockForm, supplier: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="w-full bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 font-semibold">Close</button>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+                <button onClick={handleAddStock} disabled={creating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
+                  {creating ? 'Saving…' : 'Add Item'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {adjustTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3" onClick={() => setAdjustTarget(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-lg font-bold">Adjust Stock — {adjustTarget.assetName}</h2>
+              <button onClick={() => setAdjustTarget(null)} className="text-white hover:bg-white/20 rounded-lg p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              {formError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+              )}
+              <p className="text-sm text-gray-600">Current available: <span className="font-semibold text-gray-900">{adjustTarget.available}</span> of {adjustTarget.totalQuantity}. Enter a positive number to add stock or a negative number to remove.</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity Adjustment</label>
+                <input type="number" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="e.g. 10 or -5" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setAdjustTarget(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+                <button onClick={handleAdjustStock} disabled={adjusting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
+                  {adjusting ? 'Saving…' : 'Apply'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

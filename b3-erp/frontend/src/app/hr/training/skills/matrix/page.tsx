@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Grid, Users, TrendingUp, AlertCircle, CheckCircle, Target } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
 
@@ -26,6 +27,7 @@ interface EmployeeSkill {
 }
 
 export default function SkillsMatrixPage() {
+  const router = useRouter();
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [skills, setSkills] = useState<SkillColumn[]>([]);
   const [mockEmployees, setMockEmployees] = useState<EmployeeSkill[]>([]);
@@ -328,7 +330,10 @@ export default function SkillsMatrixPage() {
                 <p className="text-sm text-gray-600 mb-2">
                   {skillStats[skill.id].gapCount} employee(s) need training
                 </p>
-                <button className="text-sm text-orange-600 hover:text-orange-700 font-medium">
+                <button
+                  onClick={() => router.push(`/hr/training/programs/catalog?skill=${encodeURIComponent(skill.name)}`)}
+                  className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+                >
                   View Training Programs →
                 </button>
               </div>

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { HrSafetyService, SafetyHazard } from '@/services/hr-safety.service';
 
-// Mock Data
+// Static reference lookups (ISO 45001 5x5 matrix) — constant labels, not data.
 const riskMatrix = [
   ['Low', 'Low', 'Low', 'Medium', 'Medium'],
   ['Low', 'Low', 'Medium', 'Medium', 'High'],
@@ -41,12 +41,38 @@ export default function RiskEvaluationPage() {
   const [selectedLikelihood, setSelectedLikelihood] = useState<number | null>(null);
   const [selectedSeverity, setSelectedSeverity] = useState<number | null>(null);
   const [pendingEvaluations, setPendingEvaluations] = useState<EvaluationItem[]>([]);
+  const [selectedHazardId, setSelectedHazardId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getHazards('evaluation');
+      const mapped: EvaluationItem[] = rows.map((row: SafetyHazard) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          title: row.title ?? '',
+          location: row.location ?? '',
+          daysOpen: Number(meta.daysOpen ?? 0) || 0,
+          source: meta.source ?? row.category ?? '',
+        };
+      });
+      setPendingEvaluations(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load pending evaluations');
+      setPendingEvaluations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
+    const loadInitial = async () => {
       setLoading(true);
       setLoadError(null);
       try {
@@ -71,7 +97,7 @@ export default function RiskEvaluationPage() {
         if (!cancelled) setLoading(false);
       }
     };
-    load();
+    loadInitial();
     return () => {
       cancelled = true;
     };
@@ -79,6 +105,29 @@ export default function RiskEvaluationPage() {
 
   const getRiskResult = (l: number, s: number) => {
     return riskMatrix[l - 1][s - 1];
+  };
+
+  const handleRecordAssessment = async () => {
+    if (!selectedHazardId || !selectedLikelihood || !selectedSeverity) return;
+    setSaving(true);
+    setLoadError(null);
+    try {
+      const riskScore = selectedLikelihood * selectedSeverity;
+      await HrSafetyService.updateHazard(selectedHazardId, {
+        likelihood: String(selectedLikelihood),
+        riskLevel: getRiskResult(selectedLikelihood, selectedSeverity),
+        riskScore,
+        status: 'Evaluated',
+      });
+      setSelectedHazardId(null);
+      setSelectedLikelihood(null);
+      setSelectedSeverity(null);
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to record assessment');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getRiskColor = (result: string) => {
@@ -166,10 +215,15 @@ export default function RiskEvaluationPage() {
 
             <div className="pt-4 border-t border-gray-100 flex flex-col gap-3">
               <button
-                disabled={!activeResult}
+                onClick={handleRecordAssessment}
+                disabled={!activeResult || !selectedHazardId || saving}
                 className="w-full py-2 bg-orange-600 text-white rounded-lg font-bold shadow-sm hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
-                Record Assessment for Selected Hazard
+                {saving
+                  ? 'Recording…'
+                  : selectedHazardId
+                    ? 'Record Assessment for Selected Hazard'
+                    : 'Select a Pending Hazard to Assess'}
               </button>
               <p className="text-[11px] text-gray-500 flex items-start gap-1.5">
                 <Info className="w-3.5 h-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
@@ -201,7 +255,11 @@ export default function RiskEvaluationPage() {
             </h3>
             <div className="space-y-3">
               {pendingEvaluations.map((item) => (
-                <div key={item.id} className="p-4 border border-gray-100 rounded-lg hover:border-orange-200 hover:bg-orange-50/30 transition-all cursor-pointer group">
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedHazardId(item.id)}
+                  className={`p-4 border rounded-lg hover:border-orange-200 hover:bg-orange-50/30 transition-all cursor-pointer group ${selectedHazardId === item.id ? 'border-orange-300 bg-orange-50/50 ring-1 ring-orange-200' : 'border-gray-100'}`}
+                >
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] uppercase font-bold text-gray-400">{item.id}</span>
                     <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded flex items-center">
@@ -212,8 +270,11 @@ export default function RiskEvaluationPage() {
                   <p className="text-xs text-gray-500 mt-1">{item.location}</p>
                   <div className="mt-3 flex items-center justify-between text-[11px]">
                     <span className="text-gray-400 italic">Src: {item.source}</span>
-                    <button className="text-orange-600 font-bold flex items-center hover:translate-x-1 transition-transform">
-                      Assess <ArrowRight className="w-3 h-3 ml-1" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedHazardId(item.id); }}
+                      className="text-orange-600 font-bold flex items-center hover:translate-x-1 transition-transform"
+                    >
+                      {selectedHazardId === item.id ? 'Selected' : 'Assess'} <ArrowRight className="w-3 h-3 ml-1" />
                     </button>
                   </div>
                 </div>

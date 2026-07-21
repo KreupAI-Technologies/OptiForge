@@ -25,76 +25,6 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const fallbackFurniture: FurnitureAsset[] = [
-    {
-      id: '1',
-      assetTag: 'FUR-DESK-001',
-      item: 'Executive Desk',
-      category: 'desk',
-      brand: 'Godrej Interio',
-      purchaseDate: '2024-01-20',
-      cost: 35000,
-      status: 'allocated',
-      condition: 'excellent',
-      assignedTo: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      location: 'Mumbai Office - 3rd Floor'
-    },
-    {
-      id: '2',
-      assetTag: 'FUR-CHAIR-045',
-      item: 'Ergonomic Chair',
-      category: 'chair',
-      brand: 'Featherlite',
-      purchaseDate: '2024-02-15',
-      cost: 18000,
-      status: 'allocated',
-      condition: 'excellent',
-      assignedTo: 'Sneha Reddy',
-      employeeCode: 'EMP523',
-      department: 'HR',
-      location: 'Hyderabad Office - 2nd Floor'
-    },
-    {
-      id: '3',
-      assetTag: 'FUR-CAB-012',
-      item: 'Filing Cabinet',
-      category: 'cabinet',
-      brand: 'Godrej',
-      purchaseDate: '2023-06-10',
-      cost: 12000,
-      status: 'allocated',
-      condition: 'good',
-      assignedTo: 'Marketing Team',
-      department: 'Marketing',
-      location: 'Delhi Office - 1st Floor'
-    },
-    {
-      id: '4',
-      assetTag: 'FUR-TBL-089',
-      item: 'Conference Table',
-      category: 'table',
-      brand: 'Durian',
-      purchaseDate: '2023-03-15',
-      cost: 55000,
-      status: 'allocated',
-      condition: 'good',
-      location: 'Mumbai Office - Conference Room A'
-    },
-    {
-      id: '5',
-      assetTag: 'FUR-CHAIR-156',
-      item: 'Visitor Chair',
-      category: 'chair',
-      brand: 'Nilkamal',
-      purchaseDate: '2024-05-01',
-      cost: 4500,
-      status: 'available',
-      condition: 'excellent',
-      location: 'Bangalore Office - Storage'
-    }
-  ];
 
   const [mockFurniture, setMockFurniture] = useState<FurnitureAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -201,7 +131,7 @@ export default function Page() {
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load furniture');
-          setMockFurniture(fallbackFurniture);
+          setMockFurniture([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);

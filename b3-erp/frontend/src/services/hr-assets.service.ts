@@ -483,4 +483,106 @@ export class HrAssetsService {
   ): Promise<Stationery> {
     return sendJson<Stationery>('/hr/stationery', 'POST', { companyId, ...payload });
   }
+
+  // --- Updates (PUT :id) / Deletes (DELETE :id) ---------------------------
+  // Each targets an existing NestJS controller under /hr/* that exposes
+  // @Put(':id') and @Delete(':id'). Used for state transitions and removals.
+
+  static async updateAssetTransfer(
+    id: string,
+    payload: Partial<AssetTransfer>,
+  ): Promise<AssetTransfer> {
+    return sendJson<AssetTransfer>(`/hr/asset-transfers/${id}`, 'PUT', payload);
+  }
+
+  static async updateAssetReturn(
+    id: string,
+    payload: Partial<AssetReturn>,
+  ): Promise<AssetReturn> {
+    return sendJson<AssetReturn>(`/hr/asset-returns/${id}`, 'PUT', payload);
+  }
+
+  static async updateAssetMaintenance(
+    id: string,
+    payload: Partial<AssetMaintenance>,
+  ): Promise<AssetMaintenance> {
+    return sendJson<AssetMaintenance>(`/hr/asset-maintenance/${id}`, 'PUT', payload);
+  }
+
+  static async updatePreventiveMaintenance(
+    id: string,
+    payload: Partial<PreventiveMaintenance>,
+  ): Promise<PreventiveMaintenance> {
+    return sendJson<PreventiveMaintenance>(`/hr/preventive-maintenance/${id}`, 'PUT', payload);
+  }
+
+  static async updateAmcContract(
+    id: string,
+    payload: Partial<AmcContract>,
+  ): Promise<AmcContract> {
+    return sendJson<AmcContract>(`/hr/amc-contracts/${id}`, 'PUT', payload);
+  }
+
+  static async updateAssetAudit(
+    id: string,
+    payload: Partial<AssetAudit>,
+  ): Promise<AssetAudit> {
+    return sendJson<AssetAudit>(`/hr/asset-audits/${id}`, 'PUT', payload);
+  }
+
+  static async updateVehicleAssignment(
+    id: string,
+    payload: Partial<VehicleAssignment>,
+  ): Promise<VehicleAssignment> {
+    return sendJson<VehicleAssignment>(`/hr/vehicle-assignments/${id}`, 'PUT', payload);
+  }
+
+  static async updateIdCard(
+    id: string,
+    payload: Partial<IdCard>,
+  ): Promise<IdCard> {
+    return sendJson<IdCard>(`/hr/id-cards/${id}`, 'PUT', payload);
+  }
+
+  static async updateAccessCard(
+    id: string,
+    payload: Partial<AccessCard>,
+  ): Promise<AccessCard> {
+    return sendJson<AccessCard>(`/hr/access-cards/${id}`, 'PUT', payload);
+  }
+
+  static async updateStationery(
+    id: string,
+    payload: Partial<Stationery>,
+  ): Promise<Stationery> {
+    return sendJson<Stationery>(`/hr/stationery/${id}`, 'PUT', payload);
+  }
+
+  static async createAssetInventory(
+    payload: Partial<AssetInventory>,
+    companyId = 'company-1',
+  ): Promise<AssetInventory> {
+    return sendJson<AssetInventory>('/hr/asset-inventory', 'POST', { companyId, ...payload });
+  }
+
+  static async updateAssetInventory(
+    id: string,
+    payload: Partial<AssetInventory>,
+  ): Promise<AssetInventory> {
+    return sendJson<AssetInventory>(`/hr/asset-inventory/${id}`, 'PUT', payload);
+  }
+
+  static async updateAssetAllocation(
+    id: string,
+    payload: Partial<AssetAllocation>,
+  ): Promise<AssetAllocation> {
+    return sendJson<AssetAllocation>(`/hr/asset-allocations/${id}`, 'PUT', payload);
+  }
+
+  static async createAssetAllocation(
+    payload: Partial<AssetAllocation>,
+    companyId = 'company-1',
+  ): Promise<AssetAllocation> {
+    return sendJson<AssetAllocation>('/hr/asset-allocations', 'POST', { companyId, ...payload });
+  }
 }

@@ -272,6 +272,58 @@ export interface SafetyTrends {
   };
 }
 
+/**
+ * Build a CSV string from an array of objects. Columns default to the union of
+ * keys across rows. Values are stringified and RFC-4180 quoted. Pure client-side
+ * transform of already-fetched data — no network, no mock.
+ */
+export function rowsToCsv(
+  rows: Array<Record<string, unknown>>,
+  columns?: string[],
+): string {
+  const cols =
+    columns ??
+    Array.from(
+      rows.reduce<Set<string>>((set, r) => {
+        Object.keys(r).forEach((k) => set.add(k));
+        return set;
+      }, new Set<string>()),
+    );
+  const escape = (val: unknown): string => {
+    const s =
+      val === null || val === undefined
+        ? ''
+        : typeof val === 'object'
+          ? JSON.stringify(val)
+          : String(val);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = cols.map(escape).join(',');
+  const body = rows.map((r) => cols.map((c) => escape(r[c])).join(',')).join('\n');
+  return `${header}\n${body}`;
+}
+
+/**
+ * Trigger a browser download of the given text as a file. Client-side blob —
+ * safe to call only in the browser (guards on `document`).
+ */
+export function downloadTextFile(
+  filename: string,
+  content: string,
+  mime = 'text/csv;charset=utf-8;',
+): void {
+  if (typeof document === 'undefined') return;
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export class HrSafetyService {
   /**
    * Time-series safety analytics computed server-side from incident rows.

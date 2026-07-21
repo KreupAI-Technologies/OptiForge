@@ -95,6 +95,32 @@ export default function Page() {
 
   const sourceRegisters = items;
 
+  const handleExport = (register: StatutoryRegister) => {
+    const headers = ['Register Name', 'Act', 'Form Number', 'Applicability', 'Frequency', 'Responsibility', 'Format', 'Status', 'Total Entries', 'Retention Period', 'Last Updated'];
+    const row = [
+      register.registerName,
+      register.act,
+      register.formNumber,
+      register.applicability,
+      register.frequency,
+      register.responsibility,
+      register.format,
+      register.status,
+      String(register.totalEntries),
+      register.retentionPeriod,
+      register.lastUpdated,
+    ];
+    const escape = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers.map(escape).join(','), row.map(escape).join(',')].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `register-${register.registerName || register.id}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const filteredRegisters = sourceRegisters.filter(register => {
     const matchesStatus = selectedStatus === 'all' || register.status === selectedStatus;
     const matchesFormat = selectedFormat === 'all' || register.format === selectedFormat;
@@ -284,7 +310,10 @@ export default function Page() {
                 <FileText className="h-4 w-4" />
                 View Register
               </button>
-              <button className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">
+              <button
+                onClick={() => handleExport(register)}
+                className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700"
+              >
                 <Download className="h-4 w-4" />
                 Export
               </button>

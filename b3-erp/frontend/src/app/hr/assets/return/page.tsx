@@ -35,145 +35,29 @@ export default function Page() {
   const [detailReturn, setDetailReturn] = useState<AssetReturn | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const fallbackReturns: AssetReturn[] = [
-    {
-      id: '1',
-      returnId: 'RET-2024-001',
-      assetTag: 'LAP-2022-145',
-      assetType: 'Dell Latitude 5420',
-      assetCategory: 'laptop',
-      returnedBy: 'Rahul Verma',
-      employeeCode: 'EMP456',
-      department: 'Sales',
-      assignedDate: '2022-03-15',
-      returnDate: '2024-10-20',
-      returnReason: 'resignation',
-      condition: 'good',
-      status: 'pending_inspection',
-      accessories: [
-        { item: 'Charger', returned: true },
-        { item: 'Laptop Bag', returned: true },
-        { item: 'Mouse', returned: false }
-      ]
-    },
-    {
-      id: '2',
-      returnId: 'RET-2024-002',
-      assetTag: 'MOB-2023-089',
-      assetType: 'iPhone 13 Pro',
-      assetCategory: 'mobile',
-      returnedBy: 'Priya Nair',
-      employeeCode: 'EMP234',
-      department: 'Marketing',
-      assignedDate: '2023-06-10',
-      returnDate: '2024-10-18',
-      returnReason: 'upgrade',
-      condition: 'excellent',
-      status: 'accepted',
-      inspectedBy: 'IT Admin - Suresh Kumar',
-      inspectionDate: '2024-10-19',
-      inspectionNotes: 'Device in excellent condition. All accessories returned. No damage.',
-      accessories: [
-        { item: 'Charger', returned: true, condition: 'good' },
-        { item: 'USB Cable', returned: true, condition: 'excellent' },
-        { item: 'EarPods', returned: true, condition: 'good' }
-      ]
-    },
-    {
-      id: '3',
-      returnId: 'RET-2024-003',
-      assetTag: 'DESK-2021-067',
-      assetType: 'HP ProDesk 600 G5',
-      assetCategory: 'desktop',
-      returnedBy: 'Amit Sharma',
-      employeeCode: 'EMP789',
-      department: 'Finance',
-      assignedDate: '2021-08-20',
-      returnDate: '2024-10-15',
-      returnReason: 'upgrade',
-      condition: 'fair',
-      status: 'repair_needed',
-      inspectedBy: 'IT Admin - Suresh Kumar',
-      inspectionDate: '2024-10-16',
-      inspectionNotes: 'Hard disk showing signs of failure. RAM modules working fine. Needs HDD replacement before re-assignment.',
-      accessories: [
-        { item: 'Keyboard', returned: true, condition: 'fair' },
-        { item: 'Mouse', returned: true, condition: 'good' },
-        { item: 'Power Cable', returned: true, condition: 'excellent' }
-      ]
-    },
-    {
-      id: '4',
-      returnId: 'RET-2024-004',
-      assetTag: 'LAP-2023-234',
-      assetType: 'MacBook Pro 14"',
-      assetCategory: 'laptop',
-      returnedBy: 'Neha Gupta',
-      employeeCode: 'EMP567',
-      department: 'Design',
-      assignedDate: '2023-11-05',
-      returnDate: '2024-10-22',
-      returnReason: 'damaged',
-      condition: 'damaged',
-      status: 'inspected',
-      inspectedBy: 'IT Manager - Rajesh Kumar',
-      inspectionDate: '2024-10-23',
-      inspectionNotes: 'Screen cracked. Water damage detected. Keyboard not functioning. Device beyond economical repair.',
-      damageCharges: 45000,
-      accessories: [
-        { item: 'Charger', returned: true, condition: 'good' },
-        { item: 'USB-C Cable', returned: false },
-        { item: 'Laptop Sleeve', returned: true, condition: 'damaged' }
-      ]
-    },
-    {
-      id: '5',
-      returnId: 'RET-2024-005',
-      assetTag: 'TAB-2022-045',
-      assetType: 'iPad Pro 12.9"',
-      assetCategory: 'tablet',
-      returnedBy: 'Vikram Singh',
-      employeeCode: 'EMP890',
-      department: 'Sales',
-      assignedDate: '2022-07-15',
-      returnDate: '2024-10-10',
-      returnReason: 'end_of_project',
-      condition: 'good',
-      status: 'accepted',
-      inspectedBy: 'IT Admin - Suresh Kumar',
-      inspectionDate: '2024-10-11',
-      inspectionNotes: 'Device in good working condition. Minor scratches on screen. Battery health at 85%.',
-      accessories: [
-        { item: 'Apple Pencil', returned: true, condition: 'excellent' },
-        { item: 'Smart Keyboard', returned: true, condition: 'good' },
-        { item: 'Charger', returned: true, condition: 'good' }
-      ]
-    },
-    {
-      id: '6',
-      returnId: 'RET-2024-006',
-      assetTag: 'MON-2023-156',
-      assetType: 'Dell UltraSharp 27"',
-      assetCategory: 'monitor',
-      returnedBy: 'Sanjay Desai',
-      employeeCode: 'EMP123',
-      department: 'IT',
-      assignedDate: '2023-04-10',
-      returnDate: '2024-10-24',
-      returnReason: 'transfer',
-      condition: 'excellent',
-      status: 'pending_inspection',
-      accessories: [
-        { item: 'Power Cable', returned: true },
-        { item: 'HDMI Cable', returned: true },
-        { item: 'Display Port Cable', returned: false }
-      ]
-    }
-  ];
 
-  const [mockReturns, setMockReturns] = useState<AssetReturn[]>(fallbackReturns);
+  const [mockReturns, setMockReturns] = useState<AssetReturn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  const applyTransition = async (
+    item: AssetReturn,
+    status: AssetReturn['status'],
+  ) => {
+    setTransitioningId(item.id);
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateAssetReturn(item.id, { status });
+      setDetailReturn(null);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update return');
+    } finally {
+      setTransitioningId(null);
+    }
+  };
 
   const emptyForm = {
     assetTag: '',
@@ -255,7 +139,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetReturns();
         if (cancelled) return;
-        if (rows.length) {
+        {
           setMockReturns(
             rows.map((r) => {
               let accessories: AssetReturn['accessories'] = [];
@@ -297,7 +181,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filteredReturns = mockReturns.filter(r => {
     if (selectedStatus !== 'all' && r.status !== selectedStatus) return false;
@@ -562,20 +446,20 @@ export default function Page() {
                 </button>
                 {returnItem.status === 'pending_inspection' && (
                   <>
-                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                    <button onClick={() => applyTransition(returnItem, 'inspected')} disabled={transitioningId === returnItem.id} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
                       Start Inspection
                     </button>
                   </>
                 )}
                 {returnItem.status === 'inspected' && (
                   <>
-                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                    <button onClick={() => applyTransition(returnItem, 'accepted')} disabled={transitioningId === returnItem.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50">
                       Accept Return
                     </button>
-                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+                    <button onClick={() => applyTransition(returnItem, 'repair_needed')} disabled={transitioningId === returnItem.id} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm disabled:opacity-50">
                       Mark for Repair
                     </button>
-                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                    <button onClick={() => applyTransition(returnItem, 'rejected')} disabled={transitioningId === returnItem.id} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm disabled:opacity-50">
                       Reject
                     </button>
                   </>

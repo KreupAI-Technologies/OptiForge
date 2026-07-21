@@ -45,6 +45,23 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailContract, setDetailContract] = useState<AMCContract | null>(null);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  const handleRenewContract = async (contract: AMCContract) => {
+    setTransitioningId(contract.id);
+    setLoadError(null);
+    const renewalDate = new Date().toISOString().slice(0, 10);
+    try {
+      await HrAssetsService.updateAmcContract(contract.id, { status: 'active', renewalDate });
+      setContracts(prev =>
+        prev.map(c => (c.id === contract.id ? { ...c, status: 'active', renewalDate } : c)),
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to renew contract');
+    } finally {
+      setTransitioningId(null);
+    }
+  };
   const [showForm, setShowForm] = useState(false);
 
   const emptyForm = {
@@ -388,7 +405,7 @@ export default function Page() {
                   View Details
                 </button>
                 {(contract.status === 'expiring_soon' || contract.status === 'expired') && (
-                  <button onClick={() => setDetailContract(contract)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+                  <button onClick={() => handleRenewContract(contract)} disabled={transitioningId === contract.id} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm disabled:opacity-50">
                     Renew Contract
                   </button>
                 )}

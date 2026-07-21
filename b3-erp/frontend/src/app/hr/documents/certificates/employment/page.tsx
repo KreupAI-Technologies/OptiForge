@@ -27,73 +27,122 @@ interface EmploymentCertificateRequest {
   remarks?: string;
 }
 
+const parseIncludeDetails = (
+  raw?: string,
+): EmploymentCertificateRequest['includeDetails'] => {
+  const fallback = {
+    designation: false,
+    department: false,
+    joiningDate: false,
+    salary: false,
+    reportingManager: false,
+  };
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      designation: Boolean(parsed?.designation),
+      department: Boolean(parsed?.department),
+      joiningDate: Boolean(parsed?.joiningDate),
+      salary: Boolean(parsed?.salary),
+      reportingManager: Boolean(parsed?.reportingManager),
+    };
+  } catch {
+    return fallback;
+  }
+};
+
 export default function EmploymentCertificatePage() {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [mockRequests, setMockRequests] = useState<EmploymentCertificateRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [purpose, setPurpose] = useState('');
+  const [addressedTo, setAddressedTo] = useState('');
+  const [includeDesignation, setIncludeDesignation] = useState(true);
+  const [includeDepartment, setIncludeDepartment] = useState(true);
+  const [includeJoiningDate, setIncludeJoiningDate] = useState(true);
+  const [includeSalary, setIncludeSalary] = useState(false);
+  const [includeReportingManager, setIncludeReportingManager] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState<'email' | 'physical' | 'both'>('email');
+  const [remarks, setRemarks] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrComplianceDocsService.getCertificateRequests('employment');
+      const mapped: EmploymentCertificateRequest[] = rows.map((row) => ({
+        id: String(row.id),
+        requestDate: row.requestDate ?? '',
+        purpose: row.purpose ?? '',
+        addressedTo: row.addressedTo ?? '',
+        includeDetails: parseIncludeDetails(row.includeDetails),
+        deliveryMode: (row.deliveryMode ?? 'email') as EmploymentCertificateRequest['deliveryMode'],
+        status: (row.status ?? 'pending') as EmploymentCertificateRequest['status'],
+        requestedBy: row.requestedBy ?? '',
+        approvedBy: row.approvedBy ?? '',
+        approvedOn: row.approvedOn ?? '',
+        generatedOn: row.generatedOn ?? '',
+        deliveredOn: row.deliveredOn ?? '',
+        remarks: row.remarks ?? '',
+      }));
+      setMockRequests(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
+      setMockRequests([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const parseIncludeDetails = (
-      raw?: string,
-    ): EmploymentCertificateRequest['includeDetails'] => {
-      const fallback = {
-        designation: false,
-        department: false,
-        joiningDate: false,
-        salary: false,
-        reportingManager: false,
-      };
-      if (!raw) return fallback;
-      try {
-        const parsed = JSON.parse(raw);
-        return {
-          designation: Boolean(parsed?.designation),
-          department: Boolean(parsed?.department),
-          joiningDate: Boolean(parsed?.joiningDate),
-          salary: Boolean(parsed?.salary),
-          reportingManager: Boolean(parsed?.reportingManager),
-        };
-      } catch {
-        return fallback;
-      }
-    };
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getCertificateRequests('employment');
-        const mapped: EmploymentCertificateRequest[] = rows.map((row) => ({
-          id: String(row.id),
-          requestDate: row.requestDate ?? '',
-          purpose: row.purpose ?? '',
-          addressedTo: row.addressedTo ?? '',
-          includeDetails: parseIncludeDetails(row.includeDetails),
-          deliveryMode: (row.deliveryMode ?? 'email') as EmploymentCertificateRequest['deliveryMode'],
-          status: (row.status ?? 'pending') as EmploymentCertificateRequest['status'],
-          requestedBy: row.requestedBy ?? '',
-          approvedBy: row.approvedBy ?? '',
-          approvedOn: row.approvedOn ?? '',
-          generatedOn: row.generatedOn ?? '',
-          deliveredOn: row.deliveredOn ?? '',
-          remarks: row.remarks ?? '',
-        }));
-        if (!cancelled) setMockRequests(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
-          setMockRequests([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const resetForm = () => {
+    setPurpose('');
+    setAddressedTo('');
+    setIncludeDesignation(true);
+    setIncludeDepartment(true);
+    setIncludeJoiningDate(true);
+    setIncludeSalary(false);
+    setIncludeReportingManager(false);
+    setDeliveryMode('email');
+    setRemarks('');
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setLoadError(null);
+    try {
+      await HrComplianceDocsService.createCertificateRequest({
+        recordType: 'employment',
+        requestDate: new Date().toISOString().slice(0, 10),
+        purpose,
+        addressedTo,
+        includeDetails: JSON.stringify({
+          designation: includeDesignation,
+          department: includeDepartment,
+          joiningDate: includeJoiningDate,
+          salary: includeSalary,
+          reportingManager: includeReportingManager,
+        }),
+        deliveryMode,
+        remarks,
+        status: 'pending',
+      });
+      await load();
+      resetForm();
+      setShowRequestForm(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to submit request');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleCancel = async (id: string) => {
     if (!window.confirm('Cancel this certificate request?')) return;
@@ -197,6 +246,8 @@ export default function EmploymentCertificatePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
               <input
                 type="text"
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
                 placeholder="e.g., Rental Agreement, Bank Account"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -205,6 +256,8 @@ export default function EmploymentCertificatePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Addressed To</label>
               <input
                 type="text"
+                value={addressedTo}
+                onChange={(e) => setAddressedTo(e.target.value)}
                 placeholder="e.g., Property Owner, Bank Name"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -215,23 +268,48 @@ export default function EmploymentCertificatePage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Include Details</label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" defaultChecked />
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={includeDesignation}
+                  onChange={(e) => setIncludeDesignation(e.target.checked)}
+                />
                 <span className="text-sm text-gray-700">Current Designation</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" defaultChecked />
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={includeDepartment}
+                  onChange={(e) => setIncludeDepartment(e.target.checked)}
+                />
                 <span className="text-sm text-gray-700">Department</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" defaultChecked />
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={includeJoiningDate}
+                  onChange={(e) => setIncludeJoiningDate(e.target.checked)}
+                />
                 <span className="text-sm text-gray-700">Date of Joining</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" />
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={includeSalary}
+                  onChange={(e) => setIncludeSalary(e.target.checked)}
+                />
                 <span className="text-sm text-gray-700">Salary Details</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300" />
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={includeReportingManager}
+                  onChange={(e) => setIncludeReportingManager(e.target.checked)}
+                />
                 <span className="text-sm text-gray-700">Reporting Manager</span>
               </label>
             </div>
@@ -240,7 +318,11 @@ export default function EmploymentCertificatePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Mode</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select
+                value={deliveryMode}
+                onChange={(e) => setDeliveryMode(e.target.value as 'email' | 'physical' | 'both')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
                 <option value="email">Email Only</option>
                 <option value="physical">Physical Copy Only</option>
                 <option value="both">Both Email & Physical</option>
@@ -262,16 +344,22 @@ export default function EmploymentCertificatePage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Additional Details (Optional)</label>
             <textarea
               rows={3}
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
               placeholder="Any specific requirements..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex gap-2 mt-4">
-            <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-              Submit Request
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !purpose.trim()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+            >
+              {isSubmitting ? 'Submitting…' : 'Submit Request'}
             </button>
             <button
-              onClick={() => setShowRequestForm(false)}
+              onClick={() => { resetForm(); setShowRequestForm(false); }}
               className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
             >
               Cancel

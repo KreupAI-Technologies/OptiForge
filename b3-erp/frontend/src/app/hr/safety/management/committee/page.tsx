@@ -24,47 +24,90 @@ interface CommitteeMember {
   status: string;
 }
 
-const actionItems = [
-  { id: 1, title: 'Install guard rails on Line 3', assignee: 'Facilities', priority: 'High', due: '2024-04-10', status: 'In Progress' },
-  { id: 2, title: 'Update evacuation maps', assignee: 'EHS', priority: 'Medium', due: '2024-04-20', status: 'Pending' },
-  { id: 3, title: 'Investigate slip incident', assignee: 'Robert Fox', priority: 'High', due: '2024-04-05', status: 'Completed' },
-  { id: 4, title: 'Review new PPE vendor', assignee: 'Procurement', priority: 'Low', due: '2024-05-01', status: 'Pending' },
-];
+interface ActionItem {
+  id: string;
+  title: string;
+  assignee: string;
+  priority: string;
+  due: string;
+  status: string;
+}
 
-const meetings = [
-  { id: 1, title: 'Monthly Safety Review', date: 'Apr 05, 2024', time: '14:00 - 15:30', room: 'Conf Room A', type: 'Upcoming' },
-  { id: 2, title: 'Q1 Performance Review', date: 'Mar 05, 2024', time: '14:00 - 15:30', room: 'Conf Room A', type: 'Past' },
-  { id: 3, title: 'Incident Analysis Meeting', date: 'Feb 15, 2024', time: '10:00 - 11:30', room: 'Huddle Room 2', type: 'Past' },
-];
+interface Meeting {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  room: string;
+  type: string;
+}
 
 export default function SafetyCommitteePage() {
   const [committeeMembers, setCommitteeMembers] = useState<CommitteeMember[]>([]);
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', role: '', department: '', termEnds: '' });
+  const [showAction, setShowAction] = useState(false);
+  const [savingAction, setSavingAction] = useState(false);
+  const [actionForm, setActionForm] = useState({ title: '', assignee: '', priority: 'Medium', due: '' });
 
   const load = async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const rows = await HrSafetyService.getTrainings('committee');
-      const mapped: CommitteeMember[] = rows.map((row: SafetyTraining) => {
-        const meta = (row.meta || {}) as any;
-        return {
-          id: String(row.code ?? row.id ?? ''),
-          name: row.memberName ?? '',
-          role: row.role ?? '',
-          department: row.department ?? '',
-          termEnds: meta.termEnds ?? row.reviewDate ?? '',
-          status: row.status ?? '',
-        };
-      });
-      setCommitteeMembers(mapped);
+      const [memberRows, actionRows, meetingRows] = await Promise.all([
+        HrSafetyService.getTrainings('committee'),
+        HrSafetyService.getTrainings('committee-action'),
+        HrSafetyService.getTrainings('committee-meeting'),
+      ]);
+      setCommitteeMembers(
+        memberRows.map((row: SafetyTraining) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.code ?? row.id ?? ''),
+            name: row.memberName ?? '',
+            role: row.role ?? '',
+            department: row.department ?? '',
+            termEnds: meta.termEnds ?? row.reviewDate ?? '',
+            status: row.status ?? '',
+          };
+        }),
+      );
+      setActionItems(
+        actionRows.map((row: SafetyTraining) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            assignee: row.owner ?? meta.assignee ?? '',
+            priority: meta.priority ?? 'Medium',
+            due: row.reviewDate ?? meta.due ?? '',
+            status: row.status ?? '',
+          };
+        }),
+      );
+      setMeetings(
+        meetingRows.map((row: SafetyTraining) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            date: row.scheduledDate ?? row.completedDate ?? '',
+            time: meta.time ?? '',
+            room: meta.room ?? '',
+            type: (row.status ?? '').toLowerCase() === 'completed' ? 'Past' : 'Upcoming',
+          };
+        }),
+      );
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to load committee members');
+      setLoadError(err instanceof Error ? err.message : 'Failed to load committee data');
       setCommitteeMembers([]);
+      setActionItems([]);
+      setMeetings([]);
     } finally {
       setLoading(false);
     }
@@ -93,6 +136,28 @@ export default function SafetyCommitteePage() {
       setLoadError(err instanceof Error ? err.message : 'Failed to add committee member');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAddAction = async () => {
+    if (!actionForm.title.trim()) return;
+    setSavingAction(true);
+    try {
+      await HrSafetyService.createTraining({
+        recordType: 'committee-action',
+        title: actionForm.title.trim(),
+        owner: actionForm.assignee,
+        reviewDate: actionForm.due || undefined,
+        status: 'Pending',
+        meta: { priority: actionForm.priority, assignee: actionForm.assignee, due: actionForm.due } as any,
+      });
+      setShowAction(false);
+      setActionForm({ title: '', assignee: '', priority: 'Medium', due: '' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add action item');
+    } finally {
+      setSavingAction(false);
     }
   };
 
@@ -198,6 +263,78 @@ export default function SafetyCommitteePage() {
         </div>
       )}
 
+      {/* Add Action Item Modal */}
+      {showAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Add Action Item</h2>
+              <button onClick={() => setShowAction(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={actionForm.title}
+                  onChange={(e) => setActionForm({ ...actionForm, title: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Install guard rails on Line 3"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+                  <input
+                    type="text"
+                    value={actionForm.assignee}
+                    onChange={(e) => setActionForm({ ...actionForm, assignee: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="e.g. Facilities"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={actionForm.priority}
+                    onChange={(e) => setActionForm({ ...actionForm, priority: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={actionForm.due}
+                  onChange={(e) => setActionForm({ ...actionForm, due: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setShowAction(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddAction}
+                disabled={savingAction || !actionForm.title.trim()}
+                className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {savingAction ? 'Saving…' : 'Add Action Item'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Column */}
         <div className="lg:col-span-2 space-y-3">
@@ -239,7 +376,10 @@ export default function SafetyCommitteePage() {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900">Action Items Tracking</h3>
-              <button className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center">
+              <button
+                onClick={() => setShowAction(true)}
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center"
+              >
                 <Plus className="w-4 h-4 mr-1" /> Add Action Item
               </button>
             </div>
@@ -300,9 +440,6 @@ export default function SafetyCommitteePage() {
                     <Clock className="w-3 h-3" /> {meeting.time}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">{meeting.room}</div>
-                  {meeting.type === 'Past' && (
-                    <button className="mt-3 text-xs text-blue-600 hover:underline font-medium">View Minutes</button>
-                  )}
                 </div>
               ))}
             </div>

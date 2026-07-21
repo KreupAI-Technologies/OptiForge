@@ -360,6 +360,27 @@ export class HrComplianceDocsService {
     return Array.isArray(data) ? data : [];
   }
 
+  static createCertificateRequest(
+    payload: Partial<CertificateRequest>,
+    companyId = 'company-1',
+  ): Promise<CertificateRequest> {
+    return postJson<CertificateRequest>('/hr/certificate-requests', {
+      companyId,
+      ...payload,
+    });
+  }
+
+  static updateCertificateRequest(
+    id: string,
+    payload: Partial<CertificateRequest>,
+    companyId = 'company-1',
+  ): Promise<CertificateRequest> {
+    return putJson<CertificateRequest>(`/hr/certificate-requests/${id}`, {
+      companyId,
+      ...payload,
+    });
+  }
+
   static async getDocumentAuditLogs(action?: string, companyId = 'company-1'): Promise<DocumentAuditLog[]> {
     const data = await getJson<DocumentAuditLog[]>(`/hr/document-audit-logs?${qs(companyId, { action })}`);
     return Array.isArray(data) ? data : [];

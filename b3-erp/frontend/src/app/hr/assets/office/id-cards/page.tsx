@@ -111,23 +111,33 @@ export default function Page() {
     }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editTarget) return;
-    // Optimistic local update — no backend id-card write endpoint available.
-    setIdCards(prev =>
-      prev.map(c =>
-        c.id === editTarget.id
-          ? {
-              ...c,
-              department: editForm.department,
-              designation: editForm.designation,
-              emergencyContact: editForm.emergencyContact,
-              location: editForm.location,
-            }
-          : c
-      )
-    );
-    setEditTarget(null);
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateIdCard(editTarget.id, {
+        department: editForm.department,
+        designation: editForm.designation,
+        emergencyContact: editForm.emergencyContact,
+        location: editForm.location,
+      });
+      setIdCards(prev =>
+        prev.map(c =>
+          c.id === editTarget.id
+            ? {
+                ...c,
+                department: editForm.department,
+                designation: editForm.designation,
+                emergencyContact: editForm.emergencyContact,
+                location: editForm.location,
+              }
+            : c
+        )
+      );
+      setEditTarget(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update ID card');
+    }
   };
 
   const handlePrintCard = (card: IDCard) => {
@@ -157,30 +167,40 @@ export default function Page() {
     URL.revokeObjectURL(url);
   };
 
-  const handleReplace = (card: IDCard) => {
+  const handleReplace = async (card: IDCard) => {
     const today = new Date().toISOString().split('T')[0];
-    // Optimistic local update — no backend id-card write endpoint available.
-    setIdCards(prev =>
-      prev.map(c =>
-        c.id === card.id
-          ? { ...c, status: 'active', remarks: `Replacement issued ${today}` }
-          : c
-      )
-    );
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateIdCard(card.id, { status: 'active', remarks: `Replacement issued ${today}` });
+      setIdCards(prev =>
+        prev.map(c =>
+          c.id === card.id
+            ? { ...c, status: 'active', remarks: `Replacement issued ${today}` }
+            : c
+        )
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to replace ID card');
+    }
   };
 
-  const handleRenew = (card: IDCard) => {
+  const handleRenew = async (card: IDCard) => {
     const next = new Date();
     next.setFullYear(next.getFullYear() + 1);
     const newExpiry = next.toISOString().split('T')[0];
-    // Optimistic local update — no backend id-card write endpoint available.
-    setIdCards(prev =>
-      prev.map(c =>
-        c.id === card.id
-          ? { ...c, status: 'active', expiryDate: newExpiry }
-          : c
-      )
-    );
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateIdCard(card.id, { status: 'active', expiryDate: newExpiry });
+      setIdCards(prev =>
+        prev.map(c =>
+          c.id === card.id
+            ? { ...c, status: 'active', expiryDate: newExpiry }
+            : c
+        )
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to renew ID card');
+    }
   };
 
   useEffect(() => {

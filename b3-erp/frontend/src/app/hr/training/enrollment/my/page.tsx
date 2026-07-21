@@ -107,6 +107,37 @@ export default function MyTrainingsPage() {
     return 'bg-blue-500';
   };
 
+  const handleDownloadCertificate = (training: MyTraining) => {
+    const completed = training.endDate
+      ? new Date(training.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Certificate — ${training.programTitle}</title>
+<style>body{font-family:Georgia,serif;text-align:center;padding:60px;color:#1f2937}
+.frame{border:8px double #7c3aed;padding:48px;border-radius:12px}
+h1{font-size:34px;color:#7c3aed;margin-bottom:8px}
+h2{font-size:26px;margin:24px 0}
+.meta{color:#6b7280;margin-top:24px;font-size:14px}</style></head>
+<body><div class="frame">
+<h1>Certificate of Completion</h1>
+<p>This certifies successful completion of the training program</p>
+<h2>${training.programTitle}</h2>
+<p>Program Code: ${training.programCode || '—'} &bull; Category: ${training.category || '—'}</p>
+<div class="meta">
+<p>Duration: ${training.duration} hours${training.instructor ? ` &bull; Instructor: ${training.instructor}` : ''}</p>
+<p>Completed on ${completed}</p>
+</div></div></body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `certificate-${(training.programCode || training.programTitle || 'training').replace(/\s+/g, '-')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const columns = [
     { key: 'programCode', label: 'Program', sortable: true,
       render: (v: string, row: MyTraining) => (
@@ -294,7 +325,10 @@ export default function MyTrainingsPage() {
                         Completed: {new Date(training.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                       <p className="text-xs text-gray-600">Duration: {training.duration} hours</p>
-                      <button className="mt-2 text-xs text-purple-600 hover:text-purple-700 font-medium">
+                      <button
+                        onClick={() => handleDownloadCertificate(training)}
+                        className="mt-2 text-xs text-purple-600 hover:text-purple-700 font-medium"
+                      >
                         Download Certificate →
                       </button>
                     </div>

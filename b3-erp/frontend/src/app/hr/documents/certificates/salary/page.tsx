@@ -27,43 +27,77 @@ export default function SalaryCertificatePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [purpose, setPurpose] = useState('Home Loan Application');
+  const [period, setPeriod] = useState('Current Month');
+  const [deliveryMode, setDeliveryMode] = useState<'email' | 'physical' | 'both'>('email');
+  const [includeBreakup, setIncludeBreakup] = useState(false);
+  const [remarks, setRemarks] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrComplianceDocsService.getCertificateRequests('salary');
+      const mapped: SalaryCertificateRequest[] = rows.map((row) => ({
+        id: String(row.id),
+        requestDate: row.requestDate ?? '',
+        purpose: row.purpose ?? '',
+        period: row.period ?? '',
+        includeBreakup: Boolean(row.includeBreakup),
+        deliveryMode: (row.deliveryMode ?? 'email') as SalaryCertificateRequest['deliveryMode'],
+        status: (row.status ?? 'pending') as SalaryCertificateRequest['status'],
+        requestedBy: row.requestedBy ?? '',
+        approvedBy: row.approvedBy ?? '',
+        approvedOn: row.approvedOn ?? '',
+        generatedOn: row.generatedOn ?? '',
+        deliveredOn: row.deliveredOn ?? '',
+        remarks: row.remarks ?? '',
+      }));
+      setMockRequests(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
+      setMockRequests([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getCertificateRequests('salary');
-        const mapped: SalaryCertificateRequest[] = rows.map((row) => ({
-          id: String(row.id),
-          requestDate: row.requestDate ?? '',
-          purpose: row.purpose ?? '',
-          period: row.period ?? '',
-          includeBreakup: Boolean(row.includeBreakup),
-          deliveryMode: (row.deliveryMode ?? 'email') as SalaryCertificateRequest['deliveryMode'],
-          status: (row.status ?? 'pending') as SalaryCertificateRequest['status'],
-          requestedBy: row.requestedBy ?? '',
-          approvedBy: row.approvedBy ?? '',
-          approvedOn: row.approvedOn ?? '',
-          generatedOn: row.generatedOn ?? '',
-          deliveredOn: row.deliveredOn ?? '',
-          remarks: row.remarks ?? '',
-        }));
-        if (!cancelled) setMockRequests(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
-          setMockRequests([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const resetForm = () => {
+    setPurpose('Home Loan Application');
+    setPeriod('Current Month');
+    setDeliveryMode('email');
+    setIncludeBreakup(false);
+    setRemarks('');
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setLoadError(null);
+    try {
+      await HrComplianceDocsService.createCertificateRequest({
+        recordType: 'salary',
+        requestDate: new Date().toISOString().slice(0, 10),
+        purpose,
+        period,
+        includeBreakup,
+        deliveryMode,
+        remarks,
+        status: 'pending',
+      });
+      await load();
+      resetForm();
+      setShowRequestForm(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to submit request');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleCancel = async (id: string) => {
     if (!window.confirm('Cancel this certificate request?')) return;
@@ -165,7 +199,11 @@ export default function SalaryCertificatePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
                 <option>Home Loan Application</option>
                 <option>Car Loan Application</option>
                 <option>Credit Card Application</option>
@@ -175,7 +213,11 @@ export default function SalaryCertificatePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Salary Period</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
                 <option>Current Month</option>
                 <option>Last 3 Months</option>
                 <option>Last 6 Months</option>
@@ -185,7 +227,11 @@ export default function SalaryCertificatePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Mode</label>
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select
+                value={deliveryMode}
+                onChange={(e) => setDeliveryMode(e.target.value as 'email' | 'physical' | 'both')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
                 <option value="email">Email Only</option>
                 <option value="physical">Physical Copy Only</option>
                 <option value="both">Both Email & Physical</option>
@@ -204,7 +250,12 @@ export default function SalaryCertificatePage() {
           </div>
           <div className="mt-4">
             <label className="flex items-center gap-2">
-              <input type="checkbox" className="rounded border-gray-300" />
+              <input
+                type="checkbox"
+                className="rounded border-gray-300"
+                checked={includeBreakup}
+                onChange={(e) => setIncludeBreakup(e.target.checked)}
+              />
               <span className="text-sm text-gray-700">Include detailed salary breakup (Basic, HRA, Allowances, Deductions)</span>
             </label>
           </div>
@@ -212,16 +263,22 @@ export default function SalaryCertificatePage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Additional Details (Optional)</label>
             <textarea
               rows={3}
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
               placeholder="Any specific requirements..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex gap-2 mt-4">
-            <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-              Submit Request
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !purpose.trim()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+            >
+              {isSubmitting ? 'Submitting…' : 'Submit Request'}
             </button>
             <button
-              onClick={() => setShowRequestForm(false)}
+              onClick={() => { resetForm(); setShowRequestForm(false); }}
               className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
             >
               Cancel

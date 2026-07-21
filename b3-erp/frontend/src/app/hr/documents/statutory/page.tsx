@@ -27,47 +27,79 @@ export default function StatutoryDocumentsPage() {
   const [mockDocuments, setMockDocuments] = useState<StatutoryDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const emptyForm = {
+    documentType: '',
+    formNumber: '',
+    documentName: '',
+    uanNumber: '',
+    esicNumber: '',
+    fileName: '',
+  };
+  const [form, setForm] = useState({ ...emptyForm });
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrComplianceDocsService.getDocuments('statutory');
+      const mapped: StatutoryDocument[] = rows.map((row) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          documentType: row.documentType ?? '',
+          formNumber: row.documentNumber ?? '',
+          documentName: row.title ?? '',
+          uanNumber: meta.uanNumber ?? '',
+          esicNumber: meta.esicNumber ?? '',
+          uploadedOn: row.uploadedOn ?? '',
+          status: (row.status ?? 'pending') as StatutoryDocument['status'],
+          fileSize: row.fileSize ?? '',
+          fileName: row.fileName ?? '',
+          verifiedBy: row.verifiedBy ?? '',
+          verifiedOn: row.verifiedOn ?? '',
+          remarks: row.remarks ?? '',
+        };
+      });
+      setMockDocuments(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load statutory documents');
+      setMockDocuments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getDocuments('statutory');
-        const mapped: StatutoryDocument[] = rows.map((row) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            documentType: row.documentType ?? '',
-            formNumber: row.documentNumber ?? '',
-            documentName: row.title ?? '',
-            uanNumber: meta.uanNumber ?? '',
-            esicNumber: meta.esicNumber ?? '',
-            uploadedOn: row.uploadedOn ?? '',
-            status: (row.status ?? 'pending') as StatutoryDocument['status'],
-            fileSize: row.fileSize ?? '',
-            fileName: row.fileName ?? '',
-            verifiedBy: row.verifiedBy ?? '',
-            verifiedOn: row.verifiedOn ?? '',
-            remarks: row.remarks ?? '',
-          };
-        });
-        if (!cancelled) setMockDocuments(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load statutory documents');
-          setMockDocuments([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    setIsSaving(true);
+    setLoadError(null);
+    try {
+      await HrComplianceDocsService.createDocument({
+        docCategory: 'statutory',
+        documentType: form.documentType,
+        documentNumber: form.formNumber,
+        title: form.documentName,
+        fileName: form.fileName,
+        status: 'pending',
+        meta: {
+          uanNumber: form.uanNumber,
+          esicNumber: form.esicNumber,
+        },
+      });
+      await load();
+      setForm({ ...emptyForm });
+      setShowUploadForm(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create document');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this document?')) return;
@@ -200,7 +232,10 @@ export default function StatutoryDocumentsPage() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full md:w-auto px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium flex items-center gap-2">
+            <button
+              onClick={() => setShowUploadForm(true)}
+              className="w-full md:w-auto px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium flex items-center gap-2"
+            >
               <Upload className="h-4 w-4" />
               Upload New
             </button>
@@ -316,6 +351,44 @@ export default function StatutoryDocumentsPage() {
           <li>• Upload documents in PDF format (Max size: 2MB per file)</li>
         </ul>
       </div>
+
+      {showUploadForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">Add Statutory Document</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Document Type</label>
+                <input type="text" value={form.documentType} onChange={(e) => setForm(f => ({ ...f, documentType: e.target.value }))} placeholder="e.g., PF Form 11" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Form Number</label>
+                <input type="text" value={form.formNumber} onChange={(e) => setForm(f => ({ ...f, formNumber: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Document Name</label>
+                <input type="text" value={form.documentName} onChange={(e) => setForm(f => ({ ...f, documentName: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">UAN Number (optional)</label>
+                <input type="text" value={form.uanNumber} onChange={(e) => setForm(f => ({ ...f, uanNumber: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">ESIC Number (optional)</label>
+                <input type="text" value={form.esicNumber} onChange={(e) => setForm(f => ({ ...f, esicNumber: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">File Name</label>
+                <input type="text" value={form.fileName} onChange={(e) => setForm(f => ({ ...f, fileName: e.target.value }))} placeholder="e.g., pf_form11.pdf" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => { setForm({ ...emptyForm }); setShowUploadForm(false); }} disabled={isSaving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleCreate} disabled={isSaving || !form.documentType.trim()} className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50">{isSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

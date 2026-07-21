@@ -25,16 +25,17 @@ interface Procedure {
   importance: string;
 }
 
-const importantContacts = [
-  { name: 'Emergency Services', number: '911', type: 'External' },
-  { name: 'Site Safety Officer', number: '+1 (555) 012-3456', type: 'Internal' },
-  { name: 'Poison Control', number: '1-800-222-1222', type: 'External' },
-];
+interface ContactRow {
+  name: string;
+  number: string;
+  type: string;
+}
 
 export default function SafetyProceduresPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [importantContacts, setImportantContacts] = useState<ContactRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -44,7 +45,10 @@ export default function SafetyProceduresPage() {
       setLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrSafetyService.getTrainings('procedure');
+        const [rows, contactRows] = await Promise.all([
+          HrSafetyService.getTrainings('procedure'),
+          HrSafetyService.getDrills('contact'),
+        ]);
         const mapped: Procedure[] = rows.map((row: SafetyTraining) => {
           const meta = (row.meta || {}) as any;
           return {
@@ -58,11 +62,23 @@ export default function SafetyProceduresPage() {
             importance: meta.importance ?? '',
           };
         });
-        if (!cancelled) setProcedures(mapped);
+        const contacts: ContactRow[] = contactRows
+          .filter((c) => c.phone)
+          .slice(0, 5)
+          .map((c) => ({
+            name: c.contactName ?? c.name ?? '',
+            number: c.phone ?? '',
+            type: c.serviceType ? 'External' : 'Internal',
+          }));
+        if (!cancelled) {
+          setProcedures(mapped);
+          setImportantContacts(contacts);
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load procedures');
           setProcedures([]);
+          setImportantContacts([]);
         }
       } finally {
         if (!cancelled) setLoading(false);

@@ -28,88 +28,8 @@ export default function Page() {
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const fallbackRequests: AssetRequest[] = [
-    {
-      id: '1',
-      requestId: 'REQ-2025-001',
-      requestDate: '2025-10-20',
-      requester: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      assetType: 'laptop',
-      assetName: 'Dell Latitude 5420',
-      quantity: 1,
-      priority: 'high',
-      purpose: 'New joinee requirement',
-      status: 'fulfilled',
-      approver: 'IT Manager',
-      approvalDate: '2025-10-21',
-      fulfillmentDate: '2025-10-22'
-    },
-    {
-      id: '2',
-      requestId: 'REQ-2025-002',
-      requestDate: '2025-10-22',
-      requester: 'Priya Sharma',
-      employeeCode: 'EMP412',
-      department: 'Marketing',
-      assetType: 'monitor',
-      assetName: 'Dell 24" Monitor',
-      quantity: 2,
-      priority: 'medium',
-      purpose: 'Dual monitor setup for design work',
-      status: 'approved',
-      approver: 'Admin Manager',
-      approvalDate: '2025-10-23'
-    },
-    {
-      id: '3',
-      requestId: 'REQ-2025-003',
-      requestDate: '2025-10-24',
-      requester: 'Amit Patel',
-      employeeCode: 'EMP287',
-      department: 'Logistics',
-      assetType: 'mobile',
-      assetName: 'Samsung Galaxy S21',
-      quantity: 1,
-      priority: 'urgent',
-      purpose: 'Field work - old phone damaged',
-      status: 'pending'
-    },
-    {
-      id: '4',
-      requestId: 'REQ-2025-004',
-      requestDate: '2025-10-23',
-      requester: 'Sneha Reddy',
-      employeeCode: 'EMP523',
-      department: 'HR',
-      assetType: 'furniture',
-      assetName: 'Ergonomic Office Chair',
-      quantity: 3,
-      priority: 'low',
-      purpose: 'New workstations setup',
-      status: 'rejected',
-      approver: 'Admin Manager',
-      approvalDate: '2025-10-24',
-      remarks: 'Budget constraints - defer to next quarter'
-    },
-    {
-      id: '5',
-      requestId: 'REQ-2025-005',
-      requestDate: '2025-10-25',
-      requester: 'Vikram Singh',
-      employeeCode: 'EMP198',
-      department: 'IT',
-      assetType: 'desktop',
-      assetName: 'HP Elite Desktop',
-      quantity: 1,
-      priority: 'high',
-      purpose: 'Development workstation',
-      status: 'pending'
-    }
-  ];
 
-  const [mockRequests, setMockRequests] = useState<AssetRequest[]>(fallbackRequests);
+  const [mockRequests, setMockRequests] = useState<AssetRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -163,7 +83,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetRequests();
         if (cancelled) return;
-        if (rows.length) {
+        {
           setMockRequests(
             rows.map((r) => ({
               id: r.id,

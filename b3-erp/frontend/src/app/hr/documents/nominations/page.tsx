@@ -30,6 +30,47 @@ export default function NominationsPage() {
   const [editing, setEditing] = useState<Nomination | null>(null);
   const [editForm, setEditForm] = useState<{ nomineeName: string; relationship: string; sharePercentage: number; contactNumber: string }>({ nomineeName: '', relationship: '', sharePercentage: 0, contactNumber: '' });
   const [isSaving, setIsSaving] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const emptyAddForm = {
+    nominationType: '',
+    nomineeName: '',
+    relationship: '',
+    dateOfBirth: '',
+    sharePercentage: '',
+    address: '',
+    contactNumber: '',
+    aadharNumber: '',
+  };
+  const [addForm, setAddForm] = useState({ ...emptyAddForm });
+
+  const handleCreate = async () => {
+    setIsCreating(true);
+    setLoadError(null);
+    try {
+      await HrComplianceDocsService.createDocument({
+        docCategory: 'nomination',
+        documentType: addForm.nominationType,
+        title: addForm.nomineeName,
+        status: 'draft',
+        meta: {
+          relationship: addForm.relationship,
+          dateOfBirth: addForm.dateOfBirth,
+          sharePercentage: addForm.sharePercentage ? Number(addForm.sharePercentage) : 0,
+          address: addForm.address,
+          contactNumber: addForm.contactNumber,
+          aadharNumber: addForm.aadharNumber,
+        },
+      });
+      await load();
+      setAddForm({ ...emptyAddForm });
+      setShowAddForm(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create nomination');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const openEdit = (nom: Nomination) => {
     setEditing(nom);
@@ -58,45 +99,40 @@ export default function NominationsPage() {
     }
   };
 
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrComplianceDocsService.getDocuments('nomination');
+      const mapped: Nomination[] = rows.map((row) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          nominationType: row.documentType ?? '',
+          nomineeName: row.title ?? '',
+          relationship: meta.relationship ?? '',
+          dateOfBirth: meta.dateOfBirth ?? '',
+          sharePercentage: Number(meta.sharePercentage ?? 0),
+          address: meta.address ?? '',
+          contactNumber: meta.contactNumber ?? '',
+          aadharNumber: meta.aadharNumber ?? '',
+          submittedOn: row.uploadedOn ?? '',
+          status: (row.status ?? 'draft') as Nomination['status'],
+          approvedBy: row.verifiedBy ?? '',
+          approvedOn: row.verifiedOn ?? '',
+        };
+      });
+      setMockNominations(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load nominations');
+      setMockNominations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getDocuments('nomination');
-        const mapped: Nomination[] = rows.map((row) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            nominationType: row.documentType ?? '',
-            nomineeName: row.title ?? '',
-            relationship: meta.relationship ?? '',
-            dateOfBirth: meta.dateOfBirth ?? '',
-            sharePercentage: Number(meta.sharePercentage ?? 0),
-            address: meta.address ?? '',
-            contactNumber: meta.contactNumber ?? '',
-            aadharNumber: meta.aadharNumber ?? '',
-            submittedOn: row.uploadedOn ?? '',
-            status: (row.status ?? 'draft') as Nomination['status'],
-            approvedBy: row.verifiedBy ?? '',
-            approvedOn: row.verifiedOn ?? '',
-          };
-        });
-        if (!cancelled) setMockNominations(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load nominations');
-          setMockNominations([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const filteredNominations = useMemo(() => {
@@ -146,7 +182,10 @@ export default function NominationsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Nominations</h1>
           <p className="text-sm text-gray-600 mt-1">Manage your EPF, Gratuity, and Insurance nominations</p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+        >
           <Plus className="h-4 w-4" />
           Add Nomination
         </button>
@@ -411,6 +450,52 @@ export default function NominationsPage() {
               >
                 {isSaving ? 'Saving…' : 'Save'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">Add Nomination</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Nomination Type</label>
+                <input type="text" value={addForm.nominationType} onChange={(e) => setAddForm(f => ({ ...f, nominationType: e.target.value }))} placeholder="e.g., EPF Nomination" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Nominee Name</label>
+                <input type="text" value={addForm.nomineeName} onChange={(e) => setAddForm(f => ({ ...f, nomineeName: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Relationship</label>
+                <input type="text" value={addForm.relationship} onChange={(e) => setAddForm(f => ({ ...f, relationship: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Date of Birth</label>
+                <input type="date" value={addForm.dateOfBirth} onChange={(e) => setAddForm(f => ({ ...f, dateOfBirth: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Share Percentage</label>
+                <input type="number" value={addForm.sharePercentage} onChange={(e) => setAddForm(f => ({ ...f, sharePercentage: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Contact Number</label>
+                <input type="text" value={addForm.contactNumber} onChange={(e) => setAddForm(f => ({ ...f, contactNumber: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Address</label>
+                <input type="text" value={addForm.address} onChange={(e) => setAddForm(f => ({ ...f, address: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Aadhar Number (optional)</label>
+                <input type="text" value={addForm.aadharNumber} onChange={(e) => setAddForm(f => ({ ...f, aadharNumber: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => { setAddForm({ ...emptyAddForm }); setShowAddForm(false); }} disabled={isCreating} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleCreate} disabled={isCreating || !addForm.nomineeName.trim()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">{isCreating ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>

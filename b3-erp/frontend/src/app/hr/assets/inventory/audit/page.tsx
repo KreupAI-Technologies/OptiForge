@@ -27,6 +27,30 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailAudit, setDetailAudit] = useState<AuditRecord | null>(null);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  const applyAuditStatus = async (
+    audit: AuditRecord,
+    status: AuditRecord['status'],
+  ) => {
+    setTransitioningId(audit.id);
+    setLoadError(null);
+    const completionDate = status === 'completed' ? new Date().toISOString().slice(0, 10) : undefined;
+    try {
+      await HrAssetsService.updateAssetAudit(audit.id, { status, ...(completionDate ? { completionDate } : {}) });
+      setAudits(prev =>
+        prev.map(a =>
+          a.id === audit.id
+            ? { ...a, status, ...(completionDate ? { completionDate } : {}) }
+            : a,
+        ),
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update audit');
+    } finally {
+      setTransitioningId(null);
+    }
+  };
   const [showForm, setShowForm] = useState(false);
 
   const emptyForm = {
@@ -312,17 +336,17 @@ export default function Page() {
                 View Details
               </button>
               {audit.status === 'pending' && (
-                <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                <button onClick={() => applyAuditStatus(audit, 'in_progress')} disabled={transitioningId === audit.id} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
                   Start Audit
                 </button>
               )}
               {audit.status === 'in_progress' && (
-                <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                <button onClick={() => applyAuditStatus(audit, 'completed')} disabled={transitioningId === audit.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50">
                   Complete Audit
                 </button>
               )}
               {audit.status === 'completed' && (
-                <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
+                <button onClick={() => applyAuditStatus(audit, 'approved')} disabled={transitioningId === audit.id} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm disabled:opacity-50">
                   Approve
                 </button>
               )}

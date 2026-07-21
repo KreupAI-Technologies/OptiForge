@@ -30,42 +30,85 @@ export default function EmploymentDocumentsPage() {
   const [items, setItems] = useState<EmploymentDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const emptyForm = {
+    documentType: '',
+    companyName: '',
+    designation: '',
+    fromDate: '',
+    toDate: '',
+    duration: '',
+    lastSalary: '',
+    reasonForLeaving: '',
+    fileName: '',
+  };
+  const [form, setForm] = useState({ ...emptyForm });
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getDocuments('employment');
+      const mapped: EmploymentDocument[] = rows.map((r: HrDocument) => ({
+        id: r.id,
+        documentType: r.documentType || '',
+        companyName: r.meta?.companyName || '',
+        designation: r.meta?.designation || '',
+        fromDate: r.meta?.fromDate || '',
+        toDate: r.meta?.toDate || '',
+        duration: r.meta?.duration || '',
+        lastSalary: r.meta?.lastSalary,
+        reasonForLeaving: r.meta?.reasonForLeaving,
+        uploadedOn: r.uploadedOn || '',
+        status: (r.status as EmploymentDocument['status']) || 'pending',
+        fileSize: r.fileSize || '',
+        fileName: r.fileName || '',
+        verifiedBy: r.verifiedBy,
+        verifiedOn: r.verifiedOn,
+        remarks: r.remarks,
+      }));
+      setItems(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getDocuments('employment');
-        if (!active) return;
-        const mapped: EmploymentDocument[] = rows.map((r: HrDocument) => ({
-          id: r.id,
-          documentType: r.documentType || '',
-          companyName: r.meta?.companyName || '',
-          designation: r.meta?.designation || '',
-          fromDate: r.meta?.fromDate || '',
-          toDate: r.meta?.toDate || '',
-          duration: r.meta?.duration || '',
-          lastSalary: r.meta?.lastSalary,
-          reasonForLeaving: r.meta?.reasonForLeaving,
-          uploadedOn: r.uploadedOn || '',
-          status: (r.status as EmploymentDocument['status']) || 'pending',
-          fileSize: r.fileSize || '',
-          fileName: r.fileName || '',
-          verifiedBy: r.verifiedBy,
-          verifiedOn: r.verifiedOn,
-          remarks: r.remarks,
-        }));
-        setItems(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load documents');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+    load();
   }, []);
+
+  const handleCreate = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await HrComplianceDocsService.createDocument({
+        docCategory: 'employment',
+        documentType: form.documentType,
+        title: form.companyName,
+        fileName: form.fileName,
+        status: 'pending',
+        meta: {
+          companyName: form.companyName,
+          designation: form.designation,
+          fromDate: form.fromDate,
+          toDate: form.toDate,
+          duration: form.duration,
+          lastSalary: form.lastSalary,
+          reasonForLeaving: form.reasonForLeaving,
+        },
+      });
+      await load();
+      setForm({ ...emptyForm });
+      setShowUploadForm(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create document');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const sourceDocuments = items;
 
@@ -196,7 +239,10 @@ export default function EmploymentDocumentsPage() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium flex items-center gap-2">
+            <button
+              onClick={() => setShowUploadForm(true)}
+              className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium flex items-center gap-2"
+            >
               <Upload className="h-4 w-4" />
               Upload New
             </button>
@@ -323,6 +369,56 @@ export default function EmploymentDocumentsPage() {
           <li>• Upload documents in PDF format (Max size: 2MB per file)</li>
         </ul>
       </div>
+
+      {showUploadForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">Add Employment Document</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Document Type</label>
+                <input type="text" value={form.documentType} onChange={(e) => setForm(f => ({ ...f, documentType: e.target.value }))} placeholder="e.g., Experience Letter" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Company Name</label>
+                <input type="text" value={form.companyName} onChange={(e) => setForm(f => ({ ...f, companyName: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Designation</label>
+                <input type="text" value={form.designation} onChange={(e) => setForm(f => ({ ...f, designation: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Duration</label>
+                <input type="text" value={form.duration} onChange={(e) => setForm(f => ({ ...f, duration: e.target.value }))} placeholder="e.g., 2 years 3 months" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">From Date</label>
+                <input type="date" value={form.fromDate} onChange={(e) => setForm(f => ({ ...f, fromDate: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">To Date</label>
+                <input type="date" value={form.toDate} onChange={(e) => setForm(f => ({ ...f, toDate: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Last Salary</label>
+                <input type="text" value={form.lastSalary} onChange={(e) => setForm(f => ({ ...f, lastSalary: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Reason for Leaving</label>
+                <input type="text" value={form.reasonForLeaving} onChange={(e) => setForm(f => ({ ...f, reasonForLeaving: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">File Name</label>
+                <input type="text" value={form.fileName} onChange={(e) => setForm(f => ({ ...f, fileName: e.target.value }))} placeholder="e.g., experience_letter.pdf" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => { setForm({ ...emptyForm }); setShowUploadForm(false); }} disabled={isSaving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleCreate} disabled={isSaving || !form.documentType.trim()} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">{isSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

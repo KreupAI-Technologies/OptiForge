@@ -26,16 +26,6 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-// Mock Data
-const feedbackTrends = [
-  { month: 'Jul', overall: 4.2, engagement: 4.0 },
-  { month: 'Aug', overall: 4.3, engagement: 4.1 },
-  { month: 'Sep', overall: 4.1, engagement: 3.9 },
-  { month: 'Oct', overall: 4.4, engagement: 4.2 },
-  { month: 'Nov', overall: 4.6, engagement: 4.5 },
-  { month: 'Dec', overall: 4.8, engagement: 4.6 },
-];
-
 interface Review {
   id: number | string;
   employee: string;
@@ -97,6 +87,60 @@ export default function FeedbackPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Derived aggregates from fetched reviews (real data).
+  const avgSatisfaction = React.useMemo(() => {
+    const rated = reviews.filter((r) => r.rating > 0);
+    if (rated.length === 0) return 0;
+    return rated.reduce((s, r) => s + r.rating, 0) / rated.length;
+  }, [reviews]);
+
+  const sentimentBreakdown = React.useMemo(() => {
+    const rated = reviews.filter((r) => r.rating > 0);
+    const total = rated.length || 1;
+    const positive = rated.filter((r) => r.rating >= 4).length;
+    const neutral = rated.filter((r) => r.rating === 3).length;
+    const negative = rated.filter((r) => r.rating <= 2).length;
+    return {
+      positive: Math.round((positive / total) * 100),
+      neutral: Math.round((neutral / total) * 100),
+      negative: Math.round((negative / total) * 100),
+    };
+  }, [reviews]);
+
+  const feedbackTrends = React.useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const groups = new Map<string, { sum: number; count: number; order: number }>();
+    reviews.forEach((r) => {
+      if (!r.date || r.rating <= 0) return;
+      const d = new Date(r.date);
+      if (isNaN(d.getTime())) return;
+      const key = `${months[d.getMonth()]} ${d.getFullYear()}`;
+      const g = groups.get(key) ?? { sum: 0, count: 0, order: d.getTime() };
+      g.sum += r.rating;
+      g.count += 1;
+      groups.set(key, g);
+    });
+    return Array.from(groups.entries())
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([month, g]) => ({ month, overall: Number((g.sum / g.count).toFixed(2)) }));
+  }, [reviews]);
+
+  const handleExportReport = () => {
+    const header = ['ID', 'Employee', 'Course/Program', 'Rating', 'Date', 'Comment'];
+    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = reviews.map((r) => [r.id, r.employee, r.course, r.rating, r.date, r.comment].map(escape).join(','));
+    const csv = [header.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `training-feedback-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleSubmitFeedback = async () => {
     if (!form.programId) {
       setSubmitError('Please provide a training program.');
@@ -157,7 +201,11 @@ export default function FeedbackPage() {
           <p className="text-gray-500 mt-1">Review participant feedback and satisfaction scores</p>
         </div>
         <div className="flex gap-3">
-          <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
+          <button
+            onClick={handleExportReport}
+            disabled={reviews.length === 0}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50"
+          >
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </button>
@@ -184,33 +232,14 @@ export default function FeedbackPage() {
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards — derived from fetched reviews */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Net Promoter Score (NPS)</p>
-              <div className="flex items-baseline gap-2 mt-2">
-                <h2 className="text-3xl font-bold text-gray-900">72</h2>
-                <span className="text-sm text-green-600 font-medium">+5 pts</span>
-              </div>
-            </div>
-            <div className="p-3 bg-green-50 rounded-full">
-              <Smile className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-          <div className="mt-4 h-2 bg-gray-100 rounded-full overflow-hidden flex">
-            <div className="bg-green-500 w-[72%] h-full"></div>
-          </div>
-          <p className="text-xs text-gray-400 mt-2">Excellent (Industry Avg: 50)</p>
-        </div>
-
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Avg. Satisfaction</p>
               <div className="flex items-baseline gap-2 mt-2">
-                <h2 className="text-3xl font-bold text-gray-900">4.7</h2>
+                <h2 className="text-3xl font-bold text-gray-900">{avgSatisfaction.toFixed(1)}</h2>
                 <span className="text-sm text-gray-400">/ 5.0</span>
               </div>
             </div>
@@ -220,28 +249,43 @@ export default function FeedbackPage() {
           </div>
           <div className="flex gap-1 mt-4">
             {[1, 2, 3, 4, 5].map((s) => (
-              <div key={s} className={`h-2 flex-1 rounded-sm ${s < 5 ? 'bg-purple-600' : 'bg-gray-200'}`}></div>
+              <div key={s} className={`h-2 flex-1 rounded-sm ${s <= Math.round(avgSatisfaction) ? 'bg-purple-600' : 'bg-gray-200'}`}></div>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-2">Based on 850 reviews</p>
+          <p className="text-xs text-gray-400 mt-2">Based on {reviews.filter((r) => r.rating > 0).length} rated reviews</p>
         </div>
 
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Response Rate</p>
+              <p className="text-sm font-medium text-gray-500">Total Reviews</p>
               <div className="flex items-baseline gap-2 mt-2">
-                <h2 className="text-3xl font-bold text-gray-900">88%</h2>
-                <span className="text-sm text-red-600 font-medium">-2%</span>
+                <h2 className="text-3xl font-bold text-gray-900">{reviews.length}</h2>
               </div>
             </div>
             <div className="p-3 bg-blue-50 rounded-full">
               <MessageSquare className="w-6 h-6 text-blue-600" />
             </div>
           </div>
-          <p className="text-xs text-blue-600 mt-5 bg-blue-50 inline-block px-2 py-1 rounded">
-            Action: Send reminders for "Sales 101"
-          </p>
+          <p className="text-xs text-gray-400 mt-5">Feedback submissions on record</p>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Positive Sentiment</p>
+              <div className="flex items-baseline gap-2 mt-2">
+                <h2 className="text-3xl font-bold text-gray-900">{sentimentBreakdown.positive}%</h2>
+              </div>
+            </div>
+            <div className="p-3 bg-green-50 rounded-full">
+              <Smile className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+          <div className="mt-4 h-2 bg-gray-100 rounded-full overflow-hidden flex">
+            <div className="bg-green-500 h-full" style={{ width: `${sentimentBreakdown.positive}%` }}></div>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Ratings of 4★ and above</p>
         </div>
       </div>
 
@@ -281,40 +325,32 @@ export default function FeedbackPage() {
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="font-medium text-gray-700 flex items-center gap-2"><Smile className="w-4 h-4 text-green-500" /> Positive</span>
-                <span className="font-bold text-gray-900">78%</span>
+                <span className="font-bold text-gray-900">{sentimentBreakdown.positive}%</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full" style={{ width: '78%' }}></div>
+                <div className="bg-green-500 h-2 rounded-full" style={{ width: `${sentimentBreakdown.positive}%` }}></div>
               </div>
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="font-medium text-gray-700 flex items-center gap-2"><Meh className="w-4 h-4 text-amber-500" /> Neutral</span>
-                <span className="font-bold text-gray-900">14%</span>
+                <span className="font-bold text-gray-900">{sentimentBreakdown.neutral}%</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-2">
-                <div className="bg-amber-500 h-2 rounded-full" style={{ width: '14%' }}></div>
+                <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${sentimentBreakdown.neutral}%` }}></div>
               </div>
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="font-medium text-gray-700 flex items-center gap-2"><Frown className="w-4 h-4 text-red-500" /> Negative</span>
-                <span className="font-bold text-gray-900">8%</span>
+                <span className="font-bold text-gray-900">{sentimentBreakdown.negative}%</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-2">
-                <div className="bg-red-500 h-2 rounded-full" style={{ width: '8%' }}></div>
+                <div className="bg-red-500 h-2 rounded-full" style={{ width: `${sentimentBreakdown.negative}%` }}></div>
               </div>
             </div>
           </div>
-          <div className="mt-8 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Top Keywords</h3>
-            <div className="flex flex-wrap gap-2">
-              <span className="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">Helpful</span>
-              <span className="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">Engaging</span>
-              <span className="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">Too Long</span>
-              <span className="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">Instructor</span>
-            </div>
-          </div>
+          <p className="mt-6 text-xs text-gray-400">Sentiment inferred from star ratings (4★+ positive, 3★ neutral, ≤2★ negative).</p>
         </div>
       </div>
 

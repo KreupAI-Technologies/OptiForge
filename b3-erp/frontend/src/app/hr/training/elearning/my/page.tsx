@@ -8,7 +8,6 @@ import {
   PlayCircle,
   Clock,
   Award,
-  Calendar,
   CheckCircle,
   MoreVertical,
   ArrowRight,
@@ -32,19 +31,6 @@ interface ActiveCourse {
   currentLessonId: string;
   timeSpentMinutes: number;
 }
-
-const assignedPath = [
-  { id: 1, title: 'Company Onboarding', status: 'Completed', date: 'Jan 10, 2025', type: 'Mandatory' },
-  { id: 2, title: 'Code of Conduct', status: 'Completed', date: 'Jan 12, 2025', type: 'Mandatory' },
-  { id: 3, title: 'Data Security Awareness', status: 'In Progress', date: 'Due: Jan 30, 2025', type: 'Mandatory' },
-  { id: 4, title: 'Advanced React Patterns', status: 'Not Started', date: 'Recommended', type: 'Optional' },
-  { id: 5, title: 'System Architecture 101', status: 'Locked', date: 'Unlock after #4', type: 'Optional' },
-];
-
-const upcomingDeadlines = [
-  { id: 1, title: 'Data Security Quiz', due: 'Tomorrow', type: 'Quiz' },
-  { id: 2, title: 'Q1 Compliance Training', due: 'In 3 days', type: 'Course' },
-];
 
 export default function MyCoursesPage() {
   const { user } = useAuth();
@@ -252,53 +238,38 @@ export default function MyCoursesPage() {
           </div>
         </div>
 
-        {/* Sidebar: Learning Path & Deadlines */}
+        {/* Sidebar: Learning Path derived from enrolled courses */}
         <div className="space-y-3">
-          {/* Deadlines Widget */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-amber-500" />
-              Upcoming Deadlines
-            </h3>
-            <div className="space-y-3">
-              {upcomingDeadlines.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{item.title}</p>
-                    <p className="text-xs text-red-500 font-medium">Due {item.due}</p>
-                  </div>
-                </div>
-              ))}
-              {upcomingDeadlines.length === 0 && <p className="text-sm text-gray-500">No upcoming deadlines.</p>}
-            </div>
-          </div>
-
-          {/* Learning Path Timeline */}
+          {/* Learning Path Timeline — derived from active courses */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
               <Award className="w-4 h-4 text-purple-600" />
               My Learning Path
             </h3>
-            <div className="relative border-l-2 border-dashed border-gray-200 ml-3 space-y-3 pl-6 pb-2">
-              {assignedPath.map((item) => (
-                <div key={item.id} className="relative">
-                  <div className={`absolute -left-[31px] w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${item.status === 'Completed' ? 'border-green-500 text-green-500' :
-                      item.status === 'In Progress' ? 'border-blue-500 text-blue-500' :
-                        'border-gray-300 text-gray-300'
-                    }`}>
-                    {item.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : <div className="w-1.5 h-1.5 rounded-full bg-current"></div>}
-                  </div>
-                  <div>
-                    <p className={`text-xs font-semibold uppercase tracking-wider mb-0.5 ${item.type === 'Mandatory' ? 'text-amber-600' : 'text-gray-400'
-                      }`}>{item.type}</p>
-                    <h4 className={`text-sm font-medium ${item.status === 'Locked' ? 'text-gray-400' : 'text-gray-900'
-                      }`}>{item.title}</h4>
-                    <p className="text-xs text-gray-500">{item.date}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {activeCourses.length === 0 ? (
+              <p className="text-sm text-gray-500">No enrolled courses yet.</p>
+            ) : (
+              <div className="relative border-l-2 border-dashed border-gray-200 ml-3 space-y-3 pl-6 pb-2">
+                {activeCourses.map((course) => {
+                  const status = course.progress >= 100 ? 'Completed' : course.progress > 0 ? 'In Progress' : 'Not Started';
+                  return (
+                    <div key={course.id} className="relative">
+                      <div className={`absolute -left-[31px] w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${status === 'Completed' ? 'border-green-500 text-green-500' :
+                          status === 'In Progress' ? 'border-blue-500 text-blue-500' :
+                            'border-gray-300 text-gray-300'
+                        }`}>
+                        {status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : <div className="w-1.5 h-1.5 rounded-full bg-current"></div>}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-0.5 text-gray-400">{status}</p>
+                        <h4 className="text-sm font-medium text-gray-900">{course.title}</h4>
+                        <p className="text-xs text-gray-500">{course.completedModules}/{course.totalModules} modules • {course.progress}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

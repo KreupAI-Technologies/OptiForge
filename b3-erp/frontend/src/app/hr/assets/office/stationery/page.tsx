@@ -88,31 +88,39 @@ export default function Page() {
     }
   };
 
-  const handleIssue = () => {
+  const handleIssue = async () => {
     if (!issueTarget) return;
     const qty = Number(issueQty) || 0;
-    setStationery(prev => prev.map(s => {
-      if (s.id !== issueTarget.id) return s;
-      const issued = s.issued + qty;
-      const available = Math.max(0, s.available - qty);
-      const status: StationeryItem['status'] = available <= 0 ? 'out_of_stock' : available <= s.reorderLevel ? 'low_stock' : 'in_stock';
-      return { ...s, issued, available, status };
-    }));
-    setIssueTarget(null);
-    setIssueQty('');
+    const issued = issueTarget.issued + qty;
+    const available = Math.max(0, issueTarget.available - qty);
+    const status: StationeryItem['status'] = available <= 0 ? 'out_of_stock' : available <= issueTarget.reorderLevel ? 'low_stock' : 'in_stock';
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateStationery(issueTarget.id, { issued, available, status });
+      setStationery(prev => prev.map(s => (s.id === issueTarget.id ? { ...s, issued, available, status } : s)));
+      setIssueTarget(null);
+      setIssueQty('');
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to issue stationery');
+    }
   };
 
-  const handleReorder = () => {
+  const handleReorder = async () => {
     if (!reorderTarget) return;
     const qty = Number(reorderQty) || 0;
-    setStationery(prev => prev.map(s => {
-      if (s.id !== reorderTarget.id) return s;
-      const totalQuantity = s.totalQuantity + qty;
-      const available = s.available + qty;
-      return { ...s, totalQuantity, available, totalValue: totalQuantity * s.unitCost, status: 'in_stock', lastPurchaseDate: new Date().toISOString() };
-    }));
-    setReorderTarget(null);
-    setReorderQty('');
+    const totalQuantity = reorderTarget.totalQuantity + qty;
+    const available = reorderTarget.available + qty;
+    const totalValue = totalQuantity * reorderTarget.unitCost;
+    const lastPurchaseDate = new Date().toISOString();
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateStationery(reorderTarget.id, { totalQuantity, available, totalValue, status: 'in_stock', lastPurchaseDate });
+      setStationery(prev => prev.map(s => (s.id === reorderTarget.id ? { ...s, totalQuantity, available, totalValue, status: 'in_stock', lastPurchaseDate } : s)));
+      setReorderTarget(null);
+      setReorderQty('');
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to reorder stationery');
+    }
   };
 
   useEffect(() => {

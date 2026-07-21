@@ -13,6 +13,7 @@ interface Meeting {
   duration: string;
   type: 'in_person' | 'remote';
   location: string;
+  meetingLink: string;
   status: 'scheduled' | 'completed';
 }
 
@@ -26,6 +27,7 @@ function mapMeeting(r: any): Meeting {
     duration: r?.duration ?? '',
     type: r?.type === 'in_person' ? 'in_person' : 'remote',
     location: r?.location ?? '',
+    meetingLink: r?.meetingLink ?? '',
     status: r?.status === 'completed' ? 'completed' : 'scheduled',
   };
 }
@@ -209,10 +211,15 @@ export default function ReviewMeetingsPage() {
                     >
                       Reschedule
                     </button>
-                    {meeting.type === 'remote' && (
-                      <button className="px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors">
+                    {meeting.type === 'remote' && meeting.meetingLink && (
+                      <a
+                        href={meeting.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                      >
                         Join Call
-                      </button>
+                      </a>
                     )}
                   </div>
                 </div>

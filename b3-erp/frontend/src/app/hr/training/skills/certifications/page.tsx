@@ -23,13 +23,6 @@ import {
   Legend
 } from 'recharts';
 
-// Mock Data
-const expiryAlerts = [
-  { id: 1, employee: 'John Doe', cert: 'AWS Solutions Architect', expiry: '2025-01-30', daysLeft: 8, status: 'Critical' },
-  { id: 2, employee: 'Alice Smith', cert: 'PMP Certification', expiry: '2025-02-15', daysLeft: 24, status: 'Warning' },
-  { id: 3, employee: 'Bob Wilson', cert: 'Cisco CCNP', expiry: '2025-02-28', daysLeft: 37, status: 'Warning' },
-];
-
 interface CertificationRecord {
   id: number | string;
   employee: string;
@@ -45,12 +38,6 @@ function toDisplayStatus(s?: string): string {
   if (!s) return 'Active';
   return s === 'active' ? 'Active' : s.charAt(0).toUpperCase() + s.slice(1);
 }
-
-const complianceData = [
-  { name: 'Compliant', value: 350, color: '#22c55e' },
-  { name: 'Non-Compliant', value: 45, color: '#ef4444' },
-  { name: 'Expiring Soon', value: 30, color: '#f59e0b' },
-];
 
 export default function CertificationsPage() {
   const [filterStatus, setFilterStatus] = useState('All');
@@ -150,6 +137,76 @@ export default function CertificationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Derived from fetched certifications: those expiring within 60 days.
+  const expiryAlerts = React.useMemo(() => {
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+    return certifications
+      .map((c) => {
+        if (!c.expires) return null;
+        const exp = new Date(c.expires).getTime();
+        if (isNaN(exp)) return null;
+        const daysLeft = Math.ceil((exp - now) / DAY);
+        if (daysLeft < 0 || daysLeft > 60) return null;
+        return {
+          record: c,
+          employee: c.employee,
+          cert: c.cert,
+          expiry: c.expires,
+          daysLeft,
+          status: daysLeft <= 14 ? 'Critical' : 'Warning',
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [certifications]);
+
+  // Derived compliance breakdown from certification statuses.
+  const complianceData = React.useMemo(() => {
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+    let compliant = 0;
+    let expiring = 0;
+    let nonCompliant = 0;
+    certifications.forEach((c) => {
+      const exp = c.expires ? new Date(c.expires).getTime() : NaN;
+      const daysLeft = isNaN(exp) ? Infinity : Math.ceil((exp - now) / DAY);
+      if (c.status !== 'Active' || daysLeft < 0) nonCompliant += 1;
+      else if (daysLeft <= 60) expiring += 1;
+      else compliant += 1;
+    });
+    return [
+      { name: 'Compliant', value: compliant, color: '#22c55e' },
+      { name: 'Non-Compliant', value: nonCompliant, color: '#ef4444' },
+      { name: 'Expiring Soon', value: expiring, color: '#f59e0b' },
+    ];
+  }, [certifications]);
+
+  const complianceRate = React.useMemo(() => {
+    const total = certifications.length;
+    if (total === 0) return 0;
+    const compliant = complianceData.find((d) => d.name === 'Compliant')?.value ?? 0;
+    return Math.round((compliant / total) * 100);
+  }, [certifications, complianceData]);
+
+  const handleExportReport = () => {
+    const header = ['Employee', 'Employee Code', 'Certification', 'Provider', 'Issued', 'Expires', 'Status'];
+    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = certifications.map((c) =>
+      [c.employee, c.role, c.cert, c.provider, c.issued, c.expires, c.status].map(escape).join(','),
+    );
+    const csv = [header.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `certifications-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleAddCertification = async () => {
     if (!form.employeeName || !form.certificationName) {
       setSubmitError('Please provide an employee and a certification name.');
@@ -195,7 +252,11 @@ export default function CertificationsPage() {
           <p className="text-gray-500 mt-1">Manage professional certifications and compliance</p>
         </div>
         <div className="flex gap-3">
-          <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
+          <button
+            onClick={handleExportReport}
+            disabled={certifications.length === 0}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50"
+          >
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </button>
@@ -256,7 +317,7 @@ export default function CertificationsPage() {
             </ResponsiveContainer>
           </div>
           <div className="text-center mt-2">
-            <span className="text-3xl font-bold text-gray-900">92%</span>
+            <span className="text-3xl font-bold text-gray-900">{complianceRate}%</span>
             <p className="text-xs text-gray-500">Compliance Rate</p>
           </div>
         </div>
@@ -269,7 +330,7 @@ export default function CertificationsPage() {
           </h2>
           <div className="space-y-3">
             {expiryAlerts.map((alert) => (
-              <div key={alert.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+              <div key={alert.record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${alert.status === 'Critical' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
                   <div>
@@ -282,8 +343,11 @@ export default function CertificationsPage() {
                     }`}>
                     {alert.daysLeft} days left
                   </span>
-                  <button className="text-xs font-medium text-purple-600 hover:text-purple-800">
-                    Remind
+                  <button
+                    onClick={() => { setRenewFor(alert.record); setRenewDate(''); setActionError(null); setActionSuccess(null); }}
+                    className="text-xs font-medium text-purple-600 hover:text-purple-800"
+                  >
+                    Renew
                   </button>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileText, Download, AlertCircle } from 'lucide-react';
 import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
@@ -16,39 +16,48 @@ export default function Page() {
   const [reports, setReports] = useState<StatutoryReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrComplianceDocsService.getReturns();
+      const mapped: StatutoryReport[] = rows.map((row) => {
+        const meta = ((row as any).meta || {}) as any;
+        return {
+          id: String(row.id),
+          title: meta.title ?? [row.returnType, row.returnMonth].filter(Boolean).join(' - ') ?? '',
+          type: row.returnType ?? meta.type ?? '',
+          dueDate: row.dueDate ?? '',
+          status: row.status ?? meta.status ?? 'pending',
+        };
+      });
+      setReports(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load statutory reports');
+      setReports([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrComplianceDocsService.getReturns();
-        const mapped: StatutoryReport[] = rows.map((row) => {
-          const meta = ((row as any).meta || {}) as any;
-          return {
-            id: String(row.id),
-            title: meta.title ?? [row.returnType, row.returnMonth].filter(Boolean).join(' - ') ?? '',
-            type: row.returnType ?? meta.type ?? '',
-            dueDate: row.dueDate ?? '',
-            status: row.status ?? meta.status ?? 'pending',
-          };
-        });
-        if (!cancelled) setReports(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load statutory reports');
-          setReports([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [load]);
+
+  const handleSubmit = async (id: string) => {
+    try {
+      setSubmittingId(id);
+      await HrComplianceDocsService.submitReturn(id);
+      await load();
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to submit report');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -82,10 +91,21 @@ export default function Page() {
                   </span>
                 </div>
               </div>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Download
-              </button>
+              <div className="flex items-center gap-2">
+                {r.status !== 'submitted' && r.status !== 'filed' && (
+                  <button
+                    onClick={() => handleSubmit(r.id)}
+                    disabled={submittingId === r.id}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50"
+                  >
+                    {submittingId === r.id ? 'Submitting…' : 'Submit'}
+                  </button>
+                )}
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  Download
+                </button>
+              </div>
             </div>
           </div>
         ))}

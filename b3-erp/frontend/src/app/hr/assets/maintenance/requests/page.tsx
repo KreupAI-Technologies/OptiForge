@@ -36,142 +36,29 @@ export default function Page() {
   const [detailRequest, setDetailRequest] = useState<MaintenanceRequest | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const fallbackRequests: MaintenanceRequest[] = [
-    {
-      id: '1',
-      requestId: 'MR-2024-1267',
-      assetTag: 'LAP-2024-015',
-      assetName: 'Dell Latitude 5420',
-      assetCategory: 'laptop',
-      requestedBy: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      issueType: 'hardware_failure',
-      issueDescription: 'Laptop battery not charging. Shows "plugged in, not charging" error. Battery health at 15%.',
-      priority: 'high',
-      requestDate: '2024-10-24',
-      expectedDate: '2024-10-27',
-      status: 'approved',
-      assignedTo: 'Dell Service Center',
-      approvedBy: 'IT Manager - Vikram Singh',
-      approvalDate: '2024-10-24',
-      estimatedCost: 5500,
-      location: 'Mumbai Office',
-      contactNumber: '+91-98765-43210',
-      attachments: 2,
-      remarks: 'Urgent - employee traveling next week'
-    },
-    {
-      id: '2',
-      requestId: 'MR-2024-1268',
-      assetTag: 'PRN-2023-045',
-      assetName: 'Canon imageRUNNER 2525i',
-      assetCategory: 'printer',
-      requestedBy: 'Priya Sharma',
-      employeeCode: 'EMP412',
-      department: 'Marketing',
-      issueType: 'hardware_failure',
-      issueDescription: 'Printer showing paper jam error even after clearing. Print quality deteriorating with streaks on output.',
-      priority: 'medium',
-      requestDate: '2024-10-25',
-      status: 'in_progress',
-      assignedTo: 'Canon Service Engineer',
-      approvedBy: 'IT Manager - Vikram Singh',
-      approvalDate: '2024-10-25',
-      estimatedCost: 3500,
-      location: 'Bangalore Office',
-      contactNumber: '+91-99887-65432',
-      attachments: 1
-    },
-    {
-      id: '3',
-      requestId: 'MR-2024-1269',
-      assetTag: 'DESK-2024-008',
-      assetName: 'HP Elite 800 G8',
-      assetCategory: 'desktop',
-      requestedBy: 'Sneha Reddy',
-      employeeCode: 'EMP523',
-      department: 'HR',
-      issueType: 'performance',
-      issueDescription: 'Computer running very slow. Applications taking long time to open. Frequent system freezes.',
-      priority: 'low',
-      requestDate: '2024-10-26',
-      status: 'pending',
-      location: 'Hyderabad Office',
-      contactNumber: '+91-97654-32109',
-      remarks: 'May need RAM upgrade'
-    },
-    {
-      id: '4',
-      requestId: 'MR-2024-1265',
-      assetTag: 'MOB-2024-003',
-      assetName: 'Samsung Galaxy S21',
-      assetCategory: 'mobile',
-      requestedBy: 'Arjun Kapoor',
-      employeeCode: 'EMP890',
-      department: 'Sales',
-      issueType: 'hardware_failure',
-      issueDescription: 'Screen cracked after accidental drop. Touch response partially working.',
-      priority: 'critical',
-      requestDate: '2024-10-23',
-      expectedDate: '2024-10-24',
-      status: 'completed',
-      assignedTo: 'Samsung Service Center',
-      approvedBy: 'IT Manager - Vikram Singh',
-      approvalDate: '2024-10-23',
-      estimatedCost: 12000,
-      location: 'Delhi Office',
-      contactNumber: '+91-96543-21098',
-      attachments: 3,
-      remarks: 'Accidental damage - employee to bear 50% cost'
-    },
-    {
-      id: '5',
-      requestId: 'MR-2024-1270',
-      assetTag: 'NET-2024-012',
-      assetName: 'Cisco Catalyst 9300 Switch',
-      assetCategory: 'network',
-      requestedBy: 'Network Team',
-      employeeCode: 'EMP156',
-      department: 'IT',
-      issueType: 'network',
-      issueDescription: 'Intermittent network connectivity issues in building B. Multiple ports showing errors.',
-      priority: 'critical',
-      requestDate: '2024-10-26',
-      expectedDate: '2024-10-26',
-      status: 'approved',
-      assignedTo: 'Cisco TAC Support',
-      approvedBy: 'CTO - Ramesh Iyer',
-      approvalDate: '2024-10-26',
-      location: 'Pune Office - Building B',
-      contactNumber: '+91-95432-10987',
-      remarks: 'Affecting 50+ users - immediate attention required'
-    },
-    {
-      id: '6',
-      requestId: 'MR-2024-1266',
-      assetTag: 'LAP-2023-089',
-      assetName: 'Lenovo ThinkPad X1',
-      assetCategory: 'laptop',
-      requestedBy: 'Kavita Mehta',
-      employeeCode: 'EMP234',
-      department: 'Finance',
-      issueType: 'software_issue',
-      issueDescription: 'Microsoft Office not activating. Error code 0xC004F074. Need urgent resolution for month-end reporting.',
-      priority: 'high',
-      requestDate: '2024-10-25',
-      status: 'rejected',
-      approvedBy: 'IT Manager - Vikram Singh',
-      approvalDate: '2024-10-25',
-      location: 'Mumbai Office',
-      contactNumber: '+91-94321-09876',
-      remarks: 'Software issue - to be handled by IT helpdesk, not maintenance'
-    }
-  ];
 
-  const [mockRequests, setMockRequests] = useState<MaintenanceRequest[]>(fallbackRequests);
+  const [mockRequests, setMockRequests] = useState<MaintenanceRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  const applyTransition = async (
+    item: MaintenanceRequest,
+    payload: Partial<{ status: string; approvalDate: string }>,
+  ) => {
+    setTransitioningId(item.id);
+    setLoadError(null);
+    try {
+      await HrAssetsService.updateAssetMaintenance(item.id, payload);
+      setDetailRequest(null);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update request');
+    } finally {
+      setTransitioningId(null);
+    }
+  };
 
   const emptyForm = {
     assetTag: '',
@@ -253,7 +140,7 @@ export default function Page() {
       try {
         const rows = await HrAssetsService.getAssetMaintenance('request');
         if (cancelled) return;
-        if (rows.length) {
+        {
           setMockRequests(
             rows.map((r) => ({
               id: r.id,
@@ -290,7 +177,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filteredRequests = mockRequests.filter(r => {
     if (selectedStatus !== 'all' && r.status !== selectedStatus) return false;
@@ -548,22 +435,22 @@ export default function Page() {
               <div className="flex gap-2">
                 {request.status === 'pending' && (
                   <>
-                    <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                    <button onClick={() => applyTransition(request, { status: 'approved', approvalDate: new Date().toISOString().slice(0, 10) })} disabled={transitioningId === request.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50">
                       Approve
                     </button>
-                    <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                    <button onClick={() => applyTransition(request, { status: 'rejected' })} disabled={transitioningId === request.id} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm disabled:opacity-50">
                       Reject
                     </button>
                   </>
                 )}
                 {request.status === 'approved' && (
-                  <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
-                    Assign Technician
+                  <button onClick={() => applyTransition(request, { status: 'in_progress' })} disabled={transitioningId === request.id} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">
+                    Start Work
                   </button>
                 )}
                 {request.status === 'in_progress' && (
-                  <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
-                    Update Status
+                  <button onClick={() => applyTransition(request, { status: 'completed' })} disabled={transitioningId === request.id} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm disabled:opacity-50">
+                    Mark Completed
                   </button>
                 )}
                 <button onClick={() => setDetailRequest(request)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
