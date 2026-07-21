@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Calendar, Clock, CheckCircle, AlertTriangle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertTriangle, RefreshCw, AlertCircle, X } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface PreventiveMaintenance {
@@ -46,6 +46,8 @@ export default function Page() {
   const [schedules, setSchedules] = useState<PreventiveMaintenance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [detailSchedule, setDetailSchedule] = useState<PreventiveMaintenance | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,7 +214,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Schedule
             </button>
           </div>
@@ -327,21 +329,21 @@ export default function Page() {
 
               <div className="flex gap-2">
                 {schedule.status === 'upcoming' && (
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                  <button onClick={() => setDetailSchedule(schedule)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                     Reschedule
                   </button>
                 )}
                 {(schedule.status === 'due' || schedule.status === 'overdue') && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => setDetailSchedule(schedule)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Start Maintenance
                   </button>
                 )}
                 {schedule.status === 'completed' && (
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                  <button onClick={() => setDetailSchedule(schedule)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                     View Report
                   </button>
                 )}
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setDetailSchedule(schedule)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View Details
                 </button>
               </div>
@@ -349,6 +351,101 @@ export default function Page() {
           );
         })}
       </div>
+
+      {detailSchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Preventive Schedule Details</h2>
+              <button onClick={() => setDetailSchedule(null)} className="text-white hover:text-gray-200">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Asset Name</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.assetName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Asset Tag</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.assetTag}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Schedule ID</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.scheduleId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Maintenance Type</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.maintenanceType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Frequency</p>
+                  <p className="text-gray-900 font-semibold">{frequencyLabel[detailSchedule.frequency]}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Assigned To</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.assignedTo}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Status</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.status.charAt(0).toUpperCase() + detailSchedule.status.slice(1)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Priority</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.priority.charAt(0).toUpperCase() + detailSchedule.priority.slice(1)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Last Maintenance Date</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.lastMaintenanceDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Next Maintenance Date</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.nextMaintenanceDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Estimated Duration</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.estimatedDuration}h</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Location</p>
+                  <p className="text-gray-900 font-semibold">{detailSchedule.location}</p>
+                </div>
+                {detailSchedule.remarks && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Remarks</p>
+                    <p className="text-gray-900 font-semibold">{detailSchedule.remarks}</p>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setDetailSchedule(null)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Add Maintenance Schedule</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:text-gray-200">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Adding preventive maintenance schedules from this screen is not yet available — the schedule service endpoint is pending.
+              </div>
+              <button onClick={() => setShowForm(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

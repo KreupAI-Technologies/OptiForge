@@ -15,6 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
 import {
   PieChart,
   Pie,
@@ -41,37 +42,71 @@ export default function BudgetAllocationPage() {
   const [isEditing, setIsEditing] = useState<number | string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    budgetName: '',
+    fiscalYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+    totalBudget: '',
+    allocatedBudget: '',
+  });
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await HrPagesService.expenseBudgets()) as any[];
+      const mapped: Allocation[] = (Array.isArray(raw) ? raw : []).map((r, i) => ({
+        id: r.id ?? i,
+        department: r.department ?? r.departmentName ?? r.name ?? r.category ?? '',
+        amount: Number(r.amount ?? r.total ?? r.budget ?? 0),
+        allocated: Number(r.allocated ?? r.percentage ?? 0),
+        spend: Number(r.spend ?? r.spent ?? 0),
+        color: r.color ?? ALLOCATION_COLORS[i % ALLOCATION_COLORS.length],
+      }));
+      setAllocations(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load allocations');
+      setAllocations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.expenseBudgets()) as any[];
-        const mapped: Allocation[] = (Array.isArray(raw) ? raw : []).map((r, i) => ({
-          id: r.id ?? i,
-          department: r.department ?? r.departmentName ?? r.name ?? r.category ?? '',
-          amount: Number(r.amount ?? r.total ?? r.budget ?? 0),
-          allocated: Number(r.allocated ?? r.percentage ?? 0),
-          spend: Number(r.spend ?? r.spent ?? 0),
-          color: r.color ?? ALLOCATION_COLORS[i % ALLOCATION_COLORS.length],
-        }));
-        if (!cancelled) setAllocations(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load allocations');
-          setAllocations([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleCreateBudget = async () => {
+    if (!form.budgetName || !form.totalBudget) {
+      setSubmitError('Please provide a budget name and total amount.');
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await TrainingDevelopmentService.createTrainingBudget({
+        budgetName: form.budgetName,
+        fiscalYear: form.fiscalYear,
+        totalBudget: Number(form.totalBudget),
+        allocatedBudget: form.allocatedBudget ? Number(form.allocatedBudget) : Number(form.totalBudget),
+      });
+      setShowAddModal(false);
+      setForm({
+        budgetName: '',
+        fiscalYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+        totalBudget: '',
+        allocatedBudget: '',
+      });
+      await load();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create budget.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value);
@@ -176,8 +211,11 @@ export default function BudgetAllocationPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-gray-900">Departmental Allocations</h2>
-          <button className="text-sm text-purple-600 font-medium hover:text-purple-800 flex items-center">
-            <Plus className="w-4 h-4 mr-1" /> Add Department
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="text-sm text-purple-600 font-medium hover:text-purple-800 flex items-center"
+          >
+            <Plus className="w-4 h-4 mr-1" /> Add Budget
           </button>
         </div>
         <div className="overflow-x-auto">
@@ -239,6 +277,90 @@ export default function BudgetAllocationPage() {
           </table>
         </div>
       </div>
+
+      {/* Add Budget Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-3 m-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-bold text-gray-900">Create Training Budget</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Budget Name</label>
+                <input
+                  type="text"
+                  value={form.budgetName}
+                  onChange={(e) => setForm({ ...form, budgetName: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="e.g. Engineering FY25 Training"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fiscal Year</label>
+                <input
+                  type="text"
+                  value={form.fiscalYear}
+                  onChange={(e) => setForm({ ...form, fiscalYear: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="e.g. 2025-2026"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Budget</label>
+                  <input
+                    type="number"
+                    value={form.totalBudget}
+                    onChange={(e) => setForm({ ...form, totalBudget: e.target.value })}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Allocated</label>
+                  <input
+                    type="number"
+                    value={form.allocatedBudget}
+                    onChange={(e) => setForm({ ...form, allocatedBudget: e.target.value })}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                    placeholder="Defaults to total"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddModal(false)}
+                disabled={submitting}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateBudget}
+                disabled={submitting}
+                className="px-4 py-2 bg-purple-600 rounded-lg text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                {submitting ? 'Saving…' : 'Create Budget'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

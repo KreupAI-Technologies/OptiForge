@@ -93,15 +93,74 @@ export default function QualityParameterMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [filterCriticality, setFilterCriticality] = useState<string>('All');
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState<{
+    code: string; name: string; category: string; measurementType: string; unit: string;
+    criticality: string; frequency: string; status: string; acceptanceCriteria: string; inspectionMethod: string;
+  }>({ code: '', name: '', category: 'Dimensional', measurementType: 'Variable', unit: '', criticality: 'Major', frequency: 'Sample', status: 'Active', acceptanceCriteria: '', inspectionMethod: '' });
 
-  const handleEdit = (parameter: QualityParameter) => {
-    setSelectedParameter(parameter);
+  const openCreateModal = () => {
+    setSelectedParameter(null);
+    setForm({ code: '', name: '', category: 'Dimensional', measurementType: 'Variable', unit: '', criticality: 'Major', frequency: 'Sample', status: 'Active', acceptanceCriteria: '', inspectionMethod: '' });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleEdit = (parameter: QualityParameter) => {
+    setSelectedParameter(parameter);
+    setForm({
+      code: parameter.code,
+      name: parameter.name,
+      category: parameter.category,
+      measurementType: parameter.measurementType,
+      unit: parameter.unit || '',
+      criticality: parameter.criticality,
+      frequency: parameter.frequency,
+      status: parameter.status,
+      acceptanceCriteria: parameter.specification.acceptanceCriteria,
+      inspectionMethod: parameter.inspectionMethod,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.code.trim() || !form.name.trim()) {
+      setError('Parameter Code and Name are required.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setError(null);
+      const payload = {
+        code: form.code,
+        name: form.name,
+        unit: form.unit,
+        description: form.acceptanceCriteria,
+        companyId: '1',
+      };
+      if (selectedParameter) {
+        await manufacturingMastersService.updateQualityParameter(selectedParameter.id, payload);
+      } else {
+        await manufacturingMastersService.createQualityParameter(payload);
+      }
+      setIsModalOpen(false);
+      await fetchParameters();
+    } catch (err) {
+      console.error('Error saving quality parameter:', err);
+      setError('Failed to save quality parameter. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this quality parameter?')) {
-      setParameters(parameters.filter(p => p.id !== id));
+      try {
+        await manufacturingMastersService.deleteQualityParameter(id);
+        setParameters(parameters.filter(p => p.id !== id));
+      } catch (err) {
+        console.error('Error deleting quality parameter:', err);
+        alert('Failed to delete quality parameter. Please try again.');
+      }
     }
   };
 
@@ -234,10 +293,7 @@ export default function QualityParameterMaster() {
               </select>
             </div>
             <button
-              onClick={() => {
-                setSelectedParameter(null);
-                setIsModalOpen(true);
-              }}
+              onClick={openCreateModal}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -360,7 +416,8 @@ export default function QualityParameterMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedParameter?.code}
+                      value={form.code}
+                      onChange={(e) => setForm({ ...form, code: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="QP-XXX-000"
                     />
@@ -371,7 +428,8 @@ export default function QualityParameterMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedParameter?.name}
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Enter parameter name"
                     />
@@ -384,7 +442,8 @@ export default function QualityParameterMaster() {
                       Category *
                     </label>
                     <select
-                      defaultValue={selectedParameter?.category || 'Dimensional'}
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Dimensional">Dimensional</option>
@@ -400,7 +459,8 @@ export default function QualityParameterMaster() {
                       Measurement Type *
                     </label>
                     <select
-                      defaultValue={selectedParameter?.measurementType || 'Variable'}
+                      value={form.measurementType}
+                      onChange={(e) => setForm({ ...form, measurementType: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Variable">Variable</option>
@@ -413,7 +473,8 @@ export default function QualityParameterMaster() {
                     </label>
                     <input
                       type="text"
-                      defaultValue={selectedParameter?.unit}
+                      value={form.unit}
+                      onChange={(e) => setForm({ ...form, unit: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="mm, HRC, etc."
                     />
@@ -426,7 +487,8 @@ export default function QualityParameterMaster() {
                       Criticality *
                     </label>
                     <select
-                      defaultValue={selectedParameter?.criticality || 'Major'}
+                      value={form.criticality}
+                      onChange={(e) => setForm({ ...form, criticality: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Critical">Critical</option>
@@ -439,7 +501,8 @@ export default function QualityParameterMaster() {
                       Frequency *
                     </label>
                     <select
-                      defaultValue={selectedParameter?.frequency || 'Sample'}
+                      value={form.frequency}
+                      onChange={(e) => setForm({ ...form, frequency: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Every Unit">Every Unit</option>
@@ -454,7 +517,8 @@ export default function QualityParameterMaster() {
                       Status
                     </label>
                     <select
-                      defaultValue={selectedParameter?.status || 'Active'}
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Active">Active</option>
@@ -470,7 +534,8 @@ export default function QualityParameterMaster() {
                   </label>
                   <input
                     type="text"
-                    defaultValue={selectedParameter?.specification.acceptanceCriteria}
+                    value={form.acceptanceCriteria}
+                    onChange={(e) => setForm({ ...form, acceptanceCriteria: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 50.0 ± 0.05 mm"
                   />
@@ -482,7 +547,8 @@ export default function QualityParameterMaster() {
                   </label>
                   <input
                     type="text"
-                    defaultValue={selectedParameter?.inspectionMethod}
+                    value={form.inspectionMethod}
+                    onChange={(e) => setForm({ ...form, inspectionMethod: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     placeholder="Describe inspection method"
                   />
@@ -497,8 +563,12 @@ export default function QualityParameterMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Save Parameter
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save Parameter'}
               </button>
             </div>
           </div>

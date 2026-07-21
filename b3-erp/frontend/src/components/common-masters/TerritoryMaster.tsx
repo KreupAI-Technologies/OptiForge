@@ -68,175 +68,6 @@ interface Territory {
   };
 }
 
-const mockTerritories: Territory[] = [
-  {
-    id: '1',
-    territoryCode: 'WEST-MH-01',
-    territoryName: 'Western Maharashtra Sales',
-    level: 2,
-    coverage: {
-      states: ['Maharashtra'],
-      cities: ['Mumbai', 'Pune', 'Nashik'],
-      pinCodes: ['400001-400098', '411001-411068']
-    },
-    assignment: {
-      manager: 'Rajesh Kumar',
-      managerId: 'EMP001',
-      salesTeam: ['EMP101', 'EMP102', 'EMP103']
-    },
-    targets: {
-      monthlyRevenue: 5000000,
-      quarterlyRevenue: 15000000,
-      annualRevenue: 60000000,
-      customerAcquisition: 50
-    },
-    performance: {
-      actualRevenue: 4750000,
-      achievement: 95,
-      totalCustomers: 245,
-      activeCustomers: 198,
-      avgDealSize: 125000
-    },
-    settings: {
-      territoryType: 'Sales',
-      allowOverlap: false,
-      priority: 'High'
-    },
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-01-01'),
-      updatedAt: new Date('2024-03-20'),
-      createdBy: 'Admin',
-      updatedBy: 'Manager'
-    }
-  },
-  {
-    id: '2',
-    territoryCode: 'SOUTH-KA-01',
-    territoryName: 'South Karnataka Sales',
-    parentTerritoryId: '10',
-    parentTerritoryName: 'Southern Region',
-    level: 3,
-    coverage: {
-      states: ['Karnataka'],
-      cities: ['Bengaluru', 'Mysuru', 'Mangaluru'],
-      pinCodes: ['560001-560100', '570001-570020']
-    },
-    assignment: {
-      manager: 'Priya Sharma',
-      managerId: 'EMP002',
-      salesTeam: ['EMP104', 'EMP105']
-    },
-    targets: {
-      monthlyRevenue: 4000000,
-      quarterlyRevenue: 12000000,
-      annualRevenue: 48000000,
-      customerAcquisition: 40
-    },
-    performance: {
-      actualRevenue: 4200000,
-      achievement: 105,
-      totalCustomers: 198,
-      activeCustomers: 165,
-      avgDealSize: 110000
-    },
-    settings: {
-      territoryType: 'Sales',
-      allowOverlap: false,
-      priority: 'High'
-    },
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-01-15'),
-      updatedAt: new Date('2024-03-18'),
-      createdBy: 'Admin',
-      updatedBy: 'Manager'
-    }
-  },
-  {
-    id: '3',
-    territoryCode: 'NORTH-DL-01',
-    territoryName: 'Delhi NCR Sales',
-    level: 2,
-    coverage: {
-      states: ['Delhi', 'Haryana', 'Uttar Pradesh'],
-      cities: ['New Delhi', 'Gurugram', 'Noida', 'Ghaziabad'],
-      pinCodes: ['110001-110096', '122001-122050']
-    },
-    assignment: {
-      manager: 'Amit Singh',
-      managerId: 'EMP003',
-      salesTeam: ['EMP106', 'EMP107', 'EMP108', 'EMP109']
-    },
-    targets: {
-      monthlyRevenue: 6000000,
-      quarterlyRevenue: 18000000,
-      annualRevenue: 72000000,
-      customerAcquisition: 60
-    },
-    performance: {
-      actualRevenue: 5400000,
-      achievement: 90,
-      totalCustomers: 312,
-      activeCustomers: 245,
-      avgDealSize: 98000
-    },
-    settings: {
-      territoryType: 'Sales',
-      allowOverlap: true,
-      priority: 'High'
-    },
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-02-01'),
-      updatedAt: new Date('2024-03-15'),
-      createdBy: 'Admin',
-      updatedBy: 'Manager'
-    }
-  },
-  {
-    id: '4',
-    territoryCode: 'EAST-WB-01',
-    territoryName: 'West Bengal Service',
-    level: 2,
-    coverage: {
-      states: ['West Bengal'],
-      cities: ['Kolkata', 'Howrah'],
-      pinCodes: ['700001-700156']
-    },
-    assignment: {
-      manager: 'Sanjay Das',
-      managerId: 'EMP004',
-      serviceTeam: ['EMP110', 'EMP111']
-    },
-    targets: {
-      monthlyRevenue: 2000000,
-      quarterlyRevenue: 6000000,
-      annualRevenue: 24000000,
-      customerAcquisition: 25
-    },
-    performance: {
-      actualRevenue: 1850000,
-      achievement: 92.5,
-      totalCustomers: 145,
-      activeCustomers: 112,
-      avgDealSize: 85000
-    },
-    settings: {
-      territoryType: 'Service',
-      allowOverlap: false,
-      priority: 'Medium'
-    },
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-03-01'),
-      updatedAt: new Date('2024-03-10'),
-      createdBy: 'Admin',
-      updatedBy: 'Manager'
-    }
-  }
-];
-
 export default function TerritoryMaster() {
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -248,6 +79,48 @@ export default function TerritoryMaster() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formCode, setFormCode] = useState('');
+  const [formStatus, setFormStatus] = useState<Territory['status']>('Active');
+
+  const openModal = (territory: Territory | null) => {
+    setSelectedTerritory(territory);
+    setFormName(territory?.territoryName ?? '');
+    setFormCode(territory?.territoryCode ?? '');
+    setFormStatus(territory?.status ?? 'Active');
+    setIsModalOpen(true);
+    setCurrentTab('basic');
+  };
+
+  const handleSave = async () => {
+    if (!formName.trim()) { alert('Territory Name is required.'); return; }
+    if (!formCode.trim()) { alert('Territory Code is required.'); return; }
+    try {
+      setIsSaving(true);
+      if (selectedTerritory) {
+        await commonMastersService.updateTerritory(selectedTerritory.id, {
+          code: formCode.trim(),
+          name: formName.trim(),
+          isActive: formStatus === 'Active',
+        });
+      } else {
+        await commonMastersService.createTerritory({
+          code: formCode.trim(),
+          name: formName.trim(),
+          companyId,
+        });
+      }
+      setIsModalOpen(false);
+      await fetchTerritories();
+      alert(`Territory ${selectedTerritory ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error('Error saving territory:', error);
+      alert('Failed to save territory. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const fetchTerritories = async () => {
     try {
@@ -298,14 +171,17 @@ export default function TerritoryMaster() {
   };
 
   const handleEdit = (territory: Territory) => {
-    setSelectedTerritory(territory);
-    setIsModalOpen(true);
-    setCurrentTab('basic');
+    openModal(territory);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this territory?')) {
-      setTerritories(territories.filter(t => t.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this territory?')) return;
+    try {
+      await commonMastersService.deleteTerritory(id);
+      await fetchTerritories();
+    } catch (error) {
+      console.error('Error deleting territory:', error);
+      alert('Failed to delete territory. Please try again.');
     }
   };
 
@@ -491,11 +367,7 @@ export default function TerritoryMaster() {
                 Export
               </button>
               <button
-                onClick={() => {
-                  setSelectedTerritory(null);
-                  setIsModalOpen(true);
-                  setCurrentTab('basic');
-                }}
+                onClick={() => openModal(null)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
@@ -670,7 +542,8 @@ export default function TerritoryMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedTerritory?.territoryName}
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter territory name"
                       />
@@ -681,7 +554,8 @@ export default function TerritoryMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedTerritory?.territoryCode}
+                        value={formCode}
+                        onChange={(e) => setFormCode(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="WEST-MH-01"
                       />
@@ -716,7 +590,8 @@ export default function TerritoryMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Status
                       </label>
-                      <select defaultValue={selectedTerritory?.status || 'Active'}
+                      <select value={formStatus}
+                        onChange={(e) => setFormStatus(e.target.value as Territory['status'])}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="Active">Active</option>
                         <option value="Inactive">Inactive</option>
@@ -797,13 +672,11 @@ export default function TerritoryMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Territory saved successfully!');
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                {selectedTerritory ? 'Update' : 'Create'} Territory
+                {isSaving ? 'Saving...' : `${selectedTerritory ? 'Update' : 'Create'} Territory`}
               </button>
             </div>
           </div>

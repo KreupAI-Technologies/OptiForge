@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, Search, Clock, AlertCircle, FileText, Download } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 const POLICY_CATEGORIES = ['code_of_conduct', 'compliance', 'safety', 'hr', 'it_security', 'other'] as const;
 const ACK_VIAS = ['digital_signature', 'email', 'in_person'] as const;
@@ -78,6 +79,31 @@ export default function Page() {
       cancelled = true;
     };
   }, []);
+
+  const [remindingId, setRemindingId] = useState<string | null>(null);
+
+  const handleSendReminder = async (id: string) => {
+    const current = acknowledgments.find(a => a.id === id);
+    const nextCount = (current?.remindersSent ?? 0) + 1;
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      setRemindingId(id);
+      await HrComplianceDocsService.updatePolicyAcknowledgment(id, {
+        remindersSent: nextCount,
+        lastReminderDate: today,
+      });
+      setAcknowledgments(prev =>
+        prev.map(a =>
+          a.id === id ? { ...a, remindersSent: nextCount, lastReminderDate: today } : a,
+        ),
+      );
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to send reminder');
+    } finally {
+      setRemindingId(null);
+    }
+  };
 
   const filteredAcknowledgments = useMemo(() => {
     return acknowledgments.filter(ack => {
@@ -342,8 +368,12 @@ export default function Page() {
                     Download
                   </button>
                   {ack.status !== 'acknowledged' && (
-                    <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium">
-                      Send Reminder
+                    <button
+                      onClick={() => handleSendReminder(ack.id)}
+                      disabled={remindingId === ack.id}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium disabled:opacity-50"
+                    >
+                      {remindingId === ack.id ? 'Sending...' : 'Send Reminder'}
                     </button>
                   )}
                 </div>

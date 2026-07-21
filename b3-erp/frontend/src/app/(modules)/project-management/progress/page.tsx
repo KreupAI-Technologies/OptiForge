@@ -127,19 +127,48 @@ export default function DailyProgressPage() {
   }
  };
 
- // Modal handlers
- const handleUpdateProgress = (data: any) => {
-  console.log('Update progress:', data);
-  setShowUpdateModal(false);
+ const handleSaveEntry = async () => {
+  const created = await projectManagementService.createProgressEntry({
+   ...newEntry,
+   date: selectedDate,
+  } as any);
+  if (created) await reloadEntries();
+  setShowAddModal(false);
  };
 
- const handleAddMilestone = (data: any) => {
-  console.log('Add milestone:', data);
+ const reloadEntries = async () => {
+  const rows = await projectManagementService.listProgressEntries();
+  if (Array.isArray(rows)) setEntries(rows as unknown as ProgressEntry[]);
+ };
+
+ // Modal handlers
+ const handleUpdateProgress = async (data: any) => {
+  if (selectedEntry) {
+   await projectManagementService.updateProgressEntry(selectedEntry.id, {
+    completionPercent: Number(data?.progress ?? selectedEntry.completionPercent),
+   } as any);
+   await reloadEntries();
+  }
+  setShowUpdateModal(false);
+  setSelectedEntry(null);
+ };
+
+ const handleAddMilestone = async (data: any) => {
+  const created = await projectManagementService.createProgressEntry({
+   activity: data?.milestone,
+   status: data?.status,
+   date: data?.completionDate,
+  } as any);
+  if (created) await reloadEntries();
   setShowAddMilestoneModal(false);
  };
 
- const handleLogActivity = (data: any) => {
-  console.log('Log activity:', data);
+ const handleLogActivity = async (data: any) => {
+  const created = await projectManagementService.createProgressEntry({
+   activity: data?.activity,
+   date: new Date().toISOString().split('T')[0],
+  } as any);
+  if (created) await reloadEntries();
   setShowLogActivityModal(false);
  };
 
@@ -521,12 +550,18 @@ export default function DailyProgressPage() {
          <input
           type="date"
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          defaultValue={new Date().toISOString().split('T')[0]}
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
          />
         </div>
         <div>
          <label className="block text-sm font-medium text-gray-700 mb-2">Work Package</label>
-         <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+         <select
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          value={newEntry.workPackage}
+          onChange={(e) => setNewEntry({ ...newEntry, workPackage: e.target.value })}
+         >
+          <option value="">Select...</option>
           <option>Equipment Installation</option>
           <option>Civil Work</option>
           <option>Testing & Commissioning</option>
@@ -540,6 +575,8 @@ export default function DailyProgressPage() {
          type="text"
          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
          placeholder="e.g., Cooking Equipment Installation"
+         value={newEntry.activity}
+         onChange={(e) => setNewEntry({ ...newEntry, activity: e.target.value })}
         />
        </div>
 
@@ -549,6 +586,8 @@ export default function DailyProgressPage() {
          rows={3}
          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
          placeholder="What was planned for today..."
+         value={newEntry.plannedWork}
+         onChange={(e) => setNewEntry({ ...newEntry, plannedWork: e.target.value })}
         />
        </div>
 
@@ -558,6 +597,8 @@ export default function DailyProgressPage() {
          rows={3}
          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
          placeholder="What was actually completed..."
+         value={newEntry.actualWork}
+         onChange={(e) => setNewEntry({ ...newEntry, actualWork: e.target.value })}
         />
        </div>
 
@@ -570,6 +611,8 @@ export default function DailyProgressPage() {
           placeholder="0-100"
           min="0"
           max="100"
+          value={newEntry.completionPercent}
+          onChange={(e) => setNewEntry({ ...newEntry, completionPercent: Number(e.target.value) })}
          />
         </div>
         <div>
@@ -578,6 +621,8 @@ export default function DailyProgressPage() {
           type="number"
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Number of workers"
+          value={newEntry.laborDeployed}
+          onChange={(e) => setNewEntry({ ...newEntry, laborDeployed: Number(e.target.value) })}
          />
         </div>
         <div>
@@ -586,6 +631,8 @@ export default function DailyProgressPage() {
           type="number"
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Total manhours"
+          value={newEntry.hoursWorked}
+          onChange={(e) => setNewEntry({ ...newEntry, hoursWorked: Number(e.target.value) })}
          />
         </div>
        </div>
@@ -596,6 +643,8 @@ export default function DailyProgressPage() {
          rows={2}
          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
          placeholder="List materials consumed..."
+         value={newEntry.materialUsed}
+         onChange={(e) => setNewEntry({ ...newEntry, materialUsed: e.target.value })}
         />
        </div>
 
@@ -605,6 +654,8 @@ export default function DailyProgressPage() {
          rows={2}
          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
          placeholder="List equipment used..."
+         value={newEntry.equipmentUsed}
+         onChange={(e) => setNewEntry({ ...newEntry, equipmentUsed: e.target.value })}
         />
        </div>
 
@@ -614,13 +665,19 @@ export default function DailyProgressPage() {
          rows={2}
          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
          placeholder="Any issues encountered..."
+         value={newEntry.issues}
+         onChange={(e) => setNewEntry({ ...newEntry, issues: e.target.value })}
         />
        </div>
 
        <div className="grid grid-cols-2 gap-2">
         <div>
          <label className="block text-sm font-medium text-gray-700 mb-2">Weather Conditions</label>
-         <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+         <select
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          value={newEntry.weather}
+          onChange={(e) => setNewEntry({ ...newEntry, weather: e.target.value })}
+         >
           <option>Clear</option>
           <option>Cloudy</option>
           <option>Rain</option>
@@ -634,6 +691,8 @@ export default function DailyProgressPage() {
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="0"
           min="0"
+          value={newEntry.safetyIncidents}
+          onChange={(e) => setNewEntry({ ...newEntry, safetyIncidents: Number(e.target.value) })}
          />
         </div>
        </div>
@@ -646,7 +705,10 @@ export default function DailyProgressPage() {
        >
         Cancel
        </button>
-       <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+       <button
+        onClick={handleSaveEntry}
+        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+       >
         <Save className="w-5 h-5" />
         Save Entry
        </button>

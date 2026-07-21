@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { Calendar, Clock, MapPin, Users, Plus, Video, Monitor } from 'lucide-react';
 
 interface Meeting {
@@ -50,12 +51,16 @@ export default function ReviewMeetingsPage() {
     location: ''
   });
 
-  const handleSchedule = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newMeeting: Meeting = {
-      id: Date.now().toString(),
+    setIsSaving(true);
+    setSaveError(null);
+    const newMeeting: Omit<Meeting, 'id'> = {
       employeeName: formData.employeeName,
-      role: 'Team Member', // Mock role
+      role: 'Team Member',
       date: formData.date,
       time: formData.time,
       duration: `${formData.duration} min`,
@@ -64,19 +69,30 @@ export default function ReviewMeetingsPage() {
       status: 'scheduled'
     };
 
-    setMeetings(prev => [...prev, newMeeting].sort((a, b) =>
-      new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
-    ));
+    try {
+      const created = await HrTalentService.createPerformance<Meeting>(newMeeting as Meeting, {
+        recordType: 'review-meeting',
+        status: 'scheduled',
+      });
 
-    setShowModal(false);
-    setFormData({
-      employeeName: '',
-      date: '',
-      time: '',
-      duration: '30',
-      type: 'remote',
-      location: ''
-    });
+      setMeetings(prev => [...prev, { ...(newMeeting as Meeting), ...created } as Meeting].sort((a, b) =>
+        new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime()
+      ));
+
+      setShowModal(false);
+      setFormData({
+        employeeName: '',
+        date: '',
+        time: '',
+        duration: '30',
+        type: 'remote',
+        location: ''
+      });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to schedule meeting');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getMeetingIcon = (type: string) => {
@@ -271,6 +287,12 @@ export default function ReviewMeetingsPage() {
                 </div>
               )}
 
+              {saveError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {saveError}
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
@@ -281,9 +303,10 @@ export default function ReviewMeetingsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                  disabled={isSaving}
+                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
-                  Schedule
+                  {isSaving ? 'Scheduling…' : 'Schedule'}
                 </button>
               </div>
             </form>

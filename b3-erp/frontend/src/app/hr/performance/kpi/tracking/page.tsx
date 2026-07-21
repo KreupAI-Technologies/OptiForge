@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { TrendingUp, Target, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface KPI {
@@ -42,6 +43,8 @@ export default function KPITrackingPage() {
 
   const [selectedKPI, setSelectedKPI] = useState<KPI | null>(null);
   const [updateValue, setUpdateValue] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -56,25 +59,33 @@ export default function KPITrackingPage() {
     return Math.min(Math.round((current / target) * 100), 100);
   };
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedKPI) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
 
     const newValue = parseFloat(updateValue);
-    setKpis(prev => prev.map(k => {
-      if (k.id === selectedKPI.id) {
-        const progress = calculateProgress(newValue, k.targetValue);
-        let status: KPI['status'] = 'on-track';
-        if (progress >= 100) status = 'completed';
-        else if (progress < 50) status = 'at-risk'; // Simple logic for demo
+    const progress = calculateProgress(newValue, selectedKPI.targetValue);
+    let status: KPI['status'] = 'on-track';
+    if (progress >= 100) status = 'completed';
+    else if (progress < 50) status = 'at-risk';
 
-        return { ...k, currentValue: newValue, status };
-      }
-      return k;
-    }));
-
-    setSelectedKPI(null);
-    setUpdateValue('');
+    try {
+      await HrTalentService.updatePerformance(selectedKPI.id, {
+        data: { currentValue: newValue, status },
+        status
+      });
+      setKpis(prev => prev.map(k =>
+        k.id === selectedKPI.id ? { ...k, currentValue: newValue, status } : k
+      ));
+      setSelectedKPI(null);
+      setUpdateValue('');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update progress');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -162,6 +173,11 @@ export default function KPITrackingPage() {
             </div>
 
             <form onSubmit={handleUpdate} className="p-6 space-y-2">
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Current Value ({selectedKPI.unit})
@@ -199,9 +215,10 @@ export default function KPITrackingPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
-                  Save Update
+                  {isSubmitting ? 'Saving…' : 'Save Update'}
                 </button>
               </div>
             </form>

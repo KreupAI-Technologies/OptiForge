@@ -8,6 +8,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, Zap, Shield
 } from 'lucide-react';
 import { hrMastersService } from '@/services/hr-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface Shift {
   id: string;
@@ -66,161 +67,7 @@ interface Shift {
   };
 }
 
-const mockShifts: Shift[] = [
-  {
-    id: '1',
-    code: 'SFT-DAY-001',
-    name: 'Day Shift',
-    type: 'Regular',
-    category: 'Day',
-    timing: {
-      startTime: '08:00',
-      endTime: '17:00',
-      breakStart: '12:00',
-      breakEnd: '13:00',
-      totalHours: 9,
-      workHours: 8,
-      breakHours: 1
-    },
-    days: {
-      monday: true,
-      tuesday: true,
-      wednesday: true,
-      thursday: true,
-      friday: true,
-      saturday: false,
-      sunday: false
-    },
-    allowances: {
-      shiftAllowance: 0,
-      nightAllowance: 0,
-      overtimeRate: 1.5,
-      weekendRate: 2.0,
-      holidayRate: 2.5
-    },
-    rules: {
-      minStaff: 10,
-      maxStaff: 50,
-      minRestHours: 11,
-      maxConsecutiveDays: 5,
-      requiresApproval: false,
-      autoAssign: true
-    },
-    departments: ['Production', 'Quality', 'Warehouse'],
-    locations: ['Main Factory', 'Branch Office'],
-    effectiveFrom: new Date('2024-01-01'),
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-12-15'),
-      updatedAt: new Date('2024-01-10'),
-      createdBy: 'Admin',
-      updatedBy: 'HR Manager'
-    }
-  },
-  {
-    id: '2',
-    code: 'SFT-NGT-001',
-    name: 'Night Shift',
-    type: 'Regular',
-    category: 'Night',
-    timing: {
-      startTime: '22:00',
-      endTime: '06:00',
-      breakStart: '02:00',
-      breakEnd: '02:30',
-      totalHours: 8,
-      workHours: 7.5,
-      breakHours: 0.5
-    },
-    days: {
-      monday: true,
-      tuesday: true,
-      wednesday: true,
-      thursday: true,
-      friday: true,
-      saturday: true,
-      sunday: false
-    },
-    allowances: {
-      shiftAllowance: 500,
-      nightAllowance: 300,
-      overtimeRate: 2.0,
-      weekendRate: 2.5,
-      holidayRate: 3.0
-    },
-    rules: {
-      minStaff: 5,
-      maxStaff: 25,
-      minRestHours: 12,
-      maxConsecutiveDays: 4,
-      requiresApproval: true,
-      autoAssign: false
-    },
-    departments: ['Production', 'Security'],
-    locations: ['Main Factory'],
-    effectiveFrom: new Date('2024-01-01'),
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-12-15'),
-      updatedAt: new Date('2024-01-10'),
-      createdBy: 'Admin',
-      updatedBy: 'HR Manager'
-    }
-  },
-  {
-    id: '3',
-    code: 'SFT-ROT-001',
-    name: 'Rotating Shift',
-    type: 'Rotating',
-    category: 'General',
-    timing: {
-      startTime: '06:00',
-      endTime: '14:00',
-      totalHours: 8,
-      workHours: 8,
-      breakHours: 0
-    },
-    days: {
-      monday: true,
-      tuesday: true,
-      wednesday: true,
-      thursday: true,
-      friday: true,
-      saturday: true,
-      sunday: true
-    },
-    rotation: {
-      pattern: '2-2-3',
-      cycleDays: 14,
-      teams: 4
-    },
-    allowances: {
-      shiftAllowance: 200,
-      nightAllowance: 0,
-      overtimeRate: 1.5,
-      weekendRate: 2.0,
-      holidayRate: 2.5
-    },
-    rules: {
-      minStaff: 8,
-      maxStaff: 30,
-      minRestHours: 8,
-      maxConsecutiveDays: 3,
-      requiresApproval: false,
-      autoAssign: true
-    },
-    departments: ['Production'],
-    locations: ['Main Factory', 'Plant 2'],
-    effectiveFrom: new Date('2024-01-01'),
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-12-20'),
-      updatedAt: new Date('2024-01-05'),
-      createdBy: 'Admin',
-      updatedBy: 'Operations Manager'
-    }
-  }
-];
+const COMPANY_ID = '1';
 
 export default function ShiftMaster() {
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -232,12 +79,17 @@ export default function ShiftMaster() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
+  const [isSaving, setIsSaving] = useState(false);
+  const [formCode, setFormCode] = useState('');
+  const [formName, setFormName] = useState('');
+  const [formStartTime, setFormStartTime] = useState('');
+  const [formEndTime, setFormEndTime] = useState('');
+  const [formStatus, setFormStatus] = useState<Shift['status']>('Active');
 
-  useEffect(() => {
-    const fetchShifts = async () => {
+  const fetchShifts = async () => {
       try {
         setLoading(true);
-        const data = await hrMastersService.getAllShifts('1');
+        const data = await hrMastersService.getAllShifts(COMPANY_ID);
 
         const transformedShifts: Shift[] = data.map(item => ({
           id: item.id,
@@ -296,18 +148,66 @@ export default function ShiftMaster() {
       }
     };
 
+  useEffect(() => {
     fetchShifts();
   }, []);
 
-  const handleEdit = (shift: Shift) => {
+  const openModal = (shift: Shift | null) => {
     setSelectedShift(shift);
+    setFormCode(shift?.code ?? '');
+    setFormName(shift?.name ?? '');
+    setFormStartTime(shift?.timing.startTime ?? '');
+    setFormEndTime(shift?.timing.endTime ?? '');
+    setFormStatus(shift?.status ?? 'Active');
     setIsModalOpen(true);
     setCurrentTab('basic');
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this shift?')) {
-      setShifts(shifts.filter(s => s.id !== id));
+  const handleEdit = (shift: Shift) => {
+    openModal(shift);
+  };
+
+  const handleSave = async () => {
+    if (!formCode.trim()) { alert('Shift Code is required.'); return; }
+    if (!formName.trim()) { alert('Shift Name is required.'); return; }
+    if (!formStartTime || !formEndTime) { alert('Start Time and End Time are required.'); return; }
+    try {
+      setIsSaving(true);
+      if (selectedShift) {
+        await commonMastersService.updateShift(selectedShift.id, {
+          code: formCode.trim(),
+          name: formName.trim(),
+          startTime: formStartTime,
+          endTime: formEndTime,
+        });
+      } else {
+        await commonMastersService.createShift({
+          code: formCode.trim(),
+          name: formName.trim(),
+          startTime: formStartTime,
+          endTime: formEndTime,
+          companyId: COMPANY_ID,
+        });
+      }
+      setIsModalOpen(false);
+      await fetchShifts();
+      alert(`Shift ${selectedShift ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error('Error saving shift:', error);
+      alert('Failed to save shift. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this shift?')) return;
+    try {
+      await commonMastersService.deleteShift(id);
+      await fetchShifts();
+    } catch (error) {
+      console.error('Error deleting shift:', error);
+      alert('Failed to delete shift. Please try again.');
     }
   };
 
@@ -451,11 +351,7 @@ export default function ShiftMaster() {
               </select>
             </div>
             <button
-              onClick={() => {
-                setSelectedShift(null);
-                setIsModalOpen(true);
-                setCurrentTab('basic');
-              }}
+              onClick={() => openModal(null)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -604,7 +500,8 @@ export default function ShiftMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedShift?.code}
+                        value={formCode}
+                        onChange={(e) => setFormCode(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="SFT-XXX-000"
                       />
@@ -615,7 +512,8 @@ export default function ShiftMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedShift?.name}
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter shift name"
                       />
@@ -677,7 +575,8 @@ export default function ShiftMaster() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Status
                     </label>
-                    <select defaultValue={selectedShift?.status || 'Active'}
+                    <select value={formStatus}
+                      onChange={(e) => setFormStatus(e.target.value as Shift['status'])}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
@@ -696,7 +595,8 @@ export default function ShiftMaster() {
                       </label>
                       <input
                         type="time"
-                        defaultValue={selectedShift?.timing.startTime}
+                        value={formStartTime}
+                        onChange={(e) => setFormStartTime(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -706,7 +606,8 @@ export default function ShiftMaster() {
                       </label>
                       <input
                         type="time"
-                        defaultValue={selectedShift?.timing.endTime}
+                        value={formEndTime}
+                        onChange={(e) => setFormEndTime(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -985,13 +886,11 @@ export default function ShiftMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Shift saved successfully!');
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                {selectedShift ? 'Update' : 'Create'} Shift
+                {isSaving ? 'Saving...' : `${selectedShift ? 'Update' : 'Create'} Shift`}
               </button>
             </div>
           </div>

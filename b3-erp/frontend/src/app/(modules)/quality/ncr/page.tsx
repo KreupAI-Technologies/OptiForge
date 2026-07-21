@@ -7,6 +7,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ncrService as NCRService, NCR, NCRStatus } from '@/services/ncr.service';
 import {
@@ -24,6 +35,7 @@ import {
     Building2,
     Loader2,
     ArrowRight,
+    Plus,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
 
@@ -50,6 +62,46 @@ export default function NCRPage() {
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterSeverity, setFilterSeverity] = useState<string>('all');
     const [loading, setLoading] = useState(false);
+
+    // Create dialog state
+    const [createOpen, setCreateOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [form, setForm] = useState({
+        title: '',
+        description: '',
+        severity: 'major',
+        source: 'internal',
+        reportedBy: '',
+    });
+
+    const resetForm = () =>
+        setForm({ title: '', description: '', severity: 'major', source: 'internal', reportedBy: '' });
+
+    const handleCreate = async () => {
+        if (!form.title.trim() || !form.description.trim() || !form.reportedBy.trim()) {
+            toast({ title: 'Missing fields', description: 'Title, description and reported by are required.', variant: 'destructive' });
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await NCRService.create({
+                title: form.title.trim(),
+                description: form.description.trim(),
+                severity: form.severity,
+                source: form.source,
+                reportedBy: form.reportedBy.trim(),
+            });
+            toast({ title: 'NCR Created', description: `${form.title} was created successfully.` });
+            setCreateOpen(false);
+            resetForm();
+            await loadNCRs();
+        } catch (error) {
+            console.error('Failed to create NCR:', error);
+            toast({ title: 'Error', description: 'Failed to create NCR', variant: 'destructive' });
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     // Load projects
     useEffect(() => {
@@ -241,6 +293,10 @@ export default function NCRPage() {
                                 <FolderKanban className="w-4 h-4 mr-2" />
                                 Change Project
                             </Button>
+                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setCreateOpen(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Create NCR
+                            </Button>
                             <Button onClick={() => router.push(`/quality/capa?projectId=${selectedProject.id}`)}>
                                 CAPA <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
@@ -368,6 +424,63 @@ export default function NCRPage() {
                     </>
                 )}
             </div>
+
+            {/* Create NCR Dialog */}
+            <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm(); }}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Create Non-Conformance Report</DialogTitle>
+                        <DialogDescription>Log a new NCR for {selectedProject.name}.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="ncr-title">Title *</Label>
+                            <Input id="ncr-title" placeholder="e.g. Dimensional non-conformance on steel shaft"
+                                value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="ncr-description">Description *</Label>
+                            <Textarea id="ncr-description" rows={3} placeholder="Describe the non-conformance"
+                                value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ncr-severity">Severity</Label>
+                                <select id="ncr-severity" className="w-full px-3 py-2 border rounded-md text-sm"
+                                    value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
+                                    <option value="critical">Critical</option>
+                                    <option value="major">Major</option>
+                                    <option value="minor">Minor</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ncr-source">Source</Label>
+                                <select id="ncr-source" className="w-full px-3 py-2 border rounded-md text-sm"
+                                    value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
+                                    <option value="inspection">Inspection</option>
+                                    <option value="production">Production</option>
+                                    <option value="customer">Customer</option>
+                                    <option value="supplier">Supplier</option>
+                                    <option value="audit">Audit</option>
+                                    <option value="internal">Internal</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="ncr-reportedBy">Reported By *</Label>
+                            <Input id="ncr-reportedBy" placeholder="Your name"
+                                value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
+                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleCreate} disabled={submitting}>
+                            {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Create NCR
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

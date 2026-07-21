@@ -54,6 +54,7 @@ export default function CostBreakdownPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<CostBreakdown | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -131,6 +132,43 @@ export default function CostBreakdownPage() {
 
   const avgProfitMargin = costBreakdowns.reduce((sum, c) => sum + c.profitPercent, 0) / costBreakdowns.length
 
+  const filteredBreakdowns = costBreakdowns.filter((p) => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return true
+    return (
+      p.productName.toLowerCase().includes(q) ||
+      p.productCode.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    )
+  })
+
+  const handleExport = () => {
+    const headers = ['Product Code', 'Product Name', 'Category', 'Total Cost', 'Material Cost', 'Labor Cost', 'Overhead Cost', 'Units', 'Selling Price', 'Profit Margin', 'Profit %']
+    const rows = filteredBreakdowns.map((p) => [
+      p.productCode,
+      p.productName,
+      p.category,
+      p.totalCost,
+      p.materialCost,
+      p.laborCost,
+      p.overheadCost,
+      p.unitsProduced,
+      p.sellingPrice,
+      p.profitMargin,
+      p.profitPercent.toFixed(1),
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'cost-breakdown.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="w-full h-full px-4 py-2">
       {/* Header */}
@@ -148,11 +186,17 @@ export default function CostBreakdownPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => document.getElementById('breakdown-search')?.focus()}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
@@ -349,7 +393,10 @@ export default function CostBreakdownPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
+                id="breakdown-search"
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search products..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -371,14 +418,14 @@ export default function CostBreakdownPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {costBreakdowns.length === 0 && (
+              {filteredBreakdowns.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
                     {isLoading ? 'Loading...' : 'No cost breakdowns found.'}
                   </td>
                 </tr>
               )}
-              {costBreakdowns.map((product) => (
+              {filteredBreakdowns.map((product) => (
                 <tr
                   key={product.id}
                   onClick={() => setSelectedProduct(product)}

@@ -4,6 +4,15 @@ import { apiClient } from './api/client';
 // feature endpoints (settings/templates/milestone-templates/analytics) live here.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
+/**
+ * fetch wrapper that always sends the HttpOnly JWT cookie so requests reach the
+ * JWT-guarded NestJS API. Cross-origin (3000→3001) needs `credentials: 'include'`;
+ * the cookie is SameSite=Lax so it is only ever sent same-site.
+ */
+function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+    return fetch(input, { credentials: 'include', ...init });
+}
+
 export interface PmProjectPlan {
     id: string;
     companyId?: string;
@@ -1986,14 +1995,9 @@ class ProjectManagementService {
     }
 
     async createClaim(claim: Omit<TAClaim, 'id' | 'status'>): Promise<TAClaim> {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const newClaim: TAClaim = {
-            ...claim,
-            id: `CLM-${Date.now()}`,
-            status: 'Pending',
-        };
-        this.claims.push(newClaim);
-        return newClaim;
+        // Real persistence → NestJS ta-settlement (api/v1 prefix applied by base URL).
+        const saved = await this.pmModulePost<TAClaim>('/api/project-management/ta-settlement/claims', claim);
+        return (saved as TAClaim) ?? ({ ...claim, id: `CLM-${Date.now()}`, status: 'Pending' } as TAClaim);
     }
 
     // Emergency Spares Methods
@@ -2009,21 +2013,23 @@ class ProjectManagementService {
     }
 
     async createSpareRequest(request: Omit<EmergencySpareRequest, 'id' | 'status'>): Promise<EmergencySpareRequest> {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const newRequest: EmergencySpareRequest = {
+        // Real persistence → NestJS emergency-spares (service.requestSpare).
+        const r = request as any;
+        const saved = await this.pmModulePost<EmergencySpareRequest>('/api/project-management/emergency-spares', {
             ...request,
-            id: `SPR-${Date.now()}`,
-            status: 'Pending Approval',
-        };
-        this.spareRequests.push(newRequest);
-        return newRequest;
+            partId: r.partId ?? r.partName ?? r.part ?? '',
+            urgency: r.urgency ?? r.priority ?? 'Normal',
+            reason: r.reason ?? r.justification ?? '',
+        });
+        return (saved as EmergencySpareRequest) ?? ({ ...request, id: `SPR-${Date.now()}`, status: 'Pending Approval' } as EmergencySpareRequest);
     }
 
     async updateSpareRequestStatus(id: string, status: EmergencySpareRequest['status']): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const request = this.spareRequests.find(r => r.id === id);
-        if (request) {
-            request.status = status;
+        // Real persistence → emergency-spares approve/reject endpoints (PUT).
+        if (/reject/i.test(String(status))) {
+            await this.pmModulePut<any>(`/api/project-management/emergency-spares/${id}/reject`, { rejectedBy: 'current-user', reason: '' });
+        } else {
+            await this.pmModulePut<any>(`/api/project-management/emergency-spares/${id}/approve`, { approvedBy: 'current-user' });
         }
     }
 
@@ -2076,8 +2082,8 @@ class ProjectManagementService {
     }
 
     async saveSiteMeasurements(projectId: string, data: RoomMeasurements[]): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        this.siteMeasurements = data;
+        // Real persistence → design-verification surveys (site measurement survey).
+        await this.pmModulePost<any>('/api/design-verification/surveys', { projectId, measurements: data });
     }
 
     // Drawing Verification Methods
@@ -2095,12 +2101,12 @@ class ProjectManagementService {
     }
 
     async verifyDrawing(id: string, status: 'Verified' | 'Rejected', notes?: string): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const drawing = this.drawings.find(d => d.id === id);
-        if (drawing) {
-            drawing.status = status;
-            if (notes) drawing.notes = notes;
-        }
+        // Real persistence → design-verification drawing verify/reject (PATCH).
+        await this.pmModulePatch<any>(`/api/design-verification/drawings/${id}/verify`, {
+            status,
+            notes: notes ?? '',
+            verifiedBy: 'current-user',
+        });
     }
 
     async getBOQItems(projectId: string): Promise<BOQItem[]> {
@@ -2115,13 +2121,8 @@ class ProjectManagementService {
     }
 
     async updateBOQItem(id: string, drawingQty: number, notes?: string): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const itemIndex = this.boqItems.findIndex(i => i.id === id);
-        if (itemIndex > -1) {
-            const item = this.boqItems[itemIndex];
-            const status = item.boqQty === drawingQty ? 'Match' : 'Mismatch';
-            this.boqItems[itemIndex] = { ...item, drawingQty, status, notes };
-        }
+        // Real persistence → NestJS BOQ item update (PUT /api/boq/items/:itemId).
+        await this.pmModulePut<any>(`/api/boq/items/${id}`, { drawingQty, actualQty: drawingQty, notes });
     }
 
     async getDiscrepancies(projectId: string): Promise<Discrepancy[]> {
@@ -2136,15 +2137,14 @@ class ProjectManagementService {
     }
 
     async createDiscrepancy(discrepancy: Omit<Discrepancy, 'id' | 'date' | 'status'>): Promise<Discrepancy> {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const newDiscrepancy: Discrepancy = {
+        // Real persistence → design-verification discrepancies (POST).
+        const saved = await this.pmModulePost<Discrepancy>('/api/design-verification/discrepancies', discrepancy);
+        return (saved as Discrepancy) ?? ({
             ...discrepancy,
             id: `DIS-${Math.floor(Math.random() * 1000)}`,
             date: new Date().toISOString().split('T')[0],
-            status: 'Open'
-        };
-        this.discrepancies.unshift(newDiscrepancy);
-        return newDiscrepancy;
+            status: 'Open',
+        } as Discrepancy);
     }
 
     // Site Visit Schedule
@@ -2343,7 +2343,7 @@ class ProjectManagementService {
     // --- Project Management module settings (NestJS) ---
     async getPmSettings(companyId = 'default'): Promise<PmSettings | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/settings?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/settings?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return null;
             return (await res.json()) as PmSettings;
         } catch (error) {
@@ -2354,7 +2354,7 @@ class ProjectManagementService {
 
     async savePmSettings(data: Partial<PmSettings>, companyId = 'default'): Promise<PmSettings | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/settings?companyId=${encodeURIComponent(companyId)}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/settings?companyId=${encodeURIComponent(companyId)}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2369,7 +2369,7 @@ class ProjectManagementService {
 
     async resetPmSettings(companyId = 'default'): Promise<PmSettings | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/settings/reset?companyId=${encodeURIComponent(companyId)}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/settings/reset?companyId=${encodeURIComponent(companyId)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -2384,7 +2384,7 @@ class ProjectManagementService {
     // --- Project templates (NestJS) ---
     async listPmTemplates(companyId = 'default'): Promise<PmTemplate[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/templates?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/templates?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? (data as PmTemplate[]) : [];
@@ -2396,7 +2396,7 @@ class ProjectManagementService {
 
     async createPmTemplate(data: Partial<PmTemplate>): Promise<PmTemplate | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/templates`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/templates`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2411,7 +2411,7 @@ class ProjectManagementService {
 
     async updatePmTemplate(id: string, data: Partial<PmTemplate>): Promise<PmTemplate | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/templates/${id}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/templates/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2426,7 +2426,7 @@ class ProjectManagementService {
 
     async deletePmTemplate(id: string): Promise<void> {
         try {
-            await fetch(`${API_BASE_URL}/project-management/templates/${id}`, { method: 'DELETE' });
+            await fetchWithAuth(`${API_BASE_URL}/project-management/templates/${id}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Error deleting PM template:', error);
         }
@@ -2435,7 +2435,7 @@ class ProjectManagementService {
     // --- Milestone templates (NestJS) ---
     async listMilestoneTemplates(companyId = 'default'): Promise<PmMilestoneTemplate[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/milestone-templates?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/milestone-templates?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? (data as PmMilestoneTemplate[]) : [];
@@ -2447,7 +2447,7 @@ class ProjectManagementService {
 
     async createMilestoneTemplate(data: Partial<PmMilestoneTemplate>): Promise<PmMilestoneTemplate | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/milestone-templates`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/milestone-templates`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2462,7 +2462,7 @@ class ProjectManagementService {
 
     async updateMilestoneTemplate(id: string, data: Partial<PmMilestoneTemplate>): Promise<PmMilestoneTemplate | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/milestone-templates/${id}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/milestone-templates/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2477,7 +2477,7 @@ class ProjectManagementService {
 
     async deleteMilestoneTemplate(id: string): Promise<void> {
         try {
-            await fetch(`${API_BASE_URL}/project-management/milestone-templates/${id}`, { method: 'DELETE' });
+            await fetchWithAuth(`${API_BASE_URL}/project-management/milestone-templates/${id}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Error deleting milestone template:', error);
         }
@@ -2486,7 +2486,7 @@ class ProjectManagementService {
     // --- Change orders (NestJS CRUD) ---
     async listChangeOrders(companyId = 'default'): Promise<PmChangeOrder[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/change-orders?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/change-orders?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? (data as PmChangeOrder[]) : [];
@@ -2498,7 +2498,7 @@ class ProjectManagementService {
 
     async createChangeOrder(data: Partial<PmChangeOrder>): Promise<PmChangeOrder | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/change-orders`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/change-orders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2513,7 +2513,7 @@ class ProjectManagementService {
 
     async deleteChangeOrder(id: string): Promise<void> {
         try {
-            await fetch(`${API_BASE_URL}/project-management/change-orders/${id}`, { method: 'DELETE' });
+            await fetchWithAuth(`${API_BASE_URL}/project-management/change-orders/${id}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Error deleting change order:', error);
         }
@@ -2522,7 +2522,7 @@ class ProjectManagementService {
     // --- Deliverables (NestJS CRUD) ---
     async listDeliverables(companyId = 'default'): Promise<PmDeliverable[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/deliverables?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/deliverables?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? (data as PmDeliverable[]) : [];
@@ -2534,7 +2534,7 @@ class ProjectManagementService {
 
     async createDeliverable(data: Partial<PmDeliverable>): Promise<PmDeliverable | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/deliverables`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/deliverables`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2549,7 +2549,7 @@ class ProjectManagementService {
 
     async updateDeliverable(id: string, data: Partial<PmDeliverable>): Promise<PmDeliverable | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/deliverables/${id}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/deliverables/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2564,7 +2564,7 @@ class ProjectManagementService {
 
     async deleteDeliverable(id: string): Promise<void> {
         try {
-            await fetch(`${API_BASE_URL}/project-management/deliverables/${id}`, { method: 'DELETE' });
+            await fetchWithAuth(`${API_BASE_URL}/project-management/deliverables/${id}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Error deleting deliverable:', error);
         }
@@ -2573,7 +2573,7 @@ class ProjectManagementService {
     // --- Issues & risks (NestJS CRUD) ---
     async listProjectIssues(companyId = 'default'): Promise<PmProjectIssue[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/issues?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/issues?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? (data as PmProjectIssue[]) : [];
@@ -2585,7 +2585,7 @@ class ProjectManagementService {
 
     async createProjectIssue(data: Partial<PmProjectIssue>): Promise<PmProjectIssue | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/issues`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/issues`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2600,7 +2600,7 @@ class ProjectManagementService {
 
     async deleteProjectIssue(id: string): Promise<void> {
         try {
-            await fetch(`${API_BASE_URL}/project-management/issues/${id}`, { method: 'DELETE' });
+            await fetchWithAuth(`${API_BASE_URL}/project-management/issues/${id}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Error deleting project issue:', error);
         }
@@ -2609,7 +2609,7 @@ class ProjectManagementService {
     // --- Analytics summary (NestJS, aggregated) ---
     async getPmAnalyticsSummary(): Promise<PmAnalyticsSummary | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/analytics/summary`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/analytics/summary`);
             if (!res.ok) return null;
             return (await res.json()) as PmAnalyticsSummary;
         } catch (error) {
@@ -2621,7 +2621,7 @@ class ProjectManagementService {
     // --- Generic CRUD helper for new PM list features ---
     private async pmList<T>(feature: string, companyId = 'default'): Promise<T[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/${feature}?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/${feature}?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? (data as T[]) : [];
@@ -2633,7 +2633,7 @@ class ProjectManagementService {
 
     private async pmCreate<T>(feature: string, data: Partial<T>): Promise<T | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/${feature}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/${feature}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2648,7 +2648,7 @@ class ProjectManagementService {
 
     private async pmUpdate<T>(feature: string, id: string, data: Partial<T>): Promise<T | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/${feature}/${id}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/${feature}/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -2663,7 +2663,7 @@ class ProjectManagementService {
 
     private async pmDelete(feature: string, id: string): Promise<void> {
         try {
-            await fetch(`${API_BASE_URL}/project-management/${feature}/${id}`, { method: 'DELETE' });
+            await fetchWithAuth(`${API_BASE_URL}/project-management/${feature}/${id}`, { method: 'DELETE' });
         } catch (error) {
             console.error(`Error deleting ${feature}:`, error);
         }
@@ -2818,7 +2818,7 @@ class ProjectManagementService {
     // Project tasks (projects/execution/tasks) — top-level project-tasks controller
     async listProjectTasks(companyId = 'default'): Promise<any[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-tasks?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-tasks?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? data : (data?.data ?? []);
@@ -2831,7 +2831,7 @@ class ProjectManagementService {
     // Project budgets (projects/finance/budget) — top-level project-budgets controller
     async listProjectBudgets(companyId = 'default'): Promise<any[]> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-budgets?companyId=${encodeURIComponent(companyId)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-budgets?companyId=${encodeURIComponent(companyId)}`);
             if (!res.ok) return [];
             const data = await res.json();
             return Array.isArray(data) ? data : (data?.data ?? []);
@@ -2925,7 +2925,7 @@ class ProjectManagementService {
     private async projectsGet<T>(path: string): Promise<T[]> {
         try {
             const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
-            const res = await fetch(`${API_BASE_URL}${path}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}${path}`, {
                 headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2966,7 +2966,7 @@ class ProjectManagementService {
     private async pmModuleGet<T>(path: string): Promise<T[]> {
         try {
             const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
-            const res = await fetch(`${API_BASE_URL}${path}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}${path}`, {
                 headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2983,7 +2983,7 @@ class ProjectManagementService {
     private async pmModuleGetObject<T>(path: string): Promise<T | null> {
         try {
             const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
-            const res = await fetch(`${API_BASE_URL}${path}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}${path}`, {
                 headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -3001,7 +3001,7 @@ class ProjectManagementService {
     private async pmModulePost<T>(path: string, body: any): Promise<T | null> {
         try {
             const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
-            const res = await fetch(`${API_BASE_URL}${path}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}${path}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
                 body: JSON.stringify(body),
@@ -3145,7 +3145,7 @@ class ProjectManagementService {
     private async pmModulePatch<T>(path: string, body: any): Promise<T | null> {
         try {
             const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
-            const res = await fetch(`${API_BASE_URL}${path}`, {
+            const res = await fetchWithAuth(`${API_BASE_URL}${path}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
                 body: JSON.stringify(body),
@@ -3157,6 +3157,25 @@ class ProjectManagementService {
                 : (data as T);
         } catch (error) {
             console.error(`Error patching ${path}:`, error);
+            throw error;
+        }
+    }
+
+    private async pmModulePut<T>(path: string, body: any): Promise<T | null> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetchWithAuth(`${API_BASE_URL}${path}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return (data && (data as any).data !== undefined && !Array.isArray((data as any).data))
+                ? ((data as any).data as T)
+                : (data as T);
+        } catch (error) {
+            console.error(`Error putting ${path}:`, error);
             throw error;
         }
     }
@@ -3276,7 +3295,7 @@ class ProjectManagementService {
     // ---------------------------------------------------------------------
     private async pmGet<T>(feature: string, id: string): Promise<T | null> {
         try {
-            const res = await fetch(`${API_BASE_URL}/project-management/${feature}/${encodeURIComponent(id)}`);
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/${feature}/${encodeURIComponent(id)}`);
             if (!res.ok) throw new Error(`GET ${feature}/${id} failed: ${res.status}`);
             const data = await res.json();
             return data && typeof data === 'object' ? (data as T) : null;

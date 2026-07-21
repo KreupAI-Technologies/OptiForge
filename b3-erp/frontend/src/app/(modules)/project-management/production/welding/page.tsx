@@ -16,6 +16,7 @@ import {
   Printer
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface WeldingJob {
   id: string;
@@ -64,11 +65,16 @@ export default function WeldingPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setJobs([
-        { id: 'WJ-001', partName: 'Main Frame Assembly', material: 'SS 304', weldType: 'TIG', quantity: 5, status: 'Pending', qualityCheck: false },
-        { id: 'WJ-002', partName: 'Support Brackets', material: 'MS CRCA', weldType: 'MIG', quantity: 20, status: 'In Progress', qualityCheck: true },
-        { id: 'WJ-003', partName: 'Corner Joints', material: 'Aluminium', weldType: 'TIG', quantity: 15, status: 'Completed', qualityCheck: true },
-      ]);
+      const rows = await ProductionJobService.listJobs(id, 'welding');
+      setJobs(rows.map((r) => ({
+        id: r.jobCode || r.id,
+        partName: r.partName || '',
+        material: r.material || '',
+        weldType: (r.extra?.weldType as WeldingJob['weldType']) || 'TIG',
+        quantity: r.quantity ?? 0,
+        status: (r.status as WeldingJob['status']) || 'Pending',
+        qualityCheck: !!r.extra?.qualityCheck,
+      })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/production/welding');

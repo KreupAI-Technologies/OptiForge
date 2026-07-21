@@ -19,6 +19,7 @@ const DEFAULT_COMPANY_ID =
 async function request<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
   });
   if (!res.ok) {
     throw new Error(`API Error ${res.status}: ${res.statusText}`);
@@ -47,6 +48,7 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {

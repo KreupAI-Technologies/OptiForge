@@ -7,6 +7,7 @@ import {
   Copy, FileText, Eye, Download
 } from 'lucide-react';
 import { manufacturingMastersService, KitchenLayout as BackendLayout } from '@/services/manufacturing-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface KitchenLayout {
   id: string;
@@ -53,6 +54,16 @@ interface KitchenLayout {
 }
 
 export default function KitchenLayoutMaster() {
+  const companyId = '123e4567-e89b-12d3-a456-426614174000';
+  const codeRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const layoutTypeRef = React.useRef<HTMLSelectElement>(null);
+  const styleRef = React.useRef<HTMLSelectElement>(null);
+  const statusRef = React.useRef<HTMLSelectElement>(null);
+  const lengthRef = React.useRef<HTMLInputElement>(null);
+  const widthRef = React.useRef<HTMLInputElement>(null);
+  const heightRef = React.useRef<HTMLInputElement>(null);
+  const estimatedCostRef = React.useRef<HTMLInputElement>(null);
   const [layouts, setLayouts] = useState<KitchenLayout[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLayout, setSelectedLayout] = useState<KitchenLayout | null>(null);
@@ -68,7 +79,7 @@ export default function KitchenLayoutMaster() {
   const fetchLayouts = async () => {
     try {
       setIsLoading(true);
-      const data = await manufacturingMastersService.getAllKitchenLayouts('123e4567-e89b-12d3-a456-426614174000');
+      const data = await manufacturingMastersService.getAllKitchenLayouts(companyId);
 
       const mapped: KitchenLayout[] = data.map(kl => ({
         id: kl.id,
@@ -120,21 +131,74 @@ export default function KitchenLayoutMaster() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this kitchen layout?')) {
-      setLayouts(layouts.filter(l => l.id !== id));
+  const handleSave = async () => {
+    const code = codeRef.current?.value?.trim() || '';
+    const name = nameRef.current?.value?.trim() || '';
+    const layoutType = layoutTypeRef.current?.value || '';
+    const style = styleRef.current?.value || '';
+    const status = statusRef.current?.value || '';
+    const length = Number(lengthRef.current?.value) || 0;
+    const width = Number(widthRef.current?.value) || 0;
+    const height = Number(heightRef.current?.value) || 0;
+    const estimatedCost = Number(estimatedCostRef.current?.value) || 0;
+
+    if (!code || !name) {
+      alert('Code and Name are required');
+      return;
+    }
+
+    const payload = {
+      code,
+      name,
+      companyId,
+      layoutType,
+      style,
+      status,
+      dimensions: { length, width, height, unit: 'mm' },
+      estimatedCost
+    };
+
+    try {
+      if (selectedLayout) {
+        await commonMastersService.updateKitchenLayout(selectedLayout.id, payload as any);
+      } else {
+        await commonMastersService.createKitchenLayout(payload as any);
+      }
+      setIsModalOpen(false);
+      await fetchLayouts();
+    } catch (error) {
+      console.error('Error saving layout:', error);
+      alert('Failed to save layout');
     }
   };
 
-  const handleCopy = (layout: KitchenLayout) => {
-    const newLayout = {
-      ...layout,
-      id: Date.now().toString(),
-      code: `${layout.code}-COPY`,
-      name: `${layout.name} (Copy)`,
-      status: 'Draft' as const
-    };
-    setLayouts([...layouts, newLayout]);
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this kitchen layout?')) {
+      try {
+        await commonMastersService.deleteKitchenLayout(id);
+        await fetchLayouts();
+      } catch (error) {
+        console.error('Error deleting layout:', error);
+        alert('Failed to delete layout');
+      }
+    }
+  };
+
+  const handleCopy = async (layout: KitchenLayout) => {
+    try {
+      await commonMastersService.createKitchenLayout({
+        code: `${layout.code}-COPY`,
+        name: `${layout.name} (Copy)`,
+        companyId,
+        layoutType: layout.layoutType,
+        description: layout.name,
+        image: layout.imageUrl
+      });
+      await fetchLayouts();
+    } catch (e) {
+      console.error(e);
+      alert('Failed to copy layout');
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -321,6 +385,7 @@ export default function KitchenLayoutMaster() {
                       Layout Code *
                     </label>
                     <input
+                      ref={codeRef}
                       type="text"
                       defaultValue={selectedLayout?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -332,6 +397,7 @@ export default function KitchenLayoutMaster() {
                       Layout Name *
                     </label>
                     <input
+                      ref={nameRef}
                       type="text"
                       defaultValue={selectedLayout?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -346,6 +412,7 @@ export default function KitchenLayoutMaster() {
                       Layout Type *
                     </label>
                     <select
+                      ref={layoutTypeRef}
                       defaultValue={selectedLayout?.layoutType || 'L-Shape'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -362,6 +429,7 @@ export default function KitchenLayoutMaster() {
                       Style *
                     </label>
                     <select
+                      ref={styleRef}
                       defaultValue={selectedLayout?.style || 'Modern'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -378,6 +446,7 @@ export default function KitchenLayoutMaster() {
                       Status
                     </label>
                     <select
+                      ref={statusRef}
                       defaultValue={selectedLayout?.status || 'Active'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -394,6 +463,7 @@ export default function KitchenLayoutMaster() {
                       Length (mm) *
                     </label>
                     <input
+                      ref={lengthRef}
                       type="number"
                       defaultValue={selectedLayout?.dimensions.length}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -404,6 +474,7 @@ export default function KitchenLayoutMaster() {
                       Width (mm) *
                     </label>
                     <input
+                      ref={widthRef}
                       type="number"
                       defaultValue={selectedLayout?.dimensions.width}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -414,6 +485,7 @@ export default function KitchenLayoutMaster() {
                       Height (mm) *
                     </label>
                     <input
+                      ref={heightRef}
                       type="number"
                       defaultValue={selectedLayout?.dimensions.height}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -426,6 +498,7 @@ export default function KitchenLayoutMaster() {
                     Estimated Cost (₹) *
                   </label>
                   <input
+                    ref={estimatedCostRef}
                     type="number"
                     defaultValue={selectedLayout?.estimatedCost}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -441,7 +514,7 @@ export default function KitchenLayoutMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Save Layout
               </button>
             </div>

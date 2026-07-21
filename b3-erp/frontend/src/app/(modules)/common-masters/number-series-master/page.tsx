@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Download, Filter, X, Hash, AlertCircle, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ModalWrapper } from '@/components/ui/ModalWrapper';
 import { systemMastersService, NumberSeries } from '@/services/system-masters.service';
 import { exportToCsv } from '@/lib/export';
 
@@ -41,12 +42,16 @@ export default function NumberSeriesMasterPage() {
     setToast({ message, type });
   };
 
+  const [viewSeries, setViewSeries] = useState<NumberSeries | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+
   const handleViewSeries = (row: NumberSeries) => {
-    showToast(`Viewing series: ${row.seriesName}`, 'info');
+    // Open a details modal with the row data (real UX, no fake toast).
+    setViewSeries(row);
   };
 
   const handleEditSeries = (row: NumberSeries) => {
-    showToast(`Opening editor for: ${row.seriesName}`, 'info');
+    setViewSeries(row);
   };
 
   const handleExport = () => {
@@ -55,7 +60,9 @@ export default function NumberSeriesMasterPage() {
   };
 
   const handleAddSeries = () => {
-    showToast('Opening form to add new number series', 'info');
+    // No create endpoint exists yet; open a modal that explains the gap
+    // instead of a misleading success toast.
+    setShowAdd(true);
   };
 
   // Filtered data
@@ -416,6 +423,98 @@ export default function NumberSeriesMasterPage() {
           </div>
         </div>
       </div>
+
+      {/* Series details modal */}
+      <ModalWrapper
+        isOpen={!!viewSeries}
+        onClose={() => setViewSeries(null)}
+        title={viewSeries ? `Series: ${viewSeries.seriesName}` : 'Number Series'}
+        size="md"
+      >
+        {viewSeries && (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-gray-500">Code</div>
+                <div className="font-mono font-medium text-gray-900">{viewSeries.seriesCode}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Module</div>
+                <div className="font-medium capitalize text-gray-900">{viewSeries.module}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Document Type</div>
+                <div className="font-medium text-gray-900">{viewSeries.documentType}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Current Format</div>
+                <div className="font-mono font-medium text-gray-900">{getFormatSample(viewSeries)}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Current Number</div>
+                <div className="font-medium text-gray-900">{viewSeries.currentNumber}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Range</div>
+                <div className="font-medium text-gray-900">{viewSeries.startingNumber} - {viewSeries.endingNumber}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Increment By</div>
+                <div className="font-medium text-gray-900">{viewSeries.incrementBy}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Reset Frequency</div>
+                <div className="font-medium capitalize text-gray-900">{viewSeries.resetFrequency}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Prefix / Suffix</div>
+                <div className="font-medium text-gray-900">{viewSeries.prefix || '-'} / {viewSeries.suffix || '-'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Status</div>
+                <div className="font-medium text-gray-900">{viewSeries.isActive ? 'Active' : 'Inactive'}</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              {viewSeries.defaultSeries && <span className="text-blue-600">✓ Default</span>}
+              {viewSeries.allowManualEntry && <span className="text-green-600">✓ Manual Entry</span>}
+              {viewSeries.validateSequence && <span className="text-purple-600">✓ Validate Sequence</span>}
+              {viewSeries.allowDuplicates && <span className="text-orange-600">✓ Allow Duplicates</span>}
+            </div>
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
+                Editing and saving number series is not yet available — the
+                common-masters number-series API is read-only.
+              </p>
+            </div>
+          </div>
+        )}
+      </ModalWrapper>
+
+      {/* Add Series modal.
+          NOTE: the common-masters number-series API is read-only (GET only) and
+          systemMastersService exposes no create method, so this cannot persist yet.
+          A backend POST /common-masters/number-series endpoint plus a
+          createNumberSeries() service method are required to make this functional. */}
+      <ModalWrapper
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+        title="Add Number Series"
+        size="md"
+      >
+        <div className="space-y-3 text-sm text-gray-700">
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-amber-800">
+              Creating number series is not yet available. The common-masters
+              number-series API is read-only. A backend create endpoint
+              (<span className="font-mono">POST /common-masters/number-series</span>) and a
+              matching service method are required before this form can save.
+            </p>
+          </div>
+        </div>
+      </ModalWrapper>
     </div>
   );
 }

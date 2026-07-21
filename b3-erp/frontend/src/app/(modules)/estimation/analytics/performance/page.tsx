@@ -52,29 +52,27 @@ export default function EstimationAnalyticsPerformancePage() {
   const [loading, setLoading] = useState(true)
   const [apiPerformance, setApiPerformance] = useState<EstimatorPerformanceApi[]>([])
 
+  const loadPerformance = async () => {
+    setLoading(true)
+    try {
+      const now = new Date()
+      const data = await estimationAnalyticsService.getAllEstimatorsPerformance(
+        companyId,
+        now.getFullYear(),
+        now.getMonth() + 1
+      )
+      setApiPerformance(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error('Failed to load estimator performance', e)
+      setApiPerformance([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    let mounted = true
-    const load = async () => {
-      setLoading(true)
-      try {
-        const now = new Date()
-        const data = await estimationAnalyticsService.getAllEstimatorsPerformance(
-          companyId,
-          now.getFullYear(),
-          now.getMonth() + 1
-        )
-        if (mounted) setApiPerformance(Array.isArray(data) ? data : [])
-      } catch (e) {
-        console.error('Failed to load estimator performance', e)
-        if (mounted) setApiPerformance([])
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      mounted = false
-    }
+    loadPerformance()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const estimatorPerformance: EstimatorPerformance[] = apiPerformance.map((p) => {
@@ -128,6 +126,39 @@ export default function EstimationAnalyticsPerformancePage() {
       : 0
   ).toFixed(1)
 
+  const handleExport = () => {
+    const headers = [
+      'Estimator',
+      'Total Estimates',
+      'Won',
+      'Pending',
+      'Win Rate %',
+      'Avg Turnaround (days)',
+      'Total Value',
+      'Accuracy %',
+    ]
+    const rows = estimatorPerformance.map((e) => [
+      e.name,
+      e.totalEstimates,
+      e.won,
+      e.pending,
+      e.winRate.toFixed(1),
+      e.avgTurnaround.toFixed(1),
+      e.totalValue,
+      e.accuracy.toFixed(1),
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `estimator-performance-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (loading) {
     return (
       <div className="w-full h-full px-4 py-2 flex items-center justify-center">
@@ -141,15 +172,24 @@ export default function EstimationAnalyticsPerformancePage() {
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={loadPerformance}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={loadPerformance}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Calendar className="h-4 w-4" />
             Date Range
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>

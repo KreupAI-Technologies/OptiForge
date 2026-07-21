@@ -18,14 +18,6 @@ import {
 } from 'lucide-react';
 import { HrSafetyService, SafetyInspection } from '@/services/hr-safety.service';
 
-// Mock Data
-const actionStats = {
-  activeCAPAs: 18,
-  overdue: 2,
-  completedThisMonth: 14,
-  avgClosureTime: '5.2 days'
-};
-
 interface ActionItem {
   id: string;
   title: string;
@@ -42,42 +34,73 @@ export default function CorrectiveActionsPage() {
   const [correctiveActions, setCorrectiveActions] = useState<ActionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', source: '', owner: '', dueDate: '', priority: 'Medium' });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getInspections('action');
+      const mapped: ActionItem[] = rows.map((row: SafetyInspection) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          title: row.title ?? '',
+          source: meta.source ?? row.code ?? '',
+          owner: row.assignedTo ?? row.auditor ?? '',
+          dueDate: row.dueDate ?? '',
+          progress: Number(meta.progress ?? row.score ?? 0) || 0,
+          status: row.status ?? '',
+          priority: row.priority ?? row.severity ?? '',
+        };
+      });
+      setCorrectiveActions(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load corrective actions');
+      setCorrectiveActions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getInspections('action');
-        const mapped: ActionItem[] = rows.map((row: SafetyInspection) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            title: row.title ?? '',
-            source: meta.source ?? row.code ?? '',
-            owner: row.assignedTo ?? row.auditor ?? '',
-            dueDate: row.dueDate ?? '',
-            progress: Number(meta.progress ?? row.score ?? 0) || 0,
-            status: row.status ?? '',
-            priority: row.priority ?? row.severity ?? '',
-          };
-        });
-        if (!cancelled) setCorrectiveActions(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load corrective actions');
-          setCorrectiveActions([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createInspection({
+        recordType: 'action',
+        title: form.title.trim(),
+        assignedTo: form.owner.trim() || undefined,
+        dueDate: form.dueDate || undefined,
+        priority: form.priority,
+        status: 'In Progress',
+        meta: { source: form.source.trim() || undefined, progress: 0 },
+      });
+      setShowCreate(false);
+      setForm({ title: '', source: '', owner: '', dueDate: '', priority: 'Medium' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create action');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const actionStats = {
+    activeCAPAs: correctiveActions.filter((a) => a.status !== 'Completed' && a.status !== 'Closed').length,
+    overdue: correctiveActions.filter(
+      (a) => a.status !== 'Completed' && a.status !== 'Closed' && a.dueDate && a.dueDate < today,
+    ).length,
+    completedThisMonth: correctiveActions.filter((a) => a.status === 'Completed' || a.status === 'Closed').length,
+    avgClosureTime: '—',
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -90,11 +113,93 @@ export default function CorrectiveActionsPage() {
           </h1>
           <p className="text-gray-500 mt-1">Track, manage, and verify the closure of safety-related tasks and non-conformances</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Create Action
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-orange-600" /> Create Corrective Action
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Install machine guard"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Source</label>
+                <input
+                  type="text"
+                  value={form.source}
+                  onChange={(e) => setForm({ ...form, source: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. NCR-2024-010"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Owner / Assignee</label>
+                <input
+                  type="text"
+                  value={form.owner}
+                  onChange={(e) => setForm({ ...form, owner: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. David Miller"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.title.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

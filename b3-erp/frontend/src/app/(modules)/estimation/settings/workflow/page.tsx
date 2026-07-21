@@ -6,6 +6,7 @@ import {
   GitBranch,
   Edit2,
   Save,
+  Trash2,
   ArrowLeft,
   Search,
   Filter,
@@ -14,6 +15,7 @@ import {
   Users,
   CheckCircle
 } from 'lucide-react'
+import { exportToCsv } from '@/lib/export'
 import { estimationWorkflowStageService } from '@/services/estimation-workflow-stage.service'
 
 const COMPANY_ID = 'company-001'
@@ -41,9 +43,87 @@ interface WorkflowStage {
 export default function EstimationSettingsWorkflowPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<string>('')
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [activeOnly, setActiveOnly] = useState(false)
   const [workflowStages, setWorkflowStages] = useState<WorkflowStage[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  const handleStartEdit = (stage: WorkflowStage) => {
+    setEditingId(stage.id)
+    setEditValue(stage.stageName)
+  }
+
+  const handleSave = async (id: string) => {
+    setSavingId(id)
+    setLoadError(null)
+    try {
+      await estimationWorkflowStageService.update(COMPANY_ID, id, { stageName: editValue })
+      setWorkflowStages((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, stageName: editValue } : s))
+      )
+      setEditingId(null)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update workflow stage')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const handleAddStage = async () => {
+    setLoadError(null)
+    try {
+      const nextOrder =
+        workflowStages.reduce((max, s) => Math.max(max, s.stageOrder), 0) + 1
+      const created = await estimationWorkflowStageService.create(COMPANY_ID, {
+        stageCode: 'NEW',
+        stageName: 'New Stage',
+        stageOrder: nextOrder,
+        approvalRequired: false,
+        status: 'active',
+      })
+      setWorkflowStages((prev) => [
+        ...prev,
+        {
+          id: created.id,
+          stageCode: created.stageCode,
+          stageName: created.stageName,
+          stageOrder: Number(created.stageOrder ?? 0),
+          description: created.description ?? '',
+          approverRole: created.approverRole ?? 'None',
+          approvalRequired: !!created.approvalRequired,
+          autoAdvance: !!created.autoAdvance,
+          notifyOnEntry: !!created.notifyOnEntry,
+          notifyOnApproval: !!created.notifyOnApproval,
+          maxDaysInStage: Number(created.maxDaysInStage ?? 0),
+          escalationEnabled: !!created.escalationEnabled,
+          escalationDays: Number(created.escalationDays ?? 0),
+          escalateTo: created.escalateTo ?? 'None',
+          allowReject: !!created.allowReject,
+          allowRevision: !!created.allowRevision,
+          status: created.status,
+        },
+      ])
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create workflow stage')
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this workflow stage?')) return
+    setLoadError(null)
+    try {
+      await estimationWorkflowStageService.delete(COMPANY_ID, id)
+      setWorkflowStages((prev) => prev.filter((s) => s.id !== id))
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete workflow stage')
+    }
+  }
+
+  const handleExport = () => {
+    exportToCsv('workflow-stages', workflowStages)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -98,6 +178,10 @@ export default function EstimationSettingsWorkflowPage() {
     }
   }
 
+  const visibleWorkflowStages = activeOnly
+    ? workflowStages.filter(s => s.status === 'active')
+    : workflowStages
+
   const totalStages = workflowStages.length
   const approvalStages = workflowStages.filter(s => s.approvalRequired).length
   const activeStages = workflowStages.filter(s => s.status === 'active').length
@@ -120,15 +204,25 @@ export default function EstimationSettingsWorkflowPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setActiveOnly((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              activeOnly
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
             <Filter className="h-4 w-4" />
-            Filter
+            {activeOnly ? 'Active Only' : 'Filter'}
           </button>
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
             <Download className="h-4 w-4" />
             Export
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleAddStage}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add Stage
           </button>
@@ -222,7 +316,7 @@ export default function EstimationSettingsWorkflowPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {[...workflowStages].sort((a, b) => a.stageOrder - b.stageOrder).map((stage) => (
+              {[...visibleWorkflowStages].sort((a, b) => a.stageOrder - b.stageOrder).map((stage) => (
                 <tr key={stage.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">
@@ -231,7 +325,16 @@ export default function EstimationSettingsWorkflowPage() {
                   </td>
                   <td className="px-3 py-2">
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">{stage.stageName}</p>
+                      {editingId === stage.id ? (
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="w-40 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      ) : (
+                        <p className="font-medium text-gray-900 text-sm">{stage.stageName}</p>
+                      )}
                       <p className="text-xs text-gray-600 mt-1">{stage.stageCode}</p>
                       <p className="text-xs text-gray-600 mt-1">{stage.description}</p>
                     </div>
@@ -286,19 +389,29 @@ export default function EstimationSettingsWorkflowPage() {
                     <div className="flex items-center gap-2">
                       {editingId === stage.id ? (
                         <button
-                          onClick={() => setEditingId(null)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                          onClick={() => handleSave(stage.id)}
+                          disabled={savingId === stage.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                          title="Save"
                         >
                           <Save className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => setEditingId(stage.id)}
+                          onClick={() => handleStartEdit(stage)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="Edit"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDelete(stage.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>

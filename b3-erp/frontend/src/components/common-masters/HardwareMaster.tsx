@@ -6,6 +6,7 @@ import {
   XCircle, Package, DollarSign, Palette, Box
 } from 'lucide-react';
 import { manufacturingMastersService, KitchenHardware as BackendHardware } from '@/services/manufacturing-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface Hardware {
   id: string;
@@ -41,12 +42,26 @@ interface Hardware {
 }
 
 export default function HardwareMaster() {
+  const companyId = '123e4567-e89b-12d3-a456-426614174000';
   const [hardware, setHardware] = useState<Hardware[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedHardware, setSelectedHardware] = useState<Hardware | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
+
+  const codeRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const categoryRef = React.useRef<HTMLSelectElement>(null);
+  const brandRef = React.useRef<HTMLInputElement>(null);
+  const materialRef = React.useRef<HTMLInputElement>(null);
+  const finishRef = React.useRef<HTMLInputElement>(null);
+  const priceMinRef = React.useRef<HTMLInputElement>(null);
+  const priceMaxRef = React.useRef<HTMLInputElement>(null);
+  const warrantyRef = React.useRef<HTMLInputElement>(null);
+  const stockRef = React.useRef<HTMLInputElement>(null);
+  const reorderLevelRef = React.useRef<HTMLInputElement>(null);
+  const statusRef = React.useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     fetchHardware();
@@ -55,7 +70,7 @@ export default function HardwareMaster() {
   const fetchHardware = async () => {
     try {
       setIsLoading(true);
-      const data = await manufacturingMastersService.getAllKitchenHardware('123e4567-e89b-12d3-a456-426614174000');
+      const data = await manufacturingMastersService.getAllKitchenHardware(companyId);
 
       const mapped: Hardware[] = data.map(hw => ({
         id: hw.id,
@@ -98,9 +113,65 @@ export default function HardwareMaster() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleSave = async () => {
+    const code = codeRef.current?.value?.trim() || '';
+    const name = nameRef.current?.value?.trim() || '';
+    const category = categoryRef.current?.value || '';
+    const brand = brandRef.current?.value || '';
+    const material = materialRef.current?.value || '';
+    const finish = finishRef.current?.value || '';
+    const priceMin = Number(priceMinRef.current?.value) || 0;
+    const priceMax = Number(priceMaxRef.current?.value) || 0;
+    const warranty = warrantyRef.current?.value || '';
+    const stock = Number(stockRef.current?.value) || 0;
+    const reorderLevel = Number(reorderLevelRef.current?.value) || 0;
+    const status = statusRef.current?.value || 'Active';
+
+    if (!code || !name) {
+      alert('Code and Name are required');
+      return;
+    }
+
+    const payload = {
+      code,
+      name,
+      companyId,
+      category,
+      manufacturer: brand,
+      price: priceMin,
+      specifications: { material, finish },
+      brand,
+      priceMin,
+      priceMax,
+      warranty,
+      stock,
+      reorderLevel,
+      status
+    };
+
+    try {
+      if (selectedHardware) {
+        await commonMastersService.updateKitchenHardware(selectedHardware.id, payload as any);
+      } else {
+        await commonMastersService.createKitchenHardware(payload as any);
+      }
+      setIsModalOpen(false);
+      await fetchHardware();
+    } catch (error) {
+      console.error('Error saving hardware:', error);
+      alert('Failed to save hardware');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this hardware item?')) {
-      setHardware(hardware.filter(h => h.id !== id));
+      try {
+        await commonMastersService.deleteKitchenHardware(id);
+        await fetchHardware();
+      } catch (error) {
+        console.error('Error deleting hardware:', error);
+        alert('Failed to delete hardware');
+      }
     }
   };
 
@@ -311,6 +382,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={codeRef}
                       defaultValue={selectedHardware?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="HW-XXX-XXX"
@@ -322,6 +394,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={nameRef}
                       defaultValue={selectedHardware?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Hardware item name"
@@ -335,6 +408,7 @@ export default function HardwareMaster() {
                       Category *
                     </label>
                     <select
+                      ref={categoryRef}
                       defaultValue={selectedHardware?.category || 'Hinges'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -353,6 +427,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={brandRef}
                       defaultValue={selectedHardware?.brand}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Hettich, Hafele, Blum"
@@ -367,6 +442,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={materialRef}
                       defaultValue={selectedHardware?.specifications.material}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Stainless Steel, Cold Rolled Steel"
@@ -378,6 +454,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={finishRef}
                       defaultValue={selectedHardware?.specifications.finish}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Brushed, Polished, Matt"
@@ -392,6 +469,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={priceMinRef}
                       defaultValue={selectedHardware?.priceRange.min}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -402,6 +480,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={priceMaxRef}
                       defaultValue={selectedHardware?.priceRange.max}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -412,6 +491,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="text"
+                      ref={warrantyRef}
                       defaultValue={selectedHardware?.warranty}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., 5 Years"
@@ -426,6 +506,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={stockRef}
                       defaultValue={selectedHardware?.stock}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -436,6 +517,7 @@ export default function HardwareMaster() {
                     </label>
                     <input
                       type="number"
+                      ref={reorderLevelRef}
                       defaultValue={selectedHardware?.reorderLevel}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -447,6 +529,7 @@ export default function HardwareMaster() {
                     Status
                   </label>
                   <select
+                    ref={statusRef}
                     defaultValue={selectedHardware?.status || 'Active'}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
@@ -465,7 +548,7 @@ export default function HardwareMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Save Hardware
               </button>
             </div>

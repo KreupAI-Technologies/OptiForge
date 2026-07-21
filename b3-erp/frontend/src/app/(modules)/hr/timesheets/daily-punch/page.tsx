@@ -40,6 +40,28 @@ export default function DailyPunchPage() {
     const [punches, setPunches] = useState<DailyPunch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [savingId, setSavingId] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    const patchPunch = (id: string, patch: Partial<DailyPunch>) =>
+        setPunches((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+
+    const handleSavePunch = async (punch: DailyPunch) => {
+        setSavingId(punch.id); setActionError(null);
+        try {
+            await TimesheetService.updateTimesheet(punch.id, {
+                status: punch.status,
+                punchIn: punch.punchIn,
+                punchOut: punch.punchOut,
+            });
+            setEditingId(null);
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : 'Failed to save punch');
+        } finally {
+            setSavingId(null);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -111,6 +133,7 @@ export default function DailyPunchPage() {
             <div className="w-full space-y-3">
                 {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
                 {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
+                {actionError && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{actionError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -251,9 +274,23 @@ export default function DailyPunchPage() {
                                         )}
                                     </td>
                                     <td className="p-4 text-center">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(punch.status)}`}>
-                                            {punch.status}
-                                        </span>
+                                        {editingId === punch.id ? (
+                                            <select
+                                                value={punch.status}
+                                                onChange={(e) => patchPunch(punch.id, { status: e.target.value as DailyPunch['status'] })}
+                                                className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="Present">Present</option>
+                                                <option value="Absent">Absent</option>
+                                                <option value="Half Day">Half Day</option>
+                                                <option value="Late">Late</option>
+                                                <option value="Not Punched">Not Punched</option>
+                                            </select>
+                                        ) : (
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(punch.status)}`}>
+                                                {punch.status}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="p-4 text-center">
                                         <div className="flex items-center justify-center gap-1 text-gray-400">
@@ -262,9 +299,22 @@ export default function DailyPunchPage() {
                                         </div>
                                     </td>
                                     <td className="p-4 text-center">
-                                        <button className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded">
-                                            <Edit className="w-4 h-4" />
-                                        </button>
+                                        {editingId === punch.id ? (
+                                            <button
+                                                onClick={() => handleSavePunch(punch)}
+                                                disabled={savingId === punch.id}
+                                                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-sm"
+                                            >
+                                                {savingId === punch.id ? 'Saving…' : 'Save'}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => setEditingId(punch.id)}
+                                                className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded"
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

@@ -42,40 +42,37 @@ const ProcurementSavings: React.FC = () => {
   // with an empty array until the table is seeded.
   const [savingsInitiatives, setSavingsInitiatives] = useState<SavingsInitiative[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const raw = (await procurementSavingsService.getInitiatives()) as any[];
-        const target = (i: any) => Number(i.targetSavings ?? 0);
-        const actual = (i: any) => Number(i.actualSavings ?? 0);
-        const mapped: SavingsInitiative[] = raw.map((i) => {
-          const t = target(i);
-          const a = actual(i);
-          return {
-            id: i.id,
-            name: i.title ?? '',
-            category: i.category ?? '',
-            type: (i.type ?? 'price-reduction') as SavingsInitiative['type'],
-            targetSavings: t,
-            actualSavings: a,
-            status: (i.status ?? 'active') as SavingsInitiative['status'],
-            owner: i.owner ?? '',
-            startDate: i.startDate ?? '',
-            endDate: i.endDate ?? '',
-            progress: t > 0 ? Math.min(Math.round((a / t) * 100), 100) : 0,
-          };
-        });
-        if (!cancelled) setSavingsInitiatives(mapped);
-      } catch {
-        if (!cancelled) setSavingsInitiatives([]);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const loadInitiatives = React.useCallback(async () => {
+    try {
+      const raw = (await procurementSavingsService.getInitiatives()) as any[];
+      const target = (i: any) => Number(i.targetSavings ?? 0);
+      const actual = (i: any) => Number(i.actualSavings ?? 0);
+      const mapped: SavingsInitiative[] = raw.map((i) => {
+        const t = target(i);
+        const a = actual(i);
+        return {
+          id: i.id,
+          name: i.title ?? '',
+          category: i.category ?? '',
+          type: (i.type ?? 'price-reduction') as SavingsInitiative['type'],
+          targetSavings: t,
+          actualSavings: a,
+          status: (i.status ?? 'active') as SavingsInitiative['status'],
+          owner: i.owner ?? '',
+          startDate: i.startDate ?? '',
+          endDate: i.endDate ?? '',
+          progress: t > 0 ? Math.min(Math.round((a / t) * 100), 100) : 0,
+        };
+      });
+      setSavingsInitiatives(mapped);
+    } catch {
+      setSavingsInitiatives([]);
+    }
   }, []);
+
+  useEffect(() => {
+    loadInitiatives();
+  }, [loadInitiatives]);
 
   // Mock data - Monthly savings
   const monthlySavings = [
@@ -171,9 +168,24 @@ const ProcurementSavings: React.FC = () => {
     alert('Compare Savings Periods - This would show period-over-period comparison of savings, categories, types, and trends.');
   };
 
-  const handleCreateInitiative = () => {
-    console.log('Creating savings initiative...');
-    alert('Create Savings Initiative - This would open a wizard for initiative details, targets, timeline, ownership, and baseline methodology.');
+  const handleCreateInitiative = async () => {
+    const title = window.prompt('Initiative title:');
+    if (!title) return;
+    const category = window.prompt('Category (optional):') ?? undefined;
+    const targetSavings = Number(window.prompt('Target savings ($):', '0') ?? 0) || 0;
+    try {
+      await procurementSavingsService.createInitiative({
+        title,
+        category,
+        targetSavings,
+        actualSavings: 0,
+        status: 'active',
+      });
+      await loadInitiatives();
+    } catch (err) {
+      console.error('Failed to create savings initiative:', err);
+      alert('Failed to create savings initiative. Please try again.');
+    }
   };
 
   const handleAnalyzeTrends = () => {

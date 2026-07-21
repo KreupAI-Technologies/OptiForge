@@ -51,60 +51,93 @@ export default function LaborCostingPage() {
   const [laborRates, setLaborRates] = useState<LaborRate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
   const AVG_HOURS_PER_MONTH = 208
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        // Backend returns raw ORM shape (decimals come back as strings).
-        // Map onto the page's LaborRate; page-only fields are defaulted.
-        const raw = (await estimationLaborCostService.getRates()) as any[]
-        const categoryMap: Record<string, LaborRate['category']> = {
-          direct: 'direct',
-          indirect: 'indirect',
-          supervision: 'supervision',
-        }
-        const statusMap: Record<string, LaborRate['status']> = {
-          optimal: 'optimal',
-          'over-budget': 'over-budget',
-          'under-utilized': 'under-utilized',
-        }
-        const mapped: LaborRate[] = raw.map((r) => ({
-          id: String(r.id),
-          skillCode: r.skill ?? '',
-          skillName: r.skill ?? '',
-          department: r.department ?? '',
-          category: categoryMap[String(r.level ?? '').toLowerCase()] ?? 'direct',
-          standardRate: Number(r.standardRate ?? 0),
-          actualRate: Number(r.standardRate ?? 0),
-          overtimeRate: Number(r.overtimeRate ?? 0),
-          variance: 0,
-          variancePercent: 0,
-          headcount: 0,
-          avgHoursPerMonth: AVG_HOURS_PER_MONTH,
-          efficiency: Number(r.efficiency ?? 0),
-          utilization: Number(r.utilization ?? 0),
-          status: statusMap[String(r.status ?? '').toLowerCase()] ?? 'optimal',
-        }))
-        if (!cancelled) setLaborRates(mapped)
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load labor rates')
-          setLaborRates([])
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
+  const load = async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      // Backend returns raw ORM shape (decimals come back as strings).
+      // Map onto the page's LaborRate; page-only fields are defaulted.
+      const raw = (await estimationLaborCostService.getRates()) as any[]
+      const categoryMap: Record<string, LaborRate['category']> = {
+        direct: 'direct',
+        indirect: 'indirect',
+        supervision: 'supervision',
       }
+      const statusMap: Record<string, LaborRate['status']> = {
+        optimal: 'optimal',
+        'over-budget': 'over-budget',
+        'under-utilized': 'under-utilized',
+      }
+      const mapped: LaborRate[] = raw.map((r) => ({
+        id: String(r.id),
+        skillCode: r.skill ?? '',
+        skillName: r.skill ?? '',
+        department: r.department ?? '',
+        category: categoryMap[String(r.level ?? '').toLowerCase()] ?? 'direct',
+        standardRate: Number(r.standardRate ?? 0),
+        actualRate: Number(r.standardRate ?? 0),
+        overtimeRate: Number(r.overtimeRate ?? 0),
+        variance: 0,
+        variancePercent: 0,
+        headcount: 0,
+        avgHoursPerMonth: AVG_HOURS_PER_MONTH,
+        efficiency: Number(r.efficiency ?? 0),
+        utilization: Number(r.utilization ?? 0),
+        status: statusMap[String(r.status ?? '').toLowerCase()] ?? 'optimal',
+      }))
+      setLaborRates(mapped)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load labor rates')
+      setLaborRates([])
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  useEffect(() => {
     load()
-    return () => {
-      cancelled = true
-    }
   }, [])
+
+  const filteredLaborRates = laborRates.filter((l) => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return true
+    return (
+      l.skillName.toLowerCase().includes(q) ||
+      l.skillCode.toLowerCase().includes(q) ||
+      l.department.toLowerCase().includes(q) ||
+      l.category.toLowerCase().includes(q)
+    )
+  })
+
+  const handleExport = () => {
+    const headers = ['Skill Code', 'Skill Name', 'Department', 'Category', 'Standard Rate', 'Actual Rate', 'Overtime Rate', 'Efficiency', 'Utilization', 'Status']
+    const rows = filteredLaborRates.map((l) => [
+      l.skillCode,
+      l.skillName,
+      l.department,
+      l.category,
+      l.standardRate,
+      l.actualRate,
+      l.overtimeRate,
+      l.efficiency,
+      l.utilization,
+      l.status,
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'labor-rates.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   // Aggregate department stats from the fetched labor rates.
   const departmentStats: DepartmentStats[] = (() => {
@@ -190,11 +223,17 @@ export default function LaborCostingPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => document.getElementById('labor-search')?.focus()}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
@@ -320,7 +359,10 @@ export default function LaborCostingPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
+                id="labor-search"
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search skills..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -343,7 +385,7 @@ export default function LaborCostingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {laborRates.map((labor) => (
+              {filteredLaborRates.map((labor) => (
                 <tr key={labor.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>

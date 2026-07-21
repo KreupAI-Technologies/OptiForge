@@ -6,6 +6,15 @@
 
 const USE_MOCK_DATA = false;
 
+/**
+ * Central fetch wrapper for this service. Always attaches `credentials: 'include'`
+ * so the Keycloak JWT cookie rides along and JwtAuthGuard/PermissionsGuard on the
+ * NestJS backend can authenticate the request in production.
+ */
+function docFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(input, { credentials: 'include', ...init });
+}
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -335,7 +344,7 @@ export class DocumentManagementService {
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/employee-documents?${params.toString()}`);
+    const response = await docFetch(`/api/hr/employee-documents?${params.toString()}`);
     return response.json();
   }
 
@@ -345,7 +354,7 @@ export class DocumentManagementService {
       if (!doc) throw new Error('Document not found');
       return doc;
     }
-    const response = await fetch(`/api/hr/employee-documents/${id}`);
+    const response = await docFetch(`/api/hr/employee-documents/${id}`);
     return response.json();
   }
 
@@ -370,7 +379,7 @@ export class DocumentManagementService {
       mockEmployeeDocuments.push(newDoc);
       return newDoc;
     }
-    const response = await fetch('/api/hr/employee-documents', {
+    const response = await docFetch('/api/hr/employee-documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -388,7 +397,7 @@ export class DocumentManagementService {
       }
       return doc!;
     }
-    const response = await fetch(`/api/hr/employee-documents/${id}/verify`, {
+    const response = await docFetch(`/api/hr/employee-documents/${id}/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ verifiedBy, remarks }),
@@ -406,7 +415,7 @@ export class DocumentManagementService {
       }
       return doc!;
     }
-    const response = await fetch(`/api/hr/employee-documents/${id}/reject`, {
+    const response = await docFetch(`/api/hr/employee-documents/${id}/reject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rejectedBy, reason }),
@@ -441,7 +450,7 @@ export class DocumentManagementService {
     if (options?.formType) params.append('formType', options.formType);
     if (options?.financialYear) params.append('financialYear', options.financialYear);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/compliance-documents?${params.toString()}`);
+    const response = await docFetch(`/api/hr/compliance-documents?${params.toString()}`);
     return response.json();
   }
 
@@ -459,7 +468,7 @@ export class DocumentManagementService {
       mockComplianceDocuments.push(newDoc);
       return newDoc;
     }
-    const response = await fetch('/api/hr/compliance-documents', {
+    const response = await docFetch('/api/hr/compliance-documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -477,7 +486,7 @@ export class DocumentManagementService {
       }
       return doc!;
     }
-    const response = await fetch(`/api/hr/compliance-documents/${id}/acknowledge`, {
+    const response = await docFetch(`/api/hr/compliance-documents/${id}/acknowledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acknowledgedBy }),
@@ -505,7 +514,7 @@ export class DocumentManagementService {
     const params = new URLSearchParams();
     if (options?.policyCategory) params.append('policyCategory', options.policyCategory);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/policies?${params.toString()}`);
+    const response = await docFetch(`/api/hr/policies?${params.toString()}`);
     return response.json();
   }
 
@@ -515,7 +524,7 @@ export class DocumentManagementService {
       if (!policy) throw new Error('Policy not found');
       return policy;
     }
-    const response = await fetch(`/api/hr/policies/${id}`);
+    const response = await docFetch(`/api/hr/policies/${id}`);
     return response.json();
   }
 
@@ -537,7 +546,7 @@ export class DocumentManagementService {
       mockPolicies.push(newPolicy);
       return newPolicy;
     }
-    const response = await fetch('/api/hr/policies', {
+    const response = await docFetch('/api/hr/policies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -555,7 +564,7 @@ export class DocumentManagementService {
       }
       return policy!;
     }
-    const response = await fetch(`/api/hr/policies/${id}/publish`, {
+    const response = await docFetch(`/api/hr/policies/${id}/publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ publishedBy }),
@@ -577,7 +586,7 @@ export class DocumentManagementService {
         acknowledgedAt: new Date().toISOString().split('T')[0],
       };
     }
-    const response = await fetch(`/api/hr/policies/${policyId}/acknowledge`, {
+    const response = await docFetch(`/api/hr/policies/${policyId}/acknowledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -590,7 +599,7 @@ export class DocumentManagementService {
       return mockPolicies.filter(p => p.status === PolicyStatus.PUBLISHED && p.requiresAcknowledgment);
     }
     const params = employeeId ? `?employeeId=${employeeId}` : '';
-    const response = await fetch(`/api/hr/policies/pending-acknowledgments${params}`);
+    const response = await docFetch(`/api/hr/policies/pending-acknowledgments${params}`);
     return response.json();
   }
 
@@ -624,7 +633,7 @@ export class DocumentManagementService {
     if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
     if (options?.searchQuery) params.append('searchQuery', options.searchQuery);
     if (options?.accessLevel) params.append('accessLevel', options.accessLevel);
-    const response = await fetch(`/api/hr/document-repository?${params.toString()}`);
+    const response = await docFetch(`/api/hr/document-repository?${params.toString()}`);
     return response.json();
   }
 
@@ -657,7 +666,7 @@ export class DocumentManagementService {
       mockRepositoryDocuments.push(newDoc);
       return newDoc;
     }
-    const response = await fetch('/api/hr/document-repository', {
+    const response = await docFetch('/api/hr/document-repository', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -671,7 +680,7 @@ export class DocumentManagementService {
       if (doc) doc.downloadCount++;
       return;
     }
-    await fetch(`/api/hr/document-repository/${id}/download`, { method: 'POST' });
+    await docFetch(`/api/hr/document-repository/${id}/download`, { method: 'POST' });
   }
 
   // Certificate Requests
@@ -699,7 +708,7 @@ export class DocumentManagementService {
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.certificateType) params.append('certificateType', options.certificateType);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/certificate-requests?${params.toString()}`);
+    const response = await docFetch(`/api/hr/certificate-requests?${params.toString()}`);
     return response.json();
   }
 
@@ -720,7 +729,7 @@ export class DocumentManagementService {
       mockCertificateRequests.push(newRequest);
       return newRequest;
     }
-    const response = await fetch('/api/hr/certificate-requests', {
+    const response = await docFetch('/api/hr/certificate-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -738,10 +747,28 @@ export class DocumentManagementService {
       }
       return request!;
     }
-    const response = await fetch(`/api/hr/certificate-requests/${id}/approve`, {
+    const response = await docFetch(`/api/hr/certificate-requests/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy }),
+    });
+    return response.json();
+  }
+
+  static async rejectCertificateRequest(id: string, rejectedBy: string, reason: string): Promise<CertificateRequest> {
+    if (USE_MOCK_DATA) {
+      const request = mockCertificateRequests.find(r => r.id === id);
+      if (request) {
+        request.status = CertificateRequestStatus.REJECTED;
+        request.processedBy = rejectedBy;
+        request.rejectionReason = reason;
+      }
+      return request!;
+    }
+    const response = await docFetch(`/api/hr/certificate-requests/${id}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rejectedBy, reason }),
     });
     return response.json();
   }
@@ -756,7 +783,7 @@ export class DocumentManagementService {
       }
       return request!;
     }
-    const response = await fetch(`/api/hr/certificate-requests/${id}/issue`, {
+    const response = await docFetch(`/api/hr/certificate-requests/${id}/issue`, {
       method: 'POST',
     });
     return response.json();
@@ -787,7 +814,7 @@ export class DocumentManagementService {
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.complianceStatus) params.append('complianceStatus', options.complianceStatus);
     if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
-    const response = await fetch(`/api/hr/document-compliance?${params.toString()}`);
+    const response = await docFetch(`/api/hr/document-compliance?${params.toString()}`);
     return response.json();
   }
 
@@ -795,7 +822,7 @@ export class DocumentManagementService {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.MISSING);
     }
-    const response = await fetch('/api/hr/document-compliance/missing');
+    const response = await docFetch('/api/hr/document-compliance/missing');
     return response.json();
   }
 
@@ -803,7 +830,7 @@ export class DocumentManagementService {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.EXPIRED);
     }
-    const response = await fetch('/api/hr/document-compliance/expired');
+    const response = await docFetch('/api/hr/document-compliance/expired');
     return response.json();
   }
 
@@ -811,7 +838,7 @@ export class DocumentManagementService {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.EXPIRING_SOON);
     }
-    const response = await fetch(`/api/hr/document-compliance/expiring?withinDays=${withinDays}`);
+    const response = await docFetch(`/api/hr/document-compliance/expiring?withinDays=${withinDays}`);
     return response.json();
   }
 
@@ -824,7 +851,7 @@ export class DocumentManagementService {
       }
       return tracking!;
     }
-    const response = await fetch(`/api/hr/document-compliance/${id}/remind`, {
+    const response = await docFetch(`/api/hr/document-compliance/${id}/remind`, {
       method: 'POST',
     });
     return response.json();
@@ -840,7 +867,7 @@ export class DocumentManagementService {
       }
       return tracking!;
     }
-    const response = await fetch(`/api/hr/document-compliance/${id}/resolve`, {
+    const response = await docFetch(`/api/hr/document-compliance/${id}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resolvedBy, notes }),
@@ -872,7 +899,7 @@ export class DocumentManagementService {
         pendingAcknowledgments: 5,
       };
     }
-    const response = await fetch('/api/hr/document-management/dashboard');
+    const response = await docFetch('/api/hr/document-management/dashboard');
     return response.json();
   }
 
@@ -901,7 +928,7 @@ export class DocumentManagementService {
         expiringDocuments: docs.filter(d => d.renewalStatus === 'expiring_soon').length,
       };
     }
-    const response = await fetch(`/api/hr/employees/${employeeId}/documents/summary`);
+    const response = await docFetch(`/api/hr/employees/${employeeId}/documents/summary`);
     return response.json();
   }
 }

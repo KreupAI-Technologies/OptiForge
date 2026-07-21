@@ -38,6 +38,8 @@ interface EquipmentRate {
 export default function EquipmentRatesPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<number>(0)
+  const [activeOnly, setActiveOnly] = useState(false)
   const [equipmentRates, setEquipmentRates] = useState<EquipmentRate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -95,6 +97,29 @@ export default function EquipmentRatesPage() {
     router.push(`/estimation/rates/equipment/history/${equipmentId}`)
   }
 
+  const handleStartEdit = (equipment: EquipmentRate) => {
+    setEditingId(equipment.id)
+    setEditValue(equipment.hourlyRate)
+  }
+
+  const handleSaveRate = async (equipmentId: string) => {
+    try {
+      await estimationResourceRateService.updateEquipmentRate('', equipmentId, {
+        hourlyRate: editValue,
+      })
+      setEquipmentRates((prev) =>
+        prev.map((e) =>
+          e.id === equipmentId
+            ? { ...e, hourlyRate: editValue, lastUpdated: new Date().toISOString() }
+            : e,
+        ),
+      )
+      setEditingId(null)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update equipment rate')
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -107,6 +132,10 @@ export default function EquipmentRatesPage() {
         return 'bg-gray-100 text-gray-700 border-gray-200'
     }
   }
+
+  const visibleEquipmentRates = activeOnly
+    ? equipmentRates.filter((e) => e.status === 'active')
+    : equipmentRates
 
   const totalEquipment = equipmentRates.length
   const avgHourlyRate = totalEquipment > 0 ? equipmentRates.reduce((sum, e) => sum + e.hourlyRate, 0) / totalEquipment : 0
@@ -130,9 +159,15 @@ export default function EquipmentRatesPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => setActiveOnly((v) => !v)}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
+              activeOnly
+                ? 'text-blue-700 bg-blue-50 border-blue-300'
+                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
             <Filter className="h-4 w-4" />
-            Filter
+            {activeOnly ? 'Active Only' : 'Filter'}
           </button>
           <button
             onClick={handleExport}
@@ -244,7 +279,7 @@ export default function EquipmentRatesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {equipmentRates.map((equipment) => (
+              {visibleEquipmentRates.map((equipment) => (
                 <tr key={equipment.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>
@@ -261,7 +296,8 @@ export default function EquipmentRatesPage() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          defaultValue={equipment.hourlyRate}
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
                           className="w-24 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-xs text-gray-600">/hr</span>
@@ -301,17 +337,17 @@ export default function EquipmentRatesPage() {
                     <div className="flex items-center gap-2">
                       {editingId === equipment.id ? (
                         <button
-                          onClick={() => setEditingId(null)}
+                          onClick={() => handleSaveRate(equipment.id)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                         
+
                         >
                           <Save className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => setEditingId(equipment.id)}
+                          onClick={() => handleStartEdit(equipment)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                         
+
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>

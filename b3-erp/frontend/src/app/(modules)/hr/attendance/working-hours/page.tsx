@@ -5,7 +5,6 @@ import {
     Clock,
     Plus,
     Search,
-    Edit,
     Trash2,
     Calendar,
     Sun,
@@ -37,32 +36,87 @@ export default function WorkingHoursPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
+    const [showForm, setShowForm] = useState(false);
+    const [banner, setBanner] = useState<string | null>(null);
+    const emptyForm = { name: '', description: '', startTime: '09:00', endTime: '18:00', breakDuration: '60', type: 'Regular' };
+    const [form, setForm] = useState({ ...emptyForm });
+    const [saving, setSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
+
+    const mapPolicy = (r: any, i: number): WorkingHours => ({
+        id: String(r?.id ?? i),
+        name: r?.name ?? r?.policyName ?? '',
+        description: r?.description ?? '',
+        startTime: r?.startTime ?? r?.start_time ?? '',
+        endTime: r?.endTime ?? r?.end_time ?? '',
+        breakDuration: Number(r?.breakDuration ?? r?.break_duration ?? 0),
+        totalHours: Number(r?.totalHours ?? r?.total_hours ?? 0),
+        type: (r?.type as WorkingHours['type']) ?? 'Regular',
+        appliedDays: Array.isArray(r?.appliedDays) ? r.appliedDays : [],
+        employeeCount: Number(r?.employeeCount ?? 0),
+        status: (r?.status === 'Inactive' || r?.status === 'inactive' ? 'Inactive' : 'Active') as WorkingHours['status'],
+    });
+
     useEffect(() => {
         let cancelled = false;
         (async () => {
             setIsLoading(true); setLoadError(null);
             try {
-                const raw = await AttendanceService.getAttendance();
-                const mapped: WorkingHours[] = (raw as any[]).map((r, i) => ({
-                    id: String(r?.id ?? i),
-                    name: r?.name ?? r?.shift ?? r?.employeeName ?? '',
-                    description: r?.description ?? '',
-                    startTime: r?.startTime ?? '',
-                    endTime: r?.endTime ?? '',
-                    breakDuration: r?.breakDuration ?? 0,
-                    totalHours: r?.totalHours ?? 0,
-                    type: (r?.type as WorkingHours['type']) ?? 'Regular',
-                    appliedDays: Array.isArray(r?.appliedDays) ? r.appliedDays : [],
-                    employeeCount: r?.employeeCount ?? 0,
-                    status: (r?.status === 'Inactive' ? 'Inactive' : 'Active') as WorkingHours['status'],
-                }));
+                const raw = await AttendanceService.getAttendancePolicies();
+                const mapped: WorkingHours[] = (raw as any[]).map(mapPolicy);
                 if (!cancelled) setWorkingHours(mapped);
             } catch (e) {
                 if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setWorkingHours([]); }
             } finally { if (!cancelled) setIsLoading(false); }
         })();
         return () => { cancelled = true; };
-    }, []);
+    }, [reloadKey]);
+
+    const computeTotal = (start: string, end: string, breakMin: number): number => {
+        if (!start || !end) return 0;
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        const mins = (eh * 60 + em) - (sh * 60 + sm) - breakMin;
+        return mins > 0 ? Math.round((mins / 60) * 10) / 10 : 0;
+    };
+
+    const handleCreate = async () => {
+        setSaving(true); setBanner(null);
+        try {
+            const breakMin = Number(form.breakDuration) || 0;
+            await AttendanceService.createAttendancePolicy({
+                name: form.name,
+                description: form.description,
+                startTime: form.startTime,
+                endTime: form.endTime,
+                breakDuration: breakMin,
+                totalHours: computeTotal(form.startTime, form.endTime, breakMin),
+                type: form.type,
+                status: 'Active',
+            });
+            setShowForm(false);
+            setForm({ ...emptyForm });
+            setReloadKey((k) => k + 1);
+            setBanner('Schedule added');
+        } catch (e) {
+            setBanner(e instanceof Error ? e.message : 'Failed to add schedule');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        setDeletingId(id); setBanner(null);
+        try {
+            await AttendanceService.deleteAttendancePolicy(id);
+            setWorkingHours((prev) => prev.filter((w) => w.id !== id));
+        } catch (e) {
+            setBanner(e instanceof Error ? e.message : 'Failed to delete schedule');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const filteredHours = workingHours.filter(wh =>
         wh.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -96,6 +150,7 @@ export default function WorkingHoursPage() {
             <div className="w-full space-y-3">
                 {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
                 {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
+                {banner && (<div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">{banner}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -104,11 +159,42 @@ export default function WorkingHoursPage() {
                         </h1>
                         <p className="text-gray-400 mt-1">Configure working hour schedules</p>
                     </div>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                    <button
+                        onClick={() => { setShowForm((v) => !v); setBanner(null); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
                         <Plus className="w-4 h-4" />
                         Add Schedule
                     </button>
                 </div>
+
+                {showForm && (
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 space-y-3">
+                        <h3 className="text-lg font-semibold text-white">New Working-Hour Schedule</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <input type="text" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="text" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="Regular">Regular</option>
+                                <option value="Morning">Morning</option>
+                                <option value="Evening">Evening</option>
+                                <option value="Night">Night</option>
+                                <option value="Flexible">Flexible</option>
+                            </select>
+                            <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="number" placeholder="Break (minutes)" value={form.breakDuration} onChange={(e) => setForm({ ...form, breakDuration: e.target.value })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleCreate} disabled={saving || !form.name} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg">
+                                {saving ? 'Saving…' : 'Create'}
+                            </button>
+                            <button onClick={() => { setShowForm(false); setForm({ ...emptyForm }); }} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
@@ -160,10 +246,12 @@ export default function WorkingHoursPage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-1">
-                                    <button className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded">
-                                        <Edit className="w-4 h-4" />
-                                    </button>
-                                    <button className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded">
+                                    <button
+                                        onClick={() => handleDelete(wh.id)}
+                                        disabled={deletingId === wh.id}
+                                        className="p-2 bg-red-500/20 hover:bg-red-500/30 disabled:opacity-50 text-red-400 rounded"
+                                        title="Delete schedule"
+                                    >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>

@@ -35,6 +35,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${path}${sep}companyId=${encodeURIComponent(companyId)}`;
   const response = await fetch(url, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       'x-company-id': companyId,

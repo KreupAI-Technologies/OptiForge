@@ -222,6 +222,30 @@ import { PmEquipmentCatalogController } from './controllers/pm-equipment-catalog
 import { PmDispatchCatalogController } from './controllers/pm-dispatch-catalog.controller';
 import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-templates.controller';
 
+// --- Projects Focus audit remediation: net-new Bucket B verticals ---
+// (seeders populate DEMO-PROJECT demo rows on first boot after migrations run)
+import { MepDrawingEntity } from './entities/mep-drawing.entity';
+import { MepDrawingController } from './controllers/mep-drawing.controller';
+import { MepDrawingService } from './services/mep-drawing.service';
+import { MepDrawingSeederService } from './services/mep-drawing-seeder.service';
+import { CabinetMarkingTask } from './entities/cabinet-marking-task.entity';
+import { CabinetMarkingController } from './controllers/cabinet-marking.controller';
+import { CabinetMarkingService } from './services/cabinet-marking.service';
+import { CabinetMarkingSeederService } from './services/cabinet-marking-seeder.service';
+import { PmVendorShipmentEntity } from './entities/pm-vendor-shipment.entity';
+import { PmVendorShipmentController } from './controllers/pm-vendor-shipment.controller';
+import { PmVendorShipmentService } from './services/pm-vendor-shipment.service';
+import { VendorShipmentSeederService } from './services/vendor-shipment-seeder.service';
+import { PackagingMaterialRequest } from './entities/packaging-material-request.entity';
+import { PackagingMaterialRequestController } from './controllers/packaging-material-request.controller';
+import { PackagingMaterialRequestService } from './services/packaging-material-request.service';
+import { PackagingMaterialRequestSeederService } from './services/packaging-material-request-seeder.service';
+import { PmProductionJobEntity } from './entities/pm-production-job.entity';
+import { ProductionJobsController } from './controllers/production-jobs.controller';
+import { ProductionJobsService } from './services/production-jobs.service';
+import { ProductionJobSeederService } from './services/production-job-seeder.service';
+import { DrawingVerification } from './entities/drawing-verification.entity';
+
 @Module({
     imports: [TypeOrmModule.forFeature([
         Project,
@@ -304,7 +328,13 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         PmScopeItemEntity,
         PmCharterEntity,
         PmKanbanCardEntity,
-        PmEarnedValueEntity
+        PmEarnedValueEntity,
+        MepDrawingEntity,
+        CabinetMarkingTask,
+        PmVendorShipmentEntity,
+        PackagingMaterialRequest,
+        PmProductionJobEntity,
+        DrawingVerification
     ])],
     controllers: [
         ProjectController,
@@ -370,7 +400,12 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         PmEquipmentCatalogController,
         PmDispatchCatalogController,
         PmBoqLineTemplatesController,
-        ProjectPlansController
+        ProjectPlansController,
+        MepDrawingController,
+        CabinetMarkingController,
+        PmVendorShipmentController,
+        PackagingMaterialRequestController,
+        ProductionJobsController
     ],
     providers: [
         ProjectService,
@@ -442,7 +477,17 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         PmEquipmentCatalogService,
         PmDispatchCatalogService,
         PmBoqLineTemplatesService,
-        ProjectPlansService
+        ProjectPlansService,
+        MepDrawingService,
+        MepDrawingSeederService,
+        CabinetMarkingService,
+        CabinetMarkingSeederService,
+        PmVendorShipmentService,
+        VendorShipmentSeederService,
+        PackagingMaterialRequestService,
+        PackagingMaterialRequestSeederService,
+        ProductionJobsService,
+        ProductionJobSeederService
     ],
     exports: [
         ProjectService,

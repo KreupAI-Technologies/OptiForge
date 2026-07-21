@@ -403,6 +403,22 @@ export interface SystemConfigValueDto {
   value: any;
 }
 
+export interface IntegrationConfigDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  category?: string;
+  description?: string;
+  status?: string;
+  icon?: string;
+  config?: Record<string, any>;
+  lastSync?: string;
+  syncFrequency?: string;
+  features?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface RoleDto {
   id: string;
   code?: string;
@@ -413,6 +429,41 @@ export interface RoleDto {
   userCount?: number;
   applicableModules?: string[];
   permissions?: any[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomFieldDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  label?: string;
+  module?: string;
+  fieldType?: string;
+  required?: boolean;
+  defaultValue?: string;
+  options?: string[];
+  validation?: string;
+  helpText?: string;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DocumentTemplateDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  type?: string;
+  category?: string;
+  content?: string;
+  variables?: string[];
+  format?: string;
+  lastModified?: string;
+  usageCount?: number;
+  isDefault?: boolean;
+  active?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -832,6 +883,12 @@ class ItAdminServiceClass {
     });
   }
 
+  async deleteBackupRecord(id: string): Promise<void> {
+    return request<void>(`/it-admin/backup-records/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // --- Export Datasets ---
   async getExportDatasets(params?: {
     companyId?: string;
@@ -929,6 +986,24 @@ class ItAdminServiceClass {
     });
   }
 
+  // --- Integrations ---
+  async getIntegrations(params?: {
+    companyId?: string;
+    category?: string;
+  }): Promise<IntegrationConfigDto[]> {
+    return request<IntegrationConfigDto[]>(`/it-admin/integrations${qs(params)}`);
+  }
+
+  async updateIntegration(
+    id: string,
+    data: Partial<IntegrationConfigDto>,
+  ): Promise<IntegrationConfigDto> {
+    return request<IntegrationConfigDto>(`/it-admin/integrations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // --- User Sessions (security/sessions console) ---
   async getSessions(params?: {
     status?: string;
@@ -968,6 +1043,72 @@ class ItAdminServiceClass {
         }),
       },
     );
+  }
+
+  // --- Custom Fields ---
+  async getCustomFields(params?: {
+    companyId?: string;
+    module?: string;
+  }): Promise<CustomFieldDto[]> {
+    return request<CustomFieldDto[]>(`/it-admin/custom-fields${qs(params)}`);
+  }
+
+  async createCustomField(
+    data: Partial<CustomFieldDto>,
+  ): Promise<CustomFieldDto> {
+    return request<CustomFieldDto>('/it-admin/custom-fields', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCustomField(
+    id: string,
+    data: Partial<CustomFieldDto>,
+  ): Promise<CustomFieldDto> {
+    return request<CustomFieldDto>(`/it-admin/custom-fields/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCustomField(id: string): Promise<void> {
+    return request<void>(`/it-admin/custom-fields/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- Document Templates ---
+  async getTemplates(params?: {
+    companyId?: string;
+    type?: string;
+  }): Promise<DocumentTemplateDto[]> {
+    return request<DocumentTemplateDto[]>(`/it-admin/templates${qs(params)}`);
+  }
+
+  async createTemplate(
+    data: Partial<DocumentTemplateDto>,
+  ): Promise<DocumentTemplateDto> {
+    return request<DocumentTemplateDto>('/it-admin/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTemplate(
+    id: string,
+    data: Partial<DocumentTemplateDto>,
+  ): Promise<DocumentTemplateDto> {
+    return request<DocumentTemplateDto>(`/it-admin/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    return request<void>(`/it-admin/templates/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
 

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Armchair, User, MapPin } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
+import { AssetManagementService } from '@/services/asset-management.service';
 
 interface FurnitureAsset {
   id: string;
@@ -98,6 +99,79 @@ export default function Page() {
   const [mockFurniture, setMockFurniture] = useState<FurnitureAsset[]>(fallbackFurniture);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [selected, setSelected] = useState<FurnitureAsset | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [allocateTarget, setAllocateTarget] = useState<FurnitureAsset | null>(null);
+  const [addForm, setAddForm] = useState({ item: '', brand: '', cost: '', location: '', category: 'chair' as FurnitureAsset['category'] });
+  const [allocForm, setAllocForm] = useState({ employeeName: '', employeeCode: '', department: '' });
+  const [saving, setSaving] = useState(false);
+
+  const handleAdd = async () => {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      const asset = await AssetManagementService.createAsset({
+        assetName: addForm.item,
+        brand: addForm.brand,
+        purchasePrice: Number(addForm.cost) || undefined,
+        location: addForm.location,
+      });
+      const newRow: FurnitureAsset = {
+        id: asset?.id || Date.now().toString(),
+        assetTag: asset?.assetCode || '',
+        item: addForm.item,
+        category: addForm.category,
+        brand: addForm.brand,
+        purchaseDate: new Date().toISOString().split('T')[0],
+        cost: Number(addForm.cost) || 0,
+        status: 'available',
+        condition: 'good',
+        location: addForm.location,
+      };
+      setMockFurniture((prev) => [newRow, ...prev]);
+      setShowAdd(false);
+      setAddForm({ item: '', brand: '', cost: '', location: '', category: 'chair' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add furniture');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAllocate = async () => {
+    if (!allocateTarget) return;
+    setSaving(true);
+    setLoadError(null);
+    try {
+      await AssetManagementService.allocateAsset({
+        assetId: allocateTarget.id,
+        employeeName: allocForm.employeeName,
+        employeeCode: allocForm.employeeCode,
+        department: allocForm.department,
+        allocationType: 'permanent',
+      });
+      setMockFurniture((prev) =>
+        prev.map((f) =>
+          f.id === allocateTarget.id
+            ? {
+                ...f,
+                status: 'allocated',
+                assignedTo: allocForm.employeeName,
+                employeeCode: allocForm.employeeCode,
+                department: allocForm.department,
+              }
+            : f,
+        ),
+      );
+      setAllocateTarget(null);
+      setAllocForm({ employeeName: '', employeeCode: '', department: '' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to allocate furniture');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -228,7 +302,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Furniture
             </button>
           </div>
@@ -293,11 +367,11 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => setSelected(furniture)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Details
               </button>
               {furniture.status === 'available' && (
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                <button onClick={() => setAllocateTarget(furniture)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                   Allocate
                 </button>
               )}
@@ -305,6 +379,97 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">{selected.item}</h2>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Asset Tag</p><p className="font-semibold text-gray-900">{selected.assetTag || '—'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Brand</p><p className="font-semibold text-gray-900">{selected.brand || '—'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Category</p><p className="font-semibold text-gray-900">{selected.category}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Status</p><p className="font-semibold text-gray-900">{selected.status}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Condition</p><p className="font-semibold text-gray-900">{selected.condition}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Cost</p><p className="font-semibold text-gray-900">₹{selected.cost.toLocaleString('en-IN')}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Purchase Date</p><p className="font-semibold text-gray-900">{selected.purchaseDate || '—'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Location</p><p className="font-semibold text-gray-900">{selected.location || '—'}</p></div>
+              {selected.assignedTo && <div><p className="text-xs text-gray-500 uppercase font-medium">Assigned To</p><p className="font-semibold text-gray-900">{selected.assignedTo}</p></div>}
+              {selected.employeeCode && <div><p className="text-xs text-gray-500 uppercase font-medium">Employee Code</p><p className="font-semibold text-gray-900">{selected.employeeCode}</p></div>}
+              {selected.department && <div><p className="text-xs text-gray-500 uppercase font-medium">Department</p><p className="font-semibold text-gray-900">{selected.department}</p></div>}
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Furniture</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                <input type="text" value={addForm.item} onChange={(e) => setAddForm({ ...addForm, item: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                <input type="text" value={addForm.brand} onChange={(e) => setAddForm({ ...addForm, brand: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cost</label>
+                <input type="number" value={addForm.cost} onChange={(e) => setAddForm({ ...addForm, cost: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select value={addForm.category} onChange={(e) => setAddForm({ ...addForm, category: e.target.value as FurnitureAsset['category'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                  <option value="desk">Desk</option>
+                  <option value="chair">Chair</option>
+                  <option value="cabinet">Cabinet</option>
+                  <option value="table">Table</option>
+                  <option value="storage">Storage</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleAdd} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {allocateTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAllocateTarget(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Allocate {allocateTarget.item}</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                <input type="text" value={allocForm.employeeName} onChange={(e) => setAllocForm({ ...allocForm, employeeName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                <input type="text" value={allocForm.employeeCode} onChange={(e) => setAllocForm({ ...allocForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input type="text" value={allocForm.department} onChange={(e) => setAllocForm({ ...allocForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setAllocateTarget(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleAllocate} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">Allocate</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

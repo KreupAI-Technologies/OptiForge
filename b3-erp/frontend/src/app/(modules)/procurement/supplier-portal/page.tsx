@@ -86,21 +86,55 @@ export default function SupplierPortal() {
     }
   }, [])
 
-  // RFQs
-  const rfqs = [
-    { id: 'RFQ-2024-101', title: 'Industrial Equipment Supply', deadline: '2024-03-20', items: 12, status: 'Open' },
-    { id: 'RFQ-2024-102', title: 'IT Hardware Components', deadline: '2024-03-22', items: 8, status: 'Submitted' },
-    { id: 'RFQ-2024-103', title: 'Safety Equipment', deadline: '2024-03-25', items: 15, status: 'Open' },
-  ]
+  // RFQs (loaded from API)
+  const [rfqs, setRfqs] = useState<Array<{ id: string; title: string; deadline: string; items: number; status: string }>>([])
 
-  // Invoices
-  const invoices = [
-    { id: 'INV-2024-001', poNumber: 'PO-2024-001', date: '2024-03-15', amount: 45000, status: 'Pending', dueDate: '2024-04-15' },
-    { id: 'INV-2024-002', poNumber: 'PO-2024-002', date: '2024-03-12', amount: 28000, status: 'Paid', dueDate: '2024-04-12' },
-    { id: 'INV-2024-003', poNumber: 'PO-2024-003', date: '2024-03-10', amount: 62000, status: 'Overdue', dueDate: '2024-03-10' },
-  ]
+  // Invoices (loaded from API)
+  const [invoices, setInvoices] = useState<Array<{ id: string; poNumber: string; date: string; amount: number; status: string; dueDate: string }>>([])
 
-  // Performance Data
+  useEffect(() => {
+    let cancelled = false
+    procurementPagesService
+      .getRfqs()
+      .then((rows) => {
+        if (cancelled) return
+        setRfqs(
+          (rows ?? []).map((r: any) => ({
+            id: r.rfqNumber ?? r.id ?? '',
+            title: r.title ?? r.subject ?? r.description ?? '',
+            deadline: (r.submissionDeadline ?? r.dueDate ?? r.closingDate ?? '').toString().split('T')[0] || '',
+            items: Number(r.lineItemCount ?? r.itemCount ?? (Array.isArray(r.items) ? r.items.length : 0)) || 0,
+            status: r.status ?? '',
+          })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setRfqs([])
+      })
+    procurementPagesService
+      .getPurchaseInvoices()
+      .then((rows) => {
+        if (cancelled) return
+        setInvoices(
+          (rows ?? []).map((r: any) => ({
+            id: r.invoiceNumber ?? r.id ?? '',
+            poNumber: r.poNumber ?? r.purchaseOrderNumber ?? '',
+            date: (r.invoiceDate ?? r.date ?? '').toString().split('T')[0] || '',
+            amount: Number(r.totalAmount ?? r.amount ?? 0) || 0,
+            status: r.status ?? '',
+            dueDate: (r.dueDate ?? '').toString().split('T')[0] || '',
+          })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setInvoices([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Performance Data (no dedicated endpoint; static illustrative trend)
   const performanceData = [
     { month: 'Jan', delivered: 15, onTime: 14, quality: 98 },
     { month: 'Feb', delivered: 18, onTime: 17, quality: 97 },

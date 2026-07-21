@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { Award, ThumbsUp, Heart, Star, Plus, User } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -55,25 +56,46 @@ export default function RecognitionPage() {
     'Ownership'
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRecognition: Recognition = {
-      id: Date.now().toString(),
-      sender: 'Current User', // Mock sender
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const payload = {
+      sender: 'Current User',
       recipient: formData.recipient,
       coreValue: formData.coreValue,
       message: formData.message,
       date: new Date().toISOString().split('T')[0],
       reactions: 0
     };
-
-    setRecognitions(prev => [newRecognition, ...prev]);
-    setShowModal(false);
-    setFormData({
-      recipient: '',
-      coreValue: 'Teamwork',
-      message: ''
-    });
+    try {
+      const created = await HrTalentService.createPerformance<typeof payload>(payload, {
+        recordType: 'recognition'
+      });
+      const newRecognition: Recognition = {
+        id: String((created as any)?.id ?? Date.now().toString()),
+        sender: payload.sender,
+        recipient: payload.recipient,
+        coreValue: payload.coreValue,
+        message: payload.message,
+        date: payload.date,
+        reactions: 0
+      };
+      setRecognitions(prev => [newRecognition, ...prev]);
+      setShowModal(false);
+      setFormData({
+        recipient: '',
+        coreValue: 'Teamwork',
+        message: ''
+      });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to send recognition');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReaction = (id: string) => {
@@ -201,6 +223,11 @@ export default function RecognitionPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-2">
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
                 <div className="relative">
@@ -251,9 +278,10 @@ export default function RecognitionPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
-                  Send Shoutout
+                  {isSubmitting ? 'Sending…' : 'Send Shoutout'}
                 </button>
               </div>
             </form>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { Mail, Plus, Clock, CheckCircle, User, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -65,26 +66,49 @@ export default function FeedbackRequestsPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRequest: FeedbackRequest = {
-      id: Date.now().toString(),
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const payload = {
       recipient: formData.recipient,
-      role: 'Team Member', // Mock role
+      role: 'Team Member',
       requestedDate: new Date().toISOString().split('T')[0],
       dueDate: formData.dueDate,
-      status: 'pending',
+      message: formData.message,
+      status: 'pending' as const,
       topics: formData.topics
     };
-
-    setRequests(prev => [newRequest, ...prev]);
-    setShowModal(false);
-    setFormData({
-      recipient: '',
-      dueDate: '',
-      message: '',
-      topics: []
-    });
+    try {
+      const created = await HrTalentService.createPerformance<typeof payload>(payload, {
+        recordType: 'feedback-request',
+        status: 'pending'
+      });
+      const newRequest: FeedbackRequest = {
+        id: String((created as any)?.id ?? Date.now().toString()),
+        recipient: payload.recipient,
+        role: payload.role,
+        requestedDate: payload.requestedDate,
+        dueDate: payload.dueDate,
+        status: 'pending',
+        topics: payload.topics
+      };
+      setRequests(prev => [newRequest, ...prev]);
+      setShowModal(false);
+      setFormData({
+        recipient: '',
+        dueDate: '',
+        message: '',
+        topics: []
+      });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to send request');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const columns = [
@@ -200,6 +224,11 @@ export default function FeedbackRequestsPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-2">
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
                 <div className="relative">
@@ -269,9 +298,10 @@ export default function FeedbackRequestsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
-                  Send Request
+                  {isSubmitting ? 'Sending…' : 'Send Request'}
                 </button>
               </div>
             </form>

@@ -16,6 +16,16 @@ export class DesignVerificationController {
         return this.service.createDiscrepancy(data);
     }
 
+    @Get('drawings/:projectId')
+    getDrawingVerifications(@Param('projectId') projectId: string) {
+        return this.service.getDrawingVerifications(projectId);
+    }
+
+    @Patch('drawings/:id/verify')
+    verifyDrawing(@Param('id') id: string, @Body() data: any) {
+        return this.service.verifyDrawing(id, data);
+    }
+
     @Patch('discrepancies/:id/resolve')
     resolveDiscrepancy(@Param('id') id: string, @Body('resolvedBy') resolvedBy: string, @Body('notes') notes: string) {
         return this.service.resolveDiscrepancy(id, resolvedBy, notes);

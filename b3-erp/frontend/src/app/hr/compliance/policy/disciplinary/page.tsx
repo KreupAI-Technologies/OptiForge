@@ -92,6 +92,20 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const handleFileAppeal = async (id: string) => {
+    try {
+      setUpdatingId(id);
+      await HrComplianceDocsService.updateDisciplinaryAction(id, { appealStatus: 'filed', appealFiledDate: new Date().toISOString().slice(0, 10) });
+      setItems(prev => prev.map(a => a.id === id ? { ...a, appealStatus: 'filed' } : a));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to file appeal');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const sourceDisciplinaryActions = items;
 
   const filteredActions = useMemo(() => {
@@ -405,8 +419,12 @@ export default function Page() {
                 </button>
               )}
               {action.appealStatus === 'not_filed' && action.status === 'active' && (
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                  File Appeal
+                <button
+                  onClick={() => handleFileAppeal(action.id)}
+                  disabled={updatingId === action.id}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {updatingId === action.id ? 'Filing...' : 'File Appeal'}
                 </button>
               )}
             </div>

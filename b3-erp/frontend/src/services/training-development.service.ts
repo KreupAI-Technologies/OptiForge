@@ -932,7 +932,7 @@ export class TrainingDevelopmentService {
     if (options?.trainingType) params.append('trainingType', options.trainingType);
     if (options?.status) params.append('status', options.status);
     if (options?.search) params.append('search', options.search);
-    const response = await fetch(`/api/hr/training/programs?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/programs?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -942,7 +942,7 @@ export class TrainingDevelopmentService {
       if (!program) throw new Error('Training program not found');
       return program;
     }
-    const response = await fetch(`/api/hr/training/programs/${id}`);
+    const response = await fetch(`/api/hr/training/programs/${id}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -966,6 +966,7 @@ export class TrainingDevelopmentService {
       return newProgram;
     }
     const response = await fetch('/api/hr/training/programs', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -983,6 +984,7 @@ export class TrainingDevelopmentService {
       throw new Error('Training program not found');
     }
     const response = await fetch(`/api/hr/training/programs/${id}`, {
+      credentials: 'include',
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1009,7 +1011,7 @@ export class TrainingDevelopmentService {
     if (options?.status) params.append('status', options.status);
     if (options?.fromDate) params.append('fromDate', options.fromDate);
     if (options?.toDate) params.append('toDate', options.toDate);
-    const response = await fetch(`/api/hr/training/schedules?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/schedules?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1035,6 +1037,7 @@ export class TrainingDevelopmentService {
       return newSchedule;
     }
     const response = await fetch('/api/hr/training/schedules', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1064,7 +1067,7 @@ export class TrainingDevelopmentService {
     if (options?.programId) params.append('programId', options.programId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/training/enrollments?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/enrollments?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1099,6 +1102,7 @@ export class TrainingDevelopmentService {
       return newEnrollment;
     }
     const response = await fetch('/api/hr/training/enrollments', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1117,6 +1121,7 @@ export class TrainingDevelopmentService {
       return enrollment!;
     }
     const response = await fetch(`/api/hr/training/enrollments/${id}/approve`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy }),
@@ -1134,6 +1139,7 @@ export class TrainingDevelopmentService {
       return enrollment!;
     }
     const response = await fetch(`/api/hr/training/enrollments/${id}/reject`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rejectedBy, reason }),
@@ -1160,6 +1166,7 @@ export class TrainingDevelopmentService {
       return enrollment!;
     }
     const response = await fetch(`/api/hr/training/enrollments/${id}/complete`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1178,6 +1185,7 @@ export class TrainingDevelopmentService {
       return enrollment!;
     }
     const response = await fetch(`/api/hr/training/enrollments/${enrollmentId}/issue-certificate`, {
+      credentials: 'include',
       method: 'POST',
     });
     return response.json();
@@ -1198,7 +1206,7 @@ export class TrainingDevelopmentService {
     if (options?.enrollmentId) params.append('enrollmentId', options.enrollmentId);
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
     if (options?.sessionId) params.append('sessionId', options.sessionId);
-    const response = await fetch(`/api/hr/training/attendance?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/attendance?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1216,6 +1224,7 @@ export class TrainingDevelopmentService {
       } as TrainingAttendance;
     }
     const response = await fetch('/api/hr/training/attendance', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1229,7 +1238,7 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
-    const response = await fetch(`/api/hr/training/schedules/${scheduleId}/waitlist`);
+    const response = await fetch(`/api/hr/training/schedules/${scheduleId}/waitlist`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1255,6 +1264,7 @@ export class TrainingDevelopmentService {
       };
     }
     const response = await fetch('/api/hr/training/waitlist', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1288,7 +1298,7 @@ export class TrainingDevelopmentService {
     const params = new URLSearchParams();
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
-    const response = await fetch(`/api/hr/training/skill-matrix?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/skill-matrix?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1310,7 +1320,7 @@ export class TrainingDevelopmentService {
         ],
       };
     }
-    const response = await fetch(`/api/hr/training/skill-gap-analysis/${employeeId}`);
+    const response = await fetch(`/api/hr/training/skill-gap-analysis/${employeeId}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1330,6 +1340,7 @@ export class TrainingDevelopmentService {
       } as SkillAssessment;
     }
     const response = await fetch('/api/hr/training/skill-assessments', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1354,7 +1365,7 @@ export class TrainingDevelopmentService {
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
     if (options?.expiringWithinDays) params.append('expiringWithinDays', String(options.expiringWithinDays));
-    const response = await fetch(`/api/hr/training/certifications?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/certifications?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1376,6 +1387,7 @@ export class TrainingDevelopmentService {
       return newCert;
     }
     const response = await fetch('/api/hr/training/certifications', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1405,6 +1417,7 @@ export class TrainingDevelopmentService {
       return cert!;
     }
     const response = await fetch(`/api/hr/training/certifications/${id}/renew`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1426,7 +1439,7 @@ export class TrainingDevelopmentService {
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
     if (options?.programId) params.append('programId', options.programId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
-    const response = await fetch(`/api/hr/training/feedback?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/feedback?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1450,6 +1463,7 @@ export class TrainingDevelopmentService {
       } as TrainingFeedback;
     }
     const response = await fetch('/api/hr/training/feedback', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1471,7 +1485,23 @@ export class TrainingDevelopmentService {
     if (options?.programId) params.append('programId', options.programId);
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
     if (options?.assessmentType) params.append('assessmentType', options.assessmentType);
-    const response = await fetch(`/api/hr/training/assessments?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/assessments?${params.toString()}`, { credentials: 'include' });
+    return response.json();
+  }
+
+  static async createTrainingAssessment(data: Partial<TrainingAssessment>): Promise<TrainingAssessment> {
+    if (USE_MOCK_DATA) {
+      return {
+        id: Math.random().toString(36).slice(2),
+        ...data,
+      } as TrainingAssessment;
+    }
+    const response = await fetch('/api/hr/training/assessments', {
+      credentials: 'include',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
     return response.json();
   }
 
@@ -1493,6 +1523,7 @@ export class TrainingDevelopmentService {
       };
     }
     const response = await fetch(`/api/hr/training/assessments/${assessmentId}/attempt`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enrollmentId, employeeId }),
@@ -1520,6 +1551,7 @@ export class TrainingDevelopmentService {
       };
     }
     const response = await fetch(`/api/hr/training/assessment-attempts/${attemptId}/submit`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers }),
@@ -1553,7 +1585,7 @@ export class TrainingDevelopmentService {
     if (options?.category) params.append('category', options.category);
     if (options?.level) params.append('level', options.level);
     if (options?.search) params.append('search', options.search);
-    const response = await fetch(`/api/hr/training/e-learning/courses?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/e-learning/courses?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1563,7 +1595,7 @@ export class TrainingDevelopmentService {
       if (!course) throw new Error('Course not found');
       return course;
     }
-    const response = await fetch(`/api/hr/training/e-learning/courses/${id}`);
+    const response = await fetch(`/api/hr/training/e-learning/courses/${id}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1591,6 +1623,7 @@ export class TrainingDevelopmentService {
       };
     }
     const response = await fetch(`/api/hr/training/e-learning/courses/${courseId}/enroll`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employeeId }),
@@ -1610,7 +1643,7 @@ export class TrainingDevelopmentService {
     if (options?.courseId) params.append('courseId', options.courseId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/training/e-learning/progress?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/e-learning/progress?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1640,6 +1673,7 @@ export class TrainingDevelopmentService {
       };
     }
     const response = await fetch(`/api/hr/training/e-learning/progress/${progressId}/lesson/${lessonId}`, {
+      credentials: 'include',
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1665,7 +1699,7 @@ export class TrainingDevelopmentService {
     if (options?.fiscalYear) params.append('fiscalYear', options.fiscalYear);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/training/budgets?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/budgets?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1690,6 +1724,7 @@ export class TrainingDevelopmentService {
       return newBudget;
     }
     const response = await fetch('/api/hr/training/budgets', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1713,6 +1748,7 @@ export class TrainingDevelopmentService {
       } as TrainingCost;
     }
     const response = await fetch('/api/hr/training/costs', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1757,7 +1793,7 @@ export class TrainingDevelopmentService {
         upcomingSchedules: mockSchedules.filter(s => s.status === 'scheduled').slice(0, 5),
       };
     }
-    const response = await fetch('/api/hr/training/dashboard');
+    const response = await fetch('/api/hr/training/dashboard', { credentials: 'include' });
     return response.json();
   }
 
@@ -1794,7 +1830,7 @@ export class TrainingDevelopmentService {
     if (options?.fromDate) params.append('fromDate', options.fromDate);
     if (options?.toDate) params.append('toDate', options.toDate);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
-    const response = await fetch(`/api/hr/training/reports/summary?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/reports/summary?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1823,7 +1859,7 @@ export class TrainingDevelopmentService {
         })),
       };
     }
-    const response = await fetch(`/api/hr/training/reports/employee/${employeeId}`);
+    const response = await fetch(`/api/hr/training/reports/employee/${employeeId}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1858,7 +1894,7 @@ export class TrainingDevelopmentService {
         ],
       };
     }
-    const response = await fetch(`/api/hr/training/reports/department/${departmentId}`);
+    const response = await fetch(`/api/hr/training/reports/department/${departmentId}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -1886,7 +1922,7 @@ export class TrainingDevelopmentService {
     if (options?.fromDate) params.append('fromDate', options.fromDate);
     if (options?.toDate) params.append('toDate', options.toDate);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
-    const response = await fetch(`/api/hr/training/reports/hours?${params.toString()}`);
+    const response = await fetch(`/api/hr/training/reports/hours?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 }

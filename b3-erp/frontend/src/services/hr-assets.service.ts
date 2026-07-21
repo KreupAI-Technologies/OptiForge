@@ -8,6 +8,7 @@ const API_BASE_URL =
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
     cache: 'no-store',
   });
   if (!res.ok) {
@@ -24,6 +25,7 @@ async function sendJson<T>(
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
     body: body != null ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {

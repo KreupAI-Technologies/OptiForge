@@ -9,6 +9,7 @@ const API_BASE_URL =
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
     cache: 'no-store',
   });
   if (!res.ok) {
@@ -21,6 +22,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -33,6 +35,7 @@ async function putJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -246,6 +249,24 @@ export interface OvertimeRequest {
   calculatedAmount?: number;
 }
 
+export interface OvertimeRate {
+  id: string;
+  companyId?: string;
+  grade: string;
+  designation?: string;
+  hourlyRate?: number;
+  multiplier?: number;
+  effectiveFrom?: string;
+  status?: string;
+}
+
+export interface OvertimeSettings {
+  id?: string;
+  companyId?: string;
+  otRules?: Record<string, unknown>;
+  compOffRules?: Record<string, unknown>;
+}
+
 export interface SafetyIncident {
   id: string;
   companyId: string;
@@ -341,6 +362,25 @@ export class HrSelfServiceService {
       companyId: 'default-company-id',
       ...payload,
     });
+  }
+  static updateOvertimeRequest(id: string, payload: Partial<OvertimeRequest>) {
+    return putJson<OvertimeRequest>(`/hr/overtime-requests/${id}`, payload);
+  }
+  // --- Overtime settings (rates + rules) ---
+  static getOvertimeRates(companyId?: string) {
+    return getJson<OvertimeRate[]>(`/hr/overtime-settings/rates${qs({ companyId })}`);
+  }
+  static createOvertimeRate(payload: Partial<OvertimeRate>) {
+    return postJson<OvertimeRate>('/hr/overtime-settings/rates', payload);
+  }
+  static updateOvertimeRate(id: string, payload: Partial<OvertimeRate>) {
+    return putJson<OvertimeRate>(`/hr/overtime-settings/rates/${id}`, payload);
+  }
+  static getOvertimeSettings(companyId?: string) {
+    return getJson<OvertimeSettings | null>(`/hr/overtime-settings${qs({ companyId })}`);
+  }
+  static saveOvertimeSettings(payload: Partial<OvertimeSettings>) {
+    return putJson<OvertimeSettings>('/hr/overtime-settings', payload);
   }
   static getSafetyIncidents(status?: string) {
     return list<SafetyIncident>(`/hr/safety-incidents${qs({ status })}`);

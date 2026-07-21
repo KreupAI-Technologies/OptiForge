@@ -32,53 +32,82 @@ interface AssessmentRow {
   status: string;
 }
 
-// Mock Data
-const ergoStats = {
-  activeAssessments: 12,
-  highRiskStations: 2,
-  adjustmentsPending: 5,
-  siteRiskScore: 2.4 // Out of 5, lower is better
-};
-
 export default function ErgonomicsPage() {
   const [filter, setFilter] = useState('All');
   const [assessmentQueue, setAssessmentQueue] = useState<AssessmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: '', employeeName: '', riskLevel: 'Medium' });
+
+  // derived from fetched assessmentQueue
+  const highRiskCount = assessmentQueue.filter((a) => a.riskLevel === 'High').length;
+  const riskWeight: Record<string, number> = { Low: 1, Medium: 3, High: 5 };
+  const ergoStats = {
+    activeAssessments: assessmentQueue.filter((a) => a.status !== 'Completed').length,
+    highRiskStations: highRiskCount,
+    adjustmentsPending: assessmentQueue.filter((a) => a.status === 'Action Required').length,
+    siteRiskScore: assessmentQueue.length
+      ? Math.round(
+          (assessmentQueue.reduce((sum, a) => sum + (riskWeight[a.riskLevel] ?? 0), 0) /
+            assessmentQueue.length) *
+            10,
+        ) / 10
+      : 0, // Out of 5, lower is better
+  };
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getWellness('ergonomics');
+      const mapped: AssessmentRow[] = rows.map((row: SafetyWellness) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          employee: row.employeeName ?? '',
+          station: row.title ?? meta.station ?? '',
+          riskLevel: row.riskLevel ?? '',
+          date: row.scheduledDate ?? row.completedDate ?? '',
+          status: row.status ?? '',
+        };
+      });
+      setAssessmentQueue(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load ergonomic assessments');
+      setAssessmentQueue([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getWellness('ergonomics');
-        const mapped: AssessmentRow[] = rows.map((row: SafetyWellness) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            employee: row.employeeName ?? '',
-            station: row.title ?? meta.station ?? '',
-            riskLevel: row.riskLevel ?? '',
-            date: row.scheduledDate ?? row.completedDate ?? '',
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setAssessmentQueue(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load ergonomic assessments');
-          setAssessmentQueue([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleLogSiteWalk = async () => {
+    if (!form.title.trim()) return;
+    setIsSaving(true);
+    setLoadError(null);
+    try {
+      await HrSafetyService.createWellness({
+        recordType: 'ergonomics',
+        title: form.title,
+        employeeName: form.employeeName,
+        riskLevel: form.riskLevel,
+        scheduledDate: new Date().toISOString().slice(0, 10),
+        status: 'Scheduled',
+      });
+      setShowCreate(false);
+      setForm({ title: '', employeeName: '', riskLevel: 'Medium' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to log site walk');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3 text-sm font-medium">
@@ -95,11 +124,69 @@ export default function ErgonomicsPage() {
           <button className="px-4 py-2 border border-blue-100 bg-blue-50 text-blue-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-blue-100 transition-colors flex items-center gap-2">
             <ClipboardList className="w-4 h-4" /> Request Assessment
           </button>
-          <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">
+          <button
+            onClick={() => setShowCreate(true)}
+            disabled={isSaving}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest disabled:opacity-60"
+          >
             <Plus className="w-4 h-4" /> Log Site Walk
           </button>
         </div>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Log Site Walk</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Workstation / Area</label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Requested By</label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={form.employeeName}
+                  onChange={(e) => setForm((f) => ({ ...f, employeeName: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Risk Level</label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={form.riskLevel}
+                  onChange={(e) => setForm((f) => ({ ...f, riskLevel: e.target.value }))}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogSiteWalk}
+                disabled={isSaving}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving…' : 'Log'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

@@ -32,6 +32,9 @@ export default function ExchangeRateMasterPage() {
   const [filterCurrency, setFilterCurrency] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [editingRate, setEditingRate] = useState<ExchangeRate | null>(null);
+  const [rateValue, setRateValue] = useState('');
+  const [savingRate, setSavingRate] = useState(false);
 
   useEffect(() => {
     if (toast) {
@@ -48,16 +51,68 @@ export default function ExchangeRateMasterPage() {
     showToast(`Viewing rate: ${rate.fromCurrencyCode} to ${rate.toCurrencyCode}`, 'info');
   };
 
-  const handleEditRate = (rate: ExchangeRate) => {
-    showToast(`Editing rate: ${rate.fromCurrencyCode} to ${rate.toCurrencyCode}`, 'info');
+  const openEditRate = (rate: ExchangeRate) => {
+    setEditingRate(rate);
+    setRateValue(String(rate.exchangeRate ?? ''));
   };
 
-  const handleRefreshRate = (rate: ExchangeRate) => {
-    showToast(`Refreshing rate for ${rate.fromCurrencyCode}/${rate.toCurrencyCode}...`, 'success');
+  const handleSaveRate = async () => {
+    if (!editingRate) return;
+    const parsed = Number(rateValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      showToast('Please enter a valid exchange rate.', 'error');
+      return;
+    }
+    const isNew = !editingRate.id;
+    if (isNew && (!editingRate.fromCurrencyCode || !editingRate.toCurrencyCode)) {
+      showToast('From and To currency codes are required.', 'error');
+      return;
+    }
+    try {
+      setSavingRate(true);
+      if (isNew) {
+        await commonMastersService.createExchangeRate({
+          fromCurrencyId: editingRate.fromCurrencyCode,
+          toCurrencyId: editingRate.toCurrencyCode,
+          rate: parsed,
+          effectiveDate: new Date().toISOString(),
+          companyId: 'default-company-id',
+        });
+      } else {
+        await commonMastersService.updateExchangeRate(editingRate.id, {
+          rate: parsed,
+          effectiveDate: new Date().toISOString(),
+        });
+      }
+      setEditingRate(null);
+      await loadExchangeRates();
+      showToast(isNew ? 'Exchange rate created.' : 'Exchange rate updated.', 'success');
+    } catch (error) {
+      console.error('Failed to save exchange rate:', error);
+      showToast('Failed to save exchange rate.', 'error');
+    } finally {
+      setSavingRate(false);
+    }
   };
 
-  const handleRefreshAll = () => {
-    showToast('Refreshing all exchange rates...', 'success');
+  const handleRefreshRate = async (rate: ExchangeRate) => {
+    try {
+      await loadExchangeRates();
+      showToast(`Refreshed rate for ${rate.fromCurrencyCode}/${rate.toCurrencyCode}.`, 'success');
+    } catch (error) {
+      console.error('Failed to refresh exchange rate:', error);
+      showToast('Failed to refresh exchange rate.', 'error');
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    try {
+      await loadExchangeRates();
+      showToast('Exchange rates refreshed.', 'success');
+    } catch (error) {
+      console.error('Failed to refresh exchange rates:', error);
+      showToast('Failed to refresh exchange rates.', 'error');
+    }
   };
 
   const handleExport = () => {
@@ -66,7 +121,33 @@ export default function ExchangeRateMasterPage() {
   };
 
   const handleAddRate = () => {
-    showToast('Opening Add Exchange Rate form...', 'info');
+    setEditingRate({
+      id: '',
+      fromCurrency: '',
+      fromCurrencyCode: '',
+      fromCurrencySymbol: '',
+      toCurrency: '',
+      toCurrencyCode: '',
+      toCurrencySymbol: '',
+      exchangeRate: 0,
+      inverseRate: 0,
+      effectiveFrom: new Date().toISOString(),
+      effectiveTo: null,
+      source: 'manual',
+      lastUpdated: new Date().toISOString(),
+      lastUpdatedBy: '',
+      autoUpdate: false,
+      transactionsCount: 0,
+      totalAmountConverted: 0,
+      lastUsedDate: new Date().toISOString(),
+      isActive: true,
+      isPrimary: false,
+      createdBy: '',
+      createdDate: new Date().toISOString(),
+      modifiedBy: '',
+      modifiedDate: new Date().toISOString(),
+    } as ExchangeRate);
+    setRateValue('');
   };
 
   // Filtered data
@@ -332,7 +413,7 @@ export default function ExchangeRateMasterPage() {
             className="text-green-600 hover:text-green-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              handleEditRate(row);
+              openEditRate(row);
             }}
           >
             Edit
@@ -381,6 +462,78 @@ export default function ExchangeRateMasterPage() {
           {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-500" />}
           {toast.type === 'info' && <AlertCircle className="w-5 h-5 text-blue-500" />}
           <span className="text-sm text-gray-700">{toast.message}</span>
+        </div>
+      )}
+
+      {/* Add / Edit Rate Modal */}
+      {editingRate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingRate.id ? 'Edit Exchange Rate' : 'Add Exchange Rate'}
+              </h2>
+            </div>
+            <div className="px-4 py-3 space-y-3">
+              {editingRate.id ? (
+                <div className="text-sm text-gray-600">
+                  <span className="font-mono font-semibold text-blue-600">{editingRate.fromCurrencyCode}</span>
+                  {' → '}
+                  <span className="font-mono font-semibold text-green-600">{editingRate.toCurrencyCode}</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">From Currency Code</label>
+                    <input
+                      type="text"
+                      value={editingRate.fromCurrencyCode}
+                      onChange={(e) => setEditingRate({ ...editingRate, fromCurrencyCode: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent uppercase"
+                      placeholder="USD"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">To Currency Code</label>
+                    <input
+                      type="text"
+                      value={editingRate.toCurrencyCode}
+                      onChange={(e) => setEditingRate({ ...editingRate, toCurrencyCode: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent uppercase"
+                      placeholder="INR"
+                    />
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Exchange Rate</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={rateValue}
+                  onChange={(e) => setRateValue(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="0.0000"
+                />
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setEditingRate(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                disabled={savingRate}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveRate}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                disabled={savingRate}
+              >
+                {savingRate ? 'Saving...' : editingRate.id ? 'Update Rate' : 'Create Rate'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

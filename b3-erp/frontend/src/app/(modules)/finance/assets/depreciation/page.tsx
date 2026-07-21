@@ -61,6 +61,7 @@ export default function DepreciationPage() {
   const [activeTab, setActiveTab] = useState<'schedule' | 'entries'>('schedule');
   const [expandedAsset, setExpandedAsset] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Toast notification handler
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -69,36 +70,37 @@ export default function DepreciationPage() {
   };
 
   // Action handlers
-  const handleRunDepreciation = () => {
+  const handleRunDepreciation = async () => {
     const confirmed = confirm('Run monthly depreciation for all active assets?');
-    if (confirmed) {
-      showToast('Running depreciation process...', 'info');
-      // Simulate depreciation calculation
-      setTimeout(() => {
-        showToast('Depreciation calculated successfully for all assets!', 'success');
-        // In a real app, you would:
-        // - POST to /api/assets/depreciation/run-batch
-        // - Calculate depreciation for all eligible assets
-        // - Update accumulated depreciation and net book values
-        // - Create journal entries
-        // - Refresh the depreciation schedule list
-      }, 2000);
+    if (!confirmed) return;
+    showToast('Running depreciation process...', 'info');
+    try {
+      const res = await FinanceService.runDepreciation();
+      showToast(
+        `Depreciation posted for ${res.processed} asset(s) — ₹${Number(res.totalDepreciation).toLocaleString('en-IN')} this period` +
+          (res.skipped ? ` (${res.skipped} skipped/fully depreciated).` : '.'),
+        'success',
+      );
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to run depreciation', 'error');
     }
   };
 
-  const handleManualEntry = () => {
-    // In a real app, this would open a form to manually adjust depreciation
+  const handleManualEntry = async () => {
     const assetCode = prompt('Enter asset code for manual depreciation entry:');
-    if (assetCode) {
-      const amount = prompt('Enter depreciation amount:');
-      if (amount) {
-        showToast(`Manual depreciation entry of ₹${amount} recorded for ${assetCode}`, 'success');
-        // In a real app, you would:
-        // - Open a detailed form modal
-        // - Validate the manual entry
-        // - POST to /api/assets/depreciation/manual-entry
-        // - Update the depreciation schedule
-      }
+    if (!assetCode) return;
+    const amount = prompt('Enter depreciation amount:');
+    if (!amount || !(Number(amount) > 0)) return;
+    try {
+      await FinanceService.manualDepreciationEntry(assetCode, Number(amount));
+      showToast(
+        `Manual depreciation of ₹${Number(amount).toLocaleString('en-IN')} recorded for ${assetCode}`,
+        'success',
+      );
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to record manual entry', 'error');
     }
   };
 
@@ -225,7 +227,7 @@ export default function DepreciationPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const filteredSchedules = depreciationSchedules.filter(schedule => {
     const matchesSearch =

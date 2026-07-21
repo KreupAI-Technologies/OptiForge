@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Library, Search, Filter, Clock, Play, BookOpen, Award, Star, Users, AlertCircle } from 'lucide-react';
+import { Library, Search, Filter, Clock, Play, BookOpen, Award, Star, Users, AlertCircle, CheckCircle } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
+
+const CURRENT_EMPLOYEE_ID = 'E001';
 
 interface Course {
   id: string;
@@ -31,6 +34,9 @@ export default function ELearningLibraryPage() {
   const [mockCourses, setMockCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set());
+  const [enrollError, setEnrollError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +80,19 @@ export default function ELearningLibraryPage() {
       cancelled = true;
     };
   }, []);
+
+  const handleEnroll = async (courseId: string) => {
+    setEnrollingId(courseId);
+    setEnrollError(null);
+    try {
+      await TrainingDevelopmentService.enrollInCourse(courseId, CURRENT_EMPLOYEE_ID);
+      setEnrolledIds((prev) => new Set(prev).add(courseId));
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'Failed to enroll in course.');
+    } finally {
+      setEnrollingId(null);
+    }
+  };
 
   const filteredCourses = useMemo(() => {
     return mockCourses.filter(course => {
@@ -134,6 +153,12 @@ export default function ELearningLibraryPage() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {enrollError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {enrollError}
         </div>
       )}
 
@@ -316,15 +341,28 @@ export default function ELearningLibraryPage() {
               </div>
 
               <button
+                onClick={() => handleEnroll(course.id)}
                 className={`w-full px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
                   course.status === 'coming_soon'
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : enrolledIds.has(course.id)
+                    ? 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
-                disabled={course.status === 'coming_soon'}
+                disabled={course.status === 'coming_soon' || enrollingId === course.id || enrolledIds.has(course.id)}
               >
-                <Play className="h-4 w-4" />
-                {course.status === 'coming_soon' ? 'Coming Soon' : 'Start Learning'}
+                {enrolledIds.has(course.id) ? (
+                  <CheckCircle className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                {course.status === 'coming_soon'
+                  ? 'Coming Soon'
+                  : enrolledIds.has(course.id)
+                  ? 'Enrolled'
+                  : enrollingId === course.id
+                  ? 'Enrolling…'
+                  : 'Start Learning'}
               </button>
             </div>
           </div>

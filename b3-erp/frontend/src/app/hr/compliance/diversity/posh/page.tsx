@@ -48,6 +48,7 @@ export default function Page() {
   const [items, setItems] = useState<POSHComplaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -86,6 +87,19 @@ export default function Page() {
     })();
     return () => { active = false; };
   }, []);
+
+  const handleUpdatePoshStatus = async (id: string) => {
+    const nextStatus = 'resolved' as POSHComplaint['status'];
+    try {
+      setUpdatingId(id);
+      await HrComplianceDocsService.updatePoshComplaint(id, { status: nextStatus });
+      setItems(prev => prev.map(c => c.id === id ? { ...c, status: nextStatus } : c));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update complaint');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const icMembers: ICMember[] = [
     { name: 'Priya Sharma', designation: 'HR Director', role: 'Presiding Officer', gender: 'Female', tenure: '2024-2026' },
@@ -371,8 +385,12 @@ export default function Page() {
                   View Detailed Report
                 </button>
                 {complaint.status === 'formal_inquiry' && (
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
-                    Update Status
+                  <button
+                    onClick={() => handleUpdatePoshStatus(complaint.id)}
+                    disabled={updatingId === complaint.id}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50"
+                  >
+                    {updatingId === complaint.id ? 'Updating...' : 'Update Status'}
                   </button>
                 )}
               </div>

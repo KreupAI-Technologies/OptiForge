@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Car, Calendar, Gauge } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
+import { AssetManagementService } from '@/services/asset-management.service';
 
 interface Vehicle {
   id: string;
@@ -127,6 +128,101 @@ export default function Page() {
   const [mockVehicles, setMockVehicles] = useState<Vehicle[]>(fallbackVehicles);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [selected, setSelected] = useState<Vehicle | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<Vehicle | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [addForm, setAddForm] = useState({ make: '', model: '', registrationNumber: '', vehicleType: 'sedan' as Vehicle['vehicleType'], fuelType: 'petrol' as Vehicle['fuelType'], purchaseCost: '', location: '' });
+  const [assignForm, setAssignForm] = useState({ employeeName: '', employeeCode: '', department: '' });
+
+  const handleAdd = async () => {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      const asset = await AssetManagementService.createAsset({
+        assetName: `${addForm.make} ${addForm.model}`.trim(),
+        brand: addForm.make,
+        model: addForm.model,
+        registrationNumber: addForm.registrationNumber,
+        fuelType: addForm.fuelType,
+        purchasePrice: Number(addForm.purchaseCost) || undefined,
+        location: addForm.location,
+      });
+      const newVehicle: Vehicle = {
+        id: asset?.id || Date.now().toString(),
+        vehicleNumber: asset?.assetCode || '',
+        vehicleType: addForm.vehicleType,
+        make: addForm.make,
+        model: addForm.model,
+        year: new Date().getFullYear(),
+        purchaseDate: '',
+        purchaseCost: Number(addForm.purchaseCost) || 0,
+        registrationNumber: addForm.registrationNumber,
+        insuranceExpiry: '',
+        pucExpiry: '',
+        fitnessExpiry: '',
+        currentOdometer: 0,
+        fuelType: addForm.fuelType,
+        status: 'available',
+        location: addForm.location,
+      };
+      setMockVehicles((prev) => [newVehicle, ...prev]);
+      setShowAdd(false);
+      setAddForm({ make: '', model: '', registrationNumber: '', vehicleType: 'sedan', fuelType: 'petrol', purchaseCost: '', location: '' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add vehicle');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!assignTarget) return;
+    setSaving(true);
+    setLoadError(null);
+    try {
+      await AssetManagementService.allocateAsset({
+        assetId: assignTarget.id,
+        employeeName: assignForm.employeeName,
+        employeeCode: assignForm.employeeCode,
+        department: assignForm.department,
+        allocationType: 'permanent',
+      });
+      const targetId = assignTarget.id;
+      setMockVehicles((prev) =>
+        prev.map((v) =>
+          v.id === targetId
+            ? { ...v, status: 'assigned', assignedTo: `${assignForm.employeeName} (${assignForm.employeeCode})` }
+            : v,
+        ),
+      );
+      setAssignTarget(null);
+      setAssignForm({ employeeName: '', employeeCode: '', department: '' });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to assign vehicle');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRenew = async (vehicle: Vehicle) => {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      await AssetManagementService.createMaintenanceRequest({
+        assetId: vehicle.id,
+        requestType: 'service_request' as any,
+        priority: 'high',
+        issueDescription: `Document renewal required for ${vehicle.registrationNumber} (insurance/PUC expiring)`,
+      });
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to raise renewal request');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -272,7 +368,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Vehicle
             </button>
           </div>
@@ -370,16 +466,16 @@ export default function Page() {
               </div>
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setSelected(vehicle)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View Details
                 </button>
                 {vehicle.status === 'available' && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => setAssignTarget(vehicle)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Assign Vehicle
                   </button>
                 )}
                 {expiringSoon && (
-                  <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                  <button onClick={() => handleRenew(vehicle)} disabled={saving} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm disabled:opacity-50">
                     Renew Documents
                   </button>
                 )}
@@ -388,6 +484,112 @@ export default function Page() {
           );
         })}
       </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">{selected.make} {selected.model}</h2>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Registration</p><p className="font-semibold text-gray-900">{selected.registrationNumber}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Vehicle Number</p><p className="font-semibold text-gray-900">{selected.vehicleNumber}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Type</p><p className="font-semibold text-gray-900">{selected.vehicleType}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Status</p><p className="font-semibold text-gray-900">{selected.status}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Fuel Type</p><p className="font-semibold text-gray-900">{selected.fuelType}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Year</p><p className="font-semibold text-gray-900">{selected.year}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Purchase Cost</p><p className="font-semibold text-gray-900">₹{selected.purchaseCost.toLocaleString('en-IN')}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Odometer</p><p className="font-semibold text-gray-900">{selected.currentOdometer.toLocaleString('en-IN')} km</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Location</p><p className="font-semibold text-gray-900">{selected.location}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Assigned To</p><p className="font-semibold text-gray-900">{selected.assignedTo || '—'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Insurance Expiry</p><p className="font-semibold text-gray-900">{selected.insuranceExpiry || '—'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">PUC Expiry</p><p className="font-semibold text-gray-900">{selected.pucExpiry || '—'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium">Fitness Expiry</p><p className="font-semibold text-gray-900">{selected.fitnessExpiry || '—'}</p></div>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Vehicle</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                <input value={addForm.make} onChange={(e) => setAddForm({ ...addForm, make: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                <input value={addForm.model} onChange={(e) => setAddForm({ ...addForm, model: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                <input value={addForm.registrationNumber} onChange={(e) => setAddForm({ ...addForm, registrationNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
+                <select value={addForm.vehicleType} onChange={(e) => setAddForm({ ...addForm, vehicleType: e.target.value as Vehicle['vehicleType'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="sedan">Sedan</option>
+                  <option value="suv">SUV</option>
+                  <option value="hatchback">Hatchback</option>
+                  <option value="van">Van</option>
+                  <option value="truck">Truck</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Type</label>
+                <select value={addForm.fuelType} onChange={(e) => setAddForm({ ...addForm, fuelType: e.target.value as Vehicle['fuelType'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="petrol">Petrol</option>
+                  <option value="diesel">Diesel</option>
+                  <option value="cng">CNG</option>
+                  <option value="electric">Electric</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Cost</label>
+                <input type="number" value={addForm.purchaseCost} onChange={(e) => setAddForm({ ...addForm, purchaseCost: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleAdd} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {assignTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAssignTarget(null)}>
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Assign Vehicle</h2>
+            <p className="text-sm text-gray-600 mb-3">{assignTarget.make} {assignTarget.model} • {assignTarget.registrationNumber}</p>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                <input value={assignForm.employeeName} onChange={(e) => setAssignForm({ ...assignForm, employeeName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                <input value={assignForm.employeeCode} onChange={(e) => setAssignForm({ ...assignForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input value={assignForm.department} onChange={(e) => setAssignForm({ ...assignForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setAssignTarget(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleAssign} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1876,14 +1876,14 @@ Confidentiality:
                 <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">New diverse supplier onboarded</p>
-                  <p className="text-xs text-gray-500 mt-1">{diverseSuppliers[0].name} - {new Date().toLocaleDateString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">{diverseSuppliers[0]?.name ?? '—'} - {new Date().toLocaleDateString()}</p>
                 </div>
               </div>
               <div className="flex items-start p-3 bg-gray-50 rounded-lg">
                 <Award className="h-5 w-5 text-purple-500 mr-3 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Certification renewed</p>
-                  <p className="text-xs text-gray-500 mt-1">{diverseSuppliers[1].name} - {diverseSuppliers[1].certifications[0]}</p>
+                  <p className="text-xs text-gray-500 mt-1">{diverseSuppliers[1]?.name ?? '—'} - {diverseSuppliers[1]?.certifications?.[0] ?? '—'}</p>
                 </div>
               </div>
               <div className="flex items-start p-3 bg-gray-50 rounded-lg">

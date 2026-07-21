@@ -15,6 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
 
 interface ActiveCourse {
   id: number | string;
@@ -26,6 +27,9 @@ interface ActiveCourse {
   image: string;
   icon: string;
   timeLeft: string;
+  progressId: string;
+  currentLessonId: string;
+  timeSpentMinutes: number;
 }
 
 const assignedPath = [
@@ -46,40 +50,62 @@ export default function MyCoursesPage() {
   const [activeCourses, setActiveCourses] = useState<ActiveCourse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await HrPagesService.elearningCourses()) as any[];
+      const mapped: ActiveCourse[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+        id: r.id ?? '',
+        title: r.title ?? '',
+        progress: Number(r.progress ?? 0),
+        totalModules: Number(r.totalModules ?? r.modules ?? 0),
+        completedModules: Number(r.completedModules ?? 0),
+        lastAccessed: r.lastAccessed ?? '',
+        image: r.image ?? 'bg-blue-100',
+        icon: r.icon ?? '📘',
+        timeLeft: r.timeLeft ?? '',
+        progressId: String(r.progressId ?? r.enrollmentId ?? r.id ?? ''),
+        currentLessonId: String(r.currentLessonId ?? r.nextLessonId ?? r.lessonId ?? ''),
+        timeSpentMinutes: Number(r.timeSpentMinutes ?? 0),
+      }));
+      setActiveCourses(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load courses');
+      setActiveCourses([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.elearningCourses()) as any[];
-        const mapped: ActiveCourse[] = (Array.isArray(raw) ? raw : []).map((r) => ({
-          id: r.id ?? '',
-          title: r.title ?? '',
-          progress: Number(r.progress ?? 0),
-          totalModules: Number(r.totalModules ?? r.modules ?? 0),
-          completedModules: Number(r.completedModules ?? 0),
-          lastAccessed: r.lastAccessed ?? '',
-          image: r.image ?? 'bg-blue-100',
-          icon: r.icon ?? '📘',
-          timeLeft: r.timeLeft ?? '',
-        }));
-        if (!cancelled) setActiveCourses(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load courses');
-          setActiveCourses([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleResume = async (course: ActiveCourse, markComplete: boolean) => {
+    if (!course.progressId || !course.currentLessonId) {
+      setActionError('This course has no active lesson to update yet.');
+      return;
+    }
+    setUpdatingId(course.id);
+    setActionError(null);
+    try {
+      await TrainingDevelopmentService.updateLessonProgress(course.progressId, course.currentLessonId, {
+        isCompleted: markComplete,
+        progressPercentage: markComplete ? 100 : Math.min(100, course.progress + 10),
+        timeSpentMinutes: course.timeSpentMinutes + 5,
+      });
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update progress.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -120,6 +146,12 @@ export default function MyCoursesPage() {
           {loadError}
         </div>
       )}
+      {actionError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {actionError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Content: Active Courses */}
@@ -156,10 +188,24 @@ export default function MyCoursesPage() {
                     <span>{course.progress}% Complete</span>
                   </div>
                 </div>
-                <button className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center">
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  Resume
-                </button>
+                <div className="flex flex-col gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => handleResume(course, false)}
+                    disabled={updatingId === course.id}
+                    className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center disabled:opacity-60"
+                  >
+                    <PlayCircle className="w-4 h-4 mr-2" />
+                    {updatingId === course.id ? 'Saving…' : 'Resume'}
+                  </button>
+                  <button
+                    onClick={() => handleResume(course, true)}
+                    disabled={updatingId === course.id}
+                    className="w-full sm:w-auto px-4 py-2 bg-white border border-green-300 text-green-700 text-sm font-medium rounded-lg hover:bg-green-50 transition-colors flex items-center justify-center disabled:opacity-60"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark Complete
+                  </button>
+                </div>
               </div>
             ))}
           </div>

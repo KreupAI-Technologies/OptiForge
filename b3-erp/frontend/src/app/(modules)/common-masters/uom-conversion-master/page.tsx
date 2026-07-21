@@ -29,6 +29,7 @@ export default function UomconversionmasterPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [savingRow, setSavingRow] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<{ fromUomId: string; toUomId: string; conversionFactor: string }>({
     fromUomId: '',
     toUomId: '',
@@ -105,7 +106,21 @@ export default function UomconversionmasterPage() {
     }
   };
 
-  const handleAdd = async () => {
+  const handleEdit = (row: UOMConversion) => {
+    setActionError(null);
+    // Resolve UOM ids from the displayed code/name so the selects pre-populate.
+    const fromMatch = uoms.find((u) => u.code === row.fromUOM || u.name === row.fromUOM);
+    const toMatch = uoms.find((u) => u.code === row.toUOM || u.name === row.toUOM);
+    setEditingId(row.id);
+    setForm({
+      fromUomId: fromMatch?.id ?? '',
+      toUomId: toMatch?.id ?? '',
+      conversionFactor: String(row.conversionFactor ?? ''),
+    });
+    setShowAddForm(true);
+  };
+
+  const handleSave = async () => {
     setActionError(null);
     const factor = parseFloat(form.conversionFactor);
     if (!form.fromUomId || !form.toUomId || !Number.isFinite(factor)) {
@@ -114,17 +129,26 @@ export default function UomconversionmasterPage() {
     }
     setSavingRow(true);
     try {
-      await commonMastersService.createUomConversion({
-        fromUomId: form.fromUomId,
-        toUomId: form.toUomId,
-        conversionFactor: factor,
-        companyId: DEFAULT_COMPANY_ID,
-      });
+      if (editingId) {
+        await commonMastersService.updateUomConversion(editingId, {
+          fromUomId: form.fromUomId,
+          toUomId: form.toUomId,
+          conversionFactor: factor,
+        });
+      } else {
+        await commonMastersService.createUomConversion({
+          fromUomId: form.fromUomId,
+          toUomId: form.toUomId,
+          conversionFactor: factor,
+          companyId: DEFAULT_COMPANY_ID,
+        });
+      }
       setForm({ fromUomId: '', toUomId: '', conversionFactor: '' });
+      setEditingId(null);
       setShowAddForm(false);
       await reload();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to create conversion');
+      setActionError(err instanceof Error ? err.message : 'Failed to save conversion');
     } finally {
       setSavingRow(false);
     }
@@ -253,7 +277,13 @@ export default function UomconversionmasterPage() {
           >
             Calculate
           </button>
-          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(row);
+            }}
+          >
             Edit
           </button>
           <button
@@ -298,7 +328,12 @@ export default function UomconversionmasterPage() {
             <span>Export</span>
           </button>
           <button
-            onClick={() => { setShowAddForm((v) => !v); setActionError(null); }}
+            onClick={() => {
+              setShowAddForm((v) => !v);
+              setEditingId(null);
+              setForm({ fromUomId: '', toUomId: '', conversionFactor: '' });
+              setActionError(null);
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -318,7 +353,7 @@ export default function UomconversionmasterPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-3">
           <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
             <Plus className="w-5 h-5 text-blue-600" />
-            Add UOM Conversion
+            {editingId ? 'Edit UOM Conversion' : 'Add UOM Conversion'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
             <div>
@@ -360,14 +395,19 @@ export default function UomconversionmasterPage() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={handleAdd}
+                onClick={handleSave}
                 disabled={savingRow}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
               >
                 {savingRow ? 'Saving…' : 'Save'}
               </button>
               <button
-                onClick={() => { setShowAddForm(false); setActionError(null); }}
+                onClick={() => {
+                  setShowAddForm(false);
+                  setEditingId(null);
+                  setForm({ fromUomId: '', toUomId: '', conversionFactor: '' });
+                  setActionError(null);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel

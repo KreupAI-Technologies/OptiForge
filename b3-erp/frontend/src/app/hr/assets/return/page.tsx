@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { CornerUpLeft, User, Calendar, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { CornerUpLeft, User, Calendar, CheckCircle, AlertTriangle, XCircle, X } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetReturn {
@@ -32,6 +32,8 @@ interface AssetReturn {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCondition, setSelectedCondition] = useState('all');
+  const [detailReturn, setDetailReturn] = useState<AssetReturn | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const fallbackReturns: AssetReturn[] = [
     {
@@ -331,7 +333,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Process Return
             </button>
           </div>
@@ -483,25 +485,25 @@ export default function Page() {
               )}
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View Details
                 </button>
                 {returnItem.status === 'pending_inspection' && (
                   <>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                       Start Inspection
                     </button>
                   </>
                 )}
                 {returnItem.status === 'inspected' && (
                   <>
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                       Accept Return
                     </button>
-                    <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
                       Mark for Repair
                     </button>
-                    <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                    <button onClick={() => setDetailReturn(returnItem)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
                       Reject
                     </button>
                   </>
@@ -511,6 +513,102 @@ export default function Page() {
           );
         })}
       </div>
+
+      {detailReturn && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl max-h-[90vh] overflow-y-auto w-full">
+            <div className="bg-gradient-to-r from-orange-600 to-orange-700 px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Return Details</h2>
+              <button onClick={() => setDetailReturn(null)} className="text-white hover:text-orange-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Asset Type</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.assetType}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Asset Tag</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.assetTag}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Return ID</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.returnId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Returned By</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.returnedBy}</p>
+                  <p className="text-xs text-gray-600">{detailReturn.employeeCode} • {detailReturn.department}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Return Reason</p>
+                  <p className="font-semibold text-gray-900">{reasonLabels[detailReturn.returnReason]}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Condition</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.condition.charAt(0).toUpperCase() + detailReturn.condition.slice(1)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Status</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Assigned Date</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.assignedDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Return Date</p>
+                  <p className="font-semibold text-gray-900">{detailReturn.returnDate}</p>
+                </div>
+                {detailReturn.inspectedBy && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase">Inspected By</p>
+                    <p className="font-semibold text-gray-900">{detailReturn.inspectedBy}</p>
+                  </div>
+                )}
+                {detailReturn.inspectionNotes && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase">Inspection Notes</p>
+                    <p className="font-semibold text-gray-900">{detailReturn.inspectionNotes}</p>
+                  </div>
+                )}
+                {detailReturn.damageCharges != null && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase">Damage Charges</p>
+                    <p className="font-semibold text-red-600">₹{detailReturn.damageCharges.toLocaleString('en-IN')}</p>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setDetailReturn(null)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl max-h-[90vh] overflow-y-auto w-full">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Process Asset Return</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Return processing is not yet available from this screen — the return service endpoint is pending.
+              </div>
+              <button onClick={() => setShowForm(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

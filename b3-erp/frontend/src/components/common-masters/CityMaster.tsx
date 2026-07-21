@@ -273,6 +273,44 @@ export default function CityMaster() {
   const [filterState, setFilterState] = useState<string>('All');
   const [filterType, setFilterType] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
+  const [isSaving, setIsSaving] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formStateId, setFormStateId] = useState('');
+  const [formStatus, setFormStatus] = useState<'Active' | 'Inactive'>('Active');
+
+  const openModal = (city: City | null) => {
+    setSelectedCity(city);
+    setFormName(city?.cityName ?? '');
+    setFormStateId(city?.stateId ?? '');
+    setFormStatus(city?.status ?? 'Active');
+    setIsModalOpen(true);
+    setCurrentTab('basic');
+  };
+
+  const handleSave = async () => {
+    if (!formName.trim()) { alert('City Name is required.'); return; }
+    if (!formStateId) { alert('State is required.'); return; }
+    try {
+      setIsSaving(true);
+      if (selectedCity) {
+        await commonMastersService.updateCity(selectedCity.id, {
+          name: formName.trim(),
+          stateId: formStateId,
+          isActive: formStatus === 'Active',
+        });
+      } else {
+        await commonMastersService.createCity({ name: formName.trim(), stateId: formStateId });
+      }
+      setIsModalOpen(false);
+      await fetchData();
+      alert(`City ${selectedCity ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error('Error saving city:', error);
+      alert('Failed to save city. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -340,14 +378,17 @@ export default function CityMaster() {
   };
 
   const handleEdit = (city: City) => {
-    setSelectedCity(city);
-    setIsModalOpen(true);
-    setCurrentTab('basic');
+    openModal(city);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this city?')) {
-      setCities(cities.filter(c => c.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this city?')) return;
+    try {
+      await commonMastersService.deleteCity(id);
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting city:', error);
+      alert('Failed to delete city. Please try again.');
     }
   };
 
@@ -501,11 +542,7 @@ export default function CityMaster() {
                 Export
               </button>
               <button
-                onClick={() => {
-                  setSelectedCity(null);
-                  setIsModalOpen(true);
-                  setCurrentTab('basic');
-                }}
+                onClick={() => openModal(null)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
@@ -663,7 +700,8 @@ export default function CityMaster() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={selectedCity?.cityName}
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter city name"
                       />
@@ -687,13 +725,14 @@ export default function CityMaster() {
                         State *
                       </label>
                       <select
-                        defaultValue={selectedCity?.stateId}
+                        value={formStateId}
+                        onChange={(e) => setFormStateId(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select State</option>
-                        <option value="1">Maharashtra</option>
-                        <option value="2">Karnataka</option>
-                        <option value="3">Delhi</option>
+                        {states.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -751,7 +790,8 @@ export default function CityMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Status
                       </label>
-                      <select defaultValue={selectedCity?.status || 'Active'}
+                      <select value={formStatus}
+                        onChange={(e) => setFormStatus(e.target.value as 'Active' | 'Inactive')}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="Active">Active</option>
                         <option value="Inactive">Inactive</option>
@@ -899,13 +939,11 @@ export default function CityMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('City saved successfully!');
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                {selectedCity ? 'Update' : 'Create'} City
+                {isSaving ? 'Saving...' : `${selectedCity ? 'Update' : 'Create'} City`}
               </button>
             </div>
           </div>

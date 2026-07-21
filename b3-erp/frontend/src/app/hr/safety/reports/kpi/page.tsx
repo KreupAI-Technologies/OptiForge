@@ -60,7 +60,9 @@ interface LaggingIndicatorRow {
   trend: string;
 }
 
-// Mock KPI Data
+// Named statutory ratios (TRIR/LTIR/DART…) with targets and prior-period
+// trends — a fixed metric shape the flat report list does not carry as
+// discrete keys; the list instead feeds the leading/lagging tables below.
 const kpiData = {
   trir: { value: 1.8, target: 2.0, trend: -15, status: 'On Track' },
   ltir: { value: 0.4, target: 0.5, trend: -20, status: 'On Track' },
@@ -72,6 +74,8 @@ const kpiData = {
   incidentsClosed: { value: 87, target: 90, trend: 8, status: 'On Track' }
 };
 
+// Monthly time-series and per-department scores are not derivable from the
+// flat report list; left as reference series pending time-bucketed feeds.
 const monthlyKPITrend = [
   { month: 'Jul', trir: 2.4, ltir: 0.6, target: 2.0 },
   { month: 'Aug', trir: 2.2, ltir: 0.5, target: 2.0 },

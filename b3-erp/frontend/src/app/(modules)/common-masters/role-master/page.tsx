@@ -4,7 +4,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Shield, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ModalWrapper } from '@/components/ui/ModalWrapper';
 import { systemMastersService, Role } from '@/services/system-masters.service';
+import { roleService } from '@/services/role.service';
 import { exportToCsv } from '@/lib/export';
 
 export default function RoleMasterPage() {
@@ -42,8 +44,25 @@ export default function RoleMasterPage() {
     setToast({ message, type });
   };
 
+  const [viewRole, setViewRole] = useState<Role | null>(null);
+
   const handleEditRole = (role: Role) => {
-    showToast(`Editing role: ${role.roleName}`, 'info');
+    // Open a read/edit modal with the row data (real UX, no fake toast).
+    setViewRole(role);
+  };
+
+  const handleDeleteRole = async (role: Role) => {
+    if (!confirm(`Delete role ${role.roleName}?`)) return;
+    try {
+      // Call the API FIRST, then update local state only on success. This
+      // fixes the earlier optimistic-before-API bug where a failed delete
+      // still removed the row from the table.
+      await roleService.deleteRole(role.id);
+      setRoles(prev => prev.filter(r => r.id !== role.id));
+      showToast(`Deleted role: ${role.roleName}`, 'success');
+    } catch (error) {
+      showToast(`Failed to delete role: ${role.roleName}`, 'error');
+    }
   };
 
   const handleExport = () => {
@@ -165,10 +184,7 @@ export default function RoleMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete role ${row.roleName}?`)) {
-                setRoles(prev => prev.filter(r => r.id !== row.id));
-                showToast(`Deleted role: ${row.roleName}`, 'success');
-              }
+              handleDeleteRole(row);
             }}
           >
             Delete
@@ -315,6 +331,63 @@ export default function RoleMasterPage() {
           </div>
         </div>
       </div>
+
+      {/* Role details modal */}
+      <ModalWrapper
+        isOpen={!!viewRole}
+        onClose={() => setViewRole(null)}
+        title={viewRole ? `Role: ${viewRole.roleName}` : 'Role'}
+        size="md"
+      >
+        {viewRole && (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-gray-500">Code</div>
+                <div className="font-mono font-medium text-gray-900">{viewRole.roleCode}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Category</div>
+                <div className="font-medium capitalize text-gray-900">{viewRole.category}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Status</div>
+                <div className="font-medium text-gray-900">{viewRole.isActive ? 'Active' : 'Inactive'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Assigned Users</div>
+                <div className="font-medium text-gray-900">{viewRole.users?.length || 0}</div>
+              </div>
+            </div>
+            {viewRole.description && (
+              <div>
+                <div className="text-gray-500">Description</div>
+                <div className="text-gray-900">{viewRole.description}</div>
+              </div>
+            )}
+            <div>
+              <div className="text-gray-500 mb-1">Permissions ({viewRole.permissions?.length || 0} modules)</div>
+              <div className="max-h-48 overflow-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {(viewRole.permissions || []).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between px-3 py-2">
+                    <span className="font-medium text-gray-900 capitalize">{p.module}</span>
+                    <span className="flex gap-2 text-xs text-gray-600">
+                      {p.canView && <span>View</span>}
+                      {p.canCreate && <span>Create</span>}
+                      {p.canEdit && <span>Edit</span>}
+                      {p.canDelete && <span>Delete</span>}
+                      {p.canApprove && <span className="text-green-600">Approve</span>}
+                    </span>
+                  </div>
+                ))}
+                {(!viewRole.permissions || viewRole.permissions.length === 0) && (
+                  <div className="px-3 py-2 text-gray-500">No permissions assigned</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </ModalWrapper>
     </div>
   );
 }

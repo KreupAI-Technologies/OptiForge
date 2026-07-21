@@ -16,6 +16,7 @@ import {
   Printer
 } from 'lucide-react';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { ProductionJobService } from '@/services/ProductionJobService';
 
 interface ShutterJob {
   id: string;
@@ -64,11 +65,16 @@ export default function ShutterWorkPage() {
     try {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
-      setJobs([
-        { id: 'SJ-001', shutterName: 'Kitchen Cabinet Door', type: 'Wood', dimensions: '600x720mm', quantity: 12, status: 'Pending', fitmentCheck: false },
-        { id: 'SJ-002', shutterName: 'Display Unit Glass', type: 'Glass', dimensions: '450x900mm', quantity: 4, status: 'In Progress', fitmentCheck: true },
-        { id: 'SJ-003', shutterName: 'Wardrobe Slider', type: 'Acrylic', dimensions: '900x2100mm', quantity: 2, status: 'Completed', fitmentCheck: true },
-      ]);
+      const rows = await ProductionJobService.listJobs(id, 'shutter');
+      setJobs(rows.map((r) => ({
+        id: r.jobCode || r.id,
+        shutterName: r.partName || '',
+        type: (r.extra?.type as ShutterJob['type']) || 'Wood',
+        dimensions: r.extra?.dimensions || '',
+        quantity: r.quantity ?? 0,
+        status: (r.status as ShutterJob['status']) || 'Pending',
+        fitmentCheck: !!r.extra?.fitmentCheck,
+      })));
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/production/shutter-work');

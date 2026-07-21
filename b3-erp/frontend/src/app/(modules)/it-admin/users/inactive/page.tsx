@@ -17,42 +17,6 @@ interface InactiveUser {
   avatar: string;
 }
 
-const inactiveUsersSeed: InactiveUser[] = [
-  {
-    id: '101',
-    name: 'Arjun Verma',
-    email: 'arjun@example.com',
-    phone: '+91-98765-43220',
-    department: 'Operations',
-    role: 'Supervisor',
-    deactivatedDate: '2025-08-15',
-    deactivationReason: 'Left Organization',
-    avatar: '🧑‍💼'
-  },
-  {
-    id: '102',
-    name: 'Divya Nair',
-    email: 'divya@example.com',
-    phone: '+91-98765-43221',
-    department: 'Sales',
-    role: 'Associate',
-    deactivatedDate: '2025-09-01',
-    deactivationReason: 'Maternity Leave',
-    avatar: '👩‍💼'
-  },
-  {
-    id: '103',
-    name: 'Suresh Iyer',
-    email: 'suresh@example.com',
-    phone: '+91-98765-43222',
-    department: 'IT',
-    role: 'Technician',
-    deactivatedDate: '2025-09-20',
-    deactivationReason: 'Medical Leave',
-    avatar: '🧑‍💻'
-  }
-];
-
 export default function InactiveUsersPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');

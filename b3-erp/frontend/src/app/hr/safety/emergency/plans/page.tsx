@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   ChevronRight,
   MoreVertical,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { HrSafetyService, SafetyDrill } from '@/services/hr-safety.service';
 
@@ -39,52 +40,76 @@ export default function EmergencyPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<EmergencyPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    coordinator: '',
+    lastReviewed: '',
+    priority: 'High',
+    status: 'Active',
+  });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getDrills('plan');
+      const mapped: EmergencyPlan[] = rows.map((row: SafetyDrill) => {
+        const meta = (row.meta || {}) as any;
+        const coordinators = Array.isArray(meta.coordinators)
+          ? meta.coordinators
+          : row.coordinator
+            ? [row.coordinator]
+            : [];
+        return {
+          id: String(row.code ?? row.id ?? ''),
+          title: row.name ?? row.drillType ?? '',
+          icon: ShieldAlert,
+          color: meta.color ?? 'text-orange-600',
+          backgroundColor: meta.backgroundColor ?? 'bg-orange-50',
+          status: row.status ?? '',
+          lastReviewed: row.conductedDate ?? row.scheduledDate ?? '',
+          coordinators,
+          priority: meta.priority ?? '',
+        };
+      });
+      setEmergencyPlans(mapped);
+      setSelectedPlan((prev) => mapped.find((p) => p.id === prev?.id) ?? mapped[0] ?? null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load emergency plans');
+      setEmergencyPlans([]);
+      setSelectedPlan(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getDrills('plan');
-        const mapped: EmergencyPlan[] = rows.map((row: SafetyDrill) => {
-          const meta = (row.meta || {}) as any;
-          const coordinators = Array.isArray(meta.coordinators)
-            ? meta.coordinators
-            : row.coordinator
-              ? [row.coordinator]
-              : [];
-          return {
-            id: String(row.code ?? row.id ?? ''),
-            title: row.name ?? row.drillType ?? '',
-            icon: ShieldAlert,
-            color: meta.color ?? 'text-orange-600',
-            backgroundColor: meta.backgroundColor ?? 'bg-orange-50',
-            status: row.status ?? '',
-            lastReviewed: row.conductedDate ?? row.scheduledDate ?? '',
-            coordinators,
-            priority: meta.priority ?? '',
-          };
-        });
-        if (!cancelled) {
-          setEmergencyPlans(mapped);
-          setSelectedPlan(mapped[0] ?? null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load emergency plans');
-          setEmergencyPlans([]);
-          setSelectedPlan(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createDrill({
+        recordType: 'plan',
+        name: form.title,
+        coordinator: form.coordinator,
+        conductedDate: form.lastReviewed,
+        status: form.status,
+        meta: { priority: form.priority, coordinators: form.coordinator ? [form.coordinator] : [] },
+      });
+      setShowModal(false);
+      setForm({ title: '', coordinator: '', lastReviewed: '', priority: 'High', status: 'Active' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create plan');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -109,7 +134,10 @@ export default function EmergencyPlansPage() {
           </h1>
           <p className="text-gray-500 mt-1">Institutional protocols for crisis management and workplace safety emergencies</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowModal(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Create New Plan
         </button>
@@ -258,6 +286,64 @@ export default function EmergencyPlansPage() {
           )}
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4">
+              <h3 className="font-bold text-gray-900">Create New Plan</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plan Title</label>
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Coordinator</label>
+                <input value={form.coordinator} onChange={(e) => setForm({ ...form, coordinator: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Last Reviewed</label>
+                  <input type="date" value={form.lastReviewed} onChange={(e) => setForm({ ...form, lastReviewed: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priority</label>
+                  <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500">
+                    <option>High</option>
+                    <option>Medium</option>
+                    <option>Low</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500">
+                  <option>Active</option>
+                  <option>Draft</option>
+                  <option>Under Review</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
+              <button onClick={() => setShowModal(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleCreate} disabled={saving || !form.title}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-700 disabled:bg-gray-300">
+                {saving ? 'Saving…' : 'Create Plan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

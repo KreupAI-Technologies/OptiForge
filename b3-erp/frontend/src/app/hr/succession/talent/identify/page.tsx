@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Users, Star, TrendingUp, Award } from 'lucide-react';
 import { HrTalentService } from '@/services/hr-talent.service';
 
@@ -20,6 +21,7 @@ interface TalentEmployee {
 }
 
 export default function Page() {
+  const router = useRouter();
   const [selectedClassification, setSelectedClassification] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
@@ -131,7 +133,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm">
+            <button onClick={() => router.push('/hr/succession/plans/create')} className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm">
               Add to Talent Pool
             </button>
           </div>
@@ -204,10 +206,10 @@ export default function Page() {
             </div>
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => router.push('/hr/succession/talent/profiles')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Profile
               </button>
-              <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm">
+              <button onClick={() => router.push('/hr/succession/plans/create')} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm">
                 Create Development Plan
               </button>
             </div>

@@ -270,7 +270,7 @@ export default function SupplierOnboarding() {
   }
 
   // Handler Functions
-  const handleApproveSupplier = (application: OnboardingApplication) => {
+  const handleApproveSupplier = async (application: OnboardingApplication) => {
     console.log('Approving supplier:', application.id);
 
     if (application.status !== 'approval') {
@@ -292,12 +292,39 @@ export default function SupplierOnboarding() {
     const warningItems = checklistItems.filter(item => item.status === 'warning');
 
     alert(`Approve Supplier: ${application.companyName}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nAPPLICATION DETAILS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nApplication ID: ${application.id}\nCompany: ${application.companyName}\nContact: ${application.contactName}\nCategory: ${application.category}\nSubmitted: ${application.submittedDate}\nProgress: ${application.progress}%\nRisk Score: ${application.riskScore || 'N/A'}\nAssigned To: ${application.assignedTo}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nAPPROVAL CHECKLIST\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${checklistItems.map(item => `${item.status === 'complete' ? '✓' : item.status === 'warning' ? '⚠️' : '☐'} ${item.item}`).join('\n')}\n\n${warningItems.length > 0 ? `⚠️ WARNINGS (${warningItems.length}):\n${warningItems.map(item => `- ${item.item}`).join('\n')}\n\n` : ''}${pendingItems.length > 0 ? `⏳ PENDING ITEMS (${pendingItems.length}):\n${pendingItems.map(item => `- ${item.item}`).join('\n')}\n\nCannot approve until all items are completed.\n\n` : ''}${pendingItems.length === 0 && warningItems.length === 0 ? '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nAPPROVAL PROCESS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✓ All requirements met - Ready for approval!\n\nUpon approval:\n\n1. SUPPLIER ACTIVATION:\n   - Create supplier master record\n   - Generate supplier ID\n   - Assign supplier classification\n   - Set payment terms and credit limit\n\n2. SYSTEM ACCESS:\n   - Create supplier portal account\n   - Email login credentials\n   - Grant appropriate permissions\n   - Enable PO and invoice access\n\n3. NOTIFICATIONS:\n   - Welcome email to supplier\n   - Onboarding completion certificate\n   - Portal user guide and training materials\n   - Procurement team notification\n\n4. CONTRACT EXECUTION:\n   - Finalize supplier agreement\n   - Digital signature collection\n   - Store executed contract\n   - Set contract review dates\n\n5. INTEGRATION SETUP:\n   - ERP system integration\n   - Catalog setup (if applicable)\n   - EDI/API connections\n   - Payment gateway configuration\n\nAPPROVAL LEVELS:\n- Procurement Manager: Auto-approved\n- CPO Approval: Required for high-risk or strategic suppliers\n- Finance Approval: Required for credit limit > $100K\n- Legal Approval: Completed\n\nEstimated activation time: 2-3 business days\n\nProceed with supplier approval?' : `Review and resolve ${pendingItems.length + warningItems.length} item(s) before approval.`}`);
+
+    if (pendingItems.length > 0 || warningItems.length > 0) return;
+    if (!window.confirm(`Approve ${application.companyName}?`)) return;
+    try {
+      await procurementPagesService.approveVendor(application.id);
+      setApplications((prev) =>
+        prev.map((a) =>
+          a.id === application.id ? { ...a, status: 'completed', progress: 100 } : a,
+        ),
+      );
+      alert(`${application.companyName} approved and activated.`);
+    } catch (err: any) {
+      alert(`Failed to approve supplier: ${err?.message ?? 'Unknown error'}`);
+    }
   };
 
-  const handleRejectApplication = (application: OnboardingApplication) => {
+  const handleRejectApplication = async (application: OnboardingApplication) => {
     console.log('Rejecting application:', application.id);
 
     alert(`Reject Supplier Application: ${application.companyName}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nAPPLICATION DETAILS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nApplication ID: ${application.id}\nCompany: ${application.companyName}\nContact: ${application.contactName} (${application.email})\nCategory: ${application.category}\nCurrent Status: ${application.status.toUpperCase()}\nProgress: ${application.progress}%\nSubmitted: ${application.submittedDate}\nAssigned To: ${application.assignedTo}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nREJECTION REASONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSelect primary reason for rejection:\n\n1. COMPLIANCE ISSUES:\n   □ Failed background check\n   □ Fraudulent documentation\n   □ Sanctions list match\n   □ Legal/regulatory violations\n   □ Expired certifications\n\n2. FINANCIAL CONCERNS:\n   □ Poor credit rating\n   □ Insufficient financial stability\n   □ Bankruptcy/insolvency risk\n   □ Outstanding tax liabilities\n   □ Inadequate insurance coverage\n\n3. CAPABILITY GAPS:\n   □ Does not meet quality standards\n   □ Insufficient capacity/capability\n   □ No relevant industry experience\n   □ Inadequate technical expertise\n   □ Cannot meet delivery requirements\n\n4. RISK FACTORS:\n   □ High risk score (>${application.riskScore})\n   □ Geographic/political risk\n   □ Cybersecurity concerns\n   □ Environmental/sustainability issues\n   □ Poor reference feedback\n\n5. DOCUMENTATION:\n   □ Incomplete application\n   □ Missing required documents\n   □ Unverifiable information\n   □ Non-responsive to requests\n   □ Unclear business structure\n\n6. STRATEGIC FIT:\n   □ Category not aligned with needs\n   □ Duplicate supplier\n   □ Better alternatives available\n   □ Conflict of interest\n   □ Geographic limitations\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nREJECTION WORKFLOW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. SELECT REJECTION REASON(S):\n   - Choose one or more reasons from above\n   - Provide detailed explanation (required)\n   - Attach supporting evidence if available\n\n2. INTERNAL APPROVAL:\n   - Procurement Manager review\n   - Risk/Compliance sign-off (for compliance issues)\n   - Category Manager notification\n\n3. SUPPLIER NOTIFICATION:\n   - Professional rejection letter\n   - General feedback (no confidential details)\n   - Option to reapply after remediation\n   - Timeline for reapplication (if applicable)\n\n4. RECORD KEEPING:\n   - Document rejection in system\n   - Archive application and documents\n   - Add to rejection log for analytics\n   - Flag for future reference\n\n5. FOLLOW-UP OPTIONS:\n   □ Allow reapplication after 6 months\n   □ Allow reapplication after remediation\n   □ Permanent rejection\n   □ Suggest alternative partnership model\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nNOTIFICATIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nWill notify:\n✉ ${application.contactName} (${application.email})\n✉ ${application.assignedTo} (Procurement Officer)\n✉ Procurement Manager\n✉ Category Manager\n\nREJECTION CONFIRMATION:\nThis action is REVERSIBLE within 30 days.\nAfter 30 days, supplier must submit new application.\n\nProvide detailed rejection comments and proceed?`);
+
+    if (!window.confirm(`Reject application for ${application.companyName}?`)) return;
+    try {
+      await procurementPagesService.updateVendor(application.id, { status: 'rejected' });
+      setApplications((prev) =>
+        prev.map((a) =>
+          a.id === application.id ? { ...a, status: 'rejected' } : a,
+        ),
+      );
+      alert(`Application for ${application.companyName} rejected.`);
+    } catch (err: any) {
+      alert(`Failed to reject application: ${err?.message ?? 'Unknown error'}`);
+    }
   };
 
   const handleRequestDocuments = (application: OnboardingApplication) => {

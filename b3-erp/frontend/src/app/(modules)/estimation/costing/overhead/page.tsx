@@ -50,55 +50,87 @@ export default function OverheadCostingPage() {
   const [overheadCosts, setOverheadCosts] = useState<OverheadCost[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const load = async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      // Backend returns raw ORM shape (decimals as strings). Map onto the
+      // page's OverheadCost; page-only fields are defaulted. The annual
+      // amount is treated as the budgeted/actual figure the table displays.
+      const raw = (await estimationOverheadCostService.getCosts()) as any[]
+      const statusMap: Record<string, OverheadCost['status']> = {
+        'within-budget': 'within-budget',
+        'over-budget': 'over-budget',
+        'under-budget': 'under-budget',
+      }
+      const mapped: OverheadCost[] = raw.map((c) => {
+        const amount = Number(c.annualAmount ?? 0)
+        return {
+          id: String(c.id),
+          costCode: '',
+          costName: c.name ?? '',
+          category: c.category ?? '',
+          subcategory: c.costType ?? '',
+          allocationBasis: c.allocationMethod ?? '',
+          budgetedAmount: amount,
+          actualAmount: amount,
+          variance: 0,
+          variancePercent: 0,
+          allocationRate: Number(c.allocationRate ?? 0),
+          applicableTo: [],
+          status: statusMap[String(c.status ?? '').toLowerCase()] ?? 'within-budget',
+        }
+      })
+      setOverheadCosts(mapped)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load overhead costs')
+      setOverheadCosts([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        // Backend returns raw ORM shape (decimals as strings). Map onto the
-        // page's OverheadCost; page-only fields are defaulted. The annual
-        // amount is treated as the budgeted/actual figure the table displays.
-        const raw = (await estimationOverheadCostService.getCosts()) as any[]
-        const statusMap: Record<string, OverheadCost['status']> = {
-          'within-budget': 'within-budget',
-          'over-budget': 'over-budget',
-          'under-budget': 'under-budget',
-        }
-        const mapped: OverheadCost[] = raw.map((c) => {
-          const amount = Number(c.annualAmount ?? 0)
-          return {
-            id: String(c.id),
-            costCode: '',
-            costName: c.name ?? '',
-            category: c.category ?? '',
-            subcategory: c.costType ?? '',
-            allocationBasis: c.allocationMethod ?? '',
-            budgetedAmount: amount,
-            actualAmount: amount,
-            variance: 0,
-            variancePercent: 0,
-            allocationRate: Number(c.allocationRate ?? 0),
-            applicableTo: [],
-            status: statusMap[String(c.status ?? '').toLowerCase()] ?? 'within-budget',
-          }
-        })
-        if (!cancelled) setOverheadCosts(mapped)
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load overhead costs')
-          setOverheadCosts([])
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
     load()
-    return () => {
-      cancelled = true
-    }
   }, [])
+
+  const filteredOverheadCosts = overheadCosts.filter((c) => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return true
+    return (
+      c.costName.toLowerCase().includes(q) ||
+      c.category.toLowerCase().includes(q) ||
+      c.subcategory.toLowerCase().includes(q) ||
+      c.allocationBasis.toLowerCase().includes(q)
+    )
+  })
+
+  const handleExport = () => {
+    const headers = ['Cost Name', 'Category', 'Subcategory', 'Allocation Basis', 'Budgeted', 'Actual', 'Variance', 'Allocation Rate', 'Status']
+    const rows = filteredOverheadCosts.map((c) => [
+      c.costName,
+      c.category,
+      c.subcategory,
+      c.allocationBasis,
+      c.budgetedAmount,
+      c.actualAmount,
+      c.variance,
+      c.allocationRate,
+      c.status,
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'overhead-costs.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   // Aggregate category totals from the fetched overhead costs.
   const categoryTotals: CategoryTotal[] = (() => {
@@ -176,11 +208,17 @@ export default function OverheadCostingPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => document.getElementById('overhead-search')?.focus()}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
@@ -297,7 +335,10 @@ export default function OverheadCostingPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
+                id="overhead-search"
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search overhead costs..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -319,7 +360,7 @@ export default function OverheadCostingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {overheadCosts.map((cost) => (
+              {filteredOverheadCosts.map((cost) => (
                 <tr key={cost.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>

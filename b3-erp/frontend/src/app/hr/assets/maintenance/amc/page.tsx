@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { FileText, Calendar, AlertCircle, CheckCircle, Building } from 'lucide-react';
+import { FileText, Calendar, AlertCircle, CheckCircle, Building, X } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AMCContract {
@@ -44,6 +44,8 @@ export default function Page() {
   const [contracts, setContracts] = useState<AMCContract[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [detailContract, setDetailContract] = useState<AMCContract | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -201,7 +203,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Contract
             </button>
           </div>
@@ -307,16 +309,16 @@ export default function Page() {
               )}
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setDetailContract(contract)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View Details
                 </button>
                 {(contract.status === 'expiring_soon' || contract.status === 'expired') && (
-                  <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+                  <button onClick={() => setDetailContract(contract)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
                     Renew Contract
                   </button>
                 )}
                 {contract.status === 'active' && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => setDetailContract(contract)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Edit Contract
                   </button>
                 )}
@@ -325,6 +327,113 @@ export default function Page() {
           );
         })}
       </div>
+
+      {detailContract && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">AMC Contract Details</h2>
+              <button onClick={() => setDetailContract(null)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Vendor</p>
+                  <p className="font-semibold text-gray-900">{detailContract.vendor}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Contract ID</p>
+                  <p className="font-semibold text-gray-900">{detailContract.contractId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Vendor Contact</p>
+                  <p className="font-semibold text-gray-900">{detailContract.vendorContact}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Asset Category</p>
+                  <p className="font-semibold text-gray-900">{detailContract.assetCategory}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Contract Value</p>
+                  <p className="font-semibold text-gray-900">₹{detailContract.contractValue.toLocaleString('en-IN')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Payment Terms</p>
+                  <p className="font-semibold text-gray-900">{detailContract.paymentTerms}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Duration</p>
+                  <p className="font-semibold text-gray-900">{detailContract.duration} months</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Number of Assets</p>
+                  <p className="font-semibold text-gray-900">{detailContract.numberOfAssets}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Response Time</p>
+                  <p className="font-semibold text-gray-900">{detailContract.responseTime}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Status</p>
+                  <p className="font-semibold text-gray-900">{detailContract.status}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Start Date</p>
+                  <p className="font-semibold text-gray-900">{detailContract.startDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">End Date</p>
+                  <p className="font-semibold text-gray-900">{detailContract.endDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Location</p>
+                  <p className="font-semibold text-gray-900">{detailContract.location}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Contact Person</p>
+                  <p className="font-semibold text-gray-900">{detailContract.contactPerson}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-500 uppercase">Coverage</p>
+                  <p className="font-semibold text-gray-900">{detailContract.coverage.join(', ')}</p>
+                </div>
+                {detailContract.remarks && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase">Remarks</p>
+                    <p className="font-semibold text-gray-900">{detailContract.remarks}</p>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setDetailContract(null)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Add AMC Contract</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Adding AMC contracts from this screen is not yet available — the contract service endpoint is pending.
+              </div>
+              <button onClick={() => setShowForm(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

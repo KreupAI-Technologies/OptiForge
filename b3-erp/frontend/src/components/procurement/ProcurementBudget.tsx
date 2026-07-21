@@ -155,121 +155,23 @@ const ProcurementBudget: React.FC = () => {
   };
 
   // Handler functions
-  const handleSetBudget = () => {
-    console.log('Setting budget...');
-    alert(`Set Budget - FY 2025
-
-BUDGET ALLOCATION WIZARD
-
-━━━ STEP 1: BUDGET PERIOD ━━━
-
-Select Period:
-○ Fiscal Year 2025 (Jan 1 - Dec 31, 2025)
-○ Fiscal Year 2026 (Jan 1 - Dec 31, 2026)
-○ Custom Period: [From __/__/__] to [__/__/__]
-
-Budget Cycle:
-○ Annual
-○ Quarterly
-○ Monthly
-
-━━━ STEP 2: TOTAL BUDGET ━━━
-
-Total Annual Budget: $[_____________]
-Current Total: $${totalBudget.toLocaleString()}
-
-Budget Source:
-○ Corporate allocation
-○ Department submissions
-○ Historical baseline + adjustment
-○ Zero-based budgeting
-
-━━━ STEP 3: ALLOCATION METHOD ━━━
-
-Choose allocation approach:
-
-1. TOP-DOWN ALLOCATION
-   • Set total budget first
-   • Allocate to categories/departments
-   • Based on strategic priorities
-   [Recommended for new budgets]
-
-2. BOTTOM-UP ALLOCATION
-   • Department requests submitted
-   • Reviewed and consolidated
-   • Adjusted to fit total budget
-   [Recommended for established processes]
-
-3. COPY FROM PREVIOUS PERIOD
-   • Copy FY 2024 budget: $${(totalBudget * 0.95).toLocaleString()}
-   • Apply adjustment factor: [___]%
-   • Modify as needed
-   [Fastest method]
-
-━━━ STEP 4: CATEGORY BREAKDOWN ━━━
-
-Allocate budget by category:
-
-${budgetLines.map(line =>
-  `${line.category}:\n  Amount: $[_______] (Current: $${line.budgetAmount.toLocaleString()})\n  % of Total: [___]%\n  Owner: ${line.owner}`
-).join('\n\n')}
-
-━━━ STEP 5: QUARTERLY DISTRIBUTION ━━━
-
-Distribute annual budget across quarters:
-
-Q1 (Jan-Mar): $[_______] ([___]% - Recommended: 25%)
-Q2 (Apr-Jun): $[_______] ([___]% - Recommended: 25%)
-Q3 (Jul-Sep): $[_______] ([___]% - Recommended: 25%)
-Q4 (Oct-Dec): $[_______] ([___]% - Recommended: 25%)
-
-Seasonal Adjustment:
-☐ Apply seasonal factors (e.g., higher Q4 for holiday purchases)
-☐ Front-load capital projects (higher Q1-Q2)
-☐ Even distribution across quarters
-
-━━━ STEP 6: APPROVAL WORKFLOW ━━━
-
-Budget Approvers:
-• Department Managers: Review category allocations
-• Finance Director: Validate total budget
-• CFO: Final approval
-• Board: Approval if >$5M
-
-Approval Thresholds:
-• Auto-approve: Individual items <$[_______]
-• Manager approval: $[_______] - $[_______]
-• Director approval: $[_______] - $[_______]
-• Executive approval: >$[_______]
-
-━━━ STEP 7: CONTROLS & ALERTS ━━━
-
-Budget Controls:
-☑ Require PO within budget before approval
-☑ Block spending when budget exhausted
-☑ Allow overspend with approval (+[___]%)
-
-Alert Thresholds:
-☑ Warning at 75% utilization
-☑ Critical alert at 90% utilization
-☑ Weekly budget reports to owners
-☑ Monthly variance reports to management
-
-━━━ REVIEW & SUBMIT ━━━
-
-Summary:
-• Total Budget: $${totalBudget.toLocaleString()}
-• Categories: ${budgetLines.length}
-• Period: FY 2025
-• Status: Draft
-
-[Save as Draft] [Submit for Approval] [Cancel]
-
-Next Steps:
-1. Submit for department review
-2. Finance team validation
-3. CFO approval
-4. Activate budget for FY 2025`);
+  const handleSetBudget = async () => {
+    const name = window.prompt('Budget name / category:');
+    if (!name) return;
+    const budget = Number(window.prompt('Total budget amount ($):', '0') ?? 0) || 0;
+    const fiscalYear = window.prompt('Fiscal year (optional):', String(new Date().getFullYear())) ?? undefined;
+    try {
+      await procurementOperationsService.createBudget({
+        name,
+        budgetType: 'category',
+        budget,
+        fiscalYear,
+      });
+      await reloadBudgets();
+    } catch (err) {
+      console.error('Failed to create budget:', err);
+      alert('Failed to create budget. Please try again.');
+    }
   };
 
   const handleAdjustBudget = () => {

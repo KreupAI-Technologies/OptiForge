@@ -43,6 +43,49 @@ export default function Page() {
   const [accessCards, setAccessCards] = useState<AccessCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AccessCard | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ issuedTo: '', cardNumber: '', employeeCode: '', department: '', designation: '', cardType: 'employee' as AccessCard['cardType'], accessLevel: 'basic' as AccessCard['accessLevel'], accessZones: '', location: '', issuedBy: '' });
+
+  // NOTE: HrAssetsService exposes no access-card write endpoint (only getAccessCards read + createAssetRequest/updateAssetRequest).
+  // Until a backend access-card mutation endpoint exists, the write actions below optimistically update local `accessCards` state only.
+  const handleAdd = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const newCard: AccessCard = {
+      id: Date.now().toString(),
+      cardNumber: addForm.cardNumber,
+      cardType: addForm.cardType,
+      issuedTo: addForm.issuedTo,
+      employeeCode: addForm.employeeCode,
+      department: addForm.department,
+      designation: addForm.designation,
+      issueDate: today,
+      status: 'active',
+      accessLevel: addForm.accessLevel,
+      accessZones: addForm.accessZones ? addForm.accessZones.split(',').map(s => s.trim()).filter(Boolean) : [],
+      location: addForm.location,
+      issuedBy: addForm.issuedBy,
+    };
+    setAccessCards(prev => [newCard, ...prev]);
+    setShowAdd(false);
+    setAddForm({ issuedTo: '', cardNumber: '', employeeCode: '', department: '', designation: '', cardType: 'employee', accessLevel: 'basic', accessZones: '', location: '', issuedBy: '' });
+  };
+
+  const handleDeactivate = (card: AccessCard) => {
+    setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'inactive' } : c));
+  };
+
+  const handleReplace = (card: AccessCard) => {
+    const today = new Date().toISOString().split('T')[0];
+    setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'active', remarks: `Replacement issued ${today}` } : c));
+  };
+
+  const handleRenew = (card: AccessCard) => {
+    const next = new Date();
+    next.setFullYear(next.getFullYear() + 1);
+    const nextIso = next.toISOString().split('T')[0];
+    setAccessCards(prev => prev.map(c => c.id === card.id ? { ...c, status: 'active', expiryDate: nextIso } : c));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -215,7 +258,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Issue New Card
             </button>
           </div>
@@ -320,25 +363,25 @@ export default function Page() {
               <div className="flex gap-2">
                 {card.status === 'active' && (
                   <>
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                    <button onClick={() => setSelected(card)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                       View Access Log
                     </button>
-                    <button className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm">
+                    <button onClick={() => handleDeactivate(card)} className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm">
                       Deactivate
                     </button>
                   </>
                 )}
                 {card.status === 'lost' && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => handleReplace(card)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Issue Replacement
                   </button>
                 )}
                 {card.status === 'expired' && (
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                  <button onClick={() => handleRenew(card)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                     Renew Card
                   </button>
                 )}
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setSelected(card)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View Details
                 </button>
               </div>
@@ -346,6 +389,156 @@ export default function Page() {
           );
         })}
       </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Access Card Details</h2>
+              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Issued To</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.issuedTo}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Card Number</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.cardNumber}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Employee Code</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.employeeCode}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Card Type</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.cardType}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Access Level</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.accessLevel}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Department</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.department}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Designation</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.designation}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Status</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.status}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Issue Date</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.issueDate}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Expiry Date</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.expiryDate || '—'}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Access Zones</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.accessZones.join(', ') || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Last Used</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.lastUsed || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Location</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.location}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Issued By</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.issuedBy}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm font-semibold text-gray-900">{selected.remarks || '—'}</p>
+              </div>
+            </div>
+            <div className="flex justify-end mt-5">
+              <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAdd(false)}>
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Issue New Card</h2>
+              <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issued To</label>
+                <input value={addForm.issuedTo} onChange={(e) => setAddForm({ ...addForm, issuedTo: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
+                <input value={addForm.cardNumber} onChange={(e) => setAddForm({ ...addForm, cardNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                <input value={addForm.employeeCode} onChange={(e) => setAddForm({ ...addForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input value={addForm.department} onChange={(e) => setAddForm({ ...addForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                <input value={addForm.designation} onChange={(e) => setAddForm({ ...addForm, designation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Card Type</label>
+                <select value={addForm.cardType} onChange={(e) => setAddForm({ ...addForm, cardType: e.target.value as AccessCard['cardType'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="employee">Employee</option>
+                  <option value="contractor">Contractor</option>
+                  <option value="visitor">Visitor</option>
+                  <option value="temp">Temporary</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Access Level</label>
+                <select value={addForm.accessLevel} onChange={(e) => setAddForm({ ...addForm, accessLevel: e.target.value as AccessCard['accessLevel'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="basic">Basic</option>
+                  <option value="standard">Standard</option>
+                  <option value="elevated">Elevated</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issued By</label>
+                <input value={addForm.issuedBy} onChange={(e) => setAddForm({ ...addForm, issuedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Access Zones</label>
+                <input value={addForm.accessZones} onChange={(e) => setAddForm({ ...addForm, accessZones: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p className="text-xs text-gray-500 mt-1">Comma-separated list of zones (e.g. Lobby, Floor 2, Server Room)</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Cancel
+              </button>
+              <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

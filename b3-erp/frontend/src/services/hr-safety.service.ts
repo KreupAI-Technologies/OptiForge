@@ -9,12 +9,41 @@ const API_BASE_URL =
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
     cache: 'no-store',
   });
   if (!res.ok) {
     throw new Error(`Request failed (${res.status})`);
   }
   return res.json();
+}
+
+async function sendJson<T>(
+  method: 'POST' | 'PUT',
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function deleteJson(path: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
 }
 
 const qs = (companyId: string, extra?: Record<string, string | undefined>) => {
@@ -298,5 +327,168 @@ export class HrSafetyService {
       `/hr/safety-reports?${qs(companyId, { recordType })}`,
     );
     return Array.isArray(data) ? data : [];
+  }
+
+  // --- Writes (POST/PUT/DELETE) --------------------------------------------
+
+  static createIncident(
+    body: Partial<SafetyIncident> & { companyId?: string },
+  ): Promise<SafetyIncident> {
+    return sendJson<SafetyIncident>('POST', '/hr/safety-incidents', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updateIncident(
+    id: string,
+    body: Partial<SafetyIncident>,
+  ): Promise<SafetyIncident> {
+    return sendJson<SafetyIncident>('PUT', `/hr/safety-incidents/${id}`, body);
+  }
+
+  static deleteIncident(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-incidents/${id}`);
+  }
+
+  static createHazard(
+    body: Partial<SafetyHazard> & { companyId?: string },
+  ): Promise<SafetyHazard> {
+    return sendJson<SafetyHazard>('POST', '/hr/safety-hazards', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updateHazard(
+    id: string,
+    body: Partial<SafetyHazard>,
+  ): Promise<SafetyHazard> {
+    return sendJson<SafetyHazard>('PUT', `/hr/safety-hazards/${id}`, body);
+  }
+
+  static deleteHazard(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-hazards/${id}`);
+  }
+
+  static createInspection(
+    body: Partial<SafetyInspection> & { companyId?: string },
+  ): Promise<SafetyInspection> {
+    return sendJson<SafetyInspection>('POST', '/hr/safety-inspections', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updateInspection(
+    id: string,
+    body: Partial<SafetyInspection>,
+  ): Promise<SafetyInspection> {
+    return sendJson<SafetyInspection>(
+      'PUT',
+      `/hr/safety-inspections/${id}`,
+      body,
+    );
+  }
+
+  static deleteInspection(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-inspections/${id}`);
+  }
+
+  static createPpe(
+    body: Partial<SafetyPpe> & { companyId?: string },
+  ): Promise<SafetyPpe> {
+    return sendJson<SafetyPpe>('POST', '/hr/safety-ppe', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updatePpe(id: string, body: Partial<SafetyPpe>): Promise<SafetyPpe> {
+    return sendJson<SafetyPpe>('PUT', `/hr/safety-ppe/${id}`, body);
+  }
+
+  static deletePpe(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-ppe/${id}`);
+  }
+
+  static createDrill(
+    body: Partial<SafetyDrill> & { companyId?: string },
+  ): Promise<SafetyDrill> {
+    return sendJson<SafetyDrill>('POST', '/hr/safety-drills', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updateDrill(
+    id: string,
+    body: Partial<SafetyDrill>,
+  ): Promise<SafetyDrill> {
+    return sendJson<SafetyDrill>('PUT', `/hr/safety-drills/${id}`, body);
+  }
+
+  static deleteDrill(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-drills/${id}`);
+  }
+
+  static createTraining(
+    body: Partial<SafetyTraining> & { companyId?: string },
+  ): Promise<SafetyTraining> {
+    return sendJson<SafetyTraining>('POST', '/hr/safety-trainings', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updateTraining(
+    id: string,
+    body: Partial<SafetyTraining>,
+  ): Promise<SafetyTraining> {
+    return sendJson<SafetyTraining>('PUT', `/hr/safety-trainings/${id}`, body);
+  }
+
+  static deleteTraining(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-trainings/${id}`);
+  }
+
+  static createWellness(
+    body: Partial<SafetyWellness> & { companyId?: string },
+  ): Promise<SafetyWellness> {
+    return sendJson<SafetyWellness>('POST', '/hr/safety-wellness', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updateWellness(
+    id: string,
+    body: Partial<SafetyWellness>,
+  ): Promise<SafetyWellness> {
+    return sendJson<SafetyWellness>('PUT', `/hr/safety-wellness/${id}`, body);
+  }
+
+  static deleteWellness(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-wellness/${id}`);
+  }
+
+  static createReport(
+    body: Partial<SafetyReport> & { companyId?: string },
+  ): Promise<SafetyReport> {
+    return sendJson<SafetyReport>('POST', '/hr/safety-reports', {
+      companyId: 'company-1',
+      ...body,
+    });
+  }
+
+  static updateReport(
+    id: string,
+    body: Partial<SafetyReport>,
+  ): Promise<SafetyReport> {
+    return sendJson<SafetyReport>('PUT', `/hr/safety-reports/${id}`, body);
+  }
+
+  static deleteReport(id: string): Promise<void> {
+    return deleteJson(`/hr/safety-reports/${id}`);
   }
 }

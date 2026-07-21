@@ -28,20 +28,12 @@ import {
   Cell
 } from 'recharts';
 
-// Mock Data
-const findingStats = {
-  activeFindings: 14,
-  criticalNCRs: 3,
-  resolvedThisMonth: 8,
-  pendingVerification: 4
+const severityColors: Record<string, string> = {
+  Critical: '#ef4444',
+  Major: '#f97316',
+  Minor: '#eab308',
+  Observation: '#3b82f6',
 };
-
-const severityData = [
-  { name: 'Critical', value: 3, color: '#ef4444' },
-  { name: 'Major', value: 5, color: '#f97316' },
-  { name: 'Minor', value: 6, color: '#eab308' },
-  { name: 'Observation', value: 12, color: '#3b82f6' },
-];
 
 interface FindingItem {
   id: string;
@@ -59,42 +51,75 @@ export default function AuditFindingsPage() {
   const [findings, setFindings] = useState<FindingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', source: '', category: '', severity: 'Minor' });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getInspections('finding');
+      const mapped: FindingItem[] = rows.map((row: SafetyInspection) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          title: row.title ?? '',
+          source: row.auditType ?? meta.source ?? '',
+          category: row.area ?? row.department ?? '',
+          severity: row.severity ?? '',
+          date: row.completedDate ?? row.scheduledDate ?? '',
+          status: row.status ?? '',
+          ref: row.code ?? meta.ref ?? '',
+        };
+      });
+      setFindings(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load findings');
+      setFindings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getInspections('finding');
-        const mapped: FindingItem[] = rows.map((row: SafetyInspection) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            title: row.title ?? '',
-            source: row.auditType ?? meta.source ?? '',
-            category: row.area ?? row.department ?? '',
-            severity: row.severity ?? '',
-            date: row.completedDate ?? row.scheduledDate ?? '',
-            status: row.status ?? '',
-            ref: row.code ?? meta.ref ?? '',
-          };
-        });
-        if (!cancelled) setFindings(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load findings');
-          setFindings([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createInspection({
+        recordType: 'finding',
+        title: form.title.trim(),
+        auditType: form.source.trim() || undefined,
+        area: form.category.trim() || undefined,
+        severity: form.severity,
+        status: 'Open',
+      });
+      setShowCreate(false);
+      setForm({ title: '', source: '', category: '', severity: 'Minor' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to log finding');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const findingStats = {
+    activeFindings: findings.filter((f) => f.status !== 'Resolved' && f.status !== 'Closed').length,
+    criticalNCRs: findings.filter((f) => f.severity === 'Critical').length,
+    resolvedThisMonth: findings.filter((f) => f.status === 'Resolved' || f.status === 'Closed').length,
+    pendingVerification: findings.filter((f) => f.status === 'Pending Verification').length,
+  };
+
+  const severityData = ['Critical', 'Major', 'Minor', 'Observation'].map((name) => ({
+    name,
+    value: findings.filter((f) => f.severity === name).length,
+    color: severityColors[name],
+  }));
 
   return (
     <div className="p-6 space-y-3">
@@ -107,11 +132,84 @@ export default function AuditFindingsPage() {
           </h1>
           <p className="text-gray-500 mt-1">Review and manage observations, non-conformances, and audit outcomes</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Log Finding
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-orange-600" /> Log Finding
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Unguarded conveyor pinch point"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Source</label>
+                <input
+                  type="text"
+                  value={form.source}
+                  onChange={(e) => setForm({ ...form, source: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Internal Audit"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category / Area</label>
+                <input
+                  type="text"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Production Floor"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Severity</label>
+                <select
+                  value={form.severity}
+                  onChange={(e) => setForm({ ...form, severity: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="Critical">Critical</option>
+                  <option value="Major">Major</option>
+                  <option value="Minor">Minor</option>
+                  <option value="Observation">Observation</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.title.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Logging…' : 'Log Finding'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

@@ -9,6 +9,7 @@ const API_BASE_URL =
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     cache: 'no-store',
   });
   if (!res.ok) {
@@ -21,6 +22,20 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -348,5 +363,79 @@ export class HrComplianceDocsService {
   static async getDocumentAuditLogs(action?: string, companyId = 'company-1'): Promise<DocumentAuditLog[]> {
     const data = await getJson<DocumentAuditLog[]>(`/hr/document-audit-logs?${qs(companyId, { action })}`);
     return Array.isArray(data) ? data : [];
+  }
+
+  // ---- Write methods (status transitions on existing NestJS CRUD) -----------
+
+  static updateReturn(
+    id: string,
+    payload: Partial<ComplianceReturn>,
+    companyId = 'company-1',
+  ): Promise<ComplianceReturn> {
+    return putJson<ComplianceReturn>(`/hr/compliance-returns/${id}`, { companyId, ...payload });
+  }
+
+  static submitReturn(id: string, companyId = 'company-1'): Promise<ComplianceReturn> {
+    return HrComplianceDocsService.updateReturn(
+      id,
+      { status: 'filed', filingDate: new Date().toISOString().slice(0, 10) },
+      companyId,
+    );
+  }
+
+  static updateLicense(
+    id: string,
+    payload: Partial<ComplianceLicense>,
+    companyId = 'company-1',
+  ): Promise<ComplianceLicense> {
+    return putJson<ComplianceLicense>(`/hr/compliance-licenses/${id}`, { companyId, ...payload });
+  }
+
+  static updatePolicyViolation(
+    id: string,
+    payload: Partial<PolicyViolation>,
+    companyId = 'company-1',
+  ): Promise<PolicyViolation> {
+    return putJson<PolicyViolation>(`/hr/policy-violations/${id}`, { companyId, ...payload });
+  }
+
+  static updateDisciplinaryAction(
+    id: string,
+    payload: Partial<DisciplinaryAction>,
+    companyId = 'company-1',
+  ): Promise<DisciplinaryAction> {
+    return putJson<DisciplinaryAction>(`/hr/disciplinary-actions/${id}`, { companyId, ...payload });
+  }
+
+  static updateGrievance(
+    id: string,
+    payload: Partial<HrGrievance>,
+    companyId = 'company-1',
+  ): Promise<HrGrievance> {
+    return putJson<HrGrievance>(`/hr/grievances/${id}`, { companyId, ...payload });
+  }
+
+  static updatePoshComplaint(
+    id: string,
+    payload: Record<string, unknown>,
+    companyId = 'company-1',
+  ): Promise<any> {
+    return putJson<any>(`/hr/posh-complaints/${id}`, { companyId, ...payload });
+  }
+
+  static updateAudit(
+    id: string,
+    payload: Partial<ComplianceAudit>,
+    companyId = 'company-1',
+  ): Promise<ComplianceAudit> {
+    return putJson<ComplianceAudit>(`/hr/compliance-audits/${id}`, { companyId, ...payload });
+  }
+
+  static updatePolicyAcknowledgment(
+    id: string,
+    payload: Record<string, unknown>,
+    companyId = 'company-1',
+  ): Promise<any> {
+    return putJson<any>(`/hr/policy-acknowledgments/${id}`, { companyId, ...payload });
   }
 }

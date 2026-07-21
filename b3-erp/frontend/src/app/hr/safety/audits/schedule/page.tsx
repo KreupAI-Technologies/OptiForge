@@ -18,10 +18,10 @@ import {
 } from 'lucide-react';
 import { HrSafetyService, SafetyInspection } from '@/services/hr-safety.service';
 
-const auditTypes = [
-  { name: 'Regulatory', icon: Globe, color: 'text-red-600', count: 1 },
-  { name: 'Internal', icon: Users, color: 'text-blue-600', count: 2 },
-  { name: 'Compliance', icon: ShieldAlert, color: 'text-orange-600', count: 5 },
+const auditTypeMeta = [
+  { name: 'Regulatory', icon: Globe, color: 'text-red-600' },
+  { name: 'Internal', icon: Users, color: 'text-blue-600' },
+  { name: 'Compliance', icon: ShieldAlert, color: 'text-orange-600' },
 ];
 
 interface AuditItem {
@@ -39,41 +39,67 @@ export default function AuditSchedulePage() {
   const [upcomingAudits, setUpcomingAudits] = useState<AuditItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', auditType: 'Compliance', scheduledDate: '', auditor: '', priority: 'Medium' });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getInspections('schedule');
+      const mapped: AuditItem[] = rows.map((row: SafetyInspection) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.id),
+          title: row.title ?? '',
+          type: row.auditType ?? '',
+          date: row.scheduledDate ?? '',
+          auditor: row.auditor ?? '',
+          priority: row.priority ?? '',
+          notify: Boolean(meta.notify ?? false),
+        };
+      });
+      setUpcomingAudits(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load audit schedule');
+      setUpcomingAudits([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getInspections('schedule');
-        const mapped: AuditItem[] = rows.map((row: SafetyInspection) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.id),
-            title: row.title ?? '',
-            type: row.auditType ?? '',
-            date: row.scheduledDate ?? '',
-            auditor: row.auditor ?? '',
-            priority: row.priority ?? '',
-            notify: Boolean(meta.notify ?? false),
-          };
-        });
-        if (!cancelled) setUpcomingAudits(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load audit schedule');
-          setUpcomingAudits([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createInspection({
+        recordType: 'schedule',
+        title: form.title.trim(),
+        auditType: form.auditType,
+        scheduledDate: form.scheduledDate || undefined,
+        auditor: form.auditor.trim() || undefined,
+        priority: form.priority,
+        status: 'Scheduled',
+      });
+      setShowCreate(false);
+      setForm({ title: '', auditType: 'Compliance', scheduledDate: '', auditor: '', priority: 'Medium' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to schedule audit');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const auditTypes = auditTypeMeta.map((t) => ({
+    ...t,
+    count: upcomingAudits.filter((a) => a.type === t.name).length,
+  }));
 
   return (
     <div className="p-6 space-y-3">
@@ -86,11 +112,95 @@ export default function AuditSchedulePage() {
           </h1>
           <p className="text-gray-500 mt-1">Plan and coordinate upcoming internal and external safety audits</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Schedule Audit
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-orange-600" /> Schedule Audit
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. OSHA Q1 Audit"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
+                <select
+                  value={form.auditType}
+                  onChange={(e) => setForm({ ...form, auditType: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                >
+                  {auditTypeMeta.map((t) => (
+                    <option key={t.name} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Scheduled Date</label>
+                <input
+                  type="date"
+                  value={form.scheduledDate}
+                  onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Auditor</label>
+                <input
+                  type="text"
+                  value={form.auditor}
+                  onChange={(e) => setForm({ ...form, auditor: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. John Smith"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.title.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Scheduling…' : 'Schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

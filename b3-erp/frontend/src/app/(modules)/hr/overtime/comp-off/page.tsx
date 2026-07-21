@@ -48,6 +48,20 @@ export default function CompOffPage() {
     const [requests, setRequests] = useState<CompOffRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [actingId, setActingId] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    const handleDecision = async (request: CompOffRequest, decision: 'Approved' | 'Rejected') => {
+        setActingId(request.id); setActionError(null);
+        try {
+            await HrSelfServiceService.updateOvertimeRequest(request.id, { status: decision });
+            setRequests((prev) => prev.map((r) => (r.id === request.id ? { ...r, status: decision } : r)));
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : 'Failed to update request');
+        } finally {
+            setActingId(null);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -124,6 +138,7 @@ export default function CompOffPage() {
             <div className="w-full space-y-3">
                 {isLoading && (<div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
                 {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
+                {actionError && (<div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{actionError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -283,11 +298,19 @@ export default function CompOffPage() {
 
                                         {request.status === 'Pending' && (
                                             <div className="flex gap-2 mt-2">
-                                                <button className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">
-                                                    <CheckCircle className="w-4 h-4" /> Approve
+                                                <button
+                                                    onClick={() => handleDecision(request, 'Approved')}
+                                                    disabled={actingId === request.id}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded text-sm"
+                                                >
+                                                    <CheckCircle className="w-4 h-4" /> {actingId === request.id ? 'Saving…' : 'Approve'}
                                                 </button>
-                                                <button className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm">
-                                                    <XCircle className="w-4 h-4" /> Reject
+                                                <button
+                                                    onClick={() => handleDecision(request, 'Rejected')}
+                                                    disabled={actingId === request.id}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded text-sm"
+                                                >
+                                                    <XCircle className="w-4 h-4" /> {actingId === request.id ? 'Saving…' : 'Reject'}
                                                 </button>
                                             </div>
                                         )}

@@ -99,6 +99,13 @@ const MIGRATION_ORDER: string[] = [
     'orphan_pass4_prodcols.sql',
     // Dated feature migrations
     '2026_07_add_payroll_loan_advance_tables.sql',
+    // Projects Focus audit remediation — net-new Bucket B tables (additive, idempotent)
+    'orphan_pm_mep_drawings.sql',
+    'orphan_pm_cabinet_marking_tasks.sql',
+    'orphan_pm_vendor_shipments.sql',
+    'orphan_packaging_material_requests.sql',
+    'orphan_pm_production_jobs.sql',
+    'orphan_pm_drawing_verifications.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

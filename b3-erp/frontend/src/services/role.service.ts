@@ -327,6 +327,10 @@ export class RoleService {
     options?: RequestInit
   ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      // Auth is carried by the HttpOnly `access_token` cookie set on login.
+      // `credentials: 'include'` attaches it so JwtAuthGuard-protected
+      // it-admin endpoints receive the token.
+      credentials: 'include',
       ...options,
       headers: {
         'Content-Type': 'application/json',

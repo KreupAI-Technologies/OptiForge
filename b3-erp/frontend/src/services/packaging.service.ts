@@ -11,6 +11,7 @@ const API_BASE_URL =
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: 'include',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -74,6 +75,20 @@ export interface PackagingShippingBillDto {
   totalPackages?: number;
   totalWeight?: string;
   status?: string;
+}
+
+export interface PackagingMaterialRequestDto {
+  id: string;
+  projectId?: string;
+  materialId: string;
+  materialName: string;
+  quantity?: number;
+  unit?: string;
+  requiredBy?: string;
+  priority?: string;
+  status?: string;
+  requestedBy?: string;
+  notes?: string;
 }
 
 function qs(projectId?: string): string {
@@ -142,6 +157,44 @@ export class PackagingService {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  }
+
+  // Material purchase requests
+  // These routes wrap their payload in { success, data }; unwrap here.
+  static async listMaterialRequests(
+    projectId?: string,
+  ): Promise<PackagingMaterialRequestDto[]> {
+    const res = await request<{ success: boolean; data: PackagingMaterialRequestDto[] }>(
+      `/packaging/material-requests${qs(projectId)}`,
+    );
+    return res?.data ?? [];
+  }
+
+  static async requestPurchase(
+    data: Partial<PackagingMaterialRequestDto>,
+  ): Promise<PackagingMaterialRequestDto> {
+    const res = await request<{ success: boolean; data: PackagingMaterialRequestDto }>(
+      `/packaging/material-requests`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
+    return res?.data;
+  }
+
+  static async updateMaterialRequestStatus(
+    id: string,
+    data: Partial<PackagingMaterialRequestDto>,
+  ): Promise<PackagingMaterialRequestDto> {
+    const res = await request<{ success: boolean; data: PackagingMaterialRequestDto }>(
+      `/packaging/material-requests/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      },
+    );
+    return res?.data;
   }
 }
 

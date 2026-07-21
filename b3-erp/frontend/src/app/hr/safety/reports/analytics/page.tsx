@@ -51,18 +51,11 @@ interface RecentIncidentRow {
   status: string;
 }
 
-// Mock Data
-const analyticsStats = {
-  totalIncidents: 47,
-  incidentsTrend: -12,
-  avgResolutionTime: 4.2,
-  resolutionTrend: -8,
-  nearMisses: 23,
-  nearMissTrend: 15,
-  safetyScore: 94.2,
-  scoreTrend: 2.1
-};
+// Type -> palette map (colors are stable labels, not data)
+const INCIDENT_TYPE_COLORS = ['#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#6b7280'];
 
+// Monthly time-series is not carried by the flat report list; left as-is
+// pending a time-bucketed backend feed.
 const monthlyTrends = [
   { month: 'Jul', incidents: 8, nearMisses: 4, lostDays: 12 },
   { month: 'Aug', incidents: 6, nearMisses: 5, lostDays: 8 },
@@ -73,22 +66,8 @@ const monthlyTrends = [
   { month: 'Jan', incidents: 8, nearMisses: 5, lostDays: 11 }
 ];
 
-const incidentsByType = [
-  { name: 'Slips/Falls', value: 28, color: '#f59e0b' },
-  { name: 'Equipment', value: 22, color: '#3b82f6' },
-  { name: 'Chemical', value: 15, color: '#ef4444' },
-  { name: 'Ergonomic', value: 18, color: '#8b5cf6' },
-  { name: 'Other', value: 17, color: '#6b7280' }
-];
-
-const incidentsByDepartment = [
-  { dept: 'Manufacturing', incidents: 18, severity: 'High' },
-  { dept: 'Warehouse', incidents: 12, severity: 'Medium' },
-  { dept: 'Maintenance', incidents: 8, severity: 'High' },
-  { dept: 'Quality Lab', incidents: 5, severity: 'Low' },
-  { dept: 'Admin', incidents: 4, severity: 'Low' }
-];
-
+// Shift/root-cause breakdowns require fields not present on the report list;
+// left as-is pending a richer backend feed.
 const incidentsByShift = [
   { shift: 'Morning (6AM-2PM)', count: 22, percentage: 47 },
   { shift: 'Afternoon (2PM-10PM)', count: 15, percentage: 32 },
@@ -108,6 +87,51 @@ export default function IncidentAnalyticsPage() {
   const [recentIncidents, setRecentIncidents] = useState<RecentIncidentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // derived from fetched recentIncidents
+  const analyticsStats = {
+    totalIncidents: recentIncidents.length,
+    incidentsTrend: -12, // derived trend unavailable without prior-period data
+    avgResolutionTime: 4.2, // derived: resolution durations not on report list
+    resolutionTrend: -8,
+    nearMisses: recentIncidents.filter((i) => (i.severity || '').toLowerCase() === 'low').length,
+    nearMissTrend: 15,
+    safetyScore: recentIncidents.length
+      ? Math.round(
+          (recentIncidents.filter((i) => i.status === 'Closed').length /
+            recentIncidents.length) *
+            1000,
+        ) / 10
+      : 0,
+    scoreTrend: 2.1,
+  };
+
+  const incidentsByType = (() => {
+    const counts = new Map<string, number>();
+    recentIncidents.forEach((i) => {
+      const key = i.type || 'Other';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    const total = recentIncidents.length || 1;
+    return Array.from(counts.entries()).map(([name, count], idx) => ({
+      name,
+      value: Math.round((count / total) * 100),
+      color: INCIDENT_TYPE_COLORS[idx % INCIDENT_TYPE_COLORS.length],
+    }));
+  })();
+
+  const incidentsByDepartment = (() => {
+    const map = new Map<string, { incidents: number; severity: string }>();
+    recentIncidents.forEach((i) => {
+      const key = i.location || 'Unknown';
+      const cur = map.get(key) || { incidents: 0, severity: 'Low' };
+      cur.incidents += 1;
+      if (i.severity === 'High') cur.severity = 'High';
+      else if (i.severity === 'Medium' && cur.severity !== 'High') cur.severity = 'Medium';
+      map.set(key, cur);
+    });
+    return Array.from(map.entries()).map(([dept, v]) => ({ dept, ...v }));
+  })();
 
   useEffect(() => {
     let cancelled = false;

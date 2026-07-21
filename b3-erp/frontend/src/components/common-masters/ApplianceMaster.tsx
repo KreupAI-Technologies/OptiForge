@@ -6,6 +6,7 @@ import {
   XCircle, Package, Ruler, DollarSign, Star, TrendingUp
 } from 'lucide-react';
 import { manufacturingMastersService, KitchenAppliance as BackendAppliance } from '@/services/manufacturing-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface Appliance {
   id: string;
@@ -50,6 +51,20 @@ interface Appliance {
 }
 
 export default function ApplianceMaster() {
+  const companyId = '123e4567-e89b-12d3-a456-426614174000';
+  const codeRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const categoryRef = React.useRef<HTMLSelectElement>(null);
+  const brandRef = React.useRef<HTMLInputElement>(null);
+  const modelRef = React.useRef<HTMLInputElement>(null);
+  const widthRef = React.useRef<HTMLInputElement>(null);
+  const depthRef = React.useRef<HTMLInputElement>(null);
+  const heightRef = React.useRef<HTMLInputElement>(null);
+  const priceRef = React.useRef<HTMLInputElement>(null);
+  const installationCostRef = React.useRef<HTMLInputElement>(null);
+  const availabilityRef = React.useRef<HTMLSelectElement>(null);
+  const statusRef = React.useRef<HTMLSelectElement>(null);
+
   const [appliances, setAppliances] = useState<Appliance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppliance, setSelectedAppliance] = useState<Appliance | null>(null);
@@ -64,7 +79,7 @@ export default function ApplianceMaster() {
   const fetchAppliances = async () => {
     try {
       setIsLoading(true);
-      const data = await manufacturingMastersService.getAllKitchenAppliances('123e4567-e89b-12d3-a456-426614174000');
+      const data = await manufacturingMastersService.getAllKitchenAppliances(companyId);
 
       const mapped: Appliance[] = data.map(app => ({
         id: app.id,
@@ -116,9 +131,62 @@ export default function ApplianceMaster() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleSave = async () => {
+    const code = codeRef.current?.value.trim() || '';
+    const name = nameRef.current?.value.trim() || '';
+    const category = categoryRef.current?.value || '';
+    const brand = brandRef.current?.value.trim() || '';
+    const model = modelRef.current?.value.trim() || '';
+    const width = Number(widthRef.current?.value);
+    const depth = Number(depthRef.current?.value);
+    const height = Number(heightRef.current?.value);
+    const price = Number(priceRef.current?.value);
+    const installationCost = Number(installationCostRef.current?.value);
+    const availability = availabilityRef.current?.value || '';
+    const status = statusRef.current?.value || '';
+
+    if (!code || !name) {
+      alert('Code and Name are required');
+      return;
+    }
+
+    const payload = {
+      code,
+      name,
+      companyId,
+      category,
+      brand,
+      model,
+      price,
+      installationCost,
+      availability,
+      status,
+      specifications: { dimensions: { width, depth, height } }
+    };
+
+    try {
+      if (selectedAppliance) {
+        await commonMastersService.updateKitchenAppliance(selectedAppliance.id, payload as any);
+      } else {
+        await commonMastersService.createKitchenAppliance(payload as any);
+      }
+      setIsModalOpen(false);
+      await fetchAppliances();
+    } catch (error) {
+      console.error('Error saving appliance:', error);
+      alert('Failed to save appliance');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this appliance?')) {
-      setAppliances(appliances.filter(a => a.id !== id));
+      try {
+        await commonMastersService.deleteKitchenAppliance(id);
+        await fetchAppliances();
+      } catch (error) {
+        console.error('Error deleting appliance:', error);
+        alert('Failed to delete appliance');
+      }
     }
   };
 
@@ -341,6 +409,7 @@ export default function ApplianceMaster() {
                       Code *
                     </label>
                     <input
+                      ref={codeRef}
                       type="text"
                       defaultValue={selectedAppliance?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -352,6 +421,7 @@ export default function ApplianceMaster() {
                       Name *
                     </label>
                     <input
+                      ref={nameRef}
                       type="text"
                       defaultValue={selectedAppliance?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -366,6 +436,7 @@ export default function ApplianceMaster() {
                       Category *
                     </label>
                     <select
+                      ref={categoryRef}
                       defaultValue={selectedAppliance?.category || 'Hob'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -383,6 +454,7 @@ export default function ApplianceMaster() {
                       Brand *
                     </label>
                     <input
+                      ref={brandRef}
                       type="text"
                       defaultValue={selectedAppliance?.brand}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -394,6 +466,7 @@ export default function ApplianceMaster() {
                       Model *
                     </label>
                     <input
+                      ref={modelRef}
                       type="text"
                       defaultValue={selectedAppliance?.model}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -408,6 +481,7 @@ export default function ApplianceMaster() {
                       Width (mm) *
                     </label>
                     <input
+                      ref={widthRef}
                       type="number"
                       defaultValue={selectedAppliance?.specifications.dimensions.width}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -418,6 +492,7 @@ export default function ApplianceMaster() {
                       Depth (mm) *
                     </label>
                     <input
+                      ref={depthRef}
                       type="number"
                       defaultValue={selectedAppliance?.specifications.dimensions.depth}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -428,6 +503,7 @@ export default function ApplianceMaster() {
                       Height (mm) *
                     </label>
                     <input
+                      ref={heightRef}
                       type="number"
                       defaultValue={selectedAppliance?.specifications.dimensions.height}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -441,6 +517,7 @@ export default function ApplianceMaster() {
                       Price (₹) *
                     </label>
                     <input
+                      ref={priceRef}
                       type="number"
                       defaultValue={selectedAppliance?.price}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -451,6 +528,7 @@ export default function ApplianceMaster() {
                       Installation Cost (₹)
                     </label>
                     <input
+                      ref={installationCostRef}
                       type="number"
                       defaultValue={selectedAppliance?.installationCost}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -464,6 +542,7 @@ export default function ApplianceMaster() {
                       Availability
                     </label>
                     <select
+                      ref={availabilityRef}
                       defaultValue={selectedAppliance?.availability || 'In Stock'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -477,6 +556,7 @@ export default function ApplianceMaster() {
                       Status
                     </label>
                     <select
+                      ref={statusRef}
                       defaultValue={selectedAppliance?.status || 'Active'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -496,7 +576,7 @@ export default function ApplianceMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Save Appliance
               </button>
             </div>

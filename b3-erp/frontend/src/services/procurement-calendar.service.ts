@@ -40,6 +40,7 @@ export interface UpsertCalendarEventPayload {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     ...init,
   });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { Users, Search, Filter, CheckCircle, Clock } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -80,18 +81,42 @@ export default function PeerReviewsPage() {
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPeer) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const submittedDate = new Date().toISOString().split('T')[0];
+    try {
+      await HrTalentService.createPerformance(
+        {
+          peerReviewId: selectedPeer.id,
+          peerName: selectedPeer.peerName,
+          department: selectedPeer.department,
+          role: selectedPeer.role,
+          relationship: selectedPeer.relationship,
+          ...formData,
+          submittedDate,
+        },
+        { recordType: 'peer-review', status: 'completed' }
+      );
 
-    setReviews(prev => prev.map(r =>
-      r.id === selectedPeer.id
-        ? { ...r, status: 'completed', submittedDate: new Date().toISOString().split('T')[0] }
-        : r
-    ));
+      setReviews(prev => prev.map(r =>
+        r.id === selectedPeer.id
+          ? { ...r, status: 'completed', submittedDate }
+          : r
+      ));
 
-    setShowModal(false);
-    setSelectedPeer(null);
+      setShowModal(false);
+      setSelectedPeer(null);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit review');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredReviews = reviews.filter(review => {
@@ -291,6 +316,12 @@ export default function PeerReviewsPage() {
                 />
               </div>
 
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
@@ -301,9 +332,10 @@ export default function PeerReviewsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                 >
-                  Submit Review
+                  {isSubmitting ? 'Submitting…' : 'Submit Review'}
                 </button>
               </div>
             </form>

@@ -27,24 +27,18 @@ import {
   CartesianGrid
 } from 'recharts';
 
-// Mock Data
-const riskSummaryData = [
-  { name: 'Critical', value: 2, color: '#ef4444' },
-  { name: 'High', value: 4, color: '#f97316' },
-  { name: 'Medium', value: 8, color: '#eab308' },
-  { name: 'Low', value: 12, color: '#10b981' },
-];
-
-const departmentRiskData = [
-  { dept: 'Warehouse', total: 10, high: 3, critical: 1 },
-  { dept: 'Assembly', total: 12, high: 4, critical: 1 },
-  { dept: 'Lab', total: 4, high: 1, critical: 0 },
-  { dept: 'Logistics', total: 6, high: 2, critical: 0 },
+// Risk-level color map (label constant — not mock data; values derived)
+const RISK_LEVEL_META: { name: string; color: string }[] = [
+  { name: 'Critical', color: '#ef4444' },
+  { name: 'High', color: '#f97316' },
+  { name: 'Medium', color: '#eab308' },
+  { name: 'Low', color: '#10b981' },
 ];
 
 interface RiskItem {
   id: string;
   hazard: string;
+  department: string;
   likelihood: number;
   impact: number;
   rpn: number;
@@ -74,6 +68,7 @@ export default function RiskRegisterPage() {
           return {
             id: String(row.id),
             hazard: row.title ?? '',
+            department: row.department ?? '',
             likelihood,
             impact,
             rpn,
@@ -97,6 +92,29 @@ export default function RiskRegisterPage() {
       cancelled = true;
     };
   }, []);
+
+  // Derived risk-level distribution (pie) from fetched register
+  const riskSummaryData = RISK_LEVEL_META.map((meta) => ({
+    ...meta,
+    value: riskRegister.filter((r) => r.level === meta.name).length,
+  }));
+
+  const filteredRegister = riskRegister.filter((r) => {
+    const q = searchTerm.toLowerCase();
+    return r.hazard.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
+  });
+
+  // Derived risk exposure by department (bar) from fetched register
+  const departmentRiskData = Object.entries(
+    riskRegister.reduce<Record<string, { total: number; high: number; critical: number }>>((acc, r) => {
+      const dept = r.department || 'Unassigned';
+      if (!acc[dept]) acc[dept] = { total: 0, high: 0, critical: 0 };
+      acc[dept].total += 1;
+      if (r.level === 'High') acc[dept].high += 1;
+      if (r.level === 'Critical') acc[dept].critical += 1;
+      return acc;
+    }, {}),
+  ).map(([dept, v]) => ({ dept, ...v }));
 
   return (
     <div className="p-6 space-y-3">
@@ -188,8 +206,8 @@ export default function RiskRegisterPage() {
           </div>
           <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-gray-900">26 Total Entries</p>
-              <p className="text-xs text-gray-500 mt-1">Risk database is 95% complete</p>
+              <p className="text-sm font-bold text-gray-900">{riskRegister.length} Total Entries</p>
+              <p className="text-xs text-gray-500 mt-1">Consolidated risk database</p>
             </div>
             <BarChart2 className="w-8 h-8 text-gray-300" />
           </div>
@@ -232,7 +250,7 @@ export default function RiskRegisterPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {riskRegister.map((risk) => (
+              {filteredRegister.map((risk) => (
                 <tr key={risk.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-3 py-2">
                     <div className="font-bold text-gray-900">{risk.hazard}</div>
@@ -277,7 +295,7 @@ export default function RiskRegisterPage() {
             <Info className="w-4 h-4 text-blue-500" />
             <span>Register compliant with OSHA / ISO 31000 standards. Last update: Today.</span>
           </div>
-          <p>Showing 5 of 26 registered risks</p>
+          <p>Showing {filteredRegister.length} of {riskRegister.length} registered risks</p>
         </div>
       </div>
     </div>

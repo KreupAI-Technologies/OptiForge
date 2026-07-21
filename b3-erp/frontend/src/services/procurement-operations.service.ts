@@ -78,6 +78,7 @@ export interface VendorPerformanceMetric {
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     cache: 'no-store',
   });
@@ -100,6 +101,7 @@ class ProcurementOperationsService {
   async markNotificationRead(id: string): Promise<void> {
     await fetch(`${API_BASE_URL}/procurement/notifications/${id}/read`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -107,6 +109,7 @@ class ProcurementOperationsService {
   async deleteNotification(id: string): Promise<void> {
     await fetch(`${API_BASE_URL}/procurement/notifications/${id}`, {
       method: 'DELETE',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -128,6 +131,7 @@ class ProcurementOperationsService {
   ): Promise<ProcurementBudget> {
     const res = await fetch(`${API_BASE_URL}/procurement/budgets`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -141,6 +145,7 @@ class ProcurementOperationsService {
   ): Promise<ProcurementBudget> {
     const res = await fetch(`${API_BASE_URL}/procurement/budgets/${id}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -151,6 +156,7 @@ class ProcurementOperationsService {
   async deleteBudget(id: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/procurement/budgets/${id}`, {
       method: 'DELETE',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) throw new Error(`Request failed (${res.status})`);

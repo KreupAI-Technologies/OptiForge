@@ -53,59 +53,99 @@ export default function PricingMarginsPage() {
   const [pricingMargins, setPricingMargins] = useState<PricingMargin[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const loadMargins = async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      // Map markup-setting records (per category/subcategory) to the page's
+      // margin-row shape. defaultMarkup drives margin%, minMarkup is the target.
+      const raw = await estimationMarkupSettingLiveService.getSettings()
+      const mapped: PricingMargin[] = raw.map((m: MarkupSettingRecord) => {
+        const marginPercent = Number(m.defaultMarkup ?? 0)
+        const targetMargin = Number(m.minMarkup ?? m.defaultMarkup ?? 0)
+        const variance = marginPercent - targetMargin
+        const status: PricingMargin['status'] =
+          variance >= 0 ? 'healthy' : variance >= -2 ? 'below-target' : 'at-risk'
+        return {
+          id: m.id,
+          productCode: m.category ?? m.id,
+          productName: m.subcategory
+            ? `${m.category} — ${m.subcategory}`
+            : m.category ?? 'Category',
+          category: m.category ?? 'General',
+          costPrice: 0,
+          sellingPrice: 0,
+          marginAmount: 0,
+          marginPercent,
+          targetMargin,
+          varianceFromTarget: variance,
+          competitorPrice: 0,
+          pricePosition: 'competitive',
+          status,
+          volumeSold: 0,
+          revenue: 0,
+        }
+      })
+      setPricingMargins(mapped)
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to load pricing margins',
+      )
+      setPricingMargins([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        // Map markup-setting records (per category/subcategory) to the page's
-        // margin-row shape. defaultMarkup drives margin%, minMarkup is the target.
-        const raw = await estimationMarkupSettingLiveService.getSettings()
-        const mapped: PricingMargin[] = raw.map((m: MarkupSettingRecord) => {
-          const marginPercent = Number(m.defaultMarkup ?? 0)
-          const targetMargin = Number(m.minMarkup ?? m.defaultMarkup ?? 0)
-          const variance = marginPercent - targetMargin
-          const status: PricingMargin['status'] =
-            variance >= 0 ? 'healthy' : variance >= -2 ? 'below-target' : 'at-risk'
-          return {
-            id: m.id,
-            productCode: m.category ?? m.id,
-            productName: m.subcategory
-              ? `${m.category} — ${m.subcategory}`
-              : m.category ?? 'Category',
-            category: m.category ?? 'General',
-            costPrice: 0,
-            sellingPrice: 0,
-            marginAmount: 0,
-            marginPercent,
-            targetMargin,
-            varianceFromTarget: variance,
-            competitorPrice: 0,
-            pricePosition: 'competitive',
-            status,
-            volumeSold: 0,
-            revenue: 0,
-          }
-        })
-        if (!cancelled) setPricingMargins(mapped)
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(
-            err instanceof Error ? err.message : 'Failed to load pricing margins',
-          )
-          setPricingMargins([])
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
+    loadMargins()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Client-side filter over the loaded rows driven by the search box.
+  const filteredMargins = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return pricingMargins
+    return pricingMargins.filter(
+      (p) =>
+        p.productName.toLowerCase().includes(q) ||
+        p.productCode.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q),
+    )
+  }, [pricingMargins, searchTerm])
+
+  const handleExport = () => {
+    const headers = [
+      'Product Code',
+      'Product Name',
+      'Category',
+      'Margin %',
+      'Target %',
+      'Variance %',
+      'Status',
+    ]
+    const rows = filteredMargins.map((p) => [
+      p.productCode,
+      p.productName,
+      p.category,
+      p.marginPercent.toFixed(1),
+      p.targetMargin.toFixed(1),
+      p.varianceFromTarget.toFixed(1),
+      p.status,
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `pricing-margins-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   // Category performance is derived from the fetched per-product margin rows.
   const categoryMargins: CategoryMargin[] = useMemo(() => {
@@ -184,11 +224,17 @@ export default function PricingMarginsPage() {
       )}
       {/* Header */}
       <div className="mb-3 flex items-center justify-end gap-3">
-        <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+        <button
+          onClick={loadMargins}
+          className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+        >
           <Filter className="h-4 w-4" />
           Filter
         </button>
-        <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
           <Download className="h-4 w-4" />
           Export
         </button>
@@ -296,6 +342,8 @@ export default function PricingMarginsPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search products..."
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -318,14 +366,14 @@ export default function PricingMarginsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {pricingMargins.length === 0 && (
+              {filteredMargins.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">
                     {isLoading ? 'Loading...' : 'No pricing margins found.'}
                   </td>
                 </tr>
               )}
-              {pricingMargins.map((product) => (
+              {filteredMargins.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>

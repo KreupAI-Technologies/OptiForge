@@ -30,6 +30,140 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Modal / write-action state.
+  // NOTE: HrAssetsService only exposes getIdCards() for reads; its write methods
+  // (createAssetRequest/updateAssetRequest) and AssetManagementService have NO
+  // id-card write endpoint. Until a backend id-card write API exists, the actions
+  // below optimistically update local `idCards` state only.
+  const [selected, setSelected] = useState<IDCard | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editTarget, setEditTarget] = useState<IDCard | null>(null);
+  const [addForm, setAddForm] = useState({
+    issuedTo: '',
+    cardNumber: '',
+    employeeCode: '',
+    department: '',
+    designation: '',
+    cardType: 'employee' as IDCard['cardType'],
+    emergencyContact: '',
+    bloodGroup: '',
+    location: '',
+    issuedBy: '',
+  });
+  const [editForm, setEditForm] = useState({
+    department: '',
+    designation: '',
+    emergencyContact: '',
+    location: '',
+  });
+
+  const handleAdd = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const newCard: IDCard = {
+      id: Date.now().toString(),
+      cardNumber: addForm.cardNumber,
+      cardType: addForm.cardType,
+      issuedTo: addForm.issuedTo,
+      employeeCode: addForm.employeeCode,
+      department: addForm.department,
+      designation: addForm.designation,
+      issueDate: today,
+      status: 'active',
+      bloodGroup: addForm.bloodGroup || undefined,
+      emergencyContact: addForm.emergencyContact,
+      photo: false,
+      location: addForm.location,
+      issuedBy: addForm.issuedBy,
+    };
+    // Optimistic local update — no backend id-card write endpoint available.
+    setIdCards(prev => [newCard, ...prev]);
+    setShowAdd(false);
+    setAddForm({
+      issuedTo: '',
+      cardNumber: '',
+      employeeCode: '',
+      department: '',
+      designation: '',
+      cardType: 'employee',
+      emergencyContact: '',
+      bloodGroup: '',
+      location: '',
+      issuedBy: '',
+    });
+  };
+
+  const handleEdit = () => {
+    if (!editTarget) return;
+    // Optimistic local update — no backend id-card write endpoint available.
+    setIdCards(prev =>
+      prev.map(c =>
+        c.id === editTarget.id
+          ? {
+              ...c,
+              department: editForm.department,
+              designation: editForm.designation,
+              emergencyContact: editForm.emergencyContact,
+              location: editForm.location,
+            }
+          : c
+      )
+    );
+    setEditTarget(null);
+  };
+
+  const handlePrintCard = (card: IDCard) => {
+    // Real functional action: generate a client-side text blob and download it.
+    const lines = [
+      `Card Number: ${card.cardNumber}`,
+      `Issued To: ${card.issuedTo}`,
+      `Employee Code: ${card.employeeCode}`,
+      `Department: ${card.department}`,
+      `Designation: ${card.designation}`,
+      `Card Type: ${card.cardType}`,
+      `Issue Date: ${card.issueDate}`,
+      `Expiry Date: ${card.expiryDate ?? '-'}`,
+      `Blood Group: ${card.bloodGroup ?? '-'}`,
+      `Emergency Contact: ${card.emergencyContact}`,
+      `Location: ${card.location}`,
+      `Issued By: ${card.issuedBy}`,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `id-card-${card.cardNumber || card.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleReplace = (card: IDCard) => {
+    const today = new Date().toISOString().split('T')[0];
+    // Optimistic local update — no backend id-card write endpoint available.
+    setIdCards(prev =>
+      prev.map(c =>
+        c.id === card.id
+          ? { ...c, status: 'active', remarks: `Replacement issued ${today}` }
+          : c
+      )
+    );
+  };
+
+  const handleRenew = (card: IDCard) => {
+    const next = new Date();
+    next.setFullYear(next.getFullYear() + 1);
+    const newExpiry = next.toISOString().split('T')[0];
+    // Optimistic local update — no backend id-card write endpoint available.
+    setIdCards(prev =>
+      prev.map(c =>
+        c.id === card.id
+          ? { ...c, status: 'active', expiryDate: newExpiry }
+          : c
+      )
+    );
+  };
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -179,7 +313,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Issue New Card
             </button>
           </div>
@@ -284,25 +418,36 @@ export default function Page() {
               <div className="flex gap-2">
                 {card.status === 'active' && (
                   <>
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                    <button onClick={() => setSelected(card)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                       View Details
                     </button>
-                    <button className="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 font-medium text-sm">
+                    <button onClick={() => handlePrintCard(card)} className="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 font-medium text-sm">
                       Print Card
                     </button>
                   </>
                 )}
                 {(card.status === 'lost' || card.status === 'damaged') && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => handleReplace(card)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Issue Replacement
                   </button>
                 )}
                 {card.status === 'expired' && (
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                  <button onClick={() => handleRenew(card)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                     Renew Card
                   </button>
                 )}
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button
+                  onClick={() => {
+                    setEditTarget(card);
+                    setEditForm({
+                      department: card.department,
+                      designation: card.designation,
+                      emergencyContact: card.emergencyContact,
+                      location: card.location,
+                    });
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
                   Edit
                 </button>
               </div>
@@ -310,6 +455,129 @@ export default function Page() {
           );
         })}
       </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">ID Card Details</h2>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Card Number</p><p className="font-semibold text-gray-900">{selected.cardNumber}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Issued To</p><p className="font-semibold text-gray-900">{selected.issuedTo}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Employee Code</p><p className="font-semibold text-gray-900">{selected.employeeCode}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Card Type</p><p className="font-semibold text-gray-900">{selected.cardType}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Department</p><p className="font-semibold text-gray-900">{selected.department}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Designation</p><p className="font-semibold text-gray-900">{selected.designation}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Issue Date</p><p className="font-semibold text-gray-900">{selected.issueDate}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Expiry Date</p><p className="font-semibold text-gray-900">{selected.expiryDate ?? '-'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Blood Group</p><p className="font-semibold text-gray-900">{selected.bloodGroup ?? '-'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Emergency Contact</p><p className="font-semibold text-gray-900">{selected.emergencyContact}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Location</p><p className="font-semibold text-gray-900">{selected.location}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Issued By</p><p className="font-semibold text-gray-900">{selected.issuedBy}</p></div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Issue New ID Card</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issued To</label>
+                <input value={addForm.issuedTo} onChange={(e) => setAddForm({ ...addForm, issuedTo: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
+                <input value={addForm.cardNumber} onChange={(e) => setAddForm({ ...addForm, cardNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                <input value={addForm.employeeCode} onChange={(e) => setAddForm({ ...addForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Card Type</label>
+                <select value={addForm.cardType} onChange={(e) => setAddForm({ ...addForm, cardType: e.target.value as IDCard['cardType'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="employee">Employee</option>
+                  <option value="contractor">Contractor</option>
+                  <option value="temp">Temporary</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input value={addForm.department} onChange={(e) => setAddForm({ ...addForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                <input value={addForm.designation} onChange={(e) => setAddForm({ ...addForm, designation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
+                <input value={addForm.emergencyContact} onChange={(e) => setAddForm({ ...addForm, emergencyContact: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
+                <input value={addForm.bloodGroup} onChange={(e) => setAddForm({ ...addForm, bloodGroup: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issued By</label>
+                <input value={addForm.issuedBy} onChange={(e) => setAddForm({ ...addForm, issuedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Cancel
+              </button>
+              <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Edit ID Card</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input value={editForm.department} onChange={(e) => setEditForm({ ...editForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                <input value={editForm.designation} onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
+                <input value={editForm.emergencyContact} onChange={(e) => setEditForm({ ...editForm, emergencyContact: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setEditTarget(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                Cancel
+              </button>
+              <button onClick={handleEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

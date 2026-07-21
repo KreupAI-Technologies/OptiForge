@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { ArrowLeftRight, User, Calendar, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { ArrowLeftRight, User, Calendar, CheckCircle, Clock, XCircle, X } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetTransfer {
@@ -32,6 +32,8 @@ interface AssetTransfer {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [detailTransfer, setDetailTransfer] = useState<AssetTransfer | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const fallbackTransfers: AssetTransfer[] = [
     {
@@ -319,7 +321,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Initiate Transfer
             </button>
           </div>
@@ -474,26 +476,26 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Details
               </button>
               {transfer.status === 'pending' && (
                 <>
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                  <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                     Approve Transfer
                   </button>
-                  <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                  <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
                     Cancel
                   </button>
                 </>
               )}
               {transfer.status === 'approved' && (
-                <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
+                <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
                   Mark In Transit
                 </button>
               )}
               {transfer.status === 'in_transit' && (
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                <button onClick={() => setDetailTransfer(transfer)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                   Complete Transfer
                 </button>
               )}
@@ -501,6 +503,109 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailTransfer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-purple-600 to-purple-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Transfer Details</h2>
+              <button onClick={() => setDetailTransfer(null)} className="text-white hover:text-purple-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Asset Type</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.assetType}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Asset Tag</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.assetTag}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Transfer ID</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.transferId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Status</p>
+                  <p className="font-medium text-gray-900">
+                    {detailTransfer.status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">From Employee</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.fromEmployee}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">To Employee</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.toEmployee}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">From Department</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.fromDepartment}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">To Department</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.toDepartment}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">From Location</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.fromLocation}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">To Location</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.toLocation}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Transfer Reason</p>
+                  <p className="font-medium text-gray-900">{reasonLabels[detailTransfer.transferReason]}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Initiated By</p>
+                  <p className="font-medium text-gray-900">{detailTransfer.initiatedBy}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Condition</p>
+                  <p className="font-medium text-gray-900">
+                    {detailTransfer.condition.charAt(0).toUpperCase() + detailTransfer.condition.slice(1)}
+                  </p>
+                </div>
+                {detailTransfer.handoverNotes && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase">Handover Notes</p>
+                    <p className="font-medium text-gray-900">{detailTransfer.handoverNotes}</p>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setDetailTransfer(null)} className="w-full mt-5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Initiate Asset Transfer</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Transfer creation is not yet available from this screen — the transfer service endpoint is pending.
+              </div>
+              <button onClick={() => setShowForm(false)} className="w-full mt-5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

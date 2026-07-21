@@ -175,12 +175,27 @@ export default function NotificationCenter() {
     return true
   })
 
-  const markAsRead = (id: string) => {
-    console.log('Marking as read:', id)
+  const markAsRead = async (id: string) => {
+    try {
+      await procurementOperationsService.markNotificationRead(id)
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, read: true } : n)),
+      )
+    } catch (e) {
+      setError('Unable to mark notification as read.')
+    }
   }
 
-  const markAllAsRead = () => {
-    console.log('Marking all as read')
+  const markAllAsRead = async () => {
+    const unread = notifications.filter(n => !n.read)
+    try {
+      await Promise.all(
+        unread.map(n => procurementOperationsService.markNotificationRead(n.id)),
+      )
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    } catch (e) {
+      setError('Unable to mark notifications as read.')
+    }
   }
 
   const deleteNotification = async (id: string) => {

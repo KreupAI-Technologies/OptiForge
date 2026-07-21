@@ -28,20 +28,14 @@ import {
   Cell
 } from 'recharts';
 
-// Mock Data
-const hazardStats = {
-  totalHazards: 18,
-  identifiedThisMonth: 5,
-  pendingEvaluation: 4,
-  criticalHazards: 2
+// Category color map (label constant — not mock data)
+const CATEGORY_COLORS: Record<string, string> = {
+  Mechanical: '#f97316',
+  Electrical: '#eab308',
+  Chemical: '#ef4444',
+  Ergonomic: '#3b82f6',
 };
-
-const categoryData = [
-  { name: 'Mechanical', count: 6, color: '#f97316' },
-  { name: 'Electrical', count: 4, color: '#eab308' },
-  { name: 'Chemical', count: 3, color: '#ef4444' },
-  { name: 'Ergonomic', count: 5, color: '#3b82f6' },
-];
+const FALLBACK_CATEGORY_COLOR = '#6b7280';
 
 interface HazardItem {
   id: string;
@@ -60,39 +54,67 @@ export default function HazardsPage() {
   const [hazards, setHazards] = useState<HazardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    category: 'Mechanical',
+    location: '',
+    identifiedBy: '',
+    severity: 'Medium',
+  });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getHazards('hazard');
+      const mapped: HazardItem[] = rows.map((row: SafetyHazard) => ({
+        id: String(row.id),
+        title: row.title ?? '',
+        category: row.category ?? '',
+        location: row.location ?? '',
+        identifiedBy: row.identifiedBy ?? '',
+        date: row.date ?? '',
+        status: row.status ?? '',
+        initialSeverity: row.severity ?? '',
+      }));
+      setHazards(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load hazards');
+      setHazards([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getHazards('hazard');
-        const mapped: HazardItem[] = rows.map((row: SafetyHazard) => ({
-          id: String(row.id),
-          title: row.title ?? '',
-          category: row.category ?? '',
-          location: row.location ?? '',
-          identifiedBy: row.identifiedBy ?? '',
-          date: row.date ?? '',
-          status: row.status ?? '',
-          initialSeverity: row.severity ?? '',
-        }));
-        if (!cancelled) setHazards(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load hazards');
-          setHazards([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createHazard({
+        recordType: 'hazard',
+        title: form.title.trim(),
+        category: form.category,
+        location: form.location.trim(),
+        identifiedBy: form.identifiedBy.trim(),
+        severity: form.severity,
+        date: new Date().toISOString().slice(0, 10),
+        status: 'Pending Evaluation',
+      });
+      setShowCreate(false);
+      setForm({ title: '', category: 'Mechanical', location: '', identifiedBy: '', severity: 'Medium' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create hazard');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredHazards = hazards.filter(haz => {
     const matchesSearch = haz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,6 +122,30 @@ export default function HazardsPage() {
     const matchesCategory = categoryFilter === 'All' || haz.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  // Derived stats from fetched hazards
+  const nowMonth = new Date().toISOString().slice(0, 7);
+  const hazardStats = {
+    totalHazards: hazards.length,
+    identifiedThisMonth: hazards.filter(h => (h.date || '').startsWith(nowMonth)).length,
+    pendingEvaluation: hazards.filter(h => h.status.toLowerCase().includes('pending')).length,
+    criticalHazards: hazards.filter(
+      h => h.initialSeverity === 'High' || h.status.toLowerCase().includes('critical'),
+    ).length,
+  };
+
+  // Derived category distribution from fetched hazards
+  const categoryData = Object.entries(
+    hazards.reduce<Record<string, number>>((acc, h) => {
+      const key = h.category || 'Uncategorized';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {}),
+  ).map(([name, count]) => ({
+    name,
+    count,
+    color: CATEGORY_COLORS[name] || FALLBACK_CATEGORY_COLOR,
+  }));
 
   return (
     <div className="p-6 space-y-3">
@@ -112,11 +158,97 @@ export default function HazardsPage() {
           </h1>
           <p className="text-gray-500 mt-1">Detect and log potential workplace hazards before they become incidents</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Report New Hazard
         </button>
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Report New Hazard</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                  placeholder="Describe the hazard"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                >
+                  <option>Mechanical</option>
+                  <option>Electrical</option>
+                  <option>Chemical</option>
+                  <option>Ergonomic</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                  placeholder="e.g. Line 2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Identified By</label>
+                <input
+                  type="text"
+                  value={form.identifiedBy}
+                  onChange={(e) => setForm({ ...form, identifiedBy: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                  placeholder="Reporter name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Initial Severity</label>
+                <select
+                  value={form.severity}
+                  onChange={(e) => setForm({ ...form, severity: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500"
+                >
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.title.trim()}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                {saving ? 'Saving…' : 'Save Hazard'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

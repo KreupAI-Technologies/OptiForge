@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Wrench, User, Clock, AlertCircle } from 'lucide-react';
+import { Wrench, User, Clock, AlertCircle, X } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface MaintenanceRequest {
@@ -33,6 +33,8 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [detailRequest, setDetailRequest] = useState<MaintenanceRequest | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const fallbackRequests: MaintenanceRequest[] = [
     {
@@ -357,7 +359,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               New Request
             </button>
           </div>
@@ -474,25 +476,25 @@ export default function Page() {
               <div className="flex gap-2">
                 {request.status === 'pending' && (
                   <>
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
+                    <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">
                       Approve
                     </button>
-                    <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
+                    <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm">
                       Reject
                     </button>
                   </>
                 )}
                 {request.status === 'approved' && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Assign Technician
                   </button>
                 )}
                 {request.status === 'in_progress' && (
-                  <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
+                  <button onClick={() => setDetailRequest(request)} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm">
                     Update Status
                   </button>
                 )}
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setDetailRequest(request)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View Details
                 </button>
               </div>
@@ -500,6 +502,110 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-orange-600 to-orange-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Maintenance Request Details</h2>
+              <button onClick={() => setDetailRequest(null)} className="text-white hover:text-orange-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Asset Name</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.assetName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Asset Tag</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.assetTag}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Request ID</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.requestId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Requested By</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.requestedBy}</p>
+                  <p className="text-xs text-gray-600">{detailRequest.employeeCode} • {detailRequest.department}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Issue Type</p>
+                  <p className="text-gray-900 font-semibold">{issueTypeLabel[detailRequest.issueType]}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Priority</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.priority.charAt(0).toUpperCase() + detailRequest.priority.slice(1)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Status</p>
+                  <p className="text-gray-900 font-semibold">{statusLabel[detailRequest.status]}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Request Date</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.requestDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Location</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.location}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Contact Number</p>
+                  <p className="text-gray-900 font-semibold">{detailRequest.contactNumber}</p>
+                </div>
+                {detailRequest.assignedTo && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Assigned To</p>
+                    <p className="text-gray-900 font-semibold">{detailRequest.assignedTo}</p>
+                  </div>
+                )}
+                {detailRequest.approvedBy && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Approved By</p>
+                    <p className="text-gray-900 font-semibold">{detailRequest.approvedBy}</p>
+                  </div>
+                )}
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Issue Description</p>
+                  <p className="text-gray-700">{detailRequest.issueDescription}</p>
+                </div>
+                {detailRequest.remarks && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Remarks</p>
+                    <p className="text-gray-700">{detailRequest.remarks}</p>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setDetailRequest(null)} className="w-full mt-5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">New Maintenance Request</h2>
+              <button onClick={() => setShowForm(false)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Creating maintenance requests from this screen is not yet available — the maintenance service endpoint is pending.
+              </div>
+              <button onClick={() => setShowForm(false)} className="w-full mt-5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

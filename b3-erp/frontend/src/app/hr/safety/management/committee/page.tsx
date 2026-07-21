@@ -4,11 +4,11 @@ import React, { useState, useEffect } from 'react';
 import {
   Users,
   Search,
-  Calendar,
   MessageSquare,
   CheckSquare,
   ClipboardCheck,
   Plus,
+  UserPlus,
   ArrowRight,
   Clock,
   AlertCircle
@@ -41,40 +41,60 @@ export default function SafetyCommitteePage() {
   const [committeeMembers, setCommitteeMembers] = useState<CommitteeMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: '', role: '', department: '', termEnds: '' });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getTrainings('committee');
+      const mapped: CommitteeMember[] = rows.map((row: SafetyTraining) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.code ?? row.id ?? ''),
+          name: row.memberName ?? '',
+          role: row.role ?? '',
+          department: row.department ?? '',
+          termEnds: meta.termEnds ?? row.reviewDate ?? '',
+          status: row.status ?? '',
+        };
+      });
+      setCommitteeMembers(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load committee members');
+      setCommitteeMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getTrainings('committee');
-        const mapped: CommitteeMember[] = rows.map((row: SafetyTraining) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.code ?? row.id ?? ''),
-            name: row.memberName ?? '',
-            role: row.role ?? '',
-            department: row.department ?? '',
-            termEnds: meta.termEnds ?? row.reviewDate ?? '',
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setCommitteeMembers(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load committee members');
-          setCommitteeMembers([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const handleAdd = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createTraining({
+        recordType: 'committee',
+        memberName: form.name.trim(),
+        role: form.role,
+        department: form.department,
+        reviewDate: form.termEnds || undefined,
+        status: 'Active',
+      });
+      setShowAdd(false);
+      setForm({ name: '', role: '', department: '', termEnds: '' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add committee member');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -99,11 +119,84 @@ export default function SafetyCommitteePage() {
           </h1>
           <p className="text-gray-500 mt-1">Committee oversight, planning, and actions</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
-          <Calendar className="w-4 h-4 mr-2" />
-          Schedule Meeting
+        <button
+          onClick={() => setShowAdd(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
+          <UserPlus className="w-4 h-4 mr-2" />
+          Add Member
         </button>
       </div>
+
+      {/* Add Committee Member Modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Add Committee Member</h2>
+              <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g. Jane Cooper"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <input
+                    type="text"
+                    value={form.role}
+                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="e.g. Chair"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={form.department}
+                    onChange={(e) => setForm({ ...form, department: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="e.g. Operations"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Term Ends</label>
+                <input
+                  type="date"
+                  value={form.termEnds}
+                  onChange={(e) => setForm({ ...form, termEnds: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setShowAdd(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={saving || !form.name.trim()}
+                className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Add Member'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Column */}

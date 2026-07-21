@@ -176,27 +176,43 @@ export default function ContractManagement() {
   }
 
   // Handler functions
-  const handleCreateContract = () => {
-    console.log('Creating new contract...');
-    alert('Create New Contract - This would open the contract creation wizard with type selection, commercial terms, timeline, and approval workflow.');
+  const handleCreateContract = async () => {
+    const title = window.prompt('New contract title')?.trim();
+    if (!title) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementContractService.createContract({ title, status: 'draft' });
+      await loadContracts();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to create contract');
+    } finally {
+      setActionBusy(false);
+    }
   };
 
-  const handleEditContract = (contract: Contract) => {
-    console.log('Editing contract:', contract.id);
-
-    if (contract.status === 'active') {
-      console.log('Active contract edit:', contract);
-      alert(`Edit Active Contract: ${contract.id} - Active contracts require amendments for term changes. Administrative updates are allowed.`);
-      return;
-    }
-
+  const handleEditContract = async (contract: Contract) => {
     if (contract.status === 'expired' || contract.status === 'terminated') {
-      alert(`Cannot Edit ${contract.status.toUpperCase()} Contract: ${contract.id} - This contract cannot be edited.`);
+      setActionError(`Cannot edit ${contract.status} contract ${contract.id}.`);
       return;
     }
-
-    console.log('Contract edit details:', contract);
-    alert(`Edit Contract: ${contract.id} - ${contract.status === 'draft' ? 'Full editing available' : 'Limited editing - some fields require amendments'}.`);
+    const backendId = (contract as Contract & { _backendId?: string })._backendId;
+    if (!backendId) {
+      setActionError(`Cannot edit ${contract.id}: missing contract id.`);
+      return;
+    }
+    const title = window.prompt('Contract title', contract.title)?.trim();
+    if (!title || title === contract.title) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementContractService.updateContract(backendId, { title });
+      await loadContracts();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to update ${contract.id}`);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleRenewContract = (contract: Contract) => {
@@ -205,16 +221,28 @@ export default function ContractManagement() {
     void renewContractById(backendId, contract.id);
   };
 
-  const handleAmendContract = (contract: Contract) => {
-    console.log('Amending contract:', contract.id);
-
+  const handleAmendContract = async (contract: Contract) => {
     if (contract.status !== 'active') {
-      alert(`Cannot Amend ${contract.status.toUpperCase()} Contract - Amendments require ACTIVE status.`);
+      setActionError(`Cannot amend ${contract.status} contract ${contract.id} — amendments require ACTIVE status.`);
       return;
     }
-
-    console.log('Amendment details:', contract);
-    alert(`Create Amendment: ${contract.id} - ${contract.title}. This would open the amendment wizard for scope, financial, or timeline changes.`);
+    const backendId = (contract as Contract & { _backendId?: string })._backendId;
+    if (!backendId) {
+      setActionError(`Cannot amend ${contract.id}: missing contract id.`);
+      return;
+    }
+    const note = window.prompt('Amendment note (scope / financial / timeline change)')?.trim();
+    if (!note) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementContractService.updateContract(backendId, { amendment: { note } });
+      await loadContracts();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to amend ${contract.id}`);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const handleViewTerms = (contract: Contract) => {

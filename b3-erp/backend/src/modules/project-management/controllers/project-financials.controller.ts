@@ -7,10 +7,10 @@ export class ProjectFinancialsController {
 
     @Get(':projectId/financials')
     async getFinancials(@Param('projectId') projectId: string) {
-        const ioeData = await this.financialsService.calculateIoE(projectId);
+        const breakdown = await this.financialsService.getFinancialBreakdown(projectId);
         return {
             success: true,
-            data: ioeData
+            data: breakdown
         };
     }
 

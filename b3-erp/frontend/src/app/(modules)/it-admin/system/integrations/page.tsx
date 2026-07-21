@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Save, CheckCircle, XCircle, Settings, Globe, Database, Cloud, Package, CreditCard, Truck, MessageSquare, RefreshCw, AlertTriangle, Link } from 'lucide-react';
-import { AdminManagementService } from '@/services/admin-management.service';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface Integration {
   id: string;
@@ -40,7 +40,7 @@ export default function IntegrationsPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await AdminManagementService.getIntegrations();
+        const data = await ItAdminService.getIntegrations();
         if (!mounted) return;
         setIntegrations(
           (Array.isArray(data) ? data : []).map((i: any) => ({
@@ -126,22 +126,45 @@ export default function IntegrationsPage() {
     errors: integrations.filter(i => i.status === 'error').length
   };
 
-  const handleSync = (integrationId: string) => {
-    console.log('Syncing integration:', integrationId);
-    // Implement sync logic
+  const handleSync = async (integrationId: string) => {
+    const nowIso = new Date().toISOString();
+    setIntegrations(prev =>
+      prev.map(i => (i.id === integrationId ? { ...i, lastSync: nowIso } : i)),
+    );
+    try {
+      const updated = await ItAdminService.updateIntegration(integrationId, {
+        lastSync: nowIso,
+      });
+      setIntegrations(prev =>
+        prev.map(i =>
+          i.id === integrationId
+            ? { ...i, lastSync: updated.lastSync ?? nowIso }
+            : i,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sync integration');
+    }
   };
 
-  const handleToggleStatus = (integrationId: string) => {
+  const handleToggleStatus = async (integrationId: string) => {
+    const current = integrations.find(i => i.id === integrationId);
+    if (!current) return;
+    const nextStatus = current.status === 'active' ? 'inactive' : 'active';
+    // Optimistic update, reverting on failure.
     setIntegrations(prev =>
-      prev.map(integration =>
-        integration.id === integrationId
-          ? {
-            ...integration,
-            status: integration.status === 'active' ? 'inactive' : 'active'
-          }
-          : integration
-      )
+      prev.map(i => (i.id === integrationId ? { ...i, status: nextStatus } : i)),
     );
+    try {
+      await ItAdminService.updateIntegration(integrationId, { status: nextStatus });
+    } catch (err) {
+      setIntegrations(prev =>
+        prev.map(i =>
+          i.id === integrationId ? { ...i, status: current.status } : i,
+        ),
+      );
+      setError(err instanceof Error ? err.message : 'Failed to update integration');
+    }
   };
 
   return (

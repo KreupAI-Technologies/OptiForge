@@ -6,6 +6,7 @@ import { SiteSurvey } from '../../project/entities/site-survey.entity';
 import { ExternalApproval, ApprovalStatus } from '../../project/entities/external-approval.entity';
 import { Project } from '../../project/entities/project.entity';
 import { BOQItem } from '../../project/entities/boq-item.entity';
+import { DrawingVerification } from '../entities/drawing-verification.entity';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -21,7 +22,35 @@ export class DesignVerificationService {
         private projectRepository: Repository<Project>,
         @InjectRepository(BOQItem)
         private boqItemRepository: Repository<BOQItem>,
+        @InjectRepository(DrawingVerification)
+        private drawingVerificationRepository: Repository<DrawingVerification>,
     ) { }
+
+    /**
+     * Record (upsert) a verify/reject decision for a drawing. Returns the saved
+     * row so the client can reflect persisted status.
+     */
+    async verifyDrawing(
+        drawingId: string,
+        data: { status?: string; notes?: string; verifiedBy?: string; projectId?: string },
+    ): Promise<DrawingVerification> {
+        let row = await this.drawingVerificationRepository.findOne({ where: { drawingId } });
+        if (!row) {
+            row = this.drawingVerificationRepository.create({ drawingId });
+        }
+        row.status = data.status ?? 'Verified';
+        if (data.notes !== undefined) row.notes = data.notes;
+        if (data.verifiedBy !== undefined) row.verifiedBy = data.verifiedBy;
+        if (data.projectId !== undefined) row.projectId = data.projectId;
+        return this.drawingVerificationRepository.save(row);
+    }
+
+    async getDrawingVerifications(projectId: string): Promise<DrawingVerification[]> {
+        return this.drawingVerificationRepository.find({
+            where: { projectId },
+            order: { updatedAt: 'DESC' },
+        });
+    }
 
     // --- Discrepancy Log Methods ---
 

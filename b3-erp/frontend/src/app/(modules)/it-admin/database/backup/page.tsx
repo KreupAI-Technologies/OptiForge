@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Database, Plus, Download, RotateCcw, Trash2, CheckCircle, XCircle, Clock, HardDrive, Calendar, Settings } from 'lucide-react';
 import { ItAdminService } from '@/services/it-admin.service';
@@ -41,44 +41,36 @@ export default function DatabaseBackupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadBackups = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const records = await ItAdminService.getBackupRecords();
-        if (cancelled) return;
-        const mapped: Backup[] = records.map((record) => ({
-          id: record.id,
-          name: record.name,
-          type: (record.type as Backup['type']) || 'full',
-          status: (record.status as Backup['status']) || 'scheduled',
-          size: record.size || '0 MB',
-          timestamp: record.completedAt || record.startedAt || record.createdAt || '',
-          duration: record.duration || '-',
-          location: record.location || '',
-          tables: 0,
-          records: 0,
-          compression: 'gzip',
-          encryption: false
-        }));
-        setBackups(mapped);
-      } catch (err) {
-        if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load backup records');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    loadBackups();
-
-    return () => {
-      cancelled = true;
-    };
+  const loadBackups = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const records = await ItAdminService.getBackupRecords();
+      const mapped: Backup[] = records.map((record) => ({
+        id: record.id,
+        name: record.name,
+        type: (record.type as Backup['type']) || 'full',
+        status: (record.status as Backup['status']) || 'scheduled',
+        size: record.size || '0 MB',
+        timestamp: record.completedAt || record.startedAt || record.createdAt || '',
+        duration: record.duration || '-',
+        location: record.location || '',
+        tables: 0,
+        records: 0,
+        compression: 'gzip',
+        encryption: false
+      }));
+      setBackups(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load backup records');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadBackups();
+  }, [loadBackups]);
 
   const [scheduledBackups, setScheduledBackups] = useState<ScheduledBackup[]>([
     {
@@ -166,16 +158,32 @@ export default function DatabaseBackupPage() {
     successRate: 83.3
   };
 
-  const handleCreateBackup = () => {
-    console.log('Creating new backup');
+  const handleCreateBackup = async () => {
+    try {
+      await ItAdminService.createBackupRecord({
+        name: `Manual Backup ${new Date().toISOString()}`,
+        type: 'full',
+        status: 'completed',
+        automated: false,
+      });
+      await loadBackups();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create backup');
+    }
   };
 
   const handleRestore = (backupId: string) => {
+    // No restore endpoint exists on the backup-records controller yet.
     console.log('Restoring backup:', backupId);
   };
 
-  const handleDelete = (backupId: string) => {
-    setBackups(prev => prev.filter(b => b.id !== backupId));
+  const handleDelete = async (backupId: string) => {
+    try {
+      await ItAdminService.deleteBackupRecord(backupId);
+      await loadBackups();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete backup');
+    }
   };
 
   const toggleSchedule = (scheduleId: string) => {

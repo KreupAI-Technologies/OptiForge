@@ -333,14 +333,23 @@ const SchedulerJobsPage = () => {
   };
 
   const handleToggleStatus = (jobId: string) => {
-    setJobs(jobs.map(job =>
-      job.id === jobId ? { ...job, enabled: !job.enabled, status: !job.enabled ? 'Active' : 'Paused' } : job
-    ));
     const job = jobs.find(j => j.id === jobId);
+    const nextEnabled = !job?.enabled;
+    const nextStatus = nextEnabled ? 'Active' : 'Paused';
+    setJobs(jobs.map(j =>
+      j.id === jobId ? { ...j, enabled: nextEnabled, status: nextStatus } : j
+    ));
     setToast({
       message: `Job "${job?.name}" ${job?.enabled ? 'paused' : 'activated'} successfully`,
       type: 'success'
     });
+    void (async () => {
+      try {
+        await ItAdminService.updateScheduledJob(jobId, { enabled: nextEnabled, status: nextStatus });
+      } catch {
+        // best-effort persistence; keep optimistic UI state
+      }
+    })();
   };
 
   const handleViewDetails = (job: ScheduledJob) => {

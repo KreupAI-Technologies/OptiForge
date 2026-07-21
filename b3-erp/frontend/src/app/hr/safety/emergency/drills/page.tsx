@@ -17,17 +17,10 @@ import {
   ChevronRight,
   Info,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { HrSafetyService, SafetyDrill } from '@/services/hr-safety.service';
-
-// Mock Data
-const drillStats = {
-  averageTime: '3m 42s',
-  participationRate: 98.2,
-  drillsThisYear: 6,
-  successRate: 100
-};
 
 interface DrillHistoryItem {
   id: string;
@@ -45,42 +38,86 @@ export default function EvacuationDrillsPage() {
   const [drillHistory, setDrillHistory] = useState<DrillHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    type: '',
+    date: '',
+    startTime: '',
+    duration: '',
+    participants: '',
+    rating: 'Satisfactory',
+    status: 'Scheduled',
+  });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getDrills('drill');
+      const mapped: DrillHistoryItem[] = rows.map((row: SafetyDrill) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.code ?? row.id ?? ''),
+          type: row.drillType ?? row.name ?? '',
+          date: row.conductedDate ?? row.scheduledDate ?? '',
+          startTime: meta.startTime ?? '',
+          duration: row.duration ?? '',
+          participants: row.participants ?? 0,
+          rating: row.effectiveness ?? '',
+          status: row.status ?? '',
+        };
+      });
+      setDrillHistory(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load drill history');
+      setDrillHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getDrills('drill');
-        const mapped: DrillHistoryItem[] = rows.map((row: SafetyDrill) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.code ?? row.id ?? ''),
-            type: row.drillType ?? row.name ?? '',
-            date: row.conductedDate ?? row.scheduledDate ?? '',
-            startTime: meta.startTime ?? '',
-            duration: row.duration ?? '',
-            participants: row.participants ?? 0,
-            rating: row.effectiveness ?? '',
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setDrillHistory(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load drill history');
-          setDrillHistory([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const drillsThisYear = drillHistory.length;
+  const totalParticipants = drillHistory.reduce((sum, d) => sum + (d.participants || 0), 0);
+  const participationRate = drillsThisYear
+    ? Math.round((totalParticipants / (drillsThisYear * 100)) * 1000) / 10
+    : 0;
+  const goodRatings = drillHistory.filter(
+    (d) => d.rating === 'Exceeds Expectations' || d.rating === 'Satisfactory',
+  ).length;
+  const successRate = drillsThisYear
+    ? Math.round((goodRatings / drillsThisYear) * 100)
+    : 0;
+
+  const handleCreate = async () => {
+    if (!form.type) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createDrill({
+        recordType: 'drill',
+        drillType: form.type,
+        name: form.type,
+        scheduledDate: form.date,
+        conductedDate: form.status === 'Completed' ? form.date : undefined,
+        duration: form.duration,
+        participants: Number(form.participants) || 0,
+        effectiveness: form.rating,
+        status: form.status,
+        meta: { startTime: form.startTime },
+      });
+      setShowModal(false);
+      setForm({ type: '', date: '', startTime: '', duration: '', participants: '', rating: 'Satisfactory', status: 'Scheduled' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to schedule drill');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -105,7 +142,10 @@ export default function EvacuationDrillsPage() {
           </h1>
           <p className="text-gray-500 mt-1">Manage scheduled safety exercises, track performance metrics, and log regulatory compliance</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowModal(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Schedule Drill
         </button>
@@ -116,15 +156,15 @@ export default function EvacuationDrillsPage() {
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Avg Evacuation Time</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{drillStats.averageTime}</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Participants</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{totalParticipants}</p>
             </div>
             <div className="p-2 bg-blue-50 rounded-lg">
               <Timer className="w-5 h-5 text-blue-500" />
             </div>
           </div>
           <p className="text-[10px] text-green-600 mt-4 flex items-center gap-1 font-bold italic">
-            <TrendingDown className="w-3 h-3" /> 12s faster than previous avg
+            <TrendingDown className="w-3 h-3" /> Across {drillsThisYear} logged drills
           </p>
         </div>
 
@@ -132,14 +172,14 @@ export default function EvacuationDrillsPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Participation Rate</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{drillStats.participationRate}%</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{participationRate}%</p>
             </div>
             <div className="p-2 bg-green-50 rounded-lg">
               <Users className="w-5 h-5 text-green-500" />
             </div>
           </div>
           <div className="w-full bg-gray-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div className="bg-green-500 h-full" style={{ width: `${drillStats.participationRate}%` }}></div>
+            <div className="bg-green-500 h-full" style={{ width: `${participationRate}%` }}></div>
           </div>
         </div>
 
@@ -147,7 +187,7 @@ export default function EvacuationDrillsPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Drills (YTD)</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{drillStats.drillsThisYear}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{drillsThisYear}</p>
             </div>
             <div className="p-2 bg-orange-50 rounded-lg">
               <Calendar className="w-5 h-5 text-orange-500" />
@@ -159,8 +199,8 @@ export default function EvacuationDrillsPage() {
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Regulatory Compliance</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">100%</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Success Rate</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{successRate}%</p>
             </div>
             <div className="p-2 bg-purple-50 rounded-lg">
               <CheckCircle2 className="w-5 h-5 text-purple-500" />
@@ -292,6 +332,79 @@ export default function EvacuationDrillsPage() {
           </div>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4">
+              <h3 className="font-bold text-gray-900">Schedule Drill</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Drill Type</label>
+                <input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Date</label>
+                  <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Start Time</label>
+                  <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Duration</label>
+                  <input value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                    placeholder="e.g. 3m 42s"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Participants</label>
+                  <input type="number" value={form.participants} onChange={(e) => setForm({ ...form, participants: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Rating</label>
+                  <select value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500">
+                    <option>Exceeds Expectations</option>
+                    <option>Satisfactory</option>
+                    <option>Needs Improvement</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</label>
+                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500">
+                    <option>Scheduled</option>
+                    <option>Completed</option>
+                    <option>Cancelled</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
+              <button onClick={() => setShowModal(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleCreate} disabled={saving || !form.type}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-700 disabled:bg-gray-300">
+                {saving ? 'Saving…' : 'Schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

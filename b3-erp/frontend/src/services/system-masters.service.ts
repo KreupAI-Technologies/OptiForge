@@ -127,6 +127,36 @@ class SystemMastersService {
         const response = await apiClient.get<NumberSeries[]>(`/api/v1/common-masters/number-series?companyId=${companyId}`);
         return response.data || [];
     }
+
+    // --- Document Type CRUD ---
+    async createDocumentType(data: Partial<DocumentType> & { companyId: string }): Promise<DocumentType> {
+        const response = await apiClient.post<DocumentType>('/api/v1/common-masters/document-types', data);
+        return response.data;
+    }
+
+    async updateDocumentType(id: string, data: Partial<DocumentType>): Promise<DocumentType> {
+        const response = await apiClient.put<DocumentType>(`/api/v1/common-masters/document-types/${id}`, data);
+        return response.data;
+    }
+
+    async deleteDocumentType(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/document-types/${id}`);
+    }
+
+    // --- Number Series CRUD ---
+    async createNumberSeries(data: Partial<NumberSeries> & { companyId: string }): Promise<NumberSeries> {
+        const response = await apiClient.post<NumberSeries>('/api/v1/common-masters/number-series', data);
+        return response.data;
+    }
+
+    async updateNumberSeries(id: string, data: Partial<NumberSeries>): Promise<NumberSeries> {
+        const response = await apiClient.put<NumberSeries>(`/api/v1/common-masters/number-series/${id}`, data);
+        return response.data;
+    }
+
+    async deleteNumberSeries(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/number-series/${id}`);
+    }
 }
 
 export const systemMastersService = new SystemMastersService();

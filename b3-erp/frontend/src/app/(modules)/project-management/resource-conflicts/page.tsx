@@ -14,6 +14,17 @@ export default function ResourceConflictsPage() {
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState<string | null>(null);
 
+ const refreshConflicts = async () => {
+  try {
+   setError(null);
+   const rows = await projectManagementService.getPmResourceAllocationsSafe();
+   setConflicts(toConflicts(rows));
+   setLoaded(true);
+  } catch (e) {
+   setError('Failed to load resource allocations.');
+  }
+ };
+
  useEffect(() => {
   let active = true;
   (async () => {
@@ -35,6 +46,29 @@ export default function ResourceConflictsPage() {
    active = false;
   };
  }, []);
+
+ const handleResolveConflict = async (conflictId: string, resolution: string) => {
+  try {
+   await projectManagementService.updateResourceAllocation(conflictId, {
+    status: 'resolved',
+    resolutionNote: resolution,
+   } as any);
+   await refreshConflicts();
+  } catch (e) {
+   setError('Failed to resolve conflict.');
+  }
+ };
+
+ const handleAcknowledge = async (conflictId: string) => {
+  try {
+   await projectManagementService.updateResourceAllocation(conflictId, {
+    status: 'acknowledged',
+   } as any);
+   await refreshConflicts();
+  } catch (e) {
+   setError('Failed to acknowledge conflict.');
+  }
+ };
 
  return (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -79,8 +113,8 @@ export default function ResourceConflictsPage() {
       conflicts={conflicts as any}
       filterSeverity="all"
       onConflictClick={(conflictId) => console.log('Conflict clicked:', conflictId)}
-      onResolveConflict={(conflictId, resolution) => console.log('Resolve:', conflictId, resolution)}
-      onAcknowledge={(conflictId) => console.log('Acknowledged:', conflictId)}
+      onResolveConflict={handleResolveConflict}
+      onAcknowledge={handleAcknowledge}
      />
     )}
    </div>

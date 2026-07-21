@@ -4,9 +4,24 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Clock, CreditCard, Calendar, CheckCircle, AlertCircle, AlertTriangle, TrendingUp, Download, Upload } from 'lucide-react';
 import { commonMastersService, PaymentTerm } from '@/services/common-masters.service';
 
+const COMPANY_ID = '1';
+
 const PaymentTermsMaster: React.FC = () => {
   const [terms, setTerms] = useState<PaymentTerm[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTerm, setSelectedTerm] = useState<PaymentTerm | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    termCode: '',
+    termName: '',
+    description: '',
+    paymentType: 'net',
+    dueDays: 0,
+    applicableTo: 'both',
+    isDefault: false,
+    status: 'active',
+  });
 
   useEffect(() => {
     fetchTerms();
@@ -21,6 +36,63 @@ const PaymentTermsMaster: React.FC = () => {
       console.error('Failed to fetch payment terms:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openModal = (term: PaymentTerm | null) => {
+    setSelectedTerm(term);
+    setForm({
+      termCode: term?.termCode ?? '',
+      termName: term?.termName ?? '',
+      description: term?.description ?? '',
+      paymentType: term?.paymentType ?? 'net',
+      dueDays: term?.dueDays ?? 0,
+      applicableTo: term?.applicableTo ?? 'both',
+      isDefault: term?.isDefault ?? false,
+      status: term?.status ?? 'active',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.termCode.trim()) { alert('Term Code is required.'); return; }
+    if (!form.termName.trim()) { alert('Term Name is required.'); return; }
+    try {
+      setIsSaving(true);
+      const payload = {
+        termCode: form.termCode.trim(),
+        termName: form.termName.trim(),
+        description: form.description.trim() || undefined,
+        paymentType: form.paymentType,
+        dueDays: Number(form.dueDays) || 0,
+        applicableTo: form.applicableTo,
+        isDefault: form.isDefault,
+        status: form.status,
+      };
+      if (selectedTerm) {
+        await commonMastersService.updatePaymentTerm(selectedTerm.id, payload);
+      } else {
+        await commonMastersService.createPaymentTerm({ ...payload, companyId: COMPANY_ID });
+      }
+      setIsModalOpen(false);
+      await fetchTerms();
+      alert(`Payment term ${selectedTerm ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error('Error saving payment term:', error);
+      alert('Failed to save payment term. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this payment term?')) return;
+    try {
+      await commonMastersService.deletePaymentTerm(id);
+      await fetchTerms();
+    } catch (error) {
+      console.error('Error deleting payment term:', error);
+      alert('Failed to delete payment term. Please try again.');
     }
   };
 
@@ -46,7 +118,9 @@ const PaymentTermsMaster: React.FC = () => {
               </h1>
               <p className="text-gray-600 mt-2">Manage payment conditions and terms</p>
             </div>
-            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+            <button
+              onClick={() => openModal(null)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
               <Plus className="w-4 h-4" />
               Add Payment Term
             </button>
@@ -140,13 +214,17 @@ const PaymentTermsMaster: React.FC = () => {
                   <p className="text-sm text-gray-500">{term.description}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    <Eye className="w-4 h-4 text-gray-600" />
-                    <span className="text-gray-700">View</span>
-                  </button>
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                  <button
+                    onClick={() => openModal(term)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
                     <Edit className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(term.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <span className="text-red-700">Delete</span>
                   </button>
                 </div>
               </div>
@@ -215,6 +293,124 @@ const PaymentTermsMaster: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">
+                {selectedTerm ? 'Edit Payment Term' : 'Add New Payment Term'}
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Term Code *</label>
+                  <input
+                    type="text"
+                    value={form.termCode}
+                    onChange={(e) => setForm({ ...form, termCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="NET30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Term Name *</label>
+                  <input
+                    type="text"
+                    value={form.termName}
+                    onChange={(e) => setForm({ ...form, termName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="Net 30 Days"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
+                  <select
+                    value={form.paymentType}
+                    onChange={(e) => setForm({ ...form, paymentType: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="net">Net</option>
+                    <option value="immediate">Immediate</option>
+                    <option value="advance">Advance</option>
+                    <option value="installment">Installment</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Days</label>
+                  <input
+                    type="number"
+                    value={form.dueDays}
+                    onChange={(e) => setForm({ ...form, dueDays: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Applicable To</label>
+                  <select
+                    value={form.applicableTo}
+                    onChange={(e) => setForm({ ...form, applicableTo: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="both">Purchase & Sales</option>
+                    <option value="purchase">Purchase</option>
+                    <option value="sales">Sales</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.isDefault}
+                  onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">Set as Default</span>
+              </label>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : `${selectedTerm ? 'Update' : 'Create'} Payment Term`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

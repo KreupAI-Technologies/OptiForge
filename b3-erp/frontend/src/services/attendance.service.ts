@@ -229,6 +229,7 @@ export class AttendanceService {
   ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...options?.headers,
@@ -531,6 +532,37 @@ export class AttendanceService {
     return this.request<Attendance[]>('/hr/attendance/bulk', {
       method: 'POST',
       body: JSON.stringify({ records }),
+    });
+  }
+
+  /**
+   * Attendance policies / working-hour schedules (hr/attendance-policies).
+   */
+  static async getAttendancePolicies(filters?: Record<string, string>): Promise<any[]> {
+    const qs = filters ? `?${new URLSearchParams(filters).toString()}` : '';
+    const data = await this.request<any>(`/hr/attendance-policies${qs}`);
+    return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+  }
+
+  static async createAttendancePolicy(data: Record<string, any>): Promise<any> {
+    return this.request<any>('/hr/attendance-policies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateAttendancePolicy(id: string, data: Record<string, any>): Promise<any> {
+    return this.request<any>(`/hr/attendance-policies/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteAttendancePolicy(id: string): Promise<void> {
+    await fetch(`${API_BASE_URL}/hr/attendance-policies/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 

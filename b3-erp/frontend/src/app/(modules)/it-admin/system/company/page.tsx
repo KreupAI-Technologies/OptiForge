@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Building2, Save, Globe, Phone, Mail, MapPin, FileText, Upload, Calendar, Users, AlertCircle } from 'lucide-react';
 import { SystemConfigService } from '@/services/system-config.service';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface CompanySettings {
   name: string;
@@ -64,6 +65,8 @@ export default function CompanySettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveBanner, setSaveBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,9 +161,47 @@ export default function CompanySettingsPage() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    console.log('Saving company settings:', settings);
-    setHasChanges(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveBanner(null);
+    const monthToNumber: Record<string, string> = {
+      January: '1', February: '2', March: '3', April: '4',
+      May: '5', June: '6', July: '7', August: '8',
+      September: '9', October: '10', November: '11', December: '12',
+    };
+    // Split the flat street field back into line1/line2 the loader expects.
+    const [line1 = '', line2 = ''] = settings.address.street.split(',').map((s) => s.trim());
+    const addressJson = JSON.stringify({
+      line1,
+      line2,
+      city: settings.address.city,
+      state: settings.address.state,
+      country: settings.address.country,
+      postalCode: settings.address.zipCode,
+    });
+    // Persist the company.* / regional.* / fiscal.* keys the loader reads back.
+    const entries: Array<[string, any]> = [
+      ['company.name', settings.name],
+      ['company.gstin', settings.taxId],
+      ['company.pan', settings.registrationNumber],
+      ['company.email', settings.email],
+      ['company.phone', settings.phone],
+      ['company.address', addressJson],
+      ['regional.currency', settings.currency],
+      ['regional.timezone', settings.timezone],
+      ['regional.date_format', settings.dateFormat],
+      ['regional.time_format', settings.timeFormat === '12-hour' ? '12h' : '24h'],
+      ['fiscal.year_start', monthToNumber[settings.financialYear.startMonth] ?? ''],
+    ];
+    try {
+      await Promise.all(entries.map(([key, value]) => ItAdminService.setConfigValue(key, value)));
+      setHasChanges(false);
+      setSaveBanner({ type: 'success', text: 'Company settings saved successfully.' });
+    } catch (err) {
+      setSaveBanner({ type: 'error', text: err instanceof Error ? err.message : 'Failed to save company settings.' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const industries = [
@@ -192,13 +233,27 @@ export default function CompanySettingsPage() {
         {hasChanges && (
           <button
             onClick={handleSave}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+            disabled={isSaving}
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            Save Changes
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
         )}
       </div>
+
+      {saveBanner && (
+        <div
+          className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+            saveBanner.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <AlertCircle className="w-4 h-4" />
+          {saveBanner.text}
+        </div>
+      )}
 
       {isLoading && (
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

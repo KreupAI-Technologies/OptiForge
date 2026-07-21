@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, FileText, Mail, Download, Copy, Edit, Trash2, Eye, Code } from 'lucide-react';
-import { AdminManagementService } from '@/services/admin-management.service';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface Template {
   id: string;
@@ -36,7 +36,7 @@ export default function TemplatesPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await AdminManagementService.getNotificationTemplates();
+        const data = await ItAdminService.getTemplates();
         if (!mounted) return;
         setTemplates(
           (Array.isArray(data) ? data : []).map((t: any) => ({
@@ -115,14 +115,33 @@ export default function TemplatesPage() {
 
   const handleDelete = (templateId: string) => {
     setTemplates(prev => prev.filter(t => t.id !== templateId));
+    void (async () => {
+      try {
+        await ItAdminService.deleteTemplate(templateId);
+      } catch {
+        // best-effort persistence; keep optimistic UI state
+      }
+    })();
   };
 
   const handleToggleActive = (templateId: string) => {
+    let nextActive = false;
     setTemplates(prev =>
-      prev.map(t =>
-        t.id === templateId ? { ...t, active: !t.active } : t
-      )
+      prev.map(t => {
+        if (t.id === templateId) {
+          nextActive = !t.active;
+          return { ...t, active: nextActive };
+        }
+        return t;
+      })
     );
+    void (async () => {
+      try {
+        await ItAdminService.updateTemplate(templateId, { active: nextActive });
+      } catch {
+        // best-effort persistence; keep optimistic UI state
+      }
+    })();
   };
 
   const stats = {

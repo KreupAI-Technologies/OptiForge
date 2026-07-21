@@ -5,6 +5,7 @@ import { BookOpen, Search, Filter, Clock, Users, Award, Calendar, MapPin, Indian
 import StatusBadge from '@/components/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HrSelfServiceService } from '@/services/hr-self-service.service';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface TrainingProgram {
   id: string;
@@ -35,6 +36,9 @@ export default function ProgramCatalogPage() {
   const [rows, setRows] = useState<TrainingProgram[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [enrollSuccess, setEnrollSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +91,29 @@ export default function ProgramCatalogPage() {
       return matchesSearch && matchesCategory && matchesMode && matchesLevel;
     });
   }, [searchTerm, selectedCategory, selectedMode, selectedLevel, rows]);
+
+  const handleEnroll = async (program: TrainingProgram) => {
+    if (program.enrolled >= program.capacity) return;
+    setEnrollingId(program.id);
+    setEnrollError(null);
+    setEnrollSuccess(null);
+    try {
+      await HrPagesService.createTrainingEnrollment({
+        programCode: program.code,
+        programTitle: program.title,
+        category: program.category,
+        status: 'upcoming',
+      });
+      setRows((prev) =>
+        prev.map((p) => (p.id === program.id ? { ...p, enrolled: p.enrolled + 1 } : p)),
+      );
+      setEnrollSuccess(`Enrollment request submitted for "${program.title}". Pending manager approval.`);
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'Failed to enroll. Please try again.');
+    } finally {
+      setEnrollingId(null);
+    }
+  };
 
   const stats = {
     total: rows.length,
@@ -147,6 +174,18 @@ export default function ProgramCatalogPage() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4" />
           {loadError}
+        </div>
+      )}
+      {enrollError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {enrollError}
+        </div>
+      )}
+      {enrollSuccess && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <Award className="h-4 w-4" />
+          {enrollSuccess}
         </div>
       )}
 
@@ -342,14 +381,19 @@ export default function ProgramCatalogPage() {
               <div className="pt-4 border-t border-gray-200">
                 <p className="text-xs text-gray-500 mb-2">Instructor: {program.instructor}</p>
                 <button
+                  onClick={() => handleEnroll(program)}
                   className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
                     program.enrolled >= program.capacity
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60'
                   }`}
-                  disabled={program.enrolled >= program.capacity}
+                  disabled={program.enrolled >= program.capacity || enrollingId === program.id}
                 >
-                  {program.enrolled >= program.capacity ? 'Full - Waitlist' : 'Enroll Now'}
+                  {program.enrolled >= program.capacity
+                    ? 'Full - Waitlist'
+                    : enrollingId === program.id
+                    ? 'Enrolling…'
+                    : 'Enroll Now'}
                 </button>
               </div>
             </div>

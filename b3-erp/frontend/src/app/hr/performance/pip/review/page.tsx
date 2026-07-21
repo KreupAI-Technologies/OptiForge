@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrTalentService } from '@/services/hr-talent.service';
 import { CheckCircle, AlertTriangle, FileText, XCircle, Clock } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -41,18 +42,31 @@ export default function PIPReviewPage() {
 
   const [selectedReview, setSelectedReview] = useState<PIPReview | null>(null);
   const [decision, setDecision] = useState<{ type: string; notes: string }>({ type: 'passed', notes: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedReview) return;
-
-    setReviews(prev => prev.map(r =>
-      r.id === selectedReview.id
-        ? { ...r, status: decision.type as any, outcome: decision.notes }
-        : r
-    ));
-    setSelectedReview(null);
-    setDecision({ type: 'passed', notes: '' });
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await HrTalentService.updatePerformance(selectedReview.id, {
+        data: { status: decision.type, outcome: decision.notes },
+        status: decision.type
+      });
+      setReviews(prev => prev.map(r =>
+        r.id === selectedReview.id
+          ? { ...r, status: decision.type as any, outcome: decision.notes }
+          : r
+      ));
+      setSelectedReview(null);
+      setDecision({ type: 'passed', notes: '' });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to finalize review');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const columns = [
@@ -141,6 +155,11 @@ export default function PIPReviewPage() {
 
               {selectedReview.status === 'pending_review' ? (
                 <form onSubmit={handleSubmitReview} className="space-y-3">
+                  {submitError && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                      {submitError}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Final Decision</label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -205,9 +224,10 @@ export default function PIPReviewPage() {
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
                     >
-                      Finalize Review
+                      {isSubmitting ? 'Finalizing…' : 'Finalize Review'}
                     </button>
                   </div>
                 </form>

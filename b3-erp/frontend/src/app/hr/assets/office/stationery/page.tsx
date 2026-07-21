@@ -31,6 +31,72 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // NOTE: HrAssetsService exposes only READ getStationery (writes are createAssetRequest/
+  // updateAssetRequest, and AssetManagementService has no stationery method). There is no
+  // backend stationery create/issue/reorder endpoint, so the actions below optimistically
+  // update the locally-loaded `stationery` state until such an endpoint exists.
+  const [selected, setSelected] = useState<StationeryItem | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [issueTarget, setIssueTarget] = useState<StationeryItem | null>(null);
+  const [reorderTarget, setReorderTarget] = useState<StationeryItem | null>(null);
+  const [addForm, setAddForm] = useState({ itemName: '', itemCode: '', brand: '', category: 'writing' as StationeryItem['category'], unit: 'pcs' as StationeryItem['unit'], totalQuantity: '', unitCost: '', location: '', supplier: '' });
+  const [issueQty, setIssueQty] = useState('');
+  const [reorderQty, setReorderQty] = useState('');
+
+  const handleAdd = () => {
+    const totalQuantity = Number(addForm.totalQuantity) || 0;
+    const unitCost = Number(addForm.unitCost) || 0;
+    const newItem: StationeryItem = {
+      id: Date.now().toString(),
+      itemCode: addForm.itemCode,
+      itemName: addForm.itemName,
+      category: addForm.category,
+      brand: addForm.brand,
+      unit: addForm.unit,
+      totalQuantity,
+      issued: 0,
+      available: totalQuantity,
+      minStockLevel: 0,
+      reorderLevel: 0,
+      unitCost,
+      totalValue: totalQuantity * unitCost,
+      location: addForm.location,
+      supplier: addForm.supplier,
+      lastPurchaseDate: new Date().toISOString(),
+      status: 'in_stock',
+    };
+    setStationery(prev => [newItem, ...prev]);
+    setShowAdd(false);
+    setAddForm({ itemName: '', itemCode: '', brand: '', category: 'writing', unit: 'pcs', totalQuantity: '', unitCost: '', location: '', supplier: '' });
+  };
+
+  const handleIssue = () => {
+    if (!issueTarget) return;
+    const qty = Number(issueQty) || 0;
+    setStationery(prev => prev.map(s => {
+      if (s.id !== issueTarget.id) return s;
+      const issued = s.issued + qty;
+      const available = Math.max(0, s.available - qty);
+      const status: StationeryItem['status'] = available <= 0 ? 'out_of_stock' : available <= s.reorderLevel ? 'low_stock' : 'in_stock';
+      return { ...s, issued, available, status };
+    }));
+    setIssueTarget(null);
+    setIssueQty('');
+  };
+
+  const handleReorder = () => {
+    if (!reorderTarget) return;
+    const qty = Number(reorderQty) || 0;
+    setStationery(prev => prev.map(s => {
+      if (s.id !== reorderTarget.id) return s;
+      const totalQuantity = s.totalQuantity + qty;
+      const available = s.available + qty;
+      return { ...s, totalQuantity, available, totalValue: totalQuantity * s.unitCost, status: 'in_stock', lastPurchaseDate: new Date().toISOString() };
+    }));
+    setReorderTarget(null);
+    setReorderQty('');
+  };
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -188,7 +254,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <button onClick={() => setShowAdd(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
               Add Item
             </button>
           </div>
@@ -288,15 +354,15 @@ export default function Page() {
               </div>
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setIssueTarget(item)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   Issue Item
                 </button>
                 {(item.status === 'low_stock' || item.status === 'reorder' || item.status === 'out_of_stock') && (
-                  <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+                  <button onClick={() => setReorderTarget(item)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
                     Reorder
                   </button>
                 )}
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                <button onClick={() => setSelected(item)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                   View History
                 </button>
               </div>
@@ -304,6 +370,130 @@ export default function Page() {
           );
         })}
       </div>
+
+      {/* Add Item modal — optimistic local add (no backend stationery write endpoint) */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg bg-white rounded-lg shadow-lg p-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Stationery Item</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                <input value={addForm.itemName} onChange={(e) => setAddForm({ ...addForm, itemName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Code</label>
+                <input value={addForm.itemCode} onChange={(e) => setAddForm({ ...addForm, itemCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                <input value={addForm.brand} onChange={(e) => setAddForm({ ...addForm, brand: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select value={addForm.category} onChange={(e) => setAddForm({ ...addForm, category: e.target.value as StationeryItem['category'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="writing">Writing</option>
+                  <option value="paper">Paper</option>
+                  <option value="filing">Filing</option>
+                  <option value="desk">Desk Accessories</option>
+                  <option value="binding">Binding</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                <select value={addForm.unit} onChange={(e) => setAddForm({ ...addForm, unit: e.target.value as StationeryItem['unit'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="pcs">pcs</option>
+                  <option value="box">box</option>
+                  <option value="pack">pack</option>
+                  <option value="ream">ream</option>
+                  <option value="set">set</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Quantity</label>
+                <input type="number" value={addForm.totalQuantity} onChange={(e) => setAddForm({ ...addForm, totalQuantity: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
+                <input type="number" value={addForm.unitCost} onChange={(e) => setAddForm({ ...addForm, unitCost: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                <input value={addForm.supplier} onChange={(e) => setAddForm({ ...addForm, supplier: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issue Item modal — optimistic local update (no backend stationery write endpoint) */}
+      {issueTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Issue Item</h2>
+            <p className="text-sm text-gray-600 mb-3">{issueTarget.itemName}</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+            <input type="number" value={issueQty} onChange={(e) => setIssueQty(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => { setIssueTarget(null); setIssueQty(''); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleIssue} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">Issue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reorder modal — optimistic local update (no backend stationery write endpoint) */}
+      {reorderTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Reorder Item</h2>
+            <p className="text-sm text-gray-600 mb-3">{reorderTarget.itemName}</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+            <input type="number" value={reorderQty} onChange={(e) => setReorderQty(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => { setReorderTarget(null); setReorderQty(''); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Cancel</button>
+              <button onClick={handleReorder} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">Reorder</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View History / details modal — read-only */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg bg-white rounded-lg shadow-lg p-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">{selected.itemName}</h2>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Item Code</p><p className="font-semibold text-gray-900">{selected.itemCode}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Brand</p><p className="font-semibold text-gray-900">{selected.brand}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Category</p><p className="font-semibold text-gray-900">{categoryLabel[selected.category]}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Unit</p><p className="font-semibold text-gray-900">{selected.unit}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Total Quantity</p><p className="font-semibold text-gray-900">{selected.totalQuantity}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Issued</p><p className="font-semibold text-gray-900">{selected.issued}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Available</p><p className="font-semibold text-gray-900">{selected.available}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Reorder Level</p><p className="font-semibold text-gray-900">{selected.reorderLevel}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Unit Cost</p><p className="font-semibold text-gray-900">₹{selected.unitCost}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Total Value</p><p className="font-semibold text-gray-900">₹{selected.totalValue.toLocaleString('en-IN')}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Supplier</p><p className="font-semibold text-gray-900">{selected.supplier}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Location</p><p className="font-semibold text-gray-900">{selected.location}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Last Purchase</p><p className="font-semibold text-gray-900">{selected.lastPurchaseDate ? new Date(selected.lastPurchaseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</p></div>
+              <div><p className="text-xs text-gray-500 uppercase font-medium mb-1">Status</p><p className="font-semibold text-gray-900">{selected.status}</p></div>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

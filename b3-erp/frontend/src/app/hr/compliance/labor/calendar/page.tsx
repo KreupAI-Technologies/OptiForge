@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle, Filter } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface ComplianceDeadline {
   id: string;
@@ -74,6 +75,26 @@ export default function Page() {
       cancelled = true;
     };
   }, []);
+
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
+  const handleMarkCompleted = async (id: string) => {
+    try {
+      setCompletingId(id);
+      await HrComplianceDocsService.updateReturn(id, {
+        status: 'filed',
+        filingDate: new Date().toISOString().slice(0, 10),
+      });
+      setMockDeadlines(prev =>
+        prev.map(d => (d.id === id ? { ...d, status: 'completed' } : d)),
+      );
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to mark completed');
+    } finally {
+      setCompletingId(null);
+    }
+  };
 
   const filteredDeadlines = useMemo(() => {
     return mockDeadlines.filter(deadline => {
@@ -255,10 +276,16 @@ export default function Page() {
               </div>
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Mark Completed
-                </button>
+                {deadline.status !== 'completed' && (
+                  <button
+                    onClick={() => handleMarkCompleted(deadline.id)}
+                    disabled={completingId === deadline.id}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    {completingId === deadline.id ? 'Marking...' : 'Mark Completed'}
+                  </button>
+                )}
                 <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">
                   View Details
                 </button>

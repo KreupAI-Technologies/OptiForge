@@ -4,7 +4,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Users, Shield, MapPin, Briefcase, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ModalWrapper } from '@/components/ui/ModalWrapper';
 import { systemMastersService, User } from '@/services/system-masters.service';
+import { userManagementService, UserStatus } from '@/services/user-management.service';
 import { exportToCsv } from '@/lib/export';
 
 export default function UserMasterPage() {
@@ -44,12 +46,28 @@ export default function UserMasterPage() {
     setToast({ message, type });
   };
 
+  const [viewUser, setViewUser] = useState<User | null>(null);
+
   const handleViewUser = (row: User) => {
-    showToast(`Viewing user profile: ${row.fullName}`, 'info');
+    // Open a read modal with the row data (real UX, no fake toast).
+    setViewUser(row);
   };
 
   const handleEditUser = (row: User) => {
-    showToast(`Opening editor for: ${row.fullName}`, 'info');
+    setViewUser(row);
+  };
+
+  const handleDeactivateUser = async (row: User) => {
+    if (!confirm(`Are you sure you want to deactivate ${row.fullName}?`)) return;
+    try {
+      // Call the it-admin user endpoint FIRST, then update local state only
+      // on success. Persists the deactivation instead of a local-only toggle.
+      await userManagementService.updateUser(row.id, { status: UserStatus.INACTIVE });
+      setUsers(prev => prev.map(u => (u.id === row.id ? { ...u, isActive: false } : u)));
+      showToast(`Deactivated ${row.fullName}`, 'success');
+    } catch (error) {
+      showToast(`Failed to deactivate ${row.fullName}`, 'error');
+    }
   };
 
   const handleExport = () => {
@@ -242,11 +260,7 @@ export default function UserMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Are you sure you want to deactivate ${row.fullName}?`)) {
-                setUsers(prev => prev.map(u =>
-                  u.id === row.id ? { ...u, isActive: false } : u
-                ));
-              }
+              handleDeactivateUser(row);
             }}
           >
             Deactivate
@@ -487,6 +501,61 @@ export default function UserMasterPage() {
           </div>
         </div>
       </div>
+
+      {/* User details modal */}
+      <ModalWrapper
+        isOpen={!!viewUser}
+        onClose={() => setViewUser(null)}
+        title={viewUser ? (viewUser.fullName || viewUser.username) : 'User'}
+        size="md"
+      >
+        {viewUser && (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-gray-500">Employee Code</div>
+                <div className="font-mono font-medium text-gray-900">{viewUser.employeeCode || 'N/A'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Username</div>
+                <div className="font-medium text-gray-900">{viewUser.username}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Email</div>
+                <div className="font-medium text-gray-900">{viewUser.email || 'No Email'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Phone</div>
+                <div className="font-medium text-gray-900">{viewUser.employee?.phone || 'No Phone'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Department</div>
+                <div className="font-medium text-gray-900">{viewUser.employee?.department?.name || 'Unassigned'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Designation</div>
+                <div className="font-medium text-gray-900">{viewUser.employee?.designation?.name || 'No Designation'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Role</div>
+                <div className="font-medium text-gray-900">{viewUser.role?.roleName || 'No Role'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Access Level</div>
+                <div className="font-medium capitalize text-gray-900">{viewUser.accessLevel}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Account Status</div>
+                <div className="font-medium text-gray-900">{viewUser.isActive ? 'Active' : 'Inactive'}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">MFA</div>
+                <div className="font-medium text-gray-900">{viewUser.mfaEnabled ? 'Enabled' : 'Disabled'}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </ModalWrapper>
     </div>
   );
 }

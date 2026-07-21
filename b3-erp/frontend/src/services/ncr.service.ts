@@ -834,6 +834,7 @@ export class NCRService {
     options?: RequestInit
   ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: 'include',
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -894,6 +895,31 @@ export class NCRService {
 
     const queryString = params.toString();
     return this.request<NCR[]>(`/quality/ncr${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // Create an NCR matching the backend CreateNCRDto (quality/ncr POST).
+  // Backend expects: title, source, severity, description, reportedBy, reportedDate, assignedTo?
+  static async create(data: {
+    title: string;
+    description: string;
+    severity: string;
+    source: string;
+    reportedBy: string;
+    reportedDate?: string;
+    assignedTo?: string;
+  }): Promise<NCR> {
+    return this.request<NCR>('/quality/ncr', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: data.title,
+        description: data.description,
+        severity: data.severity,
+        source: data.source,
+        reportedBy: data.reportedBy,
+        reportedDate: data.reportedDate || new Date().toISOString().slice(0, 10),
+        ...(data.assignedTo ? { assignedTo: data.assignedTo } : {}),
+      }),
+    });
   }
 
   // Get NCR by ID

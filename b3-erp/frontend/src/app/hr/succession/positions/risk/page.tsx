@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, TrendingUp, Users, Clock } from 'lucide-react';
 import { HrTalentService } from '@/services/hr-talent.service';
 
@@ -21,6 +22,7 @@ interface PositionRisk {
 }
 
 export default function Page() {
+  const router = useRouter();
   const [selectedRiskLevel, setSelectedRiskLevel] = useState('all');
 
   const [rows, setRows] = useState<PositionRisk[]>([]);
@@ -196,10 +198,10 @@ export default function Page() {
             </div>
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              <button onClick={() => router.push('/hr/succession/positions/risk')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Assessment
               </button>
-              <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
+              <button onClick={() => router.push('/hr/succession/positions/risk')} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm">
                 Update Mitigation Plan
               </button>
             </div>

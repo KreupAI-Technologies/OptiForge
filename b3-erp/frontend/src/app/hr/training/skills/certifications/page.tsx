@@ -14,6 +14,7 @@ import {
   Plus
 } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
+import { TrainingDevelopmentService } from '@/services/training-development.service';
 import {
   PieChart,
   Pie,
@@ -52,39 +53,79 @@ export default function CertificationsPage() {
   const [certifications, setCertifications] = useState<CertificationRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    employeeName: '',
+    employeeCode: '',
+    certificationName: '',
+    issuingAuthority: '',
+    issueDate: new Date().toISOString().split('T')[0],
+    expiryDate: '',
+  });
+
+  const load = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await HrPagesService.skillAssessments()) as any[];
+      const mapped: CertificationRecord[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+        id: r.id ?? '',
+        employee: r.employee ?? '',
+        role: r.role ?? '',
+        cert: r.cert ?? r.certification ?? '',
+        provider: r.provider ?? '',
+        issued: r.issued ?? '',
+        expires: r.expires ?? '',
+        status: r.status ?? 'Active',
+      }));
+      setCertifications(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load certifications');
+      setCertifications([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.skillAssessments()) as any[];
-        const mapped: CertificationRecord[] = (Array.isArray(raw) ? raw : []).map((r) => ({
-          id: r.id ?? '',
-          employee: r.employee ?? '',
-          role: r.role ?? '',
-          cert: r.cert ?? r.certification ?? '',
-          provider: r.provider ?? '',
-          issued: r.issued ?? '',
-          expires: r.expires ?? '',
-          status: r.status ?? 'Active',
-        }));
-        if (!cancelled) setCertifications(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load certifications');
-          setCertifications([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleAddCertification = async () => {
+    if (!form.employeeName || !form.certificationName) {
+      setSubmitError('Please provide an employee and a certification name.');
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await TrainingDevelopmentService.createCertification({
+        employeeName: form.employeeName,
+        employeeCode: form.employeeCode || undefined,
+        certificationName: form.certificationName,
+        issuingAuthority: form.issuingAuthority || undefined,
+        issueDate: form.issueDate || undefined,
+        expiryDate: form.expiryDate || undefined,
+      });
+      setShowAddModal(false);
+      setForm({
+        employeeName: '',
+        employeeCode: '',
+        certificationName: '',
+        issuingAuthority: '',
+        issueDate: new Date().toISOString().split('T')[0],
+        expiryDate: '',
+      });
+      await load();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to add certification.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -102,7 +143,10 @@ export default function CertificationsPage() {
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </button>
-          <button className="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-purple-700 shadow-sm transition-colors">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-purple-700 shadow-sm transition-colors"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Certification
           </button>
@@ -253,6 +297,108 @@ export default function CertificationsPage() {
           </table>
         </div>
       </div>
+
+      {/* Add Certification Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-3 m-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-bold text-gray-900">Add Certification</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+                <input
+                  type="text"
+                  value={form.employeeName}
+                  onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="Employee name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                <input
+                  type="text"
+                  value={form.employeeCode}
+                  onChange={(e) => setForm({ ...form, employeeCode: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="e.g. EMP001"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Certification Name</label>
+                <input
+                  type="text"
+                  value={form.certificationName}
+                  onChange={(e) => setForm({ ...form, certificationName: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="e.g. AWS Solutions Architect"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issuing Authority</label>
+                <input
+                  type="text"
+                  value={form.issuingAuthority}
+                  onChange={(e) => setForm({ ...form, issuingAuthority: e.target.value })}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  placeholder="e.g. Amazon Web Services"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
+                  <input
+                    type="date"
+                    value={form.issueDate}
+                    onChange={(e) => setForm({ ...form, issueDate: e.target.value })}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                  <input
+                    type="date"
+                    value={form.expiryDate}
+                    onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddModal(false)}
+                disabled={submitting}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCertification}
+                disabled={submitting}
+                className="px-4 py-2 bg-purple-600 rounded-lg text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                {submitting ? 'Saving…' : 'Add Certification'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

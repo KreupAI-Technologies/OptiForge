@@ -4,7 +4,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Download, Filter, X, FileText, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ModalWrapper } from '@/components/ui/ModalWrapper';
 import { systemMastersService, DocumentType } from '@/services/system-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function DocumentTypeMasterPage() {
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
@@ -12,6 +14,7 @@ export default function DocumentTypeMasterPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => {
     const fetchDocTypes = async () => {
@@ -167,11 +170,17 @@ export default function DocumentTypeMasterPage() {
           <p className="text-gray-600 mt-1">Manage HR document types and requirements</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button
+            onClick={() => exportToCsv('document-type-master', filteredData)}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
             <Download className="w-4 h-4" />
             Export
           </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
             <Plus className="w-4 h-4" />
             Add Type
           </button>
@@ -251,6 +260,30 @@ export default function DocumentTypeMasterPage() {
           <li>✓ Verification workflows for compliance and authenticity checks</li>
         </ul>
       </div>
+
+      {/* Add Type modal.
+          NOTE: the common-masters document-types API is read-only (GET only) and
+          systemMastersService exposes no create method, so this cannot persist yet.
+          A backend POST /common-masters/document-types endpoint plus a
+          createDocumentType() service method are required to make this functional. */}
+      <ModalWrapper
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+        title="Add Document Type"
+        size="md"
+      >
+        <div className="space-y-3 text-sm text-gray-700">
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-amber-800">
+              Creating document types is not yet available. The common-masters
+              document-types API is read-only. A backend create endpoint
+              (<span className="font-mono">POST /common-masters/document-types</span>) and a
+              matching service method are required before this form can save.
+            </p>
+          </div>
+        </div>
+      </ModalWrapper>
     </div>
   );
 }

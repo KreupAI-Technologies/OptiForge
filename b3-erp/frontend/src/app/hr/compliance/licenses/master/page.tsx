@@ -63,6 +63,20 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const handleInitiateRenewal = async (id: string) => {
+    try {
+      setUpdatingId(id);
+      await HrComplianceDocsService.updateLicense(id, { status: 'under_renewal' });
+      setLicenses(prev => prev.map(l => l.id === id ? { ...l, status: 'under_renewal' as License['status'] } : l));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to initiate renewal');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const sourceLicenses = licenses;
 
   const filteredLicenses = useMemo(() => {
@@ -309,8 +323,12 @@ export default function Page() {
                     Download License
                   </button>
                   {(license.status === 'expiring_soon' || license.status === 'expired') && (
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
-                      Initiate Renewal
+                    <button
+                      onClick={() => handleInitiateRenewal(license.id)}
+                      disabled={updatingId === license.id}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50"
+                    >
+                      {updatingId === license.id ? 'Initiating...' : 'Initiate Renewal'}
                     </button>
                   )}
                 </div>

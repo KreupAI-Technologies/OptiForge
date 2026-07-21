@@ -36,6 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { projectManagementService, CabinetMarkingTask, Project } from '@/services/ProjectManagementService';
+import { CabinetMarkingService } from '@/services/CabinetMarkingService';
 
 export default function CabinetMarkingPage() {
   const router = useRouter();
@@ -86,10 +87,27 @@ export default function CabinetMarkingPage() {
     try {
       const [project, projectTasks] = await Promise.all([
         projectManagementService.getProject(id),
-        projectManagementService.getCabinetMarkingTasks(id)
+        CabinetMarkingService.list(id)
       ]);
       setSelectedProject(project);
-      setTasks(projectTasks);
+      setTasks(
+        (projectTasks || []).map((t) => ({
+          id: t.id,
+          taskNumber: t.taskNumber || '',
+          projectId: t.projectId,
+          projectName: t.projectName || project?.name || '',
+          cabinetType: t.cabinetType || '',
+          quantity: t.quantity ?? 0,
+          scheduledDate: t.scheduledDate || '',
+          assignedTeam: t.assignedTeam || '',
+          status: (t.status as CabinetMarkingTask['status']) || 'Scheduled',
+          completionPercentage: t.completionPercentage ?? 0,
+          markedItems: t.markedItems ?? 0,
+          totalItems: t.totalItems ?? t.quantity ?? 0,
+          photosUploaded: t.photosUploaded ?? 0,
+          reportGenerated: t.reportGenerated ?? false,
+        })) as CabinetMarkingTask[]
+      );
     } catch (error) {
       toast({
         variant: "destructive",
@@ -102,8 +120,8 @@ export default function CabinetMarkingPage() {
     }
   };
 
-  const handleScheduleTask = () => {
-    if (!newTask.projectName || !newTask.cabinetType || !newTask.quantity || !newTask.assignedTeam) {
+  const handleScheduleTask = async () => {
+    if (!newTask.cabinetType || !newTask.quantity || !newTask.assignedTeam) {
       toast({
         title: "Missing Fields",
         description: "Please fill in all fields to schedule a task.",
@@ -112,30 +130,102 @@ export default function CabinetMarkingPage() {
       return;
     }
 
-    const newEntry: CabinetMarkingTask = {
-      id: Math.random().toString(36).substring(7),
-      taskNumber: `CM-2025-${(tasks.length + 1).toString().padStart(3, '0')}`,
-      projectId: projectId || 'PRJ-2025-NEW',
-      projectName: selectedProject?.name || newTask.projectName,
-      cabinetType: newTask.cabinetType,
-      quantity: parseInt(newTask.quantity),
-      scheduledDate: new Date().toISOString().split('T')[0],
-      assignedTeam: newTask.assignedTeam,
-      status: 'Scheduled',
-      completionPercentage: 0,
-      markedItems: 0,
-      totalItems: parseInt(newTask.quantity),
-      photosUploaded: 0,
-      reportGenerated: false,
-    };
+    const quantity = parseInt(newTask.quantity);
+    const taskNumber = `CM-2025-${(tasks.length + 1).toString().padStart(3, '0')}`;
 
-    setTasks([newEntry, ...tasks]);
-    setIsScheduleOpen(false);
-    setNewTask({ projectName: '', cabinetType: '', quantity: '', assignedTeam: '' });
-    toast({
-      title: "Task Scheduled",
-      description: `${newEntry.taskNumber} has been scheduled successfully.`,
-    });
+    try {
+      const created = await CabinetMarkingService.create({
+        projectId: projectId || 'PRJ-2025-NEW',
+        projectName: selectedProject?.name || newTask.projectName,
+        taskNumber,
+        cabinetType: newTask.cabinetType,
+        quantity,
+        scheduledDate: new Date().toISOString().split('T')[0],
+        assignedTeam: newTask.assignedTeam,
+        status: 'Scheduled',
+        completionPercentage: 0,
+        markedItems: 0,
+        totalItems: quantity,
+        photosUploaded: 0,
+        reportGenerated: false,
+      });
+
+      const newEntry: CabinetMarkingTask = {
+        id: created.id,
+        taskNumber: created.taskNumber || taskNumber,
+        projectId: created.projectId,
+        projectName: created.projectName || selectedProject?.name || newTask.projectName,
+        cabinetType: created.cabinetType || newTask.cabinetType,
+        quantity: created.quantity ?? quantity,
+        scheduledDate: created.scheduledDate || '',
+        assignedTeam: created.assignedTeam || newTask.assignedTeam,
+        status: (created.status as CabinetMarkingTask['status']) || 'Scheduled',
+        completionPercentage: created.completionPercentage ?? 0,
+        markedItems: created.markedItems ?? 0,
+        totalItems: created.totalItems ?? quantity,
+        photosUploaded: created.photosUploaded ?? 0,
+        reportGenerated: created.reportGenerated ?? false,
+      };
+
+      setTasks([newEntry, ...tasks]);
+      setIsScheduleOpen(false);
+      setNewTask({ projectName: '', cabinetType: '', quantity: '', assignedTeam: '' });
+      toast({
+        title: "Task Scheduled",
+        description: `${newEntry.taskNumber} has been scheduled successfully.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to schedule marking task.",
+      });
+    }
+  };
+
+  const handleEditTask = async (task: CabinetMarkingTask) => {
+    // Advance the task through its marking lifecycle and persist the change.
+    const nextStatus =
+      task.status === 'Scheduled'
+        ? 'In Progress'
+        : task.status === 'In Progress'
+          ? 'Pending Review'
+          : task.status === 'Pending Review'
+            ? 'Completed'
+            : 'Scheduled';
+    const completed = nextStatus === 'Completed';
+
+    try {
+      const updated = await CabinetMarkingService.update(task.id, {
+        status: nextStatus,
+        completionPercentage: completed ? 100 : task.completionPercentage,
+        markedItems: completed ? task.totalItems : task.markedItems,
+        completedDate: completed ? new Date().toISOString().split('T')[0] : undefined,
+      });
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? {
+                ...t,
+                status: (updated.status as CabinetMarkingTask['status']) || nextStatus,
+                completionPercentage: updated.completionPercentage ?? t.completionPercentage,
+                markedItems: updated.markedItems ?? t.markedItems,
+              }
+            : t,
+        ),
+      );
+      toast({
+        title: "Task Updated",
+        description: `${task.taskNumber} moved to ${nextStatus}.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update marking task.",
+      });
+    }
   };
 
   const filteredTasks = tasks.filter(
@@ -519,7 +609,7 @@ export default function CabinetMarkingPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => toast({ title: "Edit Task", description: `Editing task ${task.taskNumber}` })}
+                              onClick={() => handleEditTask(task)}
                             >
                               <Edit className="w-4 h-4 text-gray-600" />
                             </Button>

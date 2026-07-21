@@ -784,6 +784,7 @@ export class PerformanceManagementService {
     const params = new URLSearchParams(filters ?? {});
     const qs = params.toString();
     const response = await fetch(`${base}/hr/performance-reviews${qs ? `?${qs}` : ''}`, {
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!response.ok) {
@@ -801,6 +802,7 @@ export class PerformanceManagementService {
   static async getHrPerformanceReviewById(id: string): Promise<any> {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
     const response = await fetch(`${base}/hr/performance-reviews/${id}`, {
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!response.ok) {
@@ -817,6 +819,7 @@ export class PerformanceManagementService {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
     const response = await fetch(`${base}/hr/performance-reviews/${id}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -835,6 +838,7 @@ export class PerformanceManagementService {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
     const response = await fetch(`${base}/hr/performance-reviews`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -904,6 +908,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/goals', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -921,6 +926,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/goals/${id}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -938,6 +944,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/goals/${id}/progress`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ progress, notes }),
     });
@@ -1014,6 +1021,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/review-cycles', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1077,6 +1085,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/reviews/${id}/self-appraisal`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1100,6 +1109,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/reviews/${id}/manager-review`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1124,6 +1134,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/reviews/${id}/final-rating`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1142,6 +1153,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/reviews/${id}/acknowledge`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ comments }),
     });
@@ -1178,6 +1190,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/review-meetings', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1229,6 +1242,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/feedback', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1270,6 +1284,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/feedback-requests', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1318,6 +1333,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/recognitions', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1336,6 +1352,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/recognitions/${id}/like`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employeeId }),
     });
@@ -1385,6 +1402,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/kpi-masters', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1432,6 +1450,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/kpi-assignments', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1465,6 +1484,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/kpi-assignments/${assignmentId}/track`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1528,6 +1548,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch('/api/hr/performance/pips', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1555,6 +1576,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/pips/${pipId}/objectives/${objectiveId}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -1573,6 +1595,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/pips/${id}/extend`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newEndDate, reason }),
     });
@@ -1592,6 +1615,7 @@ export class PerformanceManagementService {
     }
     const response = await fetch(`/api/hr/performance/pips/${id}/conclude`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ outcome, notes }),
     });

@@ -46,29 +46,27 @@ export default function EstimationAnalyticsWinLossPage() {
   const [loading, setLoading] = useState(true)
   const [analysis, setAnalysis] = useState<WinLossAnalysis | null>(null)
 
+  const loadAnalysis = async () => {
+    setLoading(true)
+    try {
+      const now = new Date()
+      const toDate = now.toISOString().split('T')[0]
+      const from = new Date(now)
+      from.setFullYear(from.getFullYear() - 1)
+      const fromDate = from.toISOString().split('T')[0]
+      const data = await estimationAnalyticsService.getWinLossAnalysis(companyId, fromDate, toDate)
+      setAnalysis(data ?? null)
+    } catch (e) {
+      console.error('Failed to load win/loss analysis', e)
+      setAnalysis(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    let mounted = true
-    const load = async () => {
-      setLoading(true)
-      try {
-        const now = new Date()
-        const toDate = now.toISOString().split('T')[0]
-        const from = new Date(now)
-        from.setFullYear(from.getFullYear() - 1)
-        const fromDate = from.toISOString().split('T')[0]
-        const data = await estimationAnalyticsService.getWinLossAnalysis(companyId, fromDate, toDate)
-        if (mounted) setAnalysis(data ?? null)
-      } catch (e) {
-        console.error('Failed to load win/loss analysis', e)
-        if (mounted) setAnalysis(null)
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      mounted = false
-    }
+    loadAnalysis()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Derive per-category rows from byCustomer (fallback byEstimator); guard empties.
@@ -127,6 +125,28 @@ export default function EstimationAnalyticsWinLossPage() {
   const totalWonValue = analysis?.totalWonValue ?? 0
   const totalLostValue = Math.max((analysis?.totalEstimatedValue ?? 0) - (analysis?.totalWonValue ?? 0), 0)
 
+  const handleExport = () => {
+    const headers = ['Category', 'Total', 'Won', 'Lost', 'Pending', 'Win Rate %']
+    const rows = winLossData.map((d) => [
+      d.category,
+      d.totalEstimates,
+      d.won,
+      d.lost,
+      d.pending,
+      d.winRate.toFixed(1),
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `win-loss-analysis-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (loading) {
     return (
       <div className="w-full h-full px-4 py-2 flex items-center justify-center">
@@ -140,15 +160,24 @@ export default function EstimationAnalyticsWinLossPage() {
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={loadAnalysis}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={loadAnalysis}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Calendar className="h-4 w-4" />
             Date Range
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>

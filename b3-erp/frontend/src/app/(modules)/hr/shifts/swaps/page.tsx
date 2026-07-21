@@ -41,6 +41,24 @@ export default function ShiftSwapsPage() {
     const [swaps, setSwaps] = useState<ShiftSwap[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [actingId, setActingId] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    const handleDecision = async (swap: ShiftSwap, decision: 'Approved' | 'Rejected') => {
+        setActingId(swap.id); setActionError(null);
+        try {
+            const updated = decision === 'Approved'
+                ? await HrShiftsService.approveShiftSwap(swap.id)
+                : await HrShiftsService.rejectShiftSwap(swap.id);
+            setSwaps((prev) => prev.map((s) => (s.id === swap.id
+                ? { ...s, status: decision, approvedBy: (updated as any)?.approvedBy ?? s.approvedBy, approvedDate: (updated as any)?.approvedDate ?? new Date().toISOString() }
+                : s)));
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : 'Failed to update request');
+        } finally {
+            setActingId(null);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -107,6 +125,7 @@ export default function ShiftSwapsPage() {
             <div className="w-full space-y-3">
                 {isLoading && (<div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
                 {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
+                {actionError && (<div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{actionError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -243,13 +262,21 @@ export default function ShiftSwapsPage() {
 
                                 {swap.status === 'Pending' && (
                                     <div className="flex flex-col gap-2">
-                                        <button className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">
+                                        <button
+                                            onClick={() => handleDecision(swap, 'Approved')}
+                                            disabled={actingId === swap.id}
+                                            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg"
+                                        >
                                             <CheckCircle className="w-4 h-4" />
-                                            Approve
+                                            {actingId === swap.id ? 'Saving…' : 'Approve'}
                                         </button>
-                                        <button className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+                                        <button
+                                            onClick={() => handleDecision(swap, 'Rejected')}
+                                            disabled={actingId === swap.id}
+                                            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg"
+                                        >
                                             <XCircle className="w-4 h-4" />
-                                            Reject
+                                            {actingId === swap.id ? 'Saving…' : 'Reject'}
                                         </button>
                                     </div>
                                 )}

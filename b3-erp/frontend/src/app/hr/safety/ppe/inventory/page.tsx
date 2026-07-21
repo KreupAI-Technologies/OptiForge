@@ -15,17 +15,10 @@ import {
   Truck,
   Building2,
   MoreHorizontal,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { HrSafetyService, SafetyPpe } from '@/services/hr-safety.service';
-
-// Mock Data
-const inventoryStats = {
-  totalSkus: 24,
-  stockValue: '$12,450',
-  lowStockItems: 3,
-  pendingOrders: 2
-};
 
 interface StockLevel {
   id: string;
@@ -42,41 +35,74 @@ export default function PPEInventoryPage() {
   const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    category: '',
+    onHand: '',
+    min: '',
+    leadTime: '',
+    status: 'Healthy',
+  });
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await HrSafetyService.getPpe('stock');
+      const mapped: StockLevel[] = rows.map((row: SafetyPpe) => {
+        const meta = (row.meta || {}) as any;
+        return {
+          id: String(row.itemCode ?? row.id ?? ''),
+          name: row.itemName ?? '',
+          category: row.category ?? '',
+          onHand: row.inStock ?? row.quantity ?? 0,
+          min: row.reorderLevel ?? 0,
+          leadTime: meta.leadTime ?? '',
+          status: row.status ?? '',
+        };
+      });
+      setStockLevels(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load PPE inventory');
+      setStockLevels([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const rows = await HrSafetyService.getPpe('stock');
-        const mapped: StockLevel[] = rows.map((row: SafetyPpe) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.itemCode ?? row.id ?? ''),
-            name: row.itemName ?? '',
-            category: row.category ?? '',
-            onHand: row.inStock ?? row.quantity ?? 0,
-            min: row.reorderLevel ?? 0,
-            leadTime: meta.leadTime ?? '',
-            status: row.status ?? '',
-          };
-        });
-        if (!cancelled) setStockLevels(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load PPE inventory');
-          setStockLevels([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const totalSkus = stockLevels.length;
+  const lowStockItems = stockLevels.filter((l) => l.onHand <= l.min).length;
+  const pendingOrders = stockLevels.filter((l) => l.status === 'Ordered').length;
+
+  const handleCreate = async () => {
+    if (!form.name) return;
+    setSaving(true);
+    try {
+      await HrSafetyService.createPpe({
+        recordType: 'stock',
+        itemName: form.name,
+        category: form.category,
+        inStock: Number(form.onHand) || 0,
+        quantity: Number(form.onHand) || 0,
+        reorderLevel: Number(form.min) || 0,
+        status: form.status,
+        meta: { leadTime: form.leadTime },
+      });
+      setShowModal(false);
+      setForm({ name: '', category: '', onHand: '', min: '', leadTime: '', status: 'Healthy' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add stock');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-3">
@@ -101,7 +127,10 @@ export default function PPEInventoryPage() {
           </h1>
           <p className="text-gray-500 mt-1">Manage safety equipment stock levels, reorder points, and procurement</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors">
+        <button
+          onClick={() => setShowModal(true)}
+          className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 shadow-sm transition-colors"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add New Stock
         </button>
@@ -111,7 +140,7 @@ export default function PPEInventoryPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Active SKUs</p>
-          <p className="text-2xl font-bold text-gray-900 mt-2">{inventoryStats.totalSkus}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">{totalSkus}</p>
           <div className="mt-4 flex items-center gap-2">
             <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-bold">+2 Added</span>
           </div>
@@ -119,23 +148,23 @@ export default function PPEInventoryPage() {
 
         <div className="bg-white p-3 rounded-xl border-red-100 border-2 shadow-sm relative overflow-hidden">
           <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Reorder Alerts</p>
-          <p className="text-2xl font-bold text-red-600 mt-2">{inventoryStats.lowStockItems}</p>
+          <p className="text-2xl font-bold text-red-600 mt-2">{lowStockItems}</p>
           <p className="text-[10px] text-red-500 mt-4 font-bold uppercase tracking-tighter">Immediate action required</p>
           <AlertOctagon className="absolute -bottom-2 -right-2 w-16 h-16 text-red-500 opacity-10" />
         </div>
 
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Inventory Value</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Units On Hand</p>
           <div className="flex items-end gap-2 mt-2">
-            <p className="text-2xl font-bold text-gray-900">{inventoryStats.stockValue}</p>
+            <p className="text-2xl font-bold text-gray-900">{stockLevels.reduce((sum, l) => sum + l.onHand, 0)}</p>
             <TrendingUp className="w-4 h-4 text-green-500 mb-1" />
           </div>
-          <p className="text-[10px] text-gray-400 mt-4 leading-tight italic">Estimated replacement cost</p>
+          <p className="text-[10px] text-gray-400 mt-4 leading-tight italic">Across all active SKUs</p>
         </div>
 
         <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Incoming Shipments</p>
-          <p className="text-2xl font-bold text-blue-600 mt-2">{inventoryStats.pendingOrders}</p>
+          <p className="text-2xl font-bold text-blue-600 mt-2">{pendingOrders}</p>
           <div className="mt-4 flex items-center gap-2">
             <div className="flex -space-x-2">
               <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-blue-600 underline cursor-pointer">V1</div>
@@ -265,6 +294,67 @@ export default function PPEInventoryPage() {
           </div>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4">
+              <h3 className="font-bold text-gray-900">Add New Stock</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Item Name</label>
+                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Category</label>
+                <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">On Hand</label>
+                  <input type="number" value={form.onHand} onChange={(e) => setForm({ ...form, onHand: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Min Level</label>
+                  <input type="number" value={form.min} onChange={(e) => setForm({ ...form, min: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lead Time</label>
+                  <input value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</label>
+                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:ring-orange-500">
+                    <option>Healthy</option>
+                    <option>Low Stock</option>
+                    <option>Ordered</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
+              <button onClick={() => setShowModal(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleCreate} disabled={saving || !form.name}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-700 disabled:bg-gray-300">
+                {saving ? 'Saving…' : 'Add Stock'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

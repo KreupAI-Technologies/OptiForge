@@ -75,6 +75,27 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  const handleSubmitReturn = async (id: string) => {
+    try {
+      setSubmittingId(id);
+      const updated = await HrComplianceDocsService.submitReturn(id);
+      setPfReturns(prev =>
+        prev.map(r =>
+          r.id === id
+            ? { ...r, status: 'filed', filingDate: updated.filingDate || new Date().toISOString().slice(0, 10) }
+            : r,
+        ),
+      );
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to submit return');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
   const sourcePFReturns = pfReturns;
 
   const filteredReturns = sourcePFReturns.filter(ret => {
@@ -338,9 +359,13 @@ export default function Page() {
                     Download ECR
                   </button>
                   {pfReturn.status === 'draft' && (
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2">
+                    <button
+                      onClick={() => handleSubmitReturn(pfReturn.id)}
+                      disabled={submittingId === pfReturn.id}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                    >
                       <Upload className="h-4 w-4" />
-                      Submit Return
+                      {submittingId === pfReturn.id ? 'Submitting...' : 'Submit Return'}
                     </button>
                   )}
                 </div>

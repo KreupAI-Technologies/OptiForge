@@ -76,9 +76,58 @@ export default function ManagerReviewPage() {
     return labels[status as keyof typeof labels];
   };
 
+  const [managerRating, setManagerRating] = useState(0);
+  const [managerComments, setManagerComments] = useState('');
+  const [strengths, setStrengths] = useState('');
+  const [developmentAreas, setDevelopmentAreas] = useState('');
+  const [recommendedTraining, setRecommendedTraining] = useState('');
+  const [promotionRecommendation, setPromotionRecommendation] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setManagerRating(0);
+    setManagerComments('');
+    setStrengths('');
+    setDevelopmentAreas('');
+    setRecommendedTraining('');
+    setPromotionRecommendation('');
+    setSaveError(null);
+  };
+
   const handleViewReview = (review: PendingReview) => {
     setSelectedReview(review);
+    resetForm();
     setShowDetailModal(true);
+  };
+
+  const submitReview = async (finalStatus: 'in_progress' | 'completed') => {
+    if (!selectedReview) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await HrTalentService.updatePerformance(selectedReview.id, {
+        data: {
+          managerRating,
+          managerComments,
+          strengths,
+          developmentAreas,
+          recommendedTraining,
+          promotionRecommendation,
+        },
+        status: finalStatus,
+        employeeCode: selectedReview.employeeCode,
+      });
+      setRows(prev => prev.map(r =>
+        r.id === selectedReview.id ? { ...r, status: finalStatus } : r
+      ));
+      setShowDetailModal(false);
+      setSelectedReview(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save review');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const columns = [
@@ -285,7 +334,12 @@ export default function ManagerReviewPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Overall Performance Rating</label>
                     <div className="flex items-center gap-2">
                       {[1, 2, 3, 4, 5].map(star => (
-                        <button key={star} className="text-3xl text-yellow-500 hover:text-yellow-600">★</button>
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setManagerRating(star)}
+                          className={`text-3xl hover:text-yellow-600 ${star <= managerRating ? 'text-yellow-500' : 'text-gray-300'}`}
+                        >★</button>
                       ))}
                       <span className="ml-2 text-sm text-gray-600">(Employee self-rated: {selectedReview.selfRatingAvg}/5)</span>
                     </div>
@@ -295,6 +349,8 @@ export default function ManagerReviewPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Manager Comments</label>
                     <textarea
                       rows={4}
+                      value={managerComments}
+                      onChange={(e) => setManagerComments(e.target.value)}
                       placeholder="Provide detailed feedback on performance, achievements, and areas for improvement..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
@@ -304,6 +360,8 @@ export default function ManagerReviewPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Strengths</label>
                     <textarea
                       rows={3}
+                      value={strengths}
+                      onChange={(e) => setStrengths(e.target.value)}
                       placeholder="Highlight key strengths demonstrated during the review period..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
@@ -313,6 +371,8 @@ export default function ManagerReviewPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Development Areas</label>
                     <textarea
                       rows={3}
+                      value={developmentAreas}
+                      onChange={(e) => setDevelopmentAreas(e.target.value)}
                       placeholder="Identify specific areas for improvement and development..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
@@ -322,6 +382,8 @@ export default function ManagerReviewPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Recommended Training</label>
                     <textarea
                       rows={2}
+                      value={recommendedTraining}
+                      onChange={(e) => setRecommendedTraining(e.target.value)}
                       placeholder="Suggest training programs or development opportunities..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
@@ -329,7 +391,11 @@ export default function ManagerReviewPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Promotion Recommendation</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    <select
+                      value={promotionRecommendation}
+                      onChange={(e) => setPromotionRecommendation(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
                       <option value="">Select recommendation</option>
                       <option value="highly_recommended">Highly Recommended</option>
                       <option value="recommended">Recommended</option>
@@ -340,13 +406,27 @@ export default function ManagerReviewPage() {
                 </div>
               </div>
 
+              {saveError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {saveError}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                <button
+                  onClick={() => submitReview('in_progress')}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-60"
+                >
                   Save Draft
                 </button>
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                  Submit Review
+                <button
+                  onClick={() => submitReview('completed')}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {isSaving ? 'Saving…' : 'Submit Review'}
                 </button>
                 <button
                   onClick={() => setShowDetailModal(false)}

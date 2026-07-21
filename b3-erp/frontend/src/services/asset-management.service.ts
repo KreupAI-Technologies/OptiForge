@@ -369,7 +369,7 @@ export class AssetManagementService {
         : mockCategories;
     }
     const params = categoryType ? `?categoryType=${categoryType}` : '';
-    const response = await fetch(`/api/hr/asset-categories${params}`);
+    const response = await fetch(`/api/hr/asset-categories${params}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -396,7 +396,7 @@ export class AssetManagementService {
     if (options?.categoryId) params.append('categoryId', options.categoryId);
     if (options?.categoryType) params.append('categoryType', options.categoryType);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/assets?${params.toString()}`);
+    const response = await fetch(`/api/hr/assets?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -406,7 +406,7 @@ export class AssetManagementService {
       if (!asset) throw new Error('Asset not found');
       return asset;
     }
-    const response = await fetch(`/api/hr/assets/${id}`);
+    const response = await fetch(`/api/hr/assets/${id}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -425,6 +425,7 @@ export class AssetManagementService {
       return newAsset;
     }
     const response = await fetch('/api/hr/assets', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -452,7 +453,7 @@ export class AssetManagementService {
     if (options?.assetId) params.append('assetId', options.assetId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/asset-allocations?${params.toString()}`);
+    const response = await fetch(`/api/hr/asset-allocations?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -476,6 +477,7 @@ export class AssetManagementService {
       return newAllocation;
     }
     const response = await fetch('/api/hr/asset-allocations', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -493,6 +495,7 @@ export class AssetManagementService {
       return allocation!;
     }
     const response = await fetch(`/api/hr/asset-allocations/${allocationId}/return`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -520,7 +523,7 @@ export class AssetManagementService {
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
     if (options?.assetCategory) params.append('assetCategory', options.assetCategory);
-    const response = await fetch(`/api/hr/asset-requests?${params.toString()}`);
+    const response = await fetch(`/api/hr/asset-requests?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -543,6 +546,7 @@ export class AssetManagementService {
       return newRequest;
     }
     const response = await fetch('/api/hr/asset-requests', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -557,6 +561,7 @@ export class AssetManagementService {
       return request!;
     }
     const response = await fetch(`/api/hr/asset-requests/${id}/approve`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy, assetId }),
@@ -574,6 +579,7 @@ export class AssetManagementService {
       return request!;
     }
     const response = await fetch(`/api/hr/asset-requests/${id}/reject`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rejectedBy, reason }),
@@ -592,7 +598,7 @@ export class AssetManagementService {
     const params = new URLSearchParams();
     if (options?.assetId) params.append('assetId', options.assetId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/asset-transfers?${params.toString()}`);
+    const response = await fetch(`/api/hr/asset-transfers?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -605,6 +611,7 @@ export class AssetManagementService {
       } as AssetTransfer;
     }
     const response = await fetch('/api/hr/asset-transfers', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -634,7 +641,7 @@ export class AssetManagementService {
     if (options?.requestType) params.append('requestType', options.requestType);
     if (options?.status) params.append('status', options.status);
     if (options?.priority) params.append('priority', options.priority);
-    const response = await fetch(`/api/hr/maintenance-requests?${params.toString()}`);
+    const response = await fetch(`/api/hr/maintenance-requests?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -657,6 +664,7 @@ export class AssetManagementService {
       return newRequest;
     }
     const response = await fetch('/api/hr/maintenance-requests', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -669,7 +677,7 @@ export class AssetManagementService {
     if (USE_MOCK_DATA) {
       return [];
     }
-    const response = await fetch('/api/hr/preventive-maintenance');
+    const response = await fetch('/api/hr/preventive-maintenance', { credentials: 'include' });
     return response.json();
   }
 
@@ -688,7 +696,7 @@ export class AssetManagementService {
     const params = new URLSearchParams();
     if (options?.status) params.append('status', options.status);
     if (options?.expiringWithinDays) params.append('expiringWithinDays', String(options.expiringWithinDays));
-    const response = await fetch(`/api/hr/amc-contracts?${params.toString()}`);
+    const response = await fetch(`/api/hr/amc-contracts?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -705,7 +713,7 @@ export class AssetManagementService {
     if (options?.assetCategoryId) params.append('assetCategoryId', options.assetCategoryId);
     if (options?.location) params.append('location', options.location);
     if (options?.lowStock) params.append('lowStock', 'true');
-    const response = await fetch(`/api/hr/asset-stock?${params.toString()}`);
+    const response = await fetch(`/api/hr/asset-stock?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -721,7 +729,7 @@ export class AssetManagementService {
     if (options?.stockId) params.append('stockId', options.stockId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/stock-requests?${params.toString()}`);
+    const response = await fetch(`/api/hr/stock-requests?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -738,7 +746,7 @@ export class AssetManagementService {
     }
     const params = new URLSearchParams();
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/stock-audits?${params.toString()}`);
+    const response = await fetch(`/api/hr/stock-audits?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -759,7 +767,7 @@ export class AssetManagementService {
         recentAllocations: mockAllocations.slice(0, 5),
       };
     }
-    const response = await fetch('/api/hr/asset-management/dashboard');
+    const response = await fetch('/api/hr/asset-management/dashboard', { credentials: 'include' });
     return response.json();
   }
 
@@ -775,7 +783,7 @@ export class AssetManagementService {
     if (USE_MOCK_DATA) {
       return mockAllocations.filter(a => a.employeeId === employeeId && a.status === 'active');
     }
-    const response = await fetch(`/api/hr/employees/${employeeId}/assets`);
+    const response = await fetch(`/api/hr/employees/${employeeId}/assets`, { credentials: 'include' });
     return response.json();
   }
 
@@ -783,7 +791,7 @@ export class AssetManagementService {
     if (USE_MOCK_DATA) {
       return mockAssets.filter(a => a.currentDepartment === department);
     }
-    const response = await fetch(`/api/hr/departments/${department}/assets`);
+    const response = await fetch(`/api/hr/departments/${department}/assets`, { credentials: 'include' });
     return response.json();
   }
 
@@ -803,7 +811,7 @@ export class AssetManagementService {
     if (options?.fromDate) params.append('fromDate', options.fromDate);
     if (options?.toDate) params.append('toDate', options.toDate);
     if (options?.categoryId) params.append('categoryId', options.categoryId);
-    const response = await fetch(`/api/hr/reports/maintenance-cost?${params.toString()}`);
+    const response = await fetch(`/api/hr/reports/maintenance-cost?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 }
