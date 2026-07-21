@@ -357,6 +357,107 @@ export class PaymentService {
     return this.mapToResponseDto(payment);
   }
 
+  async refund(
+    id: string,
+    body?: { amount?: number; reason?: string },
+  ): Promise<PaymentResponseDto> {
+    const payment = await this.paymentRepository.findOne({ where: { id } });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+
+    // Only allow refunds on completed/posted payments.
+    const refundable = [
+      PaymentStatus.PROCESSED,
+      PaymentStatus.RECONCILED,
+    ];
+    if (!refundable.includes(payment.status)) {
+      throw new BadRequestException(
+        `Cannot refund a payment in status "${payment.status}". Payment must be processed or reconciled.`,
+      );
+    }
+
+    const amount =
+      body?.amount != null ? Number(body.amount) : Number(payment.amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new BadRequestException('Refund amount must be a positive number');
+    }
+    if (amount > Number(payment.amount)) {
+      throw new BadRequestException(
+        'Refund amount cannot exceed the original payment amount',
+      );
+    }
+
+    payment.refundAmount = amount;
+    payment.refundDate = new Date();
+    if (body?.reason) {
+      payment.refundReason = body.reason;
+    }
+    payment.status = PaymentStatus.REFUNDED;
+    await this.paymentRepository.save(payment);
+    return this.mapToResponseDto(payment);
+  }
+
+  async markFailed(
+    id: string,
+    reason?: string,
+  ): Promise<PaymentResponseDto> {
+    const payment = await this.paymentRepository.findOne({ where: { id } });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+
+    // Only allow marking as failed from pending/processing states.
+    const failable = [
+      PaymentStatus.DRAFT,
+      PaymentStatus.SUBMITTED,
+      PaymentStatus.APPROVED,
+    ];
+    if (!failable.includes(payment.status)) {
+      throw new BadRequestException(
+        `Cannot mark a payment in status "${payment.status}" as failed. Payment must be pending or processing.`,
+      );
+    }
+
+    if (reason) {
+      payment.failureReason = reason;
+    }
+    payment.status = PaymentStatus.FAILED;
+    await this.paymentRepository.save(payment);
+    return this.mapToResponseDto(payment);
+  }
+
+  async getReceipt(id: string): Promise<Record<string, any>> {
+    const payment = await this.paymentRepository.findOne({ where: { id } });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+
+    return {
+      receiptNumber: `RCP-${payment.paymentNumber}`,
+      issuedAt: new Date().toISOString(),
+      paymentId: payment.id,
+      paymentNumber: payment.paymentNumber,
+      paymentType: payment.paymentType,
+      paymentDate: payment.paymentDate,
+      partyId: payment.partyId,
+      partyName: payment.partyName,
+      partyType: payment.partyType,
+      paymentMethod: payment.paymentMethod,
+      amount: Number(payment.amount),
+      currency: payment.currency,
+      status: payment.status,
+      transactionReference: payment.transactionReference ?? null,
+      referenceNumber: payment.referenceNumber ?? null,
+      bankName: payment.bankName ?? null,
+      chequeNumber: payment.chequeNumber ?? null,
+      description: payment.description ?? null,
+      refundAmount:
+        payment.refundAmount != null ? Number(payment.refundAmount) : null,
+      refundDate: payment.refundDate ?? null,
+    };
+  }
+
   private async generatePaymentNumber(paymentType: string): Promise<string> {
     const prefix = paymentType === 'Receipt' ? 'RCT' : 'PAY';
     const year = new Date().getFullYear();

@@ -33,6 +33,8 @@ export enum PaymentStatus {
   RECONCILED = 'Reconciled',
   BOUNCED = 'Bounced',
   CANCELLED = 'Cancelled',
+  REFUNDED = 'Refunded',
+  FAILED = 'Failed',
 }
 
 @Entity('payments')
@@ -146,6 +148,20 @@ export class Payment {
 
   @Column({ type: 'text', nullable: true })
   bounceReason: string;
+
+  // Refund
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  refundAmount: number;
+
+  @Column({ type: 'date', nullable: true })
+  refundDate: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  refundReason: string;
+
+  // Failure
+  @Column({ type: 'varchar', nullable: true })
+  failureReason: string;
 
   // TDS (Tax Deducted at Source)
   @Column({ default: false })

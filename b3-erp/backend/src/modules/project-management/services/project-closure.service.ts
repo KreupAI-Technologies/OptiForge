@@ -32,7 +32,7 @@ export class ProjectClosureService {
         };
     }
 
-    async initiateHandover(projectId: string): Promise<HandoverCertificate> {
+    async initiateHandover(projectId: string, feedback?: { rating?: number; feedback?: string }): Promise<HandoverCertificate> {
         const stats = await this.getProjectClosureStatus(projectId);
         if (!stats.handoverReady) {
             throw new BadRequestException('HARD GATE: Project is not ready for closure. Ensure all snags are cleared and billing is settled.');
@@ -40,7 +40,9 @@ export class ProjectClosureService {
 
         const cert = this.certificateRepository.create({
             projectId,
-            status: HandoverStatus.PENDING
+            status: HandoverStatus.PENDING,
+            closureRating: feedback?.rating ?? undefined,
+            closureFeedback: feedback?.feedback ?? undefined,
         });
         return this.certificateRepository.save(cert);
     }

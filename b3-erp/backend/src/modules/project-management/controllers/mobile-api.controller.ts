@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, Query, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ProjectService } from '../project.service';
 import { TASettlementService } from '../services/ta-settlement.service';
 import { EmergencySpareService } from '../services/emergency-spare.service';
+import { SitePhotoEntity } from '../entities/site-photo.entity';
 
 @Controller('mobile-api')
 export class MobileController {
@@ -9,6 +12,8 @@ export class MobileController {
         private readonly projectService: ProjectService,
         private readonly taSettlementService: TASettlementService,
         private readonly emergencySpareService: EmergencySpareService,
+        @InjectRepository(SitePhotoEntity)
+        private readonly sitePhotoRepository: Repository<SitePhotoEntity>,
     ) { }
 
     @Get('my-schedule/:engineerId')
@@ -48,9 +53,28 @@ export class MobileController {
         return this.emergencySpareService.requestSpare(body.projectId, body.partId, body.quantity, body.urgency, body.requestedBy);
     }
 
+    @Get('photos/:projectId')
+    async listSitePhotos(@Param('projectId') projectId: string) {
+        return this.sitePhotoRepository.find({
+            where: { projectId },
+            order: { createdAt: 'DESC' },
+        });
+    }
+
     @Post('upload-photo/:projectId')
     async uploadSitePhoto(@Param('projectId') projectId: string, @Body() body: { photoUrl: string; description: string }) {
-        // Link photo to project
-        return { message: 'Photo uploaded successfully' };
+        const photo = this.sitePhotoRepository.create({
+            projectId,
+            photoUrl: body?.photoUrl,
+            description: body?.description,
+        });
+        return this.sitePhotoRepository.save(photo);
+    }
+
+    @Delete('photo/:id')
+    async deleteSitePhoto(@Param('id') id: string) {
+        const result = await this.sitePhotoRepository.delete(id);
+        if (result.affected === 0) throw new NotFoundException(`Site photo ${id} not found`);
+        return { message: 'Photo deleted successfully' };
     }
 }

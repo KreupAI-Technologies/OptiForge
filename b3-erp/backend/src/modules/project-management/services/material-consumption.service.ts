@@ -27,6 +27,12 @@ export class MaterialConsumptionService {
     return this.repo.save(row);
   }
 
+  async bulkCreate(items: Partial<MaterialConsumptionEntity>[]): Promise<MaterialConsumptionEntity[]> {
+    const rows = (items || []).map((item) => this.repo.create({ companyId: 'default', ...item }));
+    if (rows.length === 0) return [];
+    return this.repo.save(rows);
+  }
+
   async update(id: string, data: Partial<MaterialConsumptionEntity>): Promise<MaterialConsumptionEntity> {
     const row = await this.findOne(id);
     const { id: _id, createdAt, updatedAt, ...rest } = data as any;

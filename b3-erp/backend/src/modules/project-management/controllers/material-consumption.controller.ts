@@ -21,6 +21,12 @@ export class MaterialConsumptionController {
     return this.service.create(body);
   }
 
+  @Post('bulk')
+  bulkCreate(@Body() body: { items: Partial<MaterialConsumptionEntity>[] } | Partial<MaterialConsumptionEntity>[]) {
+    const items = Array.isArray(body) ? body : body?.items ?? [];
+    return this.service.bulkCreate(items);
+  }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() body: Partial<MaterialConsumptionEntity>) {
     return this.service.update(id, body);

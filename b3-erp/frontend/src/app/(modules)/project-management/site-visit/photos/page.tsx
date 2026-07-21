@@ -75,10 +75,23 @@ export default function PhotoDocumentationPage() {
       const project = await projectManagementService.getProject(id);
       setSelectedProject(project);
 
-      // The mobile-api exposes only an upload endpoint (POST /mobile-api/upload-photo/:projectId);
-      // there is no photo-list (GET) route, so the gallery starts empty and populates as the
-      // user uploads within this session. No seed/mock data.
-      setPhotos([]);
+      // Load persisted site photos (GET /mobile-api/photos/:projectId). No seed/mock data.
+      try {
+        const rows = await projectManagementService.listSitePhotos(id);
+        setPhotos(
+          (rows || []).map((r: any) => ({
+            id: r.id,
+            name: r.description || 'Site photo',
+            url: r.photoUrl || '',
+            size: '',
+            date: r.createdAt
+              ? new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : '',
+          }))
+        );
+      } catch {
+        setPhotos([]);
+      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -110,15 +123,17 @@ export default function PhotoDocumentationPage() {
 
     if (projectId) {
       try {
-        await Promise.all(
-          newPhotos.map((p) =>
-            projectManagementService.uploadSitePhoto(projectId, {
+        // Persist each photo and adopt the server-assigned id so deletes can hit the backend.
+        const saved = await Promise.all(
+          newPhotos.map(async (p) => {
+            const row = await projectManagementService.uploadSitePhoto(projectId, {
               photoUrl: p.url,
               description: p.name,
-            })
-          )
+            });
+            return { ...p, id: row?.id ?? p.id };
+          })
         );
-        setPhotos((prev) => [...newPhotos, ...prev]);
+        setPhotos((prev) => [...saved, ...prev]);
         toast({
           title: "Photos Uploaded",
           description: `Successfully uploaded ${fileArr.length} photo(s).`,
@@ -140,16 +155,27 @@ export default function PhotoDocumentationPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    // BACKEND GAP: mobile-api has no photo-DELETE endpoint, so this cannot be
-    // persisted server-side. Guard with a confirm and remove from the local
-    // gallery only. If a real DELETE route is added, call it here then reload.
+  const handleDelete = async (id: string) => {
     if (!window.confirm('Remove this photo from the gallery?')) return;
-    setPhotos((prev) => prev.filter(p => p.id !== id));
-    toast({
-      title: "Photo Removed",
-      description: "The photo has been removed from the gallery.",
-    });
+    try {
+      // Persist the deletion server-side (DELETE /mobile-api/photo/:id) then reload the gallery.
+      await projectManagementService.deleteSitePhoto(id);
+      if (projectId) {
+        await loadProjectData(projectId);
+      } else {
+        setPhotos((prev) => prev.filter(p => p.id !== id));
+      }
+      toast({
+        title: "Photo Removed",
+        description: "The photo has been deleted.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Could not delete the photo.",
+      });
+    }
   };
 
   return (

@@ -160,12 +160,51 @@ export default function MaterialConsumptionPage() {
   setSelectedConsumption(null);
  };
 
- // NOTE: no bulk/import endpoint exists for material consumption on the NestJS
- // backend (only single POST create). The Bulk Upload action is disabled below
- // until a server-side bulk/parse endpoint is available. Kept as a no-op so the
- // modal contract stays satisfied without faking a batch call.
- const handleBulkUpload = (_data: any) => {
-  setShowBulkUploadModal(false);
+ // Bulk import: parse the selected CSV file (header row + rows) and POST every
+ // row in one call to /material-consumption/bulk, then reload the table.
+ const parseCsv = (text: string): Record<string, string>[] => {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const splitRow = (line: string) =>
+   line.split(',').map((c) => c.trim().replace(/^"(.*)"$/, '$1'));
+  const headers = splitRow(lines[0]);
+  return lines.slice(1).map((line) => {
+   const cells = splitRow(line);
+   const row: Record<string, string> = {};
+   headers.forEach((h, i) => { row[h] = cells[i] ?? ''; });
+   return row;
+  });
+ };
+
+ const numeric = new Set([
+  'plannedQty', 'consumedQty', 'variance', 'variancePercent', 'unitCost', 'totalCost',
+ ]);
+
+ const handleBulkUpload = async (data: any) => {
+  const file: File | undefined = data?.file;
+  if (!file) { setShowBulkUploadModal(false); return; }
+  setSubmitting(true);
+  try {
+   const text = await file.text();
+   const rows = parseCsv(text);
+   if (rows.length === 0) throw new Error('No data rows found in the file.');
+   const items = rows.map((r) => {
+    const item: Record<string, unknown> = {};
+    Object.entries(r).forEach(([k, v]) => {
+     if (v === '') return;
+     item[k] = numeric.has(k) ? Number(v) : v;
+    });
+    return item;
+   });
+   const saved = await projectManagementService.bulkCreateMaterialConsumption(items as any);
+   loadConsumptions();
+   setShowBulkUploadModal(false);
+   alert(`Imported ${saved.length} record(s).`);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Bulk upload failed. Please check the file format.');
+  } finally {
+   setSubmitting(false);
+  }
  };
 
  const handleExport = (_data: any) => {
@@ -275,9 +314,8 @@ export default function MaterialConsumptionPage() {
      </button>
      <button
       onClick={() => setShowBulkUploadModal(true)}
-      disabled
-      title="Bulk upload not yet available — no server-side bulk/import endpoint. Add records individually."
-      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg shadow-sm opacity-50 cursor-not-allowed"
+      title="Upload multiple consumption records from a CSV file"
+      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 shadow-sm"
      >
       <Upload className="h-4 w-4" />
       <span>Bulk Upload</span>

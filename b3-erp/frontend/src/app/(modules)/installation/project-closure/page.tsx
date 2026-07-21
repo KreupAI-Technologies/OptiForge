@@ -85,9 +85,12 @@ function ProjectClosurePageContent() {
         if (!selectedProject) return;
         setIsSubmitting(true);
         try {
-            // NOTE: the closure endpoint (POST /api/project-closure/initiate/:projectId)
-            // takes no body — the captured rating/feedback are not persisted server-side.
-            await projectManagementService.initiateProjectClosure(selectedProject.id);
+            // Persist the internal closure rating + feedback alongside the handover
+            // certificate (POST /api/project-closure/initiate/:projectId accepts { rating, feedback }).
+            await projectManagementService.initiateProjectClosure(selectedProject.id, {
+                rating,
+                feedback,
+            });
             setClosed(true);
             toast({
                 title: 'Project Closed',

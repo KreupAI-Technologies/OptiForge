@@ -38,6 +38,12 @@ export class HandoverCertificate {
     @Column({ name: 'certificate_url', type: 'varchar', nullable: true })
     certificateUrl: string;
 
+    @Column({ name: 'closure_rating', type: 'int', nullable: true })
+    closureRating: number;
+
+    @Column({ name: 'closure_feedback', type: 'text', nullable: true })
+    closureFeedback: string;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 

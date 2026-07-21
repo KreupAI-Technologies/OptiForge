@@ -1107,6 +1107,24 @@ class ItAdminServiceClass {
     });
   }
 
+  async pauseImport(id: string): Promise<BackupRecordDto> {
+    return request<BackupRecordDto>(`/it-admin/backup-records/${id}/pause`, {
+      method: 'POST',
+    });
+  }
+
+  async resumeImport(id: string): Promise<BackupRecordDto> {
+    return request<BackupRecordDto>(`/it-admin/backup-records/${id}/resume`, {
+      method: 'POST',
+    });
+  }
+
+  async retryImport(id: string): Promise<BackupRecordDto> {
+    return request<BackupRecordDto>(`/it-admin/backup-records/${id}/retry`, {
+      method: 'POST',
+    });
+  }
+
   async deleteBackupRecord(id: string): Promise<void> {
     return request<void>(`/it-admin/backup-records/${id}`, {
       method: 'DELETE',

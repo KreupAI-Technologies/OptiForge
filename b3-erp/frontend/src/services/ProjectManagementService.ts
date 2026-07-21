@@ -2070,6 +2070,16 @@ class ProjectManagementService {
         return this.pmModulePost<any>(`/mobile-api/upload-photo/${projectId}`, data);
     }
 
+    /** List persisted site photos for a project (mobile-api). */
+    listSitePhotos(projectId: string): Promise<any[]> {
+        return this.pmModuleGet<any[]>(`/mobile-api/photos/${projectId}`);
+    }
+
+    /** Delete a persisted site photo (mobile-api). */
+    deleteSitePhoto(id: string): Promise<any> {
+        return this.pmModuleDelete<any>(`/mobile-api/photo/${id}`);
+    }
+
     async getSiteMeasurements(projectId: string): Promise<RoomMeasurements[]> {
         try {
             const response = await apiClient.get<RoomMeasurements[]>(`/site-measurements?projectId=${projectId}`);
@@ -2680,6 +2690,22 @@ class ProjectManagementService {
     createMaterialConsumption(data: Partial<PmMaterialConsumption>) { return this.pmCreate<PmMaterialConsumption>('material-consumption', data); }
     updateMaterialConsumption(id: string, data: Partial<PmMaterialConsumption>) { return this.pmUpdate<PmMaterialConsumption>('material-consumption', id, data); }
     deleteMaterialConsumption(id: string) { return this.pmDelete('material-consumption', id); }
+    /** Persist multiple consumption records in one call (POST /material-consumption/bulk). */
+    async bulkCreateMaterialConsumption(items: Partial<PmMaterialConsumption>[]): Promise<PmMaterialConsumption[]> {
+        try {
+            const res = await fetchWithAuth(`${API_BASE_URL}/project-management/material-consumption/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items }),
+            });
+            if (!res.ok) throw new Error(`Bulk create material-consumption failed: ${res.status}`);
+            const data = await res.json();
+            return Array.isArray(data) ? (data as PmMaterialConsumption[]) : [];
+        } catch (error) {
+            console.error('Error bulk-creating material consumption:', error);
+            throw error;
+        }
+    }
 
     // Labor tracking
     listLaborEntries(companyId = 'default') { return this.pmList<PmLaborEntry>('labor-tracking', companyId); }
@@ -3230,6 +3256,22 @@ class ProjectManagementService {
         }
     }
 
+    private async pmModuleDelete<T>(path: string): Promise<T | null> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetchWithAuth(`${API_BASE_URL}${path}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const text = await res.text();
+            return text ? (JSON.parse(text) as T) : null;
+        } catch (error) {
+            console.error(`Error deleting ${path}:`, error);
+            throw error;
+        }
+    }
+
     /** Fetch the daily install progress reports for a project (empty-safe). */
     async getInstallDailyReports(projectId: string): Promise<any[]> {
         try {
@@ -3277,9 +3319,10 @@ class ProjectManagementService {
         return this.pmModulePost<any>('/project-management/tools/issue', data);
     }
 
-    /** Initiate project handover / closure and get a handover certificate. */
-    initiateProjectClosure(projectId: string): Promise<any> {
-        return this.pmModulePost<any>(`/api/project-closure/initiate/${projectId}`, {});
+    /** Initiate project handover / closure and get a handover certificate.
+     *  Optionally persists an internal closure rating + feedback. */
+    initiateProjectClosure(projectId: string, feedback?: { rating?: number; feedback?: string }): Promise<any> {
+        return this.pmModulePost<any>(`/api/project-closure/initiate/${projectId}`, feedback ?? {});
     }
 
     /** Sign an existing handover certificate. */

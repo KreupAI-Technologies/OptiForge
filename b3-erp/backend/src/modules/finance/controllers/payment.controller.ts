@@ -211,4 +211,54 @@ export class PaymentController {
   async cancel(@Param('id') id: string): Promise<PaymentResponseDto> {
     return this.paymentService.cancel(id);
   }
+
+  @Post(':id/refund')
+  @ApiOperation({ summary: 'Refund payment' })
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Payment refunded successfully',
+    type: PaymentResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Payment not in a refundable status or invalid amount',
+  })
+  async refund(
+    @Param('id') id: string,
+    @Body() body: { amount?: number; reason?: string },
+  ): Promise<PaymentResponseDto> {
+    return this.paymentService.refund(id, body);
+  }
+
+  @Post(':id/mark-failed')
+  @ApiOperation({ summary: 'Mark payment as failed' })
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Payment marked as failed',
+    type: PaymentResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Payment not in a pending/processing status',
+  })
+  async markFailed(
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ): Promise<PaymentResponseDto> {
+    return this.paymentService.markFailed(id, reason);
+  }
+
+  @Get(':id/receipt')
+  @ApiOperation({ summary: 'Get payment receipt' })
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Payment receipt',
+  })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Payment not found' })
+  async getReceipt(@Param('id') id: string): Promise<Record<string, any>> {
+    return this.paymentService.getReceipt(id);
+  }
 }

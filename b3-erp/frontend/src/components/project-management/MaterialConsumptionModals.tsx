@@ -632,13 +632,16 @@ export function BulkUploadModal({ isOpen, onClose, onUpload }: BulkUploadModalPr
         </div>
 
         <div className="p-6">
-          <p className="text-gray-600 mb-2">Upload multiple consumption records from file</p>
+          <p className="text-gray-600 mb-2">Upload multiple consumption records from a CSV file</p>
+          <p className="text-xs text-gray-500 mb-2">
+            First row must be a header of field names (e.g. projectName, materialCode, materialName, unit, plannedQty, consumedQty, unitCost, totalCost, status).
+          </p>
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <Upload className="w-12 h-12 text-gray-400 mb-2" />
-            <p className="text-sm text-gray-600 mb-2">Drop your file here or click to browse</p>
+            <p className="text-sm text-gray-600 mb-2">Drop your CSV file here or click to browse</p>
             <input
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".csv"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />

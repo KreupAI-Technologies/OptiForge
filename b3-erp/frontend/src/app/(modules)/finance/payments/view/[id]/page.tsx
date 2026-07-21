@@ -237,6 +237,81 @@ export default function PaymentViewPage() {
     }
   };
 
+  const handleRefund = async () => {
+    if (!paymentId) return;
+    if (
+      !window.confirm(
+        'Refund this payment in full? This will set the payment status to Refunded.',
+      )
+    )
+      return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      // Full-amount refund (amount omitted => backend defaults to full payment amount).
+      await FinanceService.refundPayment(paymentId, {
+        reason: 'Full refund issued from payment view',
+      });
+      setReloadKey((k) => k + 1);
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to refund payment');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!paymentId) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const receipt = await FinanceService.getPaymentReceipt(paymentId);
+      const receiptNumber =
+        receipt?.receiptNumber || `RCP-${payment.paymentNumber || paymentId}`;
+      // Render a printable receipt into a new window; fall back to a downloadable
+      // JSON blob if pop-ups are blocked.
+      const lines = Object.entries(receipt || {}).map(
+        ([k, v]) => `${k}: ${v == null ? '' : String(v)}`,
+      );
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${receiptNumber}</title>
+<style>body{font-family:system-ui,Arial,sans-serif;padding:24px;color:#111}
+h1{font-size:18px;margin:0 0 16px}table{border-collapse:collapse;width:100%}
+td{padding:6px 8px;border-bottom:1px solid #eee;font-size:14px}
+td.k{font-weight:600;width:200px;text-transform:capitalize;color:#555}</style></head>
+<body><h1>Payment Receipt — ${receiptNumber}</h1><table>${Object.entries(
+        receipt || {},
+      )
+        .map(
+          ([k, v]) =>
+            `<tr><td class="k">${k}</td><td>${
+              v == null ? '' : String(v)
+            }</td></tr>`,
+        )
+        .join('')}</table>
+<script>window.onload=function(){window.print();}</script></body></html>`;
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      } else {
+        const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${receiptNumber}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to download receipt');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     if (!paymentId) {
@@ -425,9 +500,9 @@ export default function PaymentViewPage() {
               <span>Edit</span>
             </button>
             <button
-              disabled
-              title="Receipt download is not available yet (no backend endpoint)."
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed"
+              onClick={handleDownloadReceipt}
+              disabled={actionLoading}
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               <span>Download Receipt</span>
@@ -1002,9 +1077,9 @@ export default function PaymentViewPage() {
         )}
         {payment.status === 'completed' && (
           <button
-            disabled
-            title="Refunds are not available yet (no backend endpoint)."
-            className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg opacity-50 cursor-not-allowed"
+            onClick={handleRefund}
+            disabled={actionLoading}
+            className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
           >
             <RefreshCw className="h-4 w-4" />
             <span>Refund Payment</span>
@@ -1021,9 +1096,9 @@ export default function PaymentViewPage() {
           </button>
         )}
         <button
-          disabled
-          title="Receipt download is not available yet (no backend endpoint)."
-          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed"
+          onClick={handleDownloadReceipt}
+          disabled={actionLoading}
+          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
         >
           <Receipt className="h-4 w-4" />
           <span>Download Receipt</span>

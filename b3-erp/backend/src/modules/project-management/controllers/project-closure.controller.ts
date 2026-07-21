@@ -11,8 +11,11 @@ export class ProjectClosureController {
     }
 
     @Post('initiate/:projectId')
-    initiateHandover(@Param('projectId') projectId: string) {
-        return this.service.initiateHandover(projectId);
+    initiateHandover(
+        @Param('projectId') projectId: string,
+        @Body() body?: { rating?: number; feedback?: string },
+    ) {
+        return this.service.initiateHandover(projectId, body);
     }
 
     @Patch('sign/:id')

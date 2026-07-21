@@ -1989,6 +1989,33 @@ export class FinanceService {
     });
     return res && typeof res === 'object' && 'data' in res ? res.data : res;
   }
+
+  static async refundPayment(
+    id: string,
+    payload?: { amount?: number; reason?: string },
+  ): Promise<any> {
+    const res = await this.request<any>(`/finance/payments/${id}/refund`, {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async markPaymentFailed(
+    id: string,
+    payload?: { reason?: string },
+  ): Promise<any> {
+    const res = await this.request<any>(`/finance/payments/${id}/mark-failed`, {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    });
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
+
+  static async getPaymentReceipt(id: string): Promise<any> {
+    const res = await this.request<any>(`/finance/payments/${id}/receipt`);
+    return res && typeof res === 'object' && 'data' in res ? res.data : res;
+  }
 }
 
 // Export singleton instance

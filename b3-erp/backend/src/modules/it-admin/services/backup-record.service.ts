@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BackupRecord } from '../entities/backup-record.entity';
@@ -52,6 +56,47 @@ export class BackupRecordService {
     const item = await this.findOne(id);
     item.status = 'restored';
     item.completedAt = new Date().toISOString();
+    return this.repository.save(item);
+  }
+
+  /**
+   * Pauses a running import job. Control-plane status transition only:
+   * an active job (running/in_progress/importing) is moved to 'paused'.
+   */
+  async pause(id: string): Promise<BackupRecord> {
+    const item = await this.findOne(id);
+    const active = ['running', 'in_progress', 'importing'];
+    if (!active.includes(item.status)) {
+      throw new BadRequestException(
+        `Cannot pause backup record ${id} in status '${item.status}'`,
+      );
+    }
+    item.status = 'paused';
+    return this.repository.save(item);
+  }
+
+  /**
+   * Resumes a paused import job, returning it to the active 'running' status.
+   */
+  async resume(id: string): Promise<BackupRecord> {
+    const item = await this.findOne(id);
+    if (item.status !== 'paused') {
+      throw new BadRequestException(
+        `Cannot resume backup record ${id} in status '${item.status}'`,
+      );
+    }
+    item.status = 'running';
+    return this.repository.save(item);
+  }
+
+  /**
+   * Re-queues a failed or paused import job by setting it back to 'running'
+   * and clearing the completion timestamp so the run starts fresh.
+   */
+  async retry(id: string): Promise<BackupRecord> {
+    const item = await this.findOne(id);
+    item.status = 'running';
+    item.completedAt = null as unknown as string;
     return this.repository.save(item);
   }
 }

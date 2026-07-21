@@ -59,6 +59,24 @@ export class BackupRecordController {
     return this.service.restore(id);
   }
 
+  @Post(':id/pause')
+  @ApiOperation({ summary: 'Pause a running import/backup job' })
+  async pause(@Param('id') id: string): Promise<BackupRecord> {
+    return this.service.pause(id);
+  }
+
+  @Post(':id/resume')
+  @ApiOperation({ summary: 'Resume a paused import/backup job' })
+  async resume(@Param('id') id: string): Promise<BackupRecord> {
+    return this.service.resume(id);
+  }
+
+  @Post(':id/retry')
+  @ApiOperation({ summary: 'Retry (re-queue) a failed or paused import/backup job' })
+  async retry(@Param('id') id: string): Promise<BackupRecord> {
+    return this.service.retry(id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete backup record' })

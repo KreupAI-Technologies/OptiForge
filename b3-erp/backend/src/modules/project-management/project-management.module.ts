@@ -78,6 +78,7 @@ import { InstallationTask } from './entities/installation-task.entity';
 import { HandoverCertificate } from './entities/handover-certificate.entity';
 import { ToolDeployment } from './entities/tool-deployment.entity';
 import { DailyInstallReport } from './entities/daily-install-report.entity';
+import { SitePhotoEntity } from './entities/site-photo.entity';
 import { InstallationTeamAssignment } from './entities/installation-team-assignment.entity';
 import { HandoverChecklistStep } from './entities/handover-checklist-step.entity';
 import { InstallationChecklistItem } from './entities/installation-checklist-item.entity';
@@ -307,6 +308,7 @@ import { PmProjectCategoriesService } from './services/pm-project-categories.ser
         HandoverCertificate,
         ToolDeployment,
         DailyInstallReport,
+        SitePhotoEntity,
         InstallationTeamAssignment,
         HandoverChecklistStep,
         InstallationChecklistItem,
