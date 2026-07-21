@@ -504,6 +504,33 @@ export interface DocumentTemplateDto {
   updatedAt?: string;
 }
 
+export interface TwoFactorSettingDto {
+  id: string;
+  companyId?: string;
+  enabled: boolean;
+  required: boolean;
+  allowedMethods?: string[];
+  gracePeriodDays: number;
+  config?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TwoFactorEnrollmentStatusDto {
+  id: string;
+  userId: string;
+  userName: string;
+  email: string;
+  department: string;
+  role: string;
+  status: string; // Enrolled | Pending | Not Enrolled
+  method: string;
+  enrolled: boolean;
+  enrolledDate: string;
+  lastVerifiedAt: string | null;
+  backupCodes: number;
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -1198,6 +1225,70 @@ class ItAdminServiceClass {
     return request<void>(`/it-admin/templates/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // --- Two-Factor Authentication (2FA) ---
+  async getTwoFactorSettings(
+    companyId?: string,
+  ): Promise<TwoFactorSettingDto> {
+    return request<TwoFactorSettingDto>(
+      `/it-admin/two-factor/settings${qs({ companyId })}`,
+    );
+  }
+
+  async saveTwoFactorSettings(
+    data: Partial<TwoFactorSettingDto>,
+    companyId?: string,
+  ): Promise<TwoFactorSettingDto> {
+    return request<TwoFactorSettingDto>(
+      `/it-admin/two-factor/settings${qs({ companyId })}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
+  async getTwoFactorEnrollments(
+    companyId?: string,
+  ): Promise<TwoFactorEnrollmentStatusDto[]> {
+    return request<TwoFactorEnrollmentStatusDto[]>(
+      `/it-admin/two-factor/enrollments${qs({ companyId })}`,
+    );
+  }
+
+  async sendTwoFactorReminder(
+    userId: string,
+    companyId?: string,
+  ): Promise<{ message: string; sentAt: string }> {
+    return request<{ message: string; sentAt: string }>(
+      `/it-admin/two-factor/enrollments/${userId}/reminder${qs({ companyId })}`,
+      { method: 'POST' },
+    );
+  }
+
+  async resetTwoFactor(
+    userId: string,
+    companyId?: string,
+  ): Promise<TwoFactorEnrollmentStatusDto> {
+    return request<TwoFactorEnrollmentStatusDto>(
+      `/it-admin/two-factor/enrollments/${userId}/reset${qs({ companyId })}`,
+      { method: 'POST' },
+    );
+  }
+
+  async generateTwoFactorBackupCodes(
+    userId: string,
+    count?: number,
+    companyId?: string,
+  ): Promise<{ codes: string[]; generatedAt: string }> {
+    return request<{ codes: string[]; generatedAt: string }>(
+      `/it-admin/two-factor/enrollments/${userId}/backup-codes${qs({ companyId })}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ count }),
+      },
+    );
   }
 }
 

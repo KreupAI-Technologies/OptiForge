@@ -38,6 +38,8 @@ import { ApiEndpoint } from './entities/api-endpoint.entity';
 import { BackupRecord } from './entities/backup-record.entity';
 import { ExportDataset } from './entities/export-dataset.entity';
 import { SystemMonitor } from './entities/system-monitor.entity';
+import { TwoFactorSetting } from './entities/two-factor-setting.entity';
+import { TwoFactorEnrollment } from './entities/two-factor-enrollment.entity';
 
 // Services
 import { UserService } from './services/user.service';
@@ -72,6 +74,7 @@ import { ApiEndpointService } from './services/api-endpoint.service';
 import { BackupRecordService } from './services/backup-record.service';
 import { ExportDatasetService } from './services/export-dataset.service';
 import { SystemMonitorService } from './services/system-monitor.service';
+import { TwoFactorService } from './services/two-factor.service';
 
 // Seeders
 import { RoleSeederService } from './services/role-seeder.service';
@@ -112,6 +115,7 @@ import { ApiEndpointController } from './controllers/api-endpoint.controller';
 import { BackupRecordController } from './controllers/backup-record.controller';
 import { ExportDatasetController } from './controllers/export-dataset.controller';
 import { SystemMonitorController } from './controllers/system-monitor.controller';
+import { TwoFactorController } from './controllers/two-factor.controller';
 
 @Module({
   imports: [
@@ -150,6 +154,8 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
       ExportDataset,
       SystemMonitor,
       ComplianceRequirement,
+      TwoFactorSetting,
+      TwoFactorEnrollment,
     ]),
   ],
   controllers: [
@@ -183,6 +189,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
     ExportDatasetController,
     SystemMonitorController,
     ComplianceRequirementController,
+    TwoFactorController,
   ],
   providers: [
     UserService,
@@ -219,6 +226,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
     ExportDatasetService,
     SystemMonitorService,
     ComplianceRequirementService,
+    TwoFactorService,
     // Seeders
     RoleSeederService,
     PermissionSeederService,

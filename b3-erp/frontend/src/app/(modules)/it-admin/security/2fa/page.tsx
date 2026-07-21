@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Shield, Smartphone, Key, QrCode, CheckCircle2, XCircle, Clock, AlertTriangle, Mail, MessageSquare, Settings, Users, Download, X, BarChart3, Eye, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
-import { ItAdminService } from '@/services/it-admin.service';
+import { ItAdminService, type TwoFactorEnrollmentStatusDto } from '@/services/it-admin.service';
 
 interface TwoFactorSettings {
   enabled: boolean;
@@ -116,147 +116,61 @@ const TwoFactorAuthPage = () => {
     },
   });
 
+  const mapEnrollment = (e: TwoFactorEnrollmentStatusDto): UserTwoFactorStatus => ({
+    id: e.id,
+    userId: e.userId,
+    userName: e.userName,
+    email: e.email,
+    department: e.department,
+    role: e.role,
+    status: e.status,
+    method: e.method,
+    enrolledDate: e.enrolledDate,
+    lastUsed: e.lastVerifiedAt ? e.lastVerifiedAt.replace('T', ' ').slice(0, 16) : '-',
+    backupCodes: e.backupCodes,
+    deviceCount: e.enrolled ? 1 : 0,
+    failedAttempts: 0,
+  });
+
+  const [userStatuses, setUserStatuses] = useState<UserTwoFactorStatus[]>([]);
+
+  const refetchEnrollments = async () => {
+    try {
+      const rows = await ItAdminService.getTwoFactorEnrollments();
+      setUserStatuses(rows.map(mapEnrollment));
+    } catch {
+      // leave list as-is on failure
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const dto = await ItAdminService.getPasswordPolicy();
+        const dto = await ItAdminService.getTwoFactorSettings();
         if (!mounted || !dto) return;
+        const cfg = (dto.config ?? {}) as Partial<TwoFactorSettings>;
         setSettings((prev) => ({
           ...prev,
-          mandatory: dto.mfaRequired ?? prev.mandatory,
+          ...cfg,
+          enabled: dto.enabled ?? prev.enabled,
+          mandatory: dto.required ?? prev.mandatory,
+          enforcement: {
+            ...prev.enforcement,
+            ...(cfg.enforcement ?? {}),
+            gracePeriod: dto.gracePeriodDays ?? prev.enforcement.gracePeriod,
+          },
         }));
       } catch {
-        // keep defaults if policy not found
+        // keep defaults if settings not found
       }
+      if (mounted) await refetchEnrollments();
     })();
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const [userStatuses] = useState<UserTwoFactorStatus[]>([
-    {
-      id: '1',
-      userId: 'USR001',
-      userName: 'Rajesh Kumar',
-      email: 'rajesh.kumar@company.com',
-      department: 'IT',
-      role: 'Admin',
-      status: 'Enrolled',
-      method: 'Authenticator App',
-      enrolledDate: '2025-09-01',
-      lastUsed: '2025-10-21 09:15',
-      backupCodes: 8,
-      deviceCount: 2,
-      failedAttempts: 0,
-    },
-    {
-      id: '2',
-      userId: 'USR002',
-      userName: 'Priya Sharma',
-      email: 'priya.sharma@company.com',
-      department: 'HR',
-      role: 'HR Manager',
-      status: 'Enrolled',
-      method: 'SMS',
-      enrolledDate: '2025-09-15',
-      lastUsed: '2025-10-21 08:30',
-      backupCodes: 10,
-      deviceCount: 1,
-      failedAttempts: 0,
-    },
-    {
-      id: '3',
-      userId: 'USR003',
-      userName: 'Amit Patel',
-      email: 'amit.patel@company.com',
-      department: 'Finance',
-      role: 'Finance Manager',
-      status: 'Pending',
-      method: 'Not Set',
-      enrolledDate: '-',
-      lastUsed: '-',
-      backupCodes: 0,
-      deviceCount: 0,
-      failedAttempts: 0,
-    },
-    {
-      id: '4',
-      userId: 'USR004',
-      userName: 'Sneha Reddy',
-      email: 'sneha.reddy@company.com',
-      department: 'Sales',
-      role: 'Sales Executive',
-      status: 'Not Enrolled',
-      method: 'Not Set',
-      enrolledDate: '-',
-      lastUsed: '-',
-      backupCodes: 0,
-      deviceCount: 0,
-      failedAttempts: 0,
-    },
-    {
-      id: '5',
-      userId: 'USR005',
-      userName: 'Vikram Singh',
-      email: 'vikram.singh@company.com',
-      department: 'Operations',
-      role: 'Operations Manager',
-      status: 'Enrolled',
-      method: 'Email',
-      enrolledDate: '2025-08-20',
-      lastUsed: '2025-10-20 16:45',
-      backupCodes: 7,
-      deviceCount: 1,
-      failedAttempts: 1,
-    },
-    {
-      id: '6',
-      userId: 'USR006',
-      userName: 'Anjali Desai',
-      email: 'anjali.desai@company.com',
-      department: 'Marketing',
-      role: 'Marketing Manager',
-      status: 'Enrolled',
-      method: 'Authenticator App',
-      enrolledDate: '2025-09-10',
-      lastUsed: '2025-10-21 10:00',
-      backupCodes: 9,
-      deviceCount: 2,
-      failedAttempts: 0,
-    },
-    {
-      id: '7',
-      userId: 'USR007',
-      userName: 'Rahul Mehta',
-      email: 'rahul.mehta@company.com',
-      department: 'IT',
-      role: 'IT Manager',
-      status: 'Enrolled',
-      method: 'Authenticator App',
-      enrolledDate: '2025-08-01',
-      lastUsed: '2025-10-21 07:30',
-      backupCodes: 10,
-      deviceCount: 3,
-      failedAttempts: 0,
-    },
-    {
-      id: '8',
-      userId: 'USR008',
-      userName: 'Deepika Rao',
-      email: 'deepika.rao@company.com',
-      department: 'Production',
-      role: 'Production Supervisor',
-      status: 'Pending',
-      method: 'Not Set',
-      enrolledDate: '-',
-      lastUsed: '-',
-      backupCodes: 0,
-      deviceCount: 0,
-      failedAttempts: 0,
-    },
-  ]);
 
   const stats: TwoFactorStats = {
     totalUsers: userStatuses.length,
@@ -301,26 +215,67 @@ const TwoFactorAuthPage = () => {
 
   const handleSaveSettings = async () => {
     try {
-      await ItAdminService.savePasswordPolicy({ mfaRequired: settings.mandatory });
+      const allowedMethods = [
+        settings.methods.app.enabled ? 'app' : null,
+        settings.methods.sms.enabled ? 'sms' : null,
+        settings.methods.email.enabled ? 'email' : null,
+        settings.methods.backup.enabled ? 'backup' : null,
+      ].filter((m): m is string => m !== null);
+      await ItAdminService.saveTwoFactorSettings({
+        enabled: settings.enabled,
+        required: settings.mandatory,
+        gracePeriodDays: settings.enforcement.gracePeriod,
+        allowedMethods,
+        // Persist the full UI structure so it round-trips on reload.
+        config: {
+          methods: settings.methods,
+          enforcement: settings.enforcement,
+          recovery: settings.recovery,
+        },
+      });
       setToast({ message: '2FA settings saved successfully!', type: 'success' });
     } catch {
       setToast({ message: 'Failed to save 2FA settings. Please try again.', type: 'error' });
     }
   };
 
-  const handleSendReminder = (userId: string) => {
+  const handleSendReminder = async (userId: string) => {
     const user = userStatuses.find(u => u.userId === userId);
-    setToast({ message: `Enrollment reminder sent to ${user?.userName}`, type: 'info' });
+    try {
+      await ItAdminService.sendTwoFactorReminder(userId);
+      setToast({ message: `Enrollment reminder sent to ${user?.userName ?? userId}`, type: 'info' });
+      await refetchEnrollments();
+    } catch {
+      setToast({ message: 'Failed to send reminder. Please try again.', type: 'error' });
+    }
   };
 
-  const handleResetTwoFactor = (userId: string) => {
+  const handleResetTwoFactor = async (userId: string) => {
     const user = userStatuses.find(u => u.userId === userId);
-    setToast({ message: `2FA reset for ${user?.userName}. They will need to re-enroll.`, type: 'success' });
+    try {
+      await ItAdminService.resetTwoFactor(userId);
+      setToast({ message: `2FA reset for ${user?.userName ?? userId}. They will need to re-enroll.`, type: 'success' });
+      await refetchEnrollments();
+    } catch {
+      setToast({ message: 'Failed to reset 2FA. Please try again.', type: 'error' });
+    }
   };
 
-  const handleGenerateBackupCodes = (userId: string) => {
+  const handleGenerateBackupCodes = async (userId: string) => {
     const user = userStatuses.find(u => u.userId === userId);
-    setToast({ message: `New backup codes generated for ${user?.userName}`, type: 'success' });
+    try {
+      const res = await ItAdminService.generateTwoFactorBackupCodes(
+        userId,
+        settings.methods.backup.codesCount,
+      );
+      setToast({
+        message: `Generated ${res.codes.length} backup codes for ${user?.userName ?? userId}: ${res.codes.join(', ')}`,
+        type: 'success',
+      });
+      await refetchEnrollments();
+    } catch {
+      setToast({ message: 'Failed to generate backup codes. Please try again.', type: 'error' });
+    }
   };
 
   const handleExportReport = () => {

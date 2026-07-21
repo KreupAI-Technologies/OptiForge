@@ -115,6 +115,7 @@ const MIGRATION_ORDER: string[] = [
     'orphan_hr_kpi_master.sql',
     'orphan_hr_training_budget.sql',
     'orphan_hr_review_cycle.sql',
+    'orphan_it_admin_two_factor.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {
