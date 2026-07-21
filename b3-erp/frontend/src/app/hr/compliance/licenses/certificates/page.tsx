@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { FileCheck, Search, CheckCircle, Download, Eye, Upload } from 'lucide-react';
 import { HrComplianceDocsService, ComplianceLicense } from '@/services/hr-compliance-docs.service';
 
@@ -29,39 +29,68 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getLicenses('certificate');
-        if (!active) return;
-        const mapped: Certificate[] = rows.map((r: ComplianceLicense) => ({
-          id: r.id,
-          certificateName: r.name || '',
-          certificateNumber: r.number || '',
-          issuingAuthority: r.authority || '',
-          category: (r.category as Certificate['category']) || 'other',
-          issueDate: r.issueDate || '',
-          validUntil: r.validUntil,
-          status: (r.status as Certificate['status']) || 'valid',
-          location: r.location || '',
-          relatedLicense: r.relatedLicense,
-          documentUrl: r.documentUrl,
-          verifiedBy: r.verifiedBy,
-          verificationDate: r.verificationDate,
-          remarks: r.remarks,
-        }));
-        setCertificates(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load certificates');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getLicenses('certificate');
+      const mapped: Certificate[] = rows.map((r: ComplianceLicense) => ({
+        id: r.id,
+        certificateName: r.name || '',
+        certificateNumber: r.number || '',
+        issuingAuthority: r.authority || '',
+        category: (r.category as Certificate['category']) || 'other',
+        issueDate: r.issueDate || '',
+        validUntil: r.validUntil,
+        status: (r.status as Certificate['status']) || 'valid',
+        location: r.location || '',
+        relatedLicense: r.relatedLicense,
+        documentUrl: r.documentUrl,
+        verifiedBy: r.verifiedBy,
+        verificationDate: r.verificationDate,
+        remarks: r.remarks,
+      }));
+      setCertificates(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load certificates');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<{ name: string; number: string; authority: string; issueDate: string; validUntil: string; status: string; documentUrl: string; verifiedBy: string }>({
+    name: '', number: '', authority: '', issueDate: '', validUntil: '', status: 'valid', documentUrl: '', verifiedBy: '',
+  });
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createLicense({
+        recordType: 'certificate',
+        name: form.name,
+        number: form.number || undefined,
+        authority: form.authority || undefined,
+        issueDate: form.issueDate || undefined,
+        validUntil: form.validUntil || undefined,
+        status: form.status || undefined,
+        documentUrl: form.documentUrl || undefined,
+        verifiedBy: form.verifiedBy || undefined,
+      });
+      setShowAdd(false);
+      setForm({ name: '', number: '', authority: '', issueDate: '', validUntil: '', status: 'valid', documentUrl: '', verifiedBy: '' });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add certificate');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const sourceCertificates = certificates;
 
@@ -99,12 +128,20 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <FileCheck className="h-6 w-6 text-green-600" />
-          Compliance Certificates
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Repository of compliance, inspection, and certification documents</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <FileCheck className="h-6 w-6 text-green-600" />
+            Compliance Certificates
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Repository of compliance, inspection, and certification documents</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+        >
+          Add Certificate
+        </button>
       </div>
 
       {loading && (
@@ -284,6 +321,56 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Certificate</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Certificate Number</label>
+                <input type="text" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Authority</label>
+                <input type="text" value={form.authority} onChange={(e) => setForm({ ...form, authority: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Verified By</label>
+                <input type="text" value={form.verifiedBy} onChange={(e) => setForm({ ...form, verifiedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
+                <input type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until</label>
+                <input type="date" value={form.validUntil} onChange={(e) => setForm({ ...form, validUntil: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="valid">Valid</option>
+                  <option value="expired">Expired</option>
+                  <option value="pending_verification">Pending Verification</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Document URL</label>
+                <input type="text" value={form.documentUrl} onChange={(e) => setForm({ ...form, documentUrl: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

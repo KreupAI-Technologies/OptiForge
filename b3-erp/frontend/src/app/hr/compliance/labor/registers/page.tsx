@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { BookOpen, Download, FileText, Users, Calendar, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { BookOpen, Download, FileText, Users, Calendar, CheckCircle, Plus } from 'lucide-react';
 import { HrComplianceDocsService, ComplianceRegister } from '@/services/hr-compliance-docs.service';
 
 interface StatutoryRegister {
@@ -25,38 +25,73 @@ export default function Page() {
   const [items, setItems] = useState<StatutoryRegister[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    registerName: '',
+    act: '',
+    formNumber: '',
+    applicability: '',
+    frequency: 'monthly',
+    responsibility: '',
+    format: 'both',
+    retentionPeriod: '',
+    status: 'up_to_date',
+  });
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getRegisters('register');
-        if (!active) return;
-        const mapped: StatutoryRegister[] = rows.map((r: ComplianceRegister) => ({
-          id: r.id,
-          registerName: r.registerName || '',
-          act: r.act || '',
-          formNumber: r.formNumber || '',
-          applicability: r.applicability || '',
-          frequency: (r.frequency as StatutoryRegister['frequency']) || 'monthly',
-          responsibility: r.responsibility || '',
-          lastUpdated: r.lastUpdated || '',
-          status: (r.status as StatutoryRegister['status']) || 'up_to_date',
-          totalEntries: r.totalEntries || 0,
-          format: (r.format as StatutoryRegister['format']) || 'both',
-          retentionPeriod: r.retentionPeriod || '',
-        }));
-        setItems(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load registers');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getRegisters('register');
+      const mapped: StatutoryRegister[] = rows.map((r: ComplianceRegister) => ({
+        id: r.id,
+        registerName: r.registerName || '',
+        act: r.act || '',
+        formNumber: r.formNumber || '',
+        applicability: r.applicability || '',
+        frequency: (r.frequency as StatutoryRegister['frequency']) || 'monthly',
+        responsibility: r.responsibility || '',
+        lastUpdated: r.lastUpdated || '',
+        status: (r.status as StatutoryRegister['status']) || 'up_to_date',
+        totalEntries: r.totalEntries || 0,
+        format: (r.format as StatutoryRegister['format']) || 'both',
+        retentionPeriod: r.retentionPeriod || '',
+      }));
+      setItems(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load registers');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createRegister({
+        entryType: 'register',
+        registerName: form.registerName || undefined,
+        act: form.act || undefined,
+        formNumber: form.formNumber || undefined,
+        applicability: form.applicability || undefined,
+        frequency: form.frequency || undefined,
+        responsibility: form.responsibility || undefined,
+        format: form.format || undefined,
+        retentionPeriod: form.retentionPeriod || undefined,
+        status: form.status || undefined,
+      });
+      setShowAdd(false);
+      setForm({ registerName: '', act: '', formNumber: '', applicability: '', frequency: 'monthly', responsibility: '', format: 'both', retentionPeriod: '', status: 'up_to_date' });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create register');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const sourceRegisters = items;
 
@@ -87,12 +122,21 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <BookOpen className="h-6 w-6 text-red-600" />
-          Statutory Labor Registers
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Maintain mandatory registers as per Indian labor laws</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <BookOpen className="h-6 w-6 text-red-600" />
+            Statutory Labor Registers
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Maintain mandatory registers as per Indian labor laws</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+        >
+          <Plus className="h-4 w-4" />
+          Add Register
+        </button>
       </div>
 
       {loading && (
@@ -248,6 +292,68 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Register</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Register Name</label>
+                <input value={form.registerName} onChange={(e) => setForm({ ...form, registerName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Act</label>
+                <input value={form.act} onChange={(e) => setForm({ ...form, act: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Form Number</label>
+                <input value={form.formNumber} onChange={(e) => setForm({ ...form, formNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Applicability</label>
+                <input value={form.applicability} onChange={(e) => setForm({ ...form, applicability: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="daily">Daily</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="ongoing">Ongoing</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Responsibility</label>
+                <input value={form.responsibility} onChange={(e) => setForm({ ...form, responsibility: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Format</label>
+                <select value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="physical">Physical</option>
+                  <option value="electronic">Electronic</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Retention Period</label>
+                <input value={form.retentionPeriod} onChange={(e) => setForm({ ...form, retentionPeriod: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="up_to_date">Up to Date</option>
+                  <option value="needs_update">Needs Update</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

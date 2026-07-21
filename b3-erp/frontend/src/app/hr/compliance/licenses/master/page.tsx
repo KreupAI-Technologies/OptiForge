@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Award, Search, CheckCircle, AlertCircle, Clock, FileText, Download } from 'lucide-react';
 import { HrComplianceDocsService, ComplianceLicense } from '@/services/hr-compliance-docs.service';
 
@@ -29,41 +29,69 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getLicenses('license');
-        if (!active) return;
-        const mapped: License[] = rows.map((r: ComplianceLicense) => ({
-          id: r.id,
-          licenseName: r.name || '',
-          licenseNumber: r.number || '',
-          authority: r.authority || '',
-          category: (r.category as License['category']) || 'other',
-          issueDate: r.issueDate || '',
-          expiryDate: r.expiryDate || '',
-          status: (r.status as License['status']) || 'active',
-          location: r.location || '',
-          applicableTo: r.applicableTo || '',
-          renewalFrequency: (r.renewalFrequency as License['renewalFrequency']) || 'annual',
-          lastRenewalDate: r.lastRenewalDate,
-          contactPerson: r.contactPerson || '',
-          remarks: r.remarks,
-        }));
-        setLicenses(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load licenses');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getLicenses('license');
+      const mapped: License[] = rows.map((r: ComplianceLicense) => ({
+        id: r.id,
+        licenseName: r.name || '',
+        licenseNumber: r.number || '',
+        authority: r.authority || '',
+        category: (r.category as License['category']) || 'other',
+        issueDate: r.issueDate || '',
+        expiryDate: r.expiryDate || '',
+        status: (r.status as License['status']) || 'active',
+        location: r.location || '',
+        applicableTo: r.applicableTo || '',
+        renewalFrequency: (r.renewalFrequency as License['renewalFrequency']) || 'annual',
+        lastRenewalDate: r.lastRenewalDate,
+        contactPerson: r.contactPerson || '',
+        remarks: r.remarks,
+      }));
+      setLicenses(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load licenses');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<{ name: string; number: string; authority: string; category: string; issueDate: string; expiryDate: string; status: string; location: string }>({
+    name: '', number: '', authority: '', category: 'labor', issueDate: '', expiryDate: '', status: 'active', location: '',
+  });
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createLicense({
+        recordType: 'license',
+        name: form.name,
+        number: form.number || undefined,
+        authority: form.authority || undefined,
+        category: form.category || undefined,
+        issueDate: form.issueDate || undefined,
+        expiryDate: form.expiryDate || undefined,
+        status: form.status || undefined,
+        location: form.location || undefined,
+      });
+      setShowAdd(false);
+      setForm({ name: '', number: '', authority: '', category: 'labor', issueDate: '', expiryDate: '', status: 'active', location: '' });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add license');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleInitiateRenewal = async (id: string) => {
     try {
@@ -126,12 +154,20 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Award className="h-6 w-6 text-amber-600" />
-          License Master
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Centralized repository of all compliance licenses and registrations</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Award className="h-6 w-6 text-amber-600" />
+            License Master
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Centralized repository of all compliance licenses and registrations</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+        >
+          Add License
+        </button>
       </div>
 
       {loading && (
@@ -343,6 +379,62 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add License</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
+                <input type="text" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Authority</label>
+                <input type="text" value={form.authority} onChange={(e) => setForm({ ...form, authority: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                  <option value="labor">Labor</option>
+                  <option value="factory">Factory</option>
+                  <option value="safety">Safety</option>
+                  <option value="environmental">Environmental</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
+                <input type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                <input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                  <option value="under_renewal">Under Renewal</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

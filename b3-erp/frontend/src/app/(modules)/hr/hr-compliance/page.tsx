@@ -35,6 +35,7 @@ import {
   type RemediationPlanRecord,
   type StatutoryReportSummary,
 } from '@/services/hr-compliance.service';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 // ============================================================================
 // Types
@@ -173,6 +174,115 @@ function ComplianceDashboardView({ dashboard }: { dashboard: ComplianceDashboard
 }
 
 // ============================================================================
+// Shared create-modal primitives (dark theme, matches section palette)
+// ============================================================================
+
+function CreateModal({
+  title,
+  saving,
+  error,
+  onClose,
+  onSave,
+  children,
+}: {
+  title: string;
+  saving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSave: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-lg rounded-lg border border-gray-700 bg-gray-800 shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-700 px-5 py-4">
+          <h3 className="text-lg font-semibold text-white">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+            <XCircle className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto px-5 py-4">
+          {children}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-700 px-5 py-4">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalField({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-gray-400">{label}</label>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+      />
+    </div>
+  );
+}
+
+function ModalSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-gray-400">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ============================================================================
 // Labor Laws Section
 // ============================================================================
 
@@ -180,13 +290,110 @@ function LaborLawsSection({
   trackers,
   registers,
   calendarEvents,
-  subTab
+  subTab,
+  onReloadTrackers,
+  onReloadRegisters,
+  onReloadCalendar,
 }: {
   trackers: ComplianceTracker[];
   registers: LaborRegister[];
   calendarEvents: ComplianceCalendarEvent[];
   subTab: LaborLawsSubTab;
+  onReloadTrackers: () => void;
+  onReloadRegisters: () => void;
+  onReloadCalendar: () => void;
 }) {
+  // --- Add Compliance (tracker) modal ---
+  const [showTracker, setShowTracker] = useState(false);
+  const [trackerSaving, setTrackerSaving] = useState(false);
+  const [trackerError, setTrackerError] = useState<string | null>(null);
+  const [trackerForm, setTrackerForm] = useState({ registerName: '', act: '', frequency: '', responsibility: '', nextDue: '' });
+
+  const saveTracker = async () => {
+    if (!trackerForm.registerName.trim()) { setTrackerError('Compliance name is required.'); return; }
+    setTrackerSaving(true);
+    setTrackerError(null);
+    try {
+      await HrComplianceDocsService.createRegister({
+        entryType: 'tracker',
+        registerName: trackerForm.registerName,
+        act: trackerForm.act || undefined,
+        frequency: trackerForm.frequency || undefined,
+        responsibility: trackerForm.responsibility || undefined,
+        nextDue: trackerForm.nextDue || undefined,
+        status: 'pending',
+      });
+      setShowTracker(false);
+      setTrackerForm({ registerName: '', act: '', frequency: '', responsibility: '', nextDue: '' });
+      onReloadTrackers();
+    } catch (e) {
+      setTrackerError('Failed to create compliance entry.');
+      console.error('Error creating compliance tracker:', e);
+    } finally {
+      setTrackerSaving(false);
+    }
+  };
+
+  // --- Add Register modal ---
+  const [showRegister, setShowRegister] = useState(false);
+  const [registerSaving, setRegisterSaving] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [registerForm, setRegisterForm] = useState({ registerName: '', act: '', formNumber: '', format: '', retentionPeriod: '' });
+
+  const saveRegister = async () => {
+    if (!registerForm.registerName.trim()) { setRegisterError('Register name is required.'); return; }
+    setRegisterSaving(true);
+    setRegisterError(null);
+    try {
+      await HrComplianceDocsService.createRegister({
+        entryType: 'register',
+        registerName: registerForm.registerName,
+        act: registerForm.act || undefined,
+        formNumber: registerForm.formNumber || undefined,
+        format: registerForm.format || undefined,
+        retentionPeriod: registerForm.retentionPeriod || undefined,
+        status: 'active',
+      });
+      setShowRegister(false);
+      setRegisterForm({ registerName: '', act: '', formNumber: '', format: '', retentionPeriod: '' });
+      onReloadRegisters();
+    } catch (e) {
+      setRegisterError('Failed to create register.');
+      console.error('Error creating labor register:', e);
+    } finally {
+      setRegisterSaving(false);
+    }
+  };
+
+  // --- Add Event modal (a dated compliance-return) ---
+  const [showEvent, setShowEvent] = useState(false);
+  const [eventSaving, setEventSaving] = useState(false);
+  const [eventError, setEventError] = useState<string | null>(null);
+  const [eventForm, setEventForm] = useState({ returnType: 'pf', establishment: '', dueDate: '', remarks: '' });
+
+  const saveEvent = async () => {
+    if (!eventForm.dueDate.trim()) { setEventError('Due date is required.'); return; }
+    setEventSaving(true);
+    setEventError(null);
+    try {
+      await HrComplianceDocsService.createReturn({
+        returnType: eventForm.returnType,
+        establishment: eventForm.establishment || undefined,
+        dueDate: eventForm.dueDate,
+        remarks: eventForm.remarks || undefined,
+        status: 'pending',
+      });
+      setShowEvent(false);
+      setEventForm({ returnType: 'pf', establishment: '', dueDate: '', remarks: '' });
+      onReloadCalendar();
+    } catch (e) {
+      setEventError('Failed to create event.');
+      console.error('Error creating compliance event:', e);
+    } finally {
+      setEventSaving(false);
+    }
+  };
+
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'critical': return 'bg-red-900 text-red-300';
@@ -217,12 +424,31 @@ function LaborLawsSection({
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+            <button
+              onClick={() => setShowTracker(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+            >
               <Plus className="h-4 w-4" />
               Add Compliance
             </button>
           </div>
         </div>
+
+        {showTracker && (
+          <CreateModal
+            title="Add Compliance"
+            saving={trackerSaving}
+            error={trackerError}
+            onClose={() => setShowTracker(false)}
+            onSave={saveTracker}
+          >
+            <ModalField label="Compliance Name *" value={trackerForm.registerName} onChange={(v) => setTrackerForm({ ...trackerForm, registerName: v })} />
+            <ModalField label="Act" value={trackerForm.act} onChange={(v) => setTrackerForm({ ...trackerForm, act: v })} />
+            <ModalField label="Frequency" value={trackerForm.frequency} onChange={(v) => setTrackerForm({ ...trackerForm, frequency: v })} placeholder="monthly, annual..." />
+            <ModalField label="Responsibility" value={trackerForm.responsibility} onChange={(v) => setTrackerForm({ ...trackerForm, responsibility: v })} />
+            <ModalField label="Next Due" type="date" value={trackerForm.nextDue} onChange={(v) => setTrackerForm({ ...trackerForm, nextDue: v })} />
+          </CreateModal>
+        )}
 
         <div className="space-y-3">
           {trackers.map((tracker) => (
@@ -284,11 +510,30 @@ function LaborLawsSection({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Labor Registers</h3>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+          <button
+            onClick={() => setShowRegister(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
             <Plus className="h-4 w-4" />
             Add Register
           </button>
         </div>
+
+        {showRegister && (
+          <CreateModal
+            title="Add Register"
+            saving={registerSaving}
+            error={registerError}
+            onClose={() => setShowRegister(false)}
+            onSave={saveRegister}
+          >
+            <ModalField label="Register Name *" value={registerForm.registerName} onChange={(v) => setRegisterForm({ ...registerForm, registerName: v })} />
+            <ModalField label="Act" value={registerForm.act} onChange={(v) => setRegisterForm({ ...registerForm, act: v })} />
+            <ModalField label="Form Number" value={registerForm.formNumber} onChange={(v) => setRegisterForm({ ...registerForm, formNumber: v })} />
+            <ModalField label="Format" value={registerForm.format} onChange={(v) => setRegisterForm({ ...registerForm, format: v })} placeholder="physical, digital..." />
+            <ModalField label="Retention Period" value={registerForm.retentionPeriod} onChange={(v) => setRegisterForm({ ...registerForm, retentionPeriod: v })} />
+          </CreateModal>
+        )}
 
         <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
           <table className="w-full">
@@ -349,12 +594,41 @@ function LaborLawsSection({
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+          <button
+            onClick={() => setShowEvent(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
             <Plus className="h-4 w-4" />
             Add Event
           </button>
         </div>
       </div>
+
+      {showEvent && (
+        <CreateModal
+          title="Add Compliance Event"
+          saving={eventSaving}
+          error={eventError}
+          onClose={() => setShowEvent(false)}
+          onSave={saveEvent}
+        >
+          <ModalSelect
+            label="Return Type"
+            value={eventForm.returnType}
+            onChange={(v) => setEventForm({ ...eventForm, returnType: v })}
+            options={[
+              { value: 'pf', label: 'PF' },
+              { value: 'esi', label: 'ESI' },
+              { value: 'tds', label: 'TDS' },
+              { value: 'pt', label: 'PT' },
+              { value: 'lwf', label: 'LWF' },
+            ]}
+          />
+          <ModalField label="Establishment" value={eventForm.establishment} onChange={(v) => setEventForm({ ...eventForm, establishment: v })} />
+          <ModalField label="Due Date *" type="date" value={eventForm.dueDate} onChange={(v) => setEventForm({ ...eventForm, dueDate: v })} />
+          <ModalField label="Remarks" value={eventForm.remarks} onChange={(v) => setEventForm({ ...eventForm, remarks: v })} />
+        </CreateModal>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {calendarEvents.map((event) => (
@@ -391,11 +665,42 @@ function LaborLawsSection({
 
 function StatutoryReturnsSection({
   returns,
-  subTab
+  subTab,
+  onReloadReturns,
 }: {
   returns: StatutoryReturn[];
   subTab: StatutoryReturnsSubTab;
+  onReloadReturns: () => void;
 }) {
+  const [showReturn, setShowReturn] = useState(false);
+  const [returnSaving, setReturnSaving] = useState(false);
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const [returnForm, setReturnForm] = useState<{ returnType: string; returnPeriod: string; establishment: string; dueDate: string; remarks: string }>({ returnType: subTab, returnPeriod: '', establishment: '', dueDate: '', remarks: '' });
+
+  const saveReturn = async () => {
+    if (!returnForm.dueDate.trim()) { setReturnError('Due date is required.'); return; }
+    setReturnSaving(true);
+    setReturnError(null);
+    try {
+      await HrComplianceDocsService.createReturn({
+        returnType: returnForm.returnType,
+        returnPeriod: returnForm.returnPeriod || undefined,
+        establishment: returnForm.establishment || undefined,
+        dueDate: returnForm.dueDate,
+        remarks: returnForm.remarks || undefined,
+        status: 'pending',
+      });
+      setShowReturn(false);
+      setReturnForm({ returnType: subTab, returnPeriod: '', establishment: '', dueDate: '', remarks: '' });
+      onReloadReturns();
+    } catch (e) {
+      setReturnError('Failed to create return.');
+      console.error('Error creating statutory return:', e);
+    } finally {
+      setReturnSaving(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'submitted': return 'bg-green-900 text-green-300';
@@ -426,12 +731,42 @@ function StatutoryReturnsSection({
             <Filter className="h-4 w-4" />
             Filter
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+          <button
+            onClick={() => { setReturnForm((f) => ({ ...f, returnType: subTab })); setShowReturn(true); }}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
             <Plus className="h-4 w-4" />
             New Return
           </button>
         </div>
       </div>
+
+      {showReturn && (
+        <CreateModal
+          title="New Return"
+          saving={returnSaving}
+          error={returnError}
+          onClose={() => setShowReturn(false)}
+          onSave={saveReturn}
+        >
+          <ModalSelect
+            label="Return Type"
+            value={returnForm.returnType}
+            onChange={(v) => setReturnForm({ ...returnForm, returnType: v })}
+            options={[
+              { value: 'pf', label: 'PF' },
+              { value: 'esi', label: 'ESI' },
+              { value: 'tds', label: 'TDS' },
+              { value: 'pt', label: 'PT' },
+              { value: 'lwf', label: 'LWF' },
+            ]}
+          />
+          <ModalField label="Return Period" value={returnForm.returnPeriod} onChange={(v) => setReturnForm({ ...returnForm, returnPeriod: v })} placeholder="e.g. Apr 2026" />
+          <ModalField label="Establishment" value={returnForm.establishment} onChange={(v) => setReturnForm({ ...returnForm, establishment: v })} />
+          <ModalField label="Due Date *" type="date" value={returnForm.dueDate} onChange={(v) => setReturnForm({ ...returnForm, dueDate: v })} />
+          <ModalField label="Remarks" value={returnForm.remarks} onChange={(v) => setReturnForm({ ...returnForm, remarks: v })} />
+        </CreateModal>
+      )}
 
       <div className="space-y-4">
         {filteredReturns.length === 0 ? (
@@ -514,6 +849,7 @@ function LicensesSection({
   certLoading,
   certError,
   onReloadCertificates,
+  onReloadLicenses,
 }: {
   licenses: License[];
   subTab: LicensesSubTab;
@@ -521,7 +857,39 @@ function LicensesSection({
   certLoading: boolean;
   certError: string | null;
   onReloadCertificates: () => void;
+  onReloadLicenses: () => void;
 }) {
+  const [showLicense, setShowLicense] = useState(false);
+  const [licenseSaving, setLicenseSaving] = useState(false);
+  const [licenseError, setLicenseError] = useState<string | null>(null);
+  const [licenseForm, setLicenseForm] = useState({ name: '', number: '', authority: '', category: '', issueDate: '', expiryDate: '' });
+
+  const saveLicense = async () => {
+    if (!licenseForm.name.trim()) { setLicenseError('License name is required.'); return; }
+    setLicenseSaving(true);
+    setLicenseError(null);
+    try {
+      await HrComplianceDocsService.createLicense({
+        recordType: 'license',
+        name: licenseForm.name,
+        number: licenseForm.number || undefined,
+        authority: licenseForm.authority || undefined,
+        category: licenseForm.category || undefined,
+        issueDate: licenseForm.issueDate || undefined,
+        expiryDate: licenseForm.expiryDate || undefined,
+        status: 'active',
+      });
+      setShowLicense(false);
+      setLicenseForm({ name: '', number: '', authority: '', category: '', issueDate: '', expiryDate: '' });
+      onReloadLicenses();
+    } catch (e) {
+      setLicenseError('Failed to create license.');
+      console.error('Error creating license:', e);
+    } finally {
+      setLicenseSaving(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-900 text-green-300';
@@ -551,12 +919,32 @@ function LicensesSection({
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+            <button
+              onClick={() => setShowLicense(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+            >
               <Plus className="h-4 w-4" />
               Add License
             </button>
           </div>
         </div>
+
+        {showLicense && (
+          <CreateModal
+            title="Add License"
+            saving={licenseSaving}
+            error={licenseError}
+            onClose={() => setShowLicense(false)}
+            onSave={saveLicense}
+          >
+            <ModalField label="License Name *" value={licenseForm.name} onChange={(v) => setLicenseForm({ ...licenseForm, name: v })} />
+            <ModalField label="License Number" value={licenseForm.number} onChange={(v) => setLicenseForm({ ...licenseForm, number: v })} />
+            <ModalField label="Issuing Authority" value={licenseForm.authority} onChange={(v) => setLicenseForm({ ...licenseForm, authority: v })} />
+            <ModalField label="Category" value={licenseForm.category} onChange={(v) => setLicenseForm({ ...licenseForm, category: v })} />
+            <ModalField label="Issue Date" type="date" value={licenseForm.issueDate} onChange={(v) => setLicenseForm({ ...licenseForm, issueDate: v })} />
+            <ModalField label="Expiry Date" type="date" value={licenseForm.expiryDate} onChange={(v) => setLicenseForm({ ...licenseForm, expiryDate: v })} />
+          </CreateModal>
+        )}
 
         <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
           <table className="w-full">
@@ -934,6 +1322,7 @@ function PolicyComplianceSection({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">Disciplinary Actions</h3>
+        {/* TODO(needs-backend): createDisciplinaryAction not exposed on FE services */}
         <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
           <Plus className="h-4 w-4" />
           Initiate Action
@@ -1124,6 +1513,7 @@ function EqualOpportunitySection({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Grievance Redressal</h3>
+          {/* TODO(needs-backend): createGrievance not exposed on FE services */}
           <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
             <Plus className="h-4 w-4" />
             File Grievance
@@ -1302,6 +1692,7 @@ function AuditSection({
   remediationLoading,
   remediationError,
   onReloadRemediation,
+  onReloadAudits,
 }: {
   audits: ComplianceAudit[];
   findings: AuditFinding[];
@@ -1310,7 +1701,36 @@ function AuditSection({
   remediationLoading: boolean;
   remediationError: string | null;
   onReloadRemediation: () => void;
+  onReloadAudits: () => void;
 }) {
+  const [showAudit, setShowAudit] = useState(false);
+  const [auditSaving, setAuditSaving] = useState(false);
+  const [auditFormError, setAuditFormError] = useState<string | null>(null);
+  const [auditForm, setAuditForm] = useState({ title: '', auditType: '', auditor: '', scheduledDate: '' });
+
+  const saveAudit = async () => {
+    if (!auditForm.title.trim()) { setAuditFormError('Audit title is required.'); return; }
+    setAuditSaving(true);
+    setAuditFormError(null);
+    try {
+      await HrComplianceDocsService.createAudit({
+        title: auditForm.title,
+        auditType: auditForm.auditType || undefined,
+        auditor: auditForm.auditor || undefined,
+        scheduledDate: auditForm.scheduledDate || undefined,
+        status: 'planned',
+      });
+      setShowAudit(false);
+      setAuditForm({ title: '', auditType: '', auditor: '', scheduledDate: '' });
+      onReloadAudits();
+    } catch (e) {
+      setAuditFormError('Failed to schedule audit.');
+      console.error('Error scheduling audit:', e);
+    } finally {
+      setAuditSaving(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-900 text-green-300';
@@ -1334,11 +1754,29 @@ function AuditSection({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Compliance Audits</h3>
-          <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+          <button
+            onClick={() => setShowAudit(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
             <Plus className="h-4 w-4" />
             Schedule Audit
           </button>
         </div>
+
+        {showAudit && (
+          <CreateModal
+            title="Schedule Audit"
+            saving={auditSaving}
+            error={auditFormError}
+            onClose={() => setShowAudit(false)}
+            onSave={saveAudit}
+          >
+            <ModalField label="Audit Title *" value={auditForm.title} onChange={(v) => setAuditForm({ ...auditForm, title: v })} />
+            <ModalField label="Audit Type" value={auditForm.auditType} onChange={(v) => setAuditForm({ ...auditForm, auditType: v })} placeholder="internal, external..." />
+            <ModalField label="Auditor" value={auditForm.auditor} onChange={(v) => setAuditForm({ ...auditForm, auditor: v })} />
+            <ModalField label="Scheduled Date" type="date" value={auditForm.scheduledDate} onChange={(v) => setAuditForm({ ...auditForm, scheduledDate: v })} />
+          </CreateModal>
+        )}
 
         <div className="space-y-4">
           {audits.map((audit) => (
@@ -2116,9 +2554,25 @@ export default function HRCompliancePage() {
   const renderContent = () => {
     switch (mainTab) {
       case 'labor_laws':
-        return <LaborLawsSection trackers={trackers} registers={registers} calendarEvents={calendarEvents} subTab={laborLawsSubTab} />;
+        return (
+          <LaborLawsSection
+            trackers={trackers}
+            registers={registers}
+            calendarEvents={calendarEvents}
+            subTab={laborLawsSubTab}
+            onReloadTrackers={loadTrackers}
+            onReloadRegisters={loadRegisters}
+            onReloadCalendar={loadCalendarEvents}
+          />
+        );
       case 'statutory_returns':
-        return <StatutoryReturnsSection returns={statutoryReturns} subTab={statutoryReturnsSubTab} />;
+        return (
+          <StatutoryReturnsSection
+            returns={statutoryReturns}
+            subTab={statutoryReturnsSubTab}
+            onReloadReturns={loadStatutoryReturns}
+          />
+        );
       case 'licenses':
         return (
           <LicensesSection
@@ -2128,6 +2582,7 @@ export default function HRCompliancePage() {
             certLoading={certLoading}
             certError={certError}
             onReloadCertificates={loadCertificates}
+            onReloadLicenses={loadLicenses}
           />
         );
       case 'policy':
@@ -2164,6 +2619,7 @@ export default function HRCompliancePage() {
             remediationLoading={remediationLoading}
             remediationError={remediationError}
             onReloadRemediation={loadRemediationPlans}
+            onReloadAudits={loadAudits}
           />
         );
       case 'reports':

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { CheckCircle, Search, Clock, AlertCircle, FileText, Download } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
 import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import { HRComplianceService, PolicyAcknowledgmentRecord } from '@/services/hr-compliance.service';
 
 const POLICY_CATEGORIES = ['code_of_conduct', 'compliance', 'safety', 'hr', 'it_security', 'other'] as const;
 const ACK_VIAS = ['digital_signature', 'email', 'in_person'] as const;
@@ -37,50 +38,74 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await HrPagesService.policyAcknowledgments<any[]>();
-        const mapped: PolicyAcknowledgment[] = (raw || []).map((a) => ({
-          id: a.id,
-          employeeId: a.employeeId ?? '',
-          employeeName: a.employeeName ?? '',
-          department: a.department ?? '',
-          designation: a.designation ?? '',
-          policyName: a.policyName ?? '',
-          policyVersion: a.policyVersion ?? '',
-          policyCategory: POLICY_CATEGORIES.includes(a.policyCategory)
-            ? a.policyCategory
-            : 'other',
-          assignedDate: a.assignedDate ?? '',
-          dueDate: a.dueDate ?? '',
-          acknowledgmentDate: a.acknowledgmentDate ?? undefined,
-          status: ACK_STATUSES.includes(a.status) ? a.status : 'pending',
-          acknowledgedVia: ACK_VIAS.includes(a.acknowledgedVia) ? a.acknowledgedVia : null,
-          remindersSent: Number(a.remindersSent ?? 0),
-          lastReminderDate: a.lastReminderDate ?? undefined,
-          remarks: a.remarks ?? undefined,
-        }));
-        if (!cancelled) setAcknowledgments(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load acknowledgments');
-          setAcknowledgments([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await HrPagesService.policyAcknowledgments<any[]>();
+      const mapped: PolicyAcknowledgment[] = (raw || []).map((a) => ({
+        id: a.id,
+        employeeId: a.employeeId ?? '',
+        employeeName: a.employeeName ?? '',
+        department: a.department ?? '',
+        designation: a.designation ?? '',
+        policyName: a.policyName ?? '',
+        policyVersion: a.policyVersion ?? '',
+        policyCategory: POLICY_CATEGORIES.includes(a.policyCategory)
+          ? a.policyCategory
+          : 'other',
+        assignedDate: a.assignedDate ?? '',
+        dueDate: a.dueDate ?? '',
+        acknowledgmentDate: a.acknowledgmentDate ?? undefined,
+        status: ACK_STATUSES.includes(a.status) ? a.status : 'pending',
+        acknowledgedVia: ACK_VIAS.includes(a.acknowledgedVia) ? a.acknowledgedVia : null,
+        remindersSent: Number(a.remindersSent ?? 0),
+        lastReminderDate: a.lastReminderDate ?? undefined,
+        remarks: a.remarks ?? undefined,
+      }));
+      setAcknowledgments(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load acknowledgments');
+      setAcknowledgments([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const [remindingId, setRemindingId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<{ employeeName: string; employeeId: string; department: string; policyName: string; policyVersion: string; assignedDate: string; dueDate: string; status: string }>({
+    employeeName: '', employeeId: '', department: '', policyName: '', policyVersion: '', assignedDate: '', dueDate: '', status: 'pending',
+  });
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const payload: Partial<PolicyAcknowledgmentRecord> = {
+        employeeName: form.employeeName,
+        employeeId: form.employeeId || undefined,
+        department: form.department || undefined,
+        policyName: form.policyName || undefined,
+        policyVersion: form.policyVersion || undefined,
+        assignedDate: form.assignedDate || undefined,
+        dueDate: form.dueDate || undefined,
+        status: form.status,
+      };
+      await HRComplianceService.createPolicyAcknowledgment(payload);
+      setShowAdd(false);
+      setForm({ employeeName: '', employeeId: '', department: '', policyName: '', policyVersion: '', assignedDate: '', dueDate: '', status: 'pending' });
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to assign policy');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSendReminder = async (id: string) => {
     const current = acknowledgments.find(a => a.id === id);
@@ -154,12 +179,20 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <CheckCircle className="h-6 w-6 text-green-600" />
-          Policy Acknowledgment Tracking
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Track employee acknowledgment of company policies</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <CheckCircle className="h-6 w-6 text-green-600" />
+            Policy Acknowledgment Tracking
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Track employee acknowledgment of company policies</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+        >
+          Assign Policy
+        </button>
       </div>
 
       {isLoading && (
@@ -388,6 +421,55 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Assign Policy</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                <input type="text" value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                <input type="text" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input type="text" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Policy Name</label>
+                <input type="text" value={form.policyName} onChange={(e) => setForm({ ...form, policyName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Policy Version</label>
+                <input type="text" value={form.policyVersion} onChange={(e) => setForm({ ...form, policyVersion: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="pending">Pending</option>
+                  <option value="acknowledged">Acknowledged</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Date</label>
+                <input type="date" value={form.assignedDate} onChange={(e) => setForm({ ...form, assignedDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

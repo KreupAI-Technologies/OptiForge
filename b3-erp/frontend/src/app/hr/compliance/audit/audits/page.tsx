@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { ClipboardCheck, Calendar, Search, Users, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { ClipboardCheck, Calendar, Search, Users, CheckCircle, Clock, AlertCircle, Plus } from 'lucide-react';
 import { HrComplianceDocsService, ComplianceAudit as ComplianceAuditDto } from '@/services/hr-compliance-docs.service';
 
 interface ComplianceAudit {
@@ -28,39 +28,67 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    auditType: 'internal',
+    auditor: '',
+    scheduledDate: '',
+    status: 'scheduled',
+    nextAuditDue: '',
+  });
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getAudits();
-        if (!active) return;
-        const mapped: ComplianceAudit[] = rows.map((r: ComplianceAuditDto) => ({
-          id: r.id,
-          auditId: r.auditId || '',
-          title: r.title || '',
-          auditType: (r.auditType as ComplianceAudit['auditType']) || 'internal',
-          scope: r.scope || [],
-          auditor: r.auditor || '',
-          scheduledDate: r.scheduledDate || '',
-          completedDate: r.completedDate,
-          status: (r.status as ComplianceAudit['status']) || 'scheduled',
-          findings: r.findings || 0,
-          criticalFindings: r.criticalFindings || 0,
-          complianceScore: r.complianceScore,
-          nextAuditDue: r.nextAuditDue,
-        }));
-        setItems(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load audits');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getAudits();
+      const mapped: ComplianceAudit[] = rows.map((r: ComplianceAuditDto) => ({
+        id: r.id,
+        auditId: r.auditId || '',
+        title: r.title || '',
+        auditType: (r.auditType as ComplianceAudit['auditType']) || 'internal',
+        scope: r.scope || [],
+        auditor: r.auditor || '',
+        scheduledDate: r.scheduledDate || '',
+        completedDate: r.completedDate,
+        status: (r.status as ComplianceAudit['status']) || 'scheduled',
+        findings: r.findings || 0,
+        criticalFindings: r.criticalFindings || 0,
+        complianceScore: r.complianceScore,
+        nextAuditDue: r.nextAuditDue,
+      }));
+      setItems(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load audits');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createAudit({
+        title: form.title || undefined,
+        auditType: form.auditType || undefined,
+        auditor: form.auditor || undefined,
+        scheduledDate: form.scheduledDate || undefined,
+        status: form.status || undefined,
+        nextAuditDue: form.nextAuditDue || undefined,
+      });
+      setShowAdd(false);
+      setForm({ title: '', auditType: 'internal', auditor: '', scheduledDate: '', status: 'scheduled', nextAuditDue: '' });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to schedule audit');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleStartAudit = async (id: string) => {
     try {
@@ -109,12 +137,21 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <ClipboardCheck className="h-6 w-6 text-indigo-600" />
-          Compliance Audits Management
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Schedule, track, and manage compliance audits</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <ClipboardCheck className="h-6 w-6 text-indigo-600" />
+            Compliance Audits Management
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Schedule, track, and manage compliance audits</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+        >
+          <Plus className="h-4 w-4" />
+          Schedule Audit
+        </button>
       </div>
 
       {loading && (
@@ -309,6 +346,52 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Schedule Audit</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Audit Type</label>
+                <select value={form.auditType} onChange={(e) => setForm({ ...form, auditType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="internal">Internal</option>
+                  <option value="external">External</option>
+                  <option value="statutory">Statutory</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Auditor</label>
+                <input value={form.auditor} onChange={(e) => setForm({ ...form, auditor: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
+                <input type="date" value={form.scheduledDate} onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="scheduled">Scheduled</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Next Audit Due</label>
+                <input type="date" value={form.nextAuditDue} onChange={(e) => setForm({ ...form, nextAuditDue: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

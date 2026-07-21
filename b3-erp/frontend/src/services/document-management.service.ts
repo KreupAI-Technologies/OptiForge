@@ -7,12 +7,30 @@
 const USE_MOCK_DATA = false;
 
 /**
- * Central fetch wrapper for this service. Always attaches `credentials: 'include'`
- * so the Keycloak JWT cookie rides along and JwtAuthGuard/PermissionsGuard on the
- * NestJS backend can authenticate the request in production.
+ * NestJS domain backend base URL (b3-erp HR module). All document-management
+ * calls target the real NestJS controllers under `${API_BASE_URL}/hr/...`.
  */
-function docFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(input, { credentials: 'include', ...init });
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+/** Default tenant scope; siblings (hr-self-service) send the same header. */
+const COMPANY_ID = 'company-1';
+
+/**
+ * Central fetch wrapper for this service. Prefixes the NestJS base URL, attaches
+ * `credentials: 'include'` so the Keycloak JWT cookie rides along, and sends the
+ * `x-company-id` header (mirroring the other HR services) so multi-tenant scoping
+ * works on the NestJS backend.
+ */
+function docFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    ...init,
+    headers: {
+      'x-company-id': COMPANY_ID,
+      ...(init.headers ?? {}),
+    },
+  });
 }
 
 // ============================================================================
@@ -340,12 +358,14 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/documents?companyId&docCategory -> bare HrDocument[]
     const params = new URLSearchParams();
-    if (options?.employeeId) params.append('employeeId', options.employeeId);
-    if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
-    if (options?.status) params.append('status', options.status);
-    const response = await docFetch(`/api/hr/employee-documents?${params.toString()}`);
-    return response.json();
+    params.append('companyId', COMPANY_ID);
+    if (options?.documentCategory) params.append('docCategory', options.documentCategory);
+    const response = await docFetch(`/hr/documents?${params.toString()}`);
+    const rows = await response.json();
+    const arr: EmployeeDocument[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async getEmployeeDocumentById(id: string): Promise<EmployeeDocument> {
@@ -354,7 +374,8 @@ export class DocumentManagementService {
       if (!doc) throw new Error('Document not found');
       return doc;
     }
-    const response = await docFetch(`/api/hr/employee-documents/${id}`);
+    // NestJS: GET /hr/documents/:id
+    const response = await docFetch(`/hr/documents/${id}`);
     return response.json();
   }
 
@@ -379,10 +400,11 @@ export class DocumentManagementService {
       mockEmployeeDocuments.push(newDoc);
       return newDoc;
     }
-    const response = await docFetch('/api/hr/employee-documents', {
+    // NestJS: POST /hr/documents (body includes companyId)
+    const response = await docFetch('/hr/documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -393,7 +415,8 @@ export class DocumentManagementService {
       if (doc) Object.assign(doc, data);
       return doc!;
     }
-    const response = await docFetch(`/api/hr/employee-documents/${id}`, {
+    // NestJS: PUT /hr/documents/:id
+    const response = await docFetch(`/hr/documents/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -407,7 +430,8 @@ export class DocumentManagementService {
       if (idx >= 0) mockEmployeeDocuments.splice(idx, 1);
       return { success: true };
     }
-    const response = await docFetch(`/api/hr/employee-documents/${id}`, {
+    // NestJS: DELETE /hr/documents/:id -> { success: boolean }
+    const response = await docFetch(`/hr/documents/${id}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -424,10 +448,16 @@ export class DocumentManagementService {
       }
       return doc!;
     }
-    const response = await docFetch(`/api/hr/employee-documents/${id}/verify`, {
-      method: 'POST',
+    // NestJS hr/documents has no /verify action route; model it as a PUT status update.
+    const response = await docFetch(`/hr/documents/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ verifiedBy, remarks }),
+      body: JSON.stringify({
+        status: DocumentStatus.VERIFIED,
+        verifiedBy,
+        verifiedAt: new Date().toISOString(),
+        remarks,
+      }),
     });
     return response.json();
   }
@@ -442,10 +472,15 @@ export class DocumentManagementService {
       }
       return doc!;
     }
-    const response = await docFetch(`/api/hr/employee-documents/${id}/reject`, {
-      method: 'POST',
+    // NestJS hr/documents has no /reject action route; model it as a PUT status update.
+    const response = await docFetch(`/hr/documents/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rejectedBy, reason }),
+      body: JSON.stringify({
+        status: DocumentStatus.REJECTED,
+        verifiedBy: rejectedBy,
+        rejectionReason: reason,
+      }),
     });
     return response.json();
   }
@@ -471,14 +506,16 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: compliance/statutory documents are stored as hr/documents rows
+    // (same backing table the declarations/nominations pages read via HrComplianceDocsService).
+    // GET /hr/documents?companyId&docCategory -> bare array.
     const params = new URLSearchParams();
-    if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
-    if (options?.employeeId) params.append('employeeId', options.employeeId);
-    if (options?.formType) params.append('formType', options.formType);
-    if (options?.financialYear) params.append('financialYear', options.financialYear);
-    if (options?.status) params.append('status', options.status);
-    const response = await docFetch(`/api/hr/compliance-documents?${params.toString()}`);
-    return response.json();
+    params.append('companyId', COMPANY_ID);
+    if (options?.documentCategory) params.append('docCategory', options.documentCategory);
+    const response = await docFetch(`/hr/documents?${params.toString()}`);
+    const rows = await response.json();
+    const arr: ComplianceDocument[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async createComplianceDocument(data: Partial<ComplianceDocument>): Promise<ComplianceDocument> {
@@ -495,10 +532,11 @@ export class DocumentManagementService {
       mockComplianceDocuments.push(newDoc);
       return newDoc;
     }
-    const response = await docFetch('/api/hr/compliance-documents', {
+    // NestJS: POST /hr/documents (companyId in body).
+    const response = await docFetch('/hr/documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -509,7 +547,8 @@ export class DocumentManagementService {
       if (doc) Object.assign(doc, data);
       return doc!;
     }
-    const response = await docFetch(`/api/hr/compliance-documents/${id}`, {
+    // NestJS: PUT /hr/documents/:id
+    const response = await docFetch(`/hr/documents/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -527,10 +566,15 @@ export class DocumentManagementService {
       }
       return doc!;
     }
-    const response = await docFetch(`/api/hr/compliance-documents/${id}/acknowledge`, {
-      method: 'POST',
+    // NestJS hr/documents has no /acknowledge action route; model it as a PUT status update.
+    const response = await docFetch(`/hr/documents/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acknowledgedBy }),
+      body: JSON.stringify({
+        status: 'acknowledged',
+        acknowledgedBy,
+        acknowledgedAt: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -552,10 +596,13 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies).
+    // Only policy-acknowledgments / policy-violations / attendance-policies exist.
+    // Left on the original relative path (raw fetch) pending a backend build.
     const params = new URLSearchParams();
     if (options?.policyCategory) params.append('policyCategory', options.policyCategory);
     if (options?.status) params.append('status', options.status);
-    const response = await docFetch(`/api/hr/policies?${params.toString()}`);
+    const response = await fetch(`/api/hr/policies?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -565,7 +612,8 @@ export class DocumentManagementService {
       if (!policy) throw new Error('Policy not found');
       return policy;
     }
-    const response = await docFetch(`/api/hr/policies/${id}`);
+    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies).
+    const response = await fetch(`/api/hr/policies/${id}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -587,7 +635,9 @@ export class DocumentManagementService {
       mockPolicies.push(newPolicy);
       return newPolicy;
     }
-    const response = await docFetch('/api/hr/policies', {
+    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies).
+    const response = await fetch('/api/hr/policies', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -605,7 +655,9 @@ export class DocumentManagementService {
       }
       return policy!;
     }
-    const response = await docFetch(`/api/hr/policies/${id}/publish`, {
+    // TODO(needs-backend): no NestJS route for HR policy documents (hr/policies) publish action.
+    const response = await fetch(`/api/hr/policies/${id}/publish`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ publishedBy }),
@@ -627,10 +679,11 @@ export class DocumentManagementService {
         acknowledgedAt: new Date().toISOString().split('T')[0],
       };
     }
-    const response = await docFetch(`/api/hr/policies/${policyId}/acknowledge`, {
+    // NestJS: POST /hr/policy-acknowledgments (companyId in body; policyId carried in payload).
+    const response = await docFetch('/hr/policy-acknowledgments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, policyId, ...data }),
     });
     return response.json();
   }
@@ -639,9 +692,14 @@ export class DocumentManagementService {
     if (USE_MOCK_DATA) {
       return mockPolicies.filter(p => p.status === PolicyStatus.PUBLISHED && p.requiresAcknowledgment);
     }
-    const params = employeeId ? `?employeeId=${employeeId}` : '';
-    const response = await docFetch(`/api/hr/policies/pending-acknowledgments${params}`);
-    return response.json();
+    // NestJS: GET /hr/policy-acknowledgments?companyId&status=pending -> bare PolicyAcknowledgment[].
+    // (The controller filters acknowledgments by status; employeeId is not a supported query.)
+    const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
+    params.append('status', 'pending');
+    const response = await docFetch(`/hr/policy-acknowledgments?${params.toString()}`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as HRPolicy[];
   }
 
   // Document Repository
@@ -670,11 +728,12 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // TODO(needs-backend): no NestJS route for the document repository (hr/document-repository).
     const params = new URLSearchParams();
     if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
     if (options?.searchQuery) params.append('searchQuery', options.searchQuery);
     if (options?.accessLevel) params.append('accessLevel', options.accessLevel);
-    const response = await docFetch(`/api/hr/document-repository?${params.toString()}`);
+    const response = await fetch(`/api/hr/document-repository?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -707,7 +766,9 @@ export class DocumentManagementService {
       mockRepositoryDocuments.push(newDoc);
       return newDoc;
     }
-    const response = await docFetch('/api/hr/document-repository', {
+    // TODO(needs-backend): no NestJS route for the document repository (hr/document-repository).
+    const response = await fetch('/api/hr/document-repository', {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -721,7 +782,8 @@ export class DocumentManagementService {
       if (doc) doc.downloadCount++;
       return;
     }
-    await docFetch(`/api/hr/document-repository/${id}/download`, { method: 'POST' });
+    // TODO(needs-backend): no NestJS route for the document repository (hr/document-repository) download.
+    await fetch(`/api/hr/document-repository/${id}/download`, { credentials: 'include', method: 'POST' });
   }
 
   // Certificate Requests
@@ -745,12 +807,14 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/certificate-requests?companyId&recordType -> bare CertificateRequest[].
     const params = new URLSearchParams();
-    if (options?.employeeId) params.append('employeeId', options.employeeId);
-    if (options?.certificateType) params.append('certificateType', options.certificateType);
-    if (options?.status) params.append('status', options.status);
-    const response = await docFetch(`/api/hr/certificate-requests?${params.toString()}`);
-    return response.json();
+    params.append('companyId', COMPANY_ID);
+    if (options?.certificateType) params.append('recordType', options.certificateType);
+    const response = await docFetch(`/hr/certificate-requests?${params.toString()}`);
+    const rows = await response.json();
+    const arr: CertificateRequest[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async createCertificateRequest(data: Partial<CertificateRequest>): Promise<CertificateRequest> {
@@ -770,10 +834,11 @@ export class DocumentManagementService {
       mockCertificateRequests.push(newRequest);
       return newRequest;
     }
-    const response = await docFetch('/api/hr/certificate-requests', {
+    // NestJS: POST /hr/certificate-requests (companyId in body).
+    const response = await docFetch('/hr/certificate-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -788,10 +853,15 @@ export class DocumentManagementService {
       }
       return request!;
     }
-    const response = await docFetch(`/api/hr/certificate-requests/${id}/approve`, {
-      method: 'POST',
+    // NestJS certificate-requests has no /approve action route; model it as a PUT status update.
+    const response = await docFetch(`/hr/certificate-requests/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approvedBy }),
+      body: JSON.stringify({
+        status: CertificateRequestStatus.APPROVED,
+        approvedBy,
+        approvedAt: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -806,10 +876,15 @@ export class DocumentManagementService {
       }
       return request!;
     }
-    const response = await docFetch(`/api/hr/certificate-requests/${id}/reject`, {
-      method: 'POST',
+    // NestJS certificate-requests has no /reject action route; model it as a PUT status update.
+    const response = await docFetch(`/hr/certificate-requests/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rejectedBy, reason }),
+      body: JSON.stringify({
+        status: CertificateRequestStatus.REJECTED,
+        processedBy: rejectedBy,
+        rejectionReason: reason,
+      }),
     });
     return response.json();
   }
@@ -822,7 +897,8 @@ export class DocumentManagementService {
       }
       return request!;
     }
-    const response = await docFetch(`/api/hr/certificate-requests/${id}`, {
+    // NestJS: PUT /hr/certificate-requests/:id
+    const response = await docFetch(`/hr/certificate-requests/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: CertificateRequestStatus.CANCELLED }),
@@ -840,8 +916,15 @@ export class DocumentManagementService {
       }
       return request!;
     }
-    const response = await docFetch(`/api/hr/certificate-requests/${id}/issue`, {
-      method: 'POST',
+    // NestJS certificate-requests has no /issue action route; model it as a PUT status update.
+    const response = await docFetch(`/hr/certificate-requests/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: CertificateRequestStatus.ISSUED,
+        issuedDate: new Date().toISOString(),
+        deliveredAt: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -867,11 +950,12 @@ export class DocumentManagementService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance).
     const params = new URLSearchParams();
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.complianceStatus) params.append('complianceStatus', options.complianceStatus);
     if (options?.documentCategory) params.append('documentCategory', options.documentCategory);
-    const response = await docFetch(`/api/hr/document-compliance?${params.toString()}`);
+    const response = await fetch(`/api/hr/document-compliance?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -879,7 +963,8 @@ export class DocumentManagementService {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.MISSING);
     }
-    const response = await docFetch('/api/hr/document-compliance/missing');
+    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/missing).
+    const response = await fetch('/api/hr/document-compliance/missing', { credentials: 'include' });
     return response.json();
   }
 
@@ -887,7 +972,8 @@ export class DocumentManagementService {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.EXPIRED);
     }
-    const response = await docFetch('/api/hr/document-compliance/expired');
+    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/expired).
+    const response = await fetch('/api/hr/document-compliance/expired', { credentials: 'include' });
     return response.json();
   }
 
@@ -895,7 +981,8 @@ export class DocumentManagementService {
     if (USE_MOCK_DATA) {
       return mockComplianceTracking.filter(t => t.complianceStatus === ComplianceStatus.EXPIRING_SOON);
     }
-    const response = await docFetch(`/api/hr/document-compliance/expiring?withinDays=${withinDays}`);
+    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/expiring).
+    const response = await fetch(`/api/hr/document-compliance/expiring?withinDays=${withinDays}`, { credentials: 'include' });
     return response.json();
   }
 
@@ -908,7 +995,9 @@ export class DocumentManagementService {
       }
       return tracking!;
     }
-    const response = await docFetch(`/api/hr/document-compliance/${id}/remind`, {
+    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/:id/remind).
+    const response = await fetch(`/api/hr/document-compliance/${id}/remind`, {
+      credentials: 'include',
       method: 'POST',
     });
     return response.json();
@@ -924,7 +1013,9 @@ export class DocumentManagementService {
       }
       return tracking!;
     }
-    const response = await docFetch(`/api/hr/document-compliance/${id}/resolve`, {
+    // TODO(needs-backend): no NestJS route for document-compliance tracking (hr/document-compliance/:id/resolve).
+    const response = await fetch(`/api/hr/document-compliance/${id}/resolve`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resolvedBy, notes }),
@@ -956,7 +1047,9 @@ export class DocumentManagementService {
         pendingAcknowledgments: 5,
       };
     }
-    const response = await docFetch('/api/hr/document-management/dashboard');
+    // TODO(needs-backend): no NestJS route for the document-management dashboard aggregate
+    // (hr/document-management/dashboard).
+    const response = await fetch('/api/hr/document-management/dashboard', { credentials: 'include' });
     return response.json();
   }
 
@@ -985,7 +1078,25 @@ export class DocumentManagementService {
         expiringDocuments: docs.filter(d => d.renewalStatus === 'expiring_soon').length,
       };
     }
-    const response = await docFetch(`/api/hr/employees/${employeeId}/documents/summary`);
-    return response.json();
+    // NestJS has no per-employee summary route; the /hr/documents/summary endpoint returns a
+    // different shape ({ total, byStatus }). Derive the FE-expected summary from the documents
+    // list (GET /hr/documents) filtered client-side by employeeId, so consumer pages keep working.
+    const response = await docFetch(`/hr/documents?companyId=${COMPANY_ID}`);
+    const rows = await response.json();
+    const all: EmployeeDocument[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    const docs = all.filter(d => d.employeeId === employeeId);
+    const byCategory: Record<string, number> = {};
+    const byStatus: Record<string, number> = {};
+    for (const d of docs) {
+      if (d.documentCategory) byCategory[d.documentCategory] = (byCategory[d.documentCategory] || 0) + 1;
+      if (d.status) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
+    }
+    return {
+      documents: docs,
+      byCategory,
+      byStatus,
+      pendingVerification: docs.filter(d => d.status === DocumentStatus.PENDING).length,
+      expiringDocuments: docs.filter(d => d.renewalStatus === 'expiring_soon').length,
+    };
   }
 }

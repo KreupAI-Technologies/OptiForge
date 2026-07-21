@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { AlertCircle, Search, Eye, FileText } from 'lucide-react';
 import { HrComplianceDocsService, PolicyViolation as PolicyViolationDto } from '@/services/hr-compliance-docs.service';
 
@@ -30,42 +30,71 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getPolicyViolations();
-        if (!active) return;
-        const mapped: PolicyViolation[] = rows.map((r: PolicyViolationDto) => ({
-          id: r.id,
-          employeeId: r.employeeId || '',
-          employeeName: r.employeeName || '',
-          department: r.department || '',
-          violationType: (r.violationType as PolicyViolation['violationType']) || 'other',
-          policyViolated: r.policyName || '',
-          reportedDate: r.reportedDate || '',
-          incidentDate: r.violationDate || '',
-          reportedBy: r.reportedBy || '',
-          severity: (r.severity as PolicyViolation['severity']) || 'minor',
-          status: (r.status as PolicyViolation['status']) || 'reported',
-          investigationAssignedTo: r.meta?.investigationAssignedTo,
-          description: r.description || '',
-          actionTaken: r.actionTaken,
-          remarks: r.remarks,
-        }));
-        setItems(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load policy violations');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getPolicyViolations();
+      const mapped: PolicyViolation[] = rows.map((r: PolicyViolationDto) => ({
+        id: r.id,
+        employeeId: r.employeeId || '',
+        employeeName: r.employeeName || '',
+        department: r.department || '',
+        violationType: (r.violationType as PolicyViolation['violationType']) || 'other',
+        policyViolated: r.policyName || '',
+        reportedDate: r.reportedDate || '',
+        incidentDate: r.violationDate || '',
+        reportedBy: r.reportedBy || '',
+        severity: (r.severity as PolicyViolation['severity']) || 'minor',
+        status: (r.status as PolicyViolation['status']) || 'reported',
+        investigationAssignedTo: r.meta?.investigationAssignedTo,
+        description: r.description || '',
+        actionTaken: r.actionTaken,
+        remarks: r.remarks,
+      }));
+      setItems(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load policy violations');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<{ employeeName: string; employeeId: string; department: string; policyName: string; violationType: string; severity: string; violationDate: string; reportedBy: string; description: string; status: string }>({
+    employeeName: '', employeeId: '', department: '', policyName: '', violationType: '', severity: 'low', violationDate: '', reportedBy: '', description: '', status: 'open',
+  });
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createPolicyViolation({
+        employeeName: form.employeeName,
+        employeeId: form.employeeId || undefined,
+        department: form.department || undefined,
+        policyName: form.policyName || undefined,
+        violationType: form.violationType || undefined,
+        severity: form.severity || undefined,
+        violationDate: form.violationDate || undefined,
+        reportedBy: form.reportedBy || undefined,
+        description: form.description || undefined,
+        status: form.status || undefined,
+      });
+      setShowAdd(false);
+      setForm({ employeeName: '', employeeId: '', department: '', policyName: '', violationType: '', severity: 'low', violationDate: '', reportedBy: '', description: '', status: 'open' });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to report violation');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleStartInvestigation = async (id: string) => {
     try {
@@ -114,12 +143,20 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <AlertCircle className="h-6 w-6 text-red-600" />
-          Policy Violations Tracking
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Monitor and manage policy violations and misconduct</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+            Policy Violations Tracking
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Monitor and manage policy violations and misconduct</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+        >
+          Report Violation
+        </button>
       </div>
 
       {loading && (
@@ -295,6 +332,69 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Report Violation</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                <input type="text" value={form.employeeName} onChange={(e) => setForm({ ...form, employeeName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                <input type="text" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <input type="text" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Policy Name</label>
+                <input type="text" value={form.policyName} onChange={(e) => setForm({ ...form, policyName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Violation Type</label>
+                <input type="text" value={form.violationType} onChange={(e) => setForm({ ...form, violationType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Violation Date</label>
+                <input type="date" value={form.violationDate} onChange={(e) => setForm({ ...form, violationDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reported By</label>
+                <input type="text" value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="open">Open</option>
+                  <option value="under_investigation">Under Investigation</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Heart, Download, Upload, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react';
 import { HrComplianceDocsService, ComplianceReturn } from '@/services/hr-compliance-docs.service';
 
@@ -33,43 +33,72 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getReturns('esi');
-        if (!active) return;
-        const mapped: ESIReturn[] = rows.map((r: ComplianceReturn) => ({
-          id: r.id,
-          returnMonth: r.returnMonth || '',
-          returnPeriod: r.returnPeriod || '',
-          establishment: r.establishment || '',
-          esiCode: r.registrationNumber || '',
-          dueDate: r.dueDate || '',
-          filingDate: r.filingDate,
-          status: (r.status as ESIReturn['status']) || 'draft',
-          totalEmployees: r.totalEmployees ?? 0,
-          coveredEmployees: r.coveredEmployees ?? 0,
-          grossWages: r.grossWages ?? 0,
-          employeeContribution: r.employeeContribution ?? 0,
-          employerContribution: r.employerContribution ?? 0,
-          totalContribution: r.totalContribution ?? 0,
-          challanNumber: r.challanNumber,
-          challanDate: r.challanDate,
-          branch: r.branch || '',
-          remarks: r.remarks,
-        }));
-        setEsiReturns(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load ESI returns');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getReturns('esi');
+      const mapped: ESIReturn[] = rows.map((r: ComplianceReturn) => ({
+        id: r.id,
+        returnMonth: r.returnMonth || '',
+        returnPeriod: r.returnPeriod || '',
+        establishment: r.establishment || '',
+        esiCode: r.registrationNumber || '',
+        dueDate: r.dueDate || '',
+        filingDate: r.filingDate,
+        status: (r.status as ESIReturn['status']) || 'draft',
+        totalEmployees: r.totalEmployees ?? 0,
+        coveredEmployees: r.coveredEmployees ?? 0,
+        grossWages: r.grossWages ?? 0,
+        employeeContribution: r.employeeContribution ?? 0,
+        employerContribution: r.employerContribution ?? 0,
+        totalContribution: r.totalContribution ?? 0,
+        challanNumber: r.challanNumber,
+        challanDate: r.challanDate,
+        branch: r.branch || '',
+        remarks: r.remarks,
+      }));
+      setEsiReturns(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load ESI returns');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({ status: 'draft' });
+
+  const handleCreate = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createReturn({
+        returnType: 'esi',
+        status: 'draft',
+        returnMonth: form.returnMonth || undefined,
+        establishment: form.establishment || undefined,
+        registrationNumber: form.registrationNumber || undefined,
+        dueDate: form.dueDate || undefined,
+        totalEmployees: form.totalEmployees ? Number(form.totalEmployees) : undefined,
+        coveredEmployees: form.coveredEmployees ? Number(form.coveredEmployees) : undefined,
+        employeeContribution: form.employeeContribution ? Number(form.employeeContribution) : undefined,
+        employerContribution: form.employerContribution ? Number(form.employerContribution) : undefined,
+      });
+      setShowAdd(false);
+      setForm({ status: 'draft' });
+      await load();
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create return');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
@@ -140,12 +169,21 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Heart className="h-6 w-6 text-pink-600" />
-          ESI Returns Filing
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Employee State Insurance monthly contribution returns</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Heart className="h-6 w-6 text-rose-600" />
+            ESI Returns Filing
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Employee State Insurance monthly contribution returns</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 text-sm font-medium flex items-center gap-2 shrink-0"
+        >
+          <FileText className="h-4 w-4" />
+          New Return
+        </button>
       </div>
 
       {loading && (
@@ -364,6 +402,59 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">New ESI Return</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Return Month</label>
+                <input type="month" value={form.returnMonth || ''} onChange={(e) => setForm({ ...form, returnMonth: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Establishment</label>
+                <input type="text" value={form.establishment || ''} onChange={(e) => setForm({ ...form, establishment: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                <input type="text" value={form.registrationNumber || ''} onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <input type="date" value={form.dueDate || ''} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Employees</label>
+                <input type="number" value={form.totalEmployees || ''} onChange={(e) => setForm({ ...form, totalEmployees: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Covered Employees</label>
+                <input type="number" value={form.coveredEmployees || ''} onChange={(e) => setForm({ ...form, coveredEmployees: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Contribution</label>
+                <input type="number" value={form.employeeContribution || ''} onChange={(e) => setForm({ ...form, employeeContribution: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employer Contribution</label>
+                <input type="number" value={form.employerContribution || ''} onChange={(e) => setForm({ ...form, employerContribution: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500">
+                  <option value="draft">Draft</option>
+                  <option value="filed">Filed</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleCreate} disabled={saving} className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

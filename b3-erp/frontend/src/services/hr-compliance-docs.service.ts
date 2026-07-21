@@ -365,6 +365,69 @@ export class HrComplianceDocsService {
     return Array.isArray(data) ? data : [];
   }
 
+  // ---- Create methods (POST to existing NestJS CRUD) ------------------------
+
+  static createRegister(
+    payload: Partial<ComplianceRegister>,
+    companyId = 'company-1',
+  ): Promise<ComplianceRegister> {
+    return postJson<ComplianceRegister>('/hr/compliance-registers', {
+      companyId,
+      ...payload,
+    });
+  }
+
+  static createReturn(
+    payload: Partial<ComplianceReturn>,
+    companyId = 'company-1',
+  ): Promise<ComplianceReturn> {
+    return postJson<ComplianceReturn>('/hr/compliance-returns', {
+      companyId,
+      ...payload,
+    });
+  }
+
+  static createLicense(
+    payload: Partial<ComplianceLicense>,
+    companyId = 'company-1',
+  ): Promise<ComplianceLicense> {
+    return postJson<ComplianceLicense>('/hr/compliance-licenses', {
+      companyId,
+      ...payload,
+    });
+  }
+
+  static createAudit(
+    payload: Partial<ComplianceAudit>,
+    companyId = 'company-1',
+  ): Promise<ComplianceAudit> {
+    return postJson<ComplianceAudit>('/hr/compliance-audits', {
+      companyId,
+      ...payload,
+    });
+  }
+
+  static createPolicyViolation(
+    payload: Partial<PolicyViolation>,
+    companyId = 'company-1',
+  ): Promise<PolicyViolation> {
+    return postJson<PolicyViolation>('/hr/policy-violations', {
+      companyId,
+      ...payload,
+    });
+  }
+
+  static updateRegister(
+    id: string,
+    payload: Partial<ComplianceRegister>,
+    companyId = 'company-1',
+  ): Promise<ComplianceRegister> {
+    return putJson<ComplianceRegister>(`/hr/compliance-registers/${id}`, {
+      companyId,
+      ...payload,
+    });
+  }
+
   // ---- Write methods (status transitions on existing NestJS CRUD) -----------
 
   static updateReturn(

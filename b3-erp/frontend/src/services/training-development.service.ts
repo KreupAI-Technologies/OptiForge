@@ -6,6 +6,31 @@
 
 const USE_MOCK_DATA = false;
 
+/**
+ * NestJS domain backend base URL (b3-erp HR module). Training & development calls
+ * target the real NestJS controllers under `${API_BASE_URL}/hr/...`.
+ */
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+/** Default tenant scope; siblings (hr-self-service) send the same header. */
+const COMPANY_ID = 'company-1';
+
+/**
+ * Central fetch wrapper: prefixes the NestJS base URL, attaches `credentials: 'include'`
+ * for the Keycloak JWT cookie, and sends `x-company-id` (mirroring the other HR services).
+ */
+function trainFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    ...init,
+    headers: {
+      'x-company-id': COMPANY_ID,
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -927,13 +952,15 @@ export class TrainingDevelopmentService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/training-programs?companyId&category&status -> bare TrainingProgram[].
     const params = new URLSearchParams();
+    params.append('companyId', COMPANY_ID);
     if (options?.category) params.append('category', options.category);
-    if (options?.trainingType) params.append('trainingType', options.trainingType);
     if (options?.status) params.append('status', options.status);
-    if (options?.search) params.append('search', options.search);
-    const response = await fetch(`/api/hr/training/programs?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/training-programs?${params.toString()}`);
+    const rows = await response.json();
+    const arr: TrainingProgram[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async getTrainingProgramById(id: string): Promise<TrainingProgram> {
@@ -942,7 +969,8 @@ export class TrainingDevelopmentService {
       if (!program) throw new Error('Training program not found');
       return program;
     }
-    const response = await fetch(`/api/hr/training/programs/${id}`, { credentials: 'include' });
+    // NestJS: GET /hr/training-programs/:id
+    const response = await trainFetch(`/hr/training-programs/${id}`);
     return response.json();
   }
 
@@ -965,11 +993,11 @@ export class TrainingDevelopmentService {
       mockPrograms.push(newProgram);
       return newProgram;
     }
-    const response = await fetch('/api/hr/training/programs', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-programs (companyId in body).
+    const response = await trainFetch('/hr/training-programs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -983,8 +1011,8 @@ export class TrainingDevelopmentService {
       }
       throw new Error('Training program not found');
     }
-    const response = await fetch(`/api/hr/training/programs/${id}`, {
-      credentials: 'include',
+    // NestJS: PUT /hr/training-programs/:id
+    const response = await trainFetch(`/hr/training-programs/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1006,6 +1034,7 @@ export class TrainingDevelopmentService {
       if (options?.status) filtered = filtered.filter(s => s.status === options.status);
       return { data: filtered, total: filtered.length };
     }
+    // TODO(needs-backend): no NestJS route for training schedules (hr/training-schedules).
     const params = new URLSearchParams();
     if (options?.programId) params.append('programId', options.programId);
     if (options?.status) params.append('status', options.status);
@@ -1036,6 +1065,7 @@ export class TrainingDevelopmentService {
       mockSchedules.push(newSchedule);
       return newSchedule;
     }
+    // TODO(needs-backend): no NestJS route for training schedules (hr/training-schedules).
     const response = await fetch('/api/hr/training/schedules', {
       credentials: 'include',
       method: 'POST',
@@ -1062,13 +1092,14 @@ export class TrainingDevelopmentService {
       if (options?.status) filtered = filtered.filter(e => e.status === options.status);
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/training-enrollments?companyId&status -> bare TrainingEnrollment[].
     const params = new URLSearchParams();
-    if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
-    if (options?.programId) params.append('programId', options.programId);
-    if (options?.employeeId) params.append('employeeId', options.employeeId);
+    params.append('companyId', COMPANY_ID);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/training/enrollments?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/training-enrollments?${params.toString()}`);
+    const rows = await response.json();
+    const arr: TrainingEnrollment[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async enrollInTraining(data: {
@@ -1101,11 +1132,11 @@ export class TrainingDevelopmentService {
       mockEnrollments.push(newEnrollment);
       return newEnrollment;
     }
-    const response = await fetch('/api/hr/training/enrollments', {
-      credentials: 'include',
+    // NestJS: POST /hr/training-enrollments (companyId in body).
+    const response = await trainFetch('/hr/training-enrollments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -1120,11 +1151,15 @@ export class TrainingDevelopmentService {
       }
       return enrollment!;
     }
-    const response = await fetch(`/api/hr/training/enrollments/${id}/approve`, {
-      credentials: 'include',
-      method: 'POST',
+    // NestJS training-enrollments has no /approve action route; model it as a PUT status update.
+    const response = await trainFetch(`/hr/training-enrollments/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approvedBy }),
+      body: JSON.stringify({
+        status: EnrollmentStatus.APPROVED,
+        approvedBy,
+        approvedDate: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -1138,11 +1173,14 @@ export class TrainingDevelopmentService {
       }
       return enrollment!;
     }
-    const response = await fetch(`/api/hr/training/enrollments/${id}/reject`, {
-      credentials: 'include',
-      method: 'POST',
+    // NestJS training-enrollments has no /reject action route; model it as a PUT status update.
+    const response = await trainFetch(`/hr/training-enrollments/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rejectedBy, reason }),
+      body: JSON.stringify({
+        status: EnrollmentStatus.REJECTED,
+        rejectionReason: reason,
+      }),
     });
     return response.json();
   }
@@ -1165,11 +1203,15 @@ export class TrainingDevelopmentService {
       }
       return enrollment!;
     }
-    const response = await fetch(`/api/hr/training/enrollments/${id}/complete`, {
-      credentials: 'include',
-      method: 'POST',
+    // NestJS training-enrollments has no /complete action route; model it as a PUT status update.
+    const response = await trainFetch(`/hr/training-enrollments/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        status: EnrollmentStatus.COMPLETED,
+        completionDate: new Date().toISOString(),
+        ...data,
+      }),
     });
     return response.json();
   }
@@ -1184,9 +1226,14 @@ export class TrainingDevelopmentService {
       }
       return enrollment!;
     }
-    const response = await fetch(`/api/hr/training/enrollments/${enrollmentId}/issue-certificate`, {
-      credentials: 'include',
-      method: 'POST',
+    // NestJS training-enrollments has no /issue-certificate action route; model it as a PUT update.
+    const response = await trainFetch(`/hr/training-enrollments/${enrollmentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        certificateIssued: true,
+        certificateIssuedDate: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -1202,6 +1249,7 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
+    // TODO(needs-backend): no NestJS route for training attendance (hr/training-attendance).
     const params = new URLSearchParams();
     if (options?.enrollmentId) params.append('enrollmentId', options.enrollmentId);
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
@@ -1223,6 +1271,7 @@ export class TrainingDevelopmentService {
         ...data,
       } as TrainingAttendance;
     }
+    // TODO(needs-backend): no NestJS route for training attendance (hr/training-attendance).
     const response = await fetch('/api/hr/training/attendance', {
       credentials: 'include',
       method: 'POST',
@@ -1238,6 +1287,7 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
+    // TODO(needs-backend): no NestJS route for training waitlist (hr/training-waitlist).
     const response = await fetch(`/api/hr/training/schedules/${scheduleId}/waitlist`, { credentials: 'include' });
     return response.json();
   }
@@ -1263,6 +1313,7 @@ export class TrainingDevelopmentService {
         status: 'waiting',
       };
     }
+    // TODO(needs-backend): no NestJS route for training waitlist (hr/training-waitlist).
     const response = await fetch('/api/hr/training/waitlist', {
       credentials: 'include',
       method: 'POST',
@@ -1295,11 +1346,12 @@ export class TrainingDevelopmentService {
         },
       ];
     }
+    // NestJS: GET /hr/user-skills/matrix?departmentId -> bare any[] (skill matrix rows).
     const params = new URLSearchParams();
-    if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
-    const response = await fetch(`/api/hr/training/skill-matrix?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    const response = await trainFetch(`/hr/user-skills/matrix?${params.toString()}`);
+    const rows = await response.json();
+    return (Array.isArray(rows) ? rows : (rows?.data ?? [])) as SkillMatrix[];
   }
 
   static async getSkillGapAnalysis(employeeId: string): Promise<SkillGapAnalysis> {
@@ -1320,6 +1372,8 @@ export class TrainingDevelopmentService {
         ],
       };
     }
+    // TODO(needs-backend): no NestJS route returns the per-employee SkillGapAnalysis aggregate
+    // (hr/skill-gaps lists gap rows but not this recommended-training aggregate shape).
     const response = await fetch(`/api/hr/training/skill-gap-analysis/${employeeId}`, { credentials: 'include' });
     return response.json();
   }
@@ -1339,11 +1393,11 @@ export class TrainingDevelopmentService {
         ...data,
       } as SkillAssessment;
     }
-    const response = await fetch('/api/hr/training/skill-assessments', {
-      credentials: 'include',
+    // NestJS: POST /hr/skill-assessments (companyId in body).
+    const response = await trainFetch('/hr/skill-assessments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, ...data }),
     });
     return response.json();
   }
@@ -1361,6 +1415,7 @@ export class TrainingDevelopmentService {
       if (options?.status) filtered = filtered.filter(c => c.status === options.status);
       return { data: filtered, total: filtered.length };
     }
+    // TODO(needs-backend): no NestJS route for certification tracking (hr/training-certifications).
     const params = new URLSearchParams();
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.status) params.append('status', options.status);
@@ -1386,6 +1441,7 @@ export class TrainingDevelopmentService {
       mockCertifications.push(newCert);
       return newCert;
     }
+    // TODO(needs-backend): no NestJS route for certification tracking (hr/training-certifications).
     const response = await fetch('/api/hr/training/certifications', {
       credentials: 'include',
       method: 'POST',
@@ -1416,6 +1472,7 @@ export class TrainingDevelopmentService {
       }
       return cert!;
     }
+    // TODO(needs-backend): no NestJS route for certification tracking (hr/training-certifications/:id/renew).
     const response = await fetch(`/api/hr/training/certifications/${id}/renew`, {
       credentials: 'include',
       method: 'POST',
@@ -1435,6 +1492,7 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
+    // TODO(needs-backend): no NestJS route for training feedback (hr/training-feedback).
     const params = new URLSearchParams();
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
     if (options?.programId) params.append('programId', options.programId);
@@ -1462,6 +1520,7 @@ export class TrainingDevelopmentService {
         ...data,
       } as TrainingFeedback;
     }
+    // TODO(needs-backend): no NestJS route for training feedback (hr/training-feedback).
     const response = await fetch('/api/hr/training/feedback', {
       credentials: 'include',
       method: 'POST',
@@ -1481,6 +1540,7 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return [];
     }
+    // TODO(needs-backend): no NestJS route for training assessments (hr/training-assessments).
     const params = new URLSearchParams();
     if (options?.programId) params.append('programId', options.programId);
     if (options?.scheduleId) params.append('scheduleId', options.scheduleId);
@@ -1496,6 +1556,7 @@ export class TrainingDevelopmentService {
         ...data,
       } as TrainingAssessment;
     }
+    // TODO(needs-backend): no NestJS route for training assessments (hr/training-assessments).
     const response = await fetch('/api/hr/training/assessments', {
       credentials: 'include',
       method: 'POST',
@@ -1522,6 +1583,7 @@ export class TrainingDevelopmentService {
         isPassed: false,
       };
     }
+    // TODO(needs-backend): no NestJS route for training assessment attempts (hr/training-assessments/:id/attempt).
     const response = await fetch(`/api/hr/training/assessments/${assessmentId}/attempt`, {
       credentials: 'include',
       method: 'POST',
@@ -1550,6 +1612,7 @@ export class TrainingDevelopmentService {
         isPassed: true,
       };
     }
+    // TODO(needs-backend): no NestJS route for training assessment attempts (hr/training-assessment-attempts/:id/submit).
     const response = await fetch(`/api/hr/training/assessment-attempts/${attemptId}/submit`, {
       credentials: 'include',
       method: 'POST',
@@ -1581,12 +1644,23 @@ export class TrainingDevelopmentService {
       }
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/elearning-courses?companyId&status -> bare ElearningCourse[].
+    // (Controller supports companyId + status only; category/level/search are filtered client-side.)
     const params = new URLSearchParams();
-    if (options?.category) params.append('category', options.category);
-    if (options?.level) params.append('level', options.level);
-    if (options?.search) params.append('search', options.search);
-    const response = await fetch(`/api/hr/training/e-learning/courses?${params.toString()}`, { credentials: 'include' });
-    return response.json();
+    params.append('companyId', COMPANY_ID);
+    const response = await trainFetch(`/hr/elearning-courses?${params.toString()}`);
+    const rows = await response.json();
+    let arr: ELearningCourse[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    if (options?.category) arr = arr.filter(c => c.category === options.category);
+    if (options?.level) arr = arr.filter(c => c.level === options.level);
+    if (options?.search) {
+      const s = options.search.toLowerCase();
+      arr = arr.filter(c =>
+        c.courseName?.toLowerCase().includes(s) ||
+        c.description?.toLowerCase().includes(s),
+      );
+    }
+    return { data: arr, total: arr.length };
   }
 
   static async getELearningCourseById(id: string): Promise<ELearningCourse> {
@@ -1595,7 +1669,8 @@ export class TrainingDevelopmentService {
       if (!course) throw new Error('Course not found');
       return course;
     }
-    const response = await fetch(`/api/hr/training/e-learning/courses/${id}`, { credentials: 'include' });
+    // NestJS: GET /hr/elearning-courses/:id
+    const response = await trainFetch(`/hr/elearning-courses/${id}`);
     return response.json();
   }
 
@@ -1622,6 +1697,8 @@ export class TrainingDevelopmentService {
         certificateIssued: false,
       };
     }
+    // TODO(needs-backend): no NestJS route for e-learning course enrollment/progress
+    // (hr/elearning-courses exists for the catalogue, but not course-progress).
     const response = await fetch(`/api/hr/training/e-learning/courses/${courseId}/enroll`, {
       credentials: 'include',
       method: 'POST',
@@ -1639,6 +1716,7 @@ export class TrainingDevelopmentService {
     if (USE_MOCK_DATA) {
       return { data: [], total: 0 };
     }
+    // TODO(needs-backend): no NestJS route for e-learning course progress (hr/elearning-course-progress).
     const params = new URLSearchParams();
     if (options?.courseId) params.append('courseId', options.courseId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
@@ -1672,6 +1750,7 @@ export class TrainingDevelopmentService {
         certificateIssued: false,
       };
     }
+    // TODO(needs-backend): no NestJS route for e-learning lesson progress (hr/elearning-course-progress/:id/lesson/:lessonId).
     const response = await fetch(`/api/hr/training/e-learning/progress/${progressId}/lesson/${lessonId}`, {
       credentials: 'include',
       method: 'PUT',
@@ -1695,6 +1774,7 @@ export class TrainingDevelopmentService {
       if (options?.status) filtered = filtered.filter(b => b.status === options.status);
       return filtered;
     }
+    // TODO(needs-backend): no NestJS route for training budgets (hr/training-budgets).
     const params = new URLSearchParams();
     if (options?.fiscalYear) params.append('fiscalYear', options.fiscalYear);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
@@ -1723,6 +1803,7 @@ export class TrainingDevelopmentService {
       mockBudgets.push(newBudget);
       return newBudget;
     }
+    // TODO(needs-backend): no NestJS route for training budgets (hr/training-budgets).
     const response = await fetch('/api/hr/training/budgets', {
       credentials: 'include',
       method: 'POST',
@@ -1747,6 +1828,7 @@ export class TrainingDevelopmentService {
         ...data,
       } as TrainingCost;
     }
+    // TODO(needs-backend): no NestJS route for training costs (hr/training-costs).
     const response = await fetch('/api/hr/training/costs', {
       credentials: 'include',
       method: 'POST',
@@ -1793,6 +1875,7 @@ export class TrainingDevelopmentService {
         upcomingSchedules: mockSchedules.filter(s => s.status === 'scheduled').slice(0, 5),
       };
     }
+    // TODO(needs-backend): no NestJS route for the training dashboard aggregate (hr/training-dashboard).
     const response = await fetch('/api/hr/training/dashboard', { credentials: 'include' });
     return response.json();
   }
@@ -1830,6 +1913,7 @@ export class TrainingDevelopmentService {
     if (options?.fromDate) params.append('fromDate', options.fromDate);
     if (options?.toDate) params.append('toDate', options.toDate);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
+    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/summary).
     const response = await fetch(`/api/hr/training/reports/summary?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }
@@ -1859,6 +1943,7 @@ export class TrainingDevelopmentService {
         })),
       };
     }
+    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/employee/:id).
     const response = await fetch(`/api/hr/training/reports/employee/${employeeId}`, { credentials: 'include' });
     return response.json();
   }
@@ -1894,6 +1979,7 @@ export class TrainingDevelopmentService {
         ],
       };
     }
+    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/department/:id).
     const response = await fetch(`/api/hr/training/reports/department/${departmentId}`, { credentials: 'include' });
     return response.json();
   }
@@ -1922,6 +2008,7 @@ export class TrainingDevelopmentService {
     if (options?.fromDate) params.append('fromDate', options.fromDate);
     if (options?.toDate) params.append('toDate', options.toDate);
     if (options?.departmentId) params.append('departmentId', options.departmentId);
+    // TODO(needs-backend): no NestJS route for training reports (hr/training-reports/hours).
     const response = await fetch(`/api/hr/training/reports/hours?${params.toString()}`, { credentials: 'include' });
     return response.json();
   }

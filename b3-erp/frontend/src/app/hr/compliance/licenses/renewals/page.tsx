@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Calendar, CheckCircle, AlertCircle, Clock, FileText, Upload, RefreshCw } from 'lucide-react';
 import { HrComplianceDocsService, ComplianceLicense } from '@/services/hr-compliance-docs.service';
 
@@ -30,42 +30,70 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const rows = await HrComplianceDocsService.getLicenses('renewal');
-        if (!active) return;
-        const mapped: LicenseRenewal[] = rows.map((r: ComplianceLicense) => ({
-          id: r.id,
-          licenseName: r.name || '',
-          licenseNumber: r.number || '',
-          currentExpiryDate: r.expiryDate || '',
-          renewalDueDate: r.renewalDueDate || '',
-          renewalStatus: (r.status as LicenseRenewal['renewalStatus']) || 'upcoming',
-          priority: (r.priority as LicenseRenewal['priority']) || 'medium',
-          authority: r.authority || '',
-          assignedTo: r.assignedTo || '',
-          renewalCost: r.renewalCost,
-          documentsRequired: r.documentsRequired || [],
-          submissionDeadline: r.submissionDeadline || '',
-          applicationNumber: r.applicationNumber,
-          newExpiryDate: r.newExpiryDate,
-          remarks: r.remarks,
-        }));
-        setRenewals(mapped);
-        setError(null);
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load renewals');
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await HrComplianceDocsService.getLicenses('renewal');
+      const mapped: LicenseRenewal[] = rows.map((r: ComplianceLicense) => ({
+        id: r.id,
+        licenseName: r.name || '',
+        licenseNumber: r.number || '',
+        currentExpiryDate: r.expiryDate || '',
+        renewalDueDate: r.renewalDueDate || '',
+        renewalStatus: (r.status as LicenseRenewal['renewalStatus']) || 'upcoming',
+        priority: (r.priority as LicenseRenewal['priority']) || 'medium',
+        authority: r.authority || '',
+        assignedTo: r.assignedTo || '',
+        renewalCost: r.renewalCost,
+        documentsRequired: r.documentsRequired || [],
+        submissionDeadline: r.submissionDeadline || '',
+        applicationNumber: r.applicationNumber,
+        newExpiryDate: r.newExpiryDate,
+        remarks: r.remarks,
+      }));
+      setRenewals(mapped);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load renewals');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<{ name: string; applicationNumber: string; renewalDueDate: string; submissionDeadline: string; priority: string; assignedTo: string; renewalCost: string; status: string }>({
+    name: '', applicationNumber: '', renewalDueDate: '', submissionDeadline: '', priority: 'medium', assignedTo: '', renewalCost: '', status: 'upcoming',
+  });
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createLicense({
+        recordType: 'renewal',
+        name: form.name,
+        applicationNumber: form.applicationNumber || undefined,
+        renewalDueDate: form.renewalDueDate || undefined,
+        submissionDeadline: form.submissionDeadline || undefined,
+        priority: form.priority || undefined,
+        assignedTo: form.assignedTo || undefined,
+        renewalCost: form.renewalCost === '' ? undefined : Number(form.renewalCost),
+        status: form.status || undefined,
+      });
+      setShowAdd(false);
+      setForm({ name: '', applicationNumber: '', renewalDueDate: '', submissionDeadline: '', priority: 'medium', assignedTo: '', renewalCost: '', status: 'upcoming' });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add renewal');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleRenewalStatus = async (id: string, nextStatus: LicenseRenewal['renewalStatus']) => {
     try {
@@ -140,12 +168,20 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Calendar className="h-6 w-6 text-blue-600" />
-          License Renewal Tracking
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Track and manage license renewal timelines and submissions</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Calendar className="h-6 w-6 text-blue-600" />
+            License Renewal Tracking
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Track and manage license renewal timelines and submissions</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+        >
+          Add Renewal
+        </button>
       </div>
 
       {loading && (
@@ -364,6 +400,62 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Add Renewal</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">License Name</label>
+                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Application Number</label>
+                <input type="text" value={form.applicationNumber} onChange={(e) => setForm({ ...form, applicationNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Renewal Due Date</label>
+                <input type="date" value={form.renewalDueDate} onChange={(e) => setForm({ ...form, renewalDueDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Submission Deadline</label>
+                <input type="date" value={form.submissionDeadline} onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                <input type="text" value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Renewal Cost</label>
+                <input type="number" value={form.renewalCost} onChange={(e) => setForm({ ...form, renewalCost: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="upcoming">Upcoming</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="completed">Completed</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,31 @@
 
 const USE_MOCK_DATA = false;
 
+/**
+ * NestJS domain backend base URL (b3-erp HR module). Performance goals & reviews
+ * target the real NestJS controllers under `${API_BASE_URL}/hr/...`.
+ */
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+/** Default tenant scope; siblings (hr-self-service) send the same header. */
+const COMPANY_ID = 'company-1';
+
+/**
+ * Central fetch wrapper: prefixes the NestJS base URL, attaches `credentials: 'include'`
+ * for the Keycloak JWT cookie, and sends `x-company-id` (mirroring the other HR services).
+ */
+function perfFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    ...init,
+    headers: {
+      'x-company-id': COMPANY_ID,
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -867,13 +892,18 @@ export class PerformanceManagementService {
       if (options?.category) filtered = filtered.filter(g => g.category === options.category);
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/performance-goals?companyId&recordType -> bare PerformanceGoal[].
     const params = new URLSearchParams();
-    if (options?.employeeId) params.append('employeeId', options.employeeId);
-    if (options?.goalType) params.append('goalType', options.goalType);
-    if (options?.status) params.append('status', options.status);
-    if (options?.category) params.append('category', options.category);
-    const response = await fetch(`/api/hr/performance/goals?${params.toString()}`);
-    return response.json();
+    params.append('companyId', COMPANY_ID);
+    const response = await perfFetch(`/hr/performance-goals?${params.toString()}`);
+    const rows = await response.json();
+    let arr: Goal[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    // Controller supports companyId/recordType only; apply the FE filters client-side.
+    if (options?.employeeId) arr = arr.filter(g => g.employeeId === options.employeeId);
+    if (options?.goalType) arr = arr.filter(g => g.goalType === options.goalType);
+    if (options?.status) arr = arr.filter(g => g.status === options.status);
+    if (options?.category) arr = arr.filter(g => g.category === options.category);
+    return { data: arr, total: arr.length };
   }
 
   static async getGoalById(id: string): Promise<Goal> {
@@ -882,7 +912,8 @@ export class PerformanceManagementService {
       if (!goal) throw new Error('Goal not found');
       return goal;
     }
-    const response = await fetch(`/api/hr/performance/goals/${id}`);
+    // NestJS: GET /hr/performance-goals/:id
+    const response = await perfFetch(`/hr/performance-goals/${id}`);
     return response.json();
   }
 
@@ -906,11 +937,11 @@ export class PerformanceManagementService {
       mockGoals.push(newGoal);
       return newGoal;
     }
-    const response = await fetch('/api/hr/performance/goals', {
+    // NestJS: POST /hr/performance-goals (companyId + recordType in body).
+    const response = await perfFetch('/hr/performance-goals', {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ companyId: COMPANY_ID, recordType: 'my-goal', ...data }),
     });
     return response.json();
   }
@@ -924,9 +955,9 @@ export class PerformanceManagementService {
       }
       throw new Error('Goal not found');
     }
-    const response = await fetch(`/api/hr/performance/goals/${id}`, {
+    // NestJS: PUT /hr/performance-goals/:id
+    const response = await perfFetch(`/hr/performance-goals/${id}`, {
       method: 'PUT',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -942,9 +973,9 @@ export class PerformanceManagementService {
       }
       return goal!;
     }
-    const response = await fetch(`/api/hr/performance/goals/${id}/progress`, {
-      method: 'POST',
-      credentials: 'include',
+    // NestJS performance-goals has no /progress action route; model it as a PUT update.
+    const response = await perfFetch(`/hr/performance-goals/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ progress, notes }),
     });
@@ -1062,13 +1093,16 @@ export class PerformanceManagementService {
       if (options?.status) filtered = filtered.filter(r => r.status === options.status);
       return { data: filtered, total: filtered.length };
     }
+    // NestJS: GET /hr/performance-reviews?<filters> -> bare array (findAll passes @Query() through).
     const params = new URLSearchParams();
     if (options?.cycleId) params.append('cycleId', options.cycleId);
     if (options?.employeeId) params.append('employeeId', options.employeeId);
     if (options?.managerId) params.append('managerId', options.managerId);
     if (options?.status) params.append('status', options.status);
-    const response = await fetch(`/api/hr/performance/reviews?${params.toString()}`);
-    return response.json();
+    const response = await perfFetch(`/hr/performance-reviews?${params.toString()}`);
+    const rows = await response.json();
+    const arr: PerformanceReview[] = Array.isArray(rows) ? rows : (rows?.data ?? []);
+    return { data: arr, total: arr.length };
   }
 
   static async getPerformanceReviewById(id: string): Promise<PerformanceReview> {
@@ -1077,7 +1111,8 @@ export class PerformanceManagementService {
       if (!review) throw new Error('Review not found');
       return review;
     }
-    const response = await fetch(`/api/hr/performance/reviews/${id}`);
+    // NestJS: GET /hr/performance-reviews/:id
+    const response = await perfFetch(`/hr/performance-reviews/${id}`);
     return response.json();
   }
 
@@ -1101,11 +1136,15 @@ export class PerformanceManagementService {
       }
       return review!;
     }
-    const response = await fetch(`/api/hr/performance/reviews/${id}/self-appraisal`, {
-      method: 'POST',
-      credentials: 'include',
+    // NestJS performance-reviews has no /self-appraisal action route; model it as a PUT update.
+    const response = await perfFetch(`/hr/performance-reviews/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        status: ReviewStatus.SELF_APPRAISAL_SUBMITTED,
+        selfAppraisalDate: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -1125,11 +1164,15 @@ export class PerformanceManagementService {
       }
       return review!;
     }
-    const response = await fetch(`/api/hr/performance/reviews/${id}/manager-review`, {
-      method: 'POST',
-      credentials: 'include',
+    // NestJS performance-reviews has no /manager-review action route; model it as a PUT update.
+    const response = await perfFetch(`/hr/performance-reviews/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        status: ReviewStatus.MANAGER_REVIEW_SUBMITTED,
+        managerReviewDate: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -1150,11 +1193,15 @@ export class PerformanceManagementService {
       }
       return review!;
     }
-    const response = await fetch(`/api/hr/performance/reviews/${id}/final-rating`, {
-      method: 'POST',
-      credentials: 'include',
+    // NestJS performance-reviews has no /final-rating action route; model it as a PUT update.
+    const response = await perfFetch(`/hr/performance-reviews/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        status: ReviewStatus.COMPLETED,
+        finalizedAt: new Date().toISOString(),
+      }),
     });
     return response.json();
   }
@@ -1169,11 +1216,15 @@ export class PerformanceManagementService {
       }
       return review!;
     }
-    const response = await fetch(`/api/hr/performance/reviews/${id}/acknowledge`, {
-      method: 'POST',
-      credentials: 'include',
+    // NestJS performance-reviews has no /acknowledge action route; model it as a PUT update.
+    const response = await perfFetch(`/hr/performance-reviews/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comments }),
+      body: JSON.stringify({
+        status: ReviewStatus.ACKNOWLEDGED,
+        acknowledgedAt: new Date().toISOString(),
+        acknowledgmentComments: comments,
+      }),
     });
     return response.json();
   }

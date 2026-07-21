@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle, Filter } from 'lucide-react';
 import { HrPagesService } from '@/services/hr-pages.service';
 import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
@@ -27,56 +27,85 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(async () => {
     const validFrequency: ComplianceDeadline['frequency'][] = [
       'monthly', 'quarterly', 'half_yearly', 'annual',
     ];
     const validStatus: ComplianceDeadline['status'][] = [
       'upcoming', 'due_today', 'overdue', 'completed',
     ];
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await HrPagesService.complianceReturns()) as any[];
-        // Feed compliance returns into the calendar keyed by their due date.
-        const mapped: ComplianceDeadline[] = (raw ?? []).map((r, idx) => {
-          const status: ComplianceDeadline['status'] = validStatus.includes(r.status)
-            ? r.status
-            : r.filingDate
-              ? 'completed'
-              : 'upcoming';
-          return {
-            id: String(r.id ?? idx),
-            title: r.returnName ?? r.name ?? 'Compliance Return',
-            act: r.regulator ?? r.act ?? '',
-            dueDate: r.dueDate ?? '',
-            frequency: validFrequency.includes(r.frequency) ? r.frequency : 'monthly',
-            responsibility: r.responsibility ?? r.regulator ?? '',
-            priority: r.priority === 'low' || r.priority === 'medium' ? r.priority : 'high',
-            status,
-            reminderDays: Number(r.reminderDays ?? 0),
-            description: r.description ?? '',
-          };
-        });
-        if (!cancelled) setMockDeadlines(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load compliance calendar');
-          setMockDeadlines([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await HrPagesService.complianceReturns()) as any[];
+      // Feed compliance returns into the calendar keyed by their due date.
+      const mapped: ComplianceDeadline[] = (raw ?? []).map((r, idx) => {
+        const status: ComplianceDeadline['status'] = validStatus.includes(r.status)
+          ? r.status
+          : r.filingDate
+            ? 'completed'
+            : 'upcoming';
+        return {
+          id: String(r.id ?? idx),
+          title: r.returnName ?? r.name ?? 'Compliance Return',
+          act: r.regulator ?? r.act ?? '',
+          dueDate: r.dueDate ?? '',
+          frequency: validFrequency.includes(r.frequency) ? r.frequency : 'monthly',
+          responsibility: r.responsibility ?? r.regulator ?? '',
+          priority: r.priority === 'low' || r.priority === 'medium' ? r.priority : 'high',
+          status,
+          reminderDays: Number(r.reminderDays ?? 0),
+          description: r.description ?? '',
+        };
+      });
+      setMockDeadlines(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load compliance calendar');
+      setMockDeadlines([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const [completingId, setCompletingId] = useState<string | null>(null);
+
+  // ---- Add Event (backed by hr/compliance-returns; an event is a dated return) ----
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const emptyEvent = {
+    returnType: 'pf',
+    establishment: '',
+    registrationNumber: '',
+    dueDate: '',
+    remarks: '',
+  };
+  const [eventForm, setEventForm] = useState({ ...emptyEvent });
+
+  const handleCreateEvent = async () => {
+    try {
+      setSaving(true);
+      await HrComplianceDocsService.createReturn({
+        returnType: eventForm.returnType || undefined,
+        establishment: eventForm.establishment || undefined,
+        registrationNumber: eventForm.registrationNumber || undefined,
+        dueDate: eventForm.dueDate || undefined,
+        remarks: eventForm.remarks || undefined,
+        status: 'draft',
+      });
+      setShowAdd(false);
+      setEventForm({ ...emptyEvent });
+      await load();
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add event');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleMarkCompleted = async (id: string) => {
     try {
@@ -135,12 +164,21 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <CalendarIcon className="h-6 w-6 text-red-600" />
-          Compliance Calendar
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">Track compliance deadlines and due dates</p>
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <CalendarIcon className="h-6 w-6 text-red-600" />
+            Compliance Calendar
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Track compliance deadlines and due dates</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+        >
+          <CalendarIcon className="h-4 w-4" />
+          Add Event
+        </button>
       </div>
 
       {isLoading && (
@@ -300,6 +338,85 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5 text-red-600" />
+              Add Compliance Event
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Return Type</label>
+                <select
+                  value={eventForm.returnType}
+                  onChange={(e) => setEventForm({ ...eventForm, returnType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="pf">PF</option>
+                  <option value="esi">ESI</option>
+                  <option value="tds">TDS</option>
+                  <option value="pt">PT</option>
+                  <option value="lwf">LWF</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Establishment</label>
+                <input
+                  type="text"
+                  value={eventForm.establishment}
+                  onChange={(e) => setEventForm({ ...eventForm, establishment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                <input
+                  type="text"
+                  value={eventForm.registrationNumber}
+                  onChange={(e) => setEventForm({ ...eventForm, registrationNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={eventForm.dueDate}
+                  onChange={(e) => setEventForm({ ...eventForm, dueDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                <textarea
+                  value={eventForm.remarks}
+                  onChange={(e) => setEventForm({ ...eventForm, remarks: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setShowAdd(false)}
+                disabled={saving}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateEvent}
+                disabled={saving}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Add Event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
