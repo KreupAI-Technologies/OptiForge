@@ -71,6 +71,38 @@ export class VendorController {
     return this.vendorService.approve(companyId || 'default', id);
   }
 
+  @Post(':id/request-documents')
+  requestDocuments(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+    @Body()
+    data: {
+      documents?: string[];
+      message?: string;
+      dueDate?: string;
+      requestedBy?: string;
+    },
+  ): Promise<Vendor> {
+    return this.vendorService.requestDocuments(
+      companyId || 'default',
+      id,
+      data || {},
+    );
+  }
+
+  @Post(':id/complete-onboarding')
+  completeOnboarding(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+    @Body() data: { completedBy?: string; notes?: string },
+  ): Promise<Vendor> {
+    return this.vendorService.completeOnboarding(
+      companyId || 'default',
+      id,
+      data || {},
+    );
+  }
+
   @Delete(':id')
   delete(
     @Headers('x-company-id') companyId: string,

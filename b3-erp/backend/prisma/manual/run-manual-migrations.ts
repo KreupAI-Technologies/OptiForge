@@ -106,6 +106,11 @@ const MIGRATION_ORDER: string[] = [
     'orphan_packaging_material_requests.sql',
     'orphan_pm_production_jobs.sql',
     'orphan_pm_drawing_verifications.sql',
+    // Deferred residual backends
+    'orphan_pm_report_templates.sql',
+    'orphan_pm_project_categories.sql',
+    'orphan_itadmin_compliance_requirements.sql',
+    'orphan_sourcing_strategy.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

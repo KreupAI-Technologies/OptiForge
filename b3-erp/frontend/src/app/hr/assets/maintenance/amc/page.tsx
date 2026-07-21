@@ -47,6 +47,81 @@ export default function Page() {
   const [detailContract, setDetailContract] = useState<AMCContract | null>(null);
   const [showForm, setShowForm] = useState(false);
 
+  const emptyForm = {
+    contractId: '',
+    assetCategory: 'laptop',
+    vendor: '',
+    vendorContact: '',
+    startDate: '',
+    endDate: '',
+    duration: '',
+    numberOfAssets: '',
+    contractValue: '',
+    paymentTerms: 'annual',
+    coverage: '',
+    responseTime: '',
+    location: '',
+    contactPerson: '',
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const coverageArr = form.coverage
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const created = await HrAssetsService.createAmcContract({
+        contractId: form.contractId,
+        assetCategory: form.assetCategory,
+        vendor: form.vendor,
+        vendorContact: form.vendorContact,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        duration: Number(form.duration) || 0,
+        numberOfAssets: Number(form.numberOfAssets) || 0,
+        contractValue: Number(form.contractValue) || 0,
+        paymentTerms: form.paymentTerms,
+        coverage: JSON.stringify(coverageArr),
+        responseTime: form.responseTime,
+        status: 'active',
+        location: form.location,
+        contactPerson: form.contactPerson,
+      });
+      const row: AMCContract = {
+        id: String(created.id),
+        contractId: created.contractId ?? form.contractId,
+        assetCategory: (created.assetCategory ?? form.assetCategory) as AMCContract['assetCategory'],
+        vendor: created.vendor ?? form.vendor,
+        vendorContact: created.vendorContact ?? form.vendorContact,
+        startDate: created.startDate ?? form.startDate,
+        endDate: created.endDate ?? form.endDate,
+        duration: Number(created.duration ?? form.duration ?? 0),
+        numberOfAssets: Number(created.numberOfAssets ?? form.numberOfAssets ?? 0),
+        contractValue: Number(created.contractValue ?? form.contractValue ?? 0),
+        paymentTerms: (created.paymentTerms ?? form.paymentTerms) as AMCContract['paymentTerms'],
+        coverage: parseCoverage(created.coverage ?? coverageArr),
+        responseTime: created.responseTime ?? form.responseTime,
+        status: (created.status ?? 'active') as AMCContract['status'],
+        renewalDate: created.renewalDate ?? undefined,
+        location: created.location ?? form.location,
+        contactPerson: created.contactPerson ?? form.contactPerson,
+        remarks: created.remarks ?? undefined,
+      };
+      setContracts((prev) => [row, ...prev]);
+      setForm(emptyForm);
+      setShowForm(false);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to add contract');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -424,12 +499,91 @@ export default function Page() {
               </button>
             </div>
             <div className="p-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Adding AMC contracts from this screen is not yet available — the contract service endpoint is pending.
+              {submitError && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {submitError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contract ID</label>
+                  <input value={form.contractId} onChange={(e) => setForm({ ...form, contractId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Category</label>
+                  <select value={form.assetCategory} onChange={(e) => setForm({ ...form, assetCategory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="printer">Printer</option>
+                    <option value="server">Server</option>
+                    <option value="network">Network</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+                  <input value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Contact</label>
+                  <input value={form.vendorContact} onChange={(e) => setForm({ ...form, vendorContact: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                  <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (months)</label>
+                  <input type="number" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Number of Assets</label>
+                  <input type="number" value={form.numberOfAssets} onChange={(e) => setForm({ ...form, numberOfAssets: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contract Value</label>
+                  <input type="number" value={form.contractValue} onChange={(e) => setForm({ ...form, contractValue: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
+                  <select value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half_yearly">Half-Yearly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Response Time</label>
+                  <input value={form.responseTime} onChange={(e) => setForm({ ...form, responseTime: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                  <input value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Coverage (comma-separated)</label>
+                  <input value={form.coverage} onChange={(e) => setForm({ ...form, coverage: e.target.value })} placeholder="On-site support, Parts replacement" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
-                Close
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60">
+                  {isSubmitting ? 'Adding…' : 'Add Contract'}
+                </button>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

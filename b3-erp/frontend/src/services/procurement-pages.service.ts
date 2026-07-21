@@ -27,6 +27,61 @@ export const procurementPagesService = {
   async updateVendor(id: string, data: Record<string, any>): Promise<any> {
     return request(`/procurement/vendors/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
+  async requestVendorDocuments(
+    id: string,
+    payload: { documents?: string[]; message?: string; dueDate?: string; requestedBy?: string } = {},
+  ): Promise<any> {
+    return request(`/procurement/vendors/${id}/request-documents`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+  async completeVendorOnboarding(
+    id: string,
+    payload: { completedBy?: string; notes?: string } = {},
+  ): Promise<any> {
+    return request(`/procurement/vendors/${id}/complete-onboarding`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  // ---- Strategic Sourcing strategies (procurement/sourcing-strategies) ----
+  async getSourcingStrategies(): Promise<any[]> { return asArray(await request('/procurement/sourcing-strategies')); },
+  async createSourcingStrategy(data: Record<string, any>): Promise<any> {
+    return request('/procurement/sourcing-strategies', { method: 'POST', body: JSON.stringify(data) });
+  },
+  async updateSourcingStrategy(id: string, data: Record<string, any>): Promise<any> {
+    return request(`/procurement/sourcing-strategies/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+
+  // ---- E-Marketplace: place order -> creates a Purchase Requisition ----
+  async placeMarketplaceOrder(cartItems: any[], meta: { purpose?: string; requesterId?: string; requesterName?: string; department?: string } = {}): Promise<any> {
+    const today = new Date();
+    const requiredBy = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const items = cartItems.map((item, idx) => {
+      const qty = Number(item.quantity ?? item.minOrder ?? 1);
+      const unitPrice = Number(item.price ?? item.unitPrice ?? 0);
+      return {
+        lineNumber: idx + 1,
+        itemId: String(item.id ?? item.sku ?? `item-${idx + 1}`),
+        itemCode: String(item.sku ?? item.id ?? `SKU-${idx + 1}`),
+        itemName: String(item.name ?? 'Marketplace Item'),
+        description: String(item.description ?? item.name ?? ''),
+        uom: String(item.unit ?? 'EA'),
+        quantity: qty,
+        estimatedUnitPrice: unitPrice,
+        estimatedTotal: Number((qty * unitPrice).toFixed(2)),
+        requiredDate: requiredBy.toISOString().split('T')[0],
+      };
+    });
+    const payload = {
+      prDate: today.toISOString().split('T')[0],
+      requiredByDate: requiredBy.toISOString().split('T')[0],
+      priority: 'Medium',
+      prType: 'Standard',
+      requesterId: meta.requesterId ?? 'marketplace-user',
+      requesterName: meta.requesterName ?? 'E-Marketplace Buyer',
+      department: meta.department ?? 'Procurement',
+      items,
+      purpose: meta.purpose ?? 'E-Marketplace cart checkout',
+    };
+    return request('/procurement/purchase-requisitions', { method: 'POST', body: JSON.stringify(payload) });
+  },
 
   // ---- PO approval actions (procurement/purchase-orders/:id/*) ----
   async delegatePurchaseOrder(id: string, payload: { delegatedTo: string; delegatedBy?: string; notes?: string }): Promise<any> {

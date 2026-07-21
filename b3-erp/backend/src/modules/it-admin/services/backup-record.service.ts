@@ -42,4 +42,16 @@ export class BackupRecordService {
     const item = await this.findOne(id);
     await this.repository.remove(item);
   }
+
+  /**
+   * Records a restore of a backup. Realistic no-op: marks the record as
+   * restored and stamps the completion time, then returns the updated record.
+   * Actual data-plane restore is out of scope for this control-plane API.
+   */
+  async restore(id: string): Promise<BackupRecord> {
+    const item = await this.findOne(id);
+    item.status = 'restored';
+    item.completedAt = new Date().toISOString();
+    return this.repository.save(item);
+  }
 }

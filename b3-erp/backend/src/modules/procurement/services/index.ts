@@ -12,6 +12,7 @@ export * from './approval-threshold-seeder.service';
 export * from './audit-trail.service';
 export * from './vendor-collaboration.service';
 export * from './sourcing-integration.service';
+export * from './sourcing-strategy.service';
 export * from './procurement-notification.service';
 export * from './procurement-budget.service';
 export * from './vendor-performance-analytics.service';

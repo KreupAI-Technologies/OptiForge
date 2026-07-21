@@ -84,6 +84,19 @@ export default function LicenseUsers() {
     }
   }
 
+  const handleRenewUser = async (userId: string) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId ? { ...u, status: 'active' as const } : u,
+      ),
+    )
+    try {
+      await ItAdminService.renewLicenseUser(userId, 12)
+    } catch {
+      // best-effort persistence; local state already updated
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -368,6 +381,10 @@ export default function LicenseUsers() {
                   <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
                     <button className="text-purple-600 hover:text-purple-900 mr-3">
                       View
+                    </button>
+                    <button onClick={() => handleRenewUser(user.id)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm mr-2">
+                      <Calendar className="h-4 w-4 text-green-600" />
+                      <span className="text-green-600">Renew</span>
                     </button>
                     <button onClick={() => handleRemoveUser(user.id)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
                       <UserMinus className="h-4 w-4 text-red-600" />

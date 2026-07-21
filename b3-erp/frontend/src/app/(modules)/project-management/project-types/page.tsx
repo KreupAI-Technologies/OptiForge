@@ -201,12 +201,22 @@ export default function ProjectTypesPage() {
   }
  };
 
- // Handlers for Categories.
- // NEEDS BACKEND: there is no project-category endpoint in the PM module, so
- // category create/edit close their modals without persisting. The categories
- // tab is likewise seeded from a static list until that backend exists.
- const handleCreateCategory = (_data: any) => {
-  setShowCreateCategoryModal(false);
+ // Handlers for Categories, wired to the pm project-categories endpoints.
+ const reloadCategories = async () => {
+  const rows = await projectManagementService.listPmProjectCategories();
+  setCategories(Array.isArray(rows) ? (rows as unknown as ProjectCategory[]) : []);
+ };
+
+ const handleCreateCategory = async (data: any) => {
+  try {
+   const created = await projectManagementService.createPmProjectCategory(data);
+   if (!created) throw new Error('Create failed');
+   await reloadCategories();
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to create category');
+  } finally {
+   setShowCreateCategoryModal(false);
+  }
  };
 
  const handleEditCategory = (category: any) => {
@@ -214,9 +224,19 @@ export default function ProjectTypesPage() {
   setShowEditCategoryModal(true);
  };
 
- const handleEditCategorySave = (_data: any) => {
-  setShowEditCategoryModal(false);
-  setSelectedCategory(null);
+ const handleEditCategorySave = async (data: any) => {
+  try {
+   if (selectedCategory?.id) {
+    const updated = await projectManagementService.updatePmProjectCategory(selectedCategory.id, data);
+    if (!updated) throw new Error('Update failed');
+    await reloadCategories();
+   }
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to update category');
+  } finally {
+   setShowEditCategoryModal(false);
+   setSelectedCategory(null);
+  }
  };
 
  const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
@@ -230,9 +250,13 @@ export default function ProjectTypesPage() {
    .finally(() => { setLoadingTypes(false); });
  }, []);
 
- // NEEDS BACKEND: there is no project-category endpoint in the PM module, so this
- // list stays empty until that backend exists (no mock/seed data).
- const [categories] = useState<ProjectCategory[]>([]);
+ const [categories, setCategories] = useState<ProjectCategory[]>([]);
+
+ useEffect(() => {
+  projectManagementService.listPmProjectCategories()
+   .then((rows) => { setCategories(Array.isArray(rows) ? (rows as unknown as ProjectCategory[]) : []); })
+   .catch(() => { setCategories([]); });
+ }, []);
 
  const filteredTypes = projectTypes.filter((type) => {
   const matchesSearch =

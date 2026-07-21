@@ -102,6 +102,33 @@ export class CommonMastersController {
         return this.commonMastersService.findAllHolidays(companyId);
     }
 
+    @Post('holidays')
+    createHoliday(@Body() data: { name: string; date: string; companyId: string; type?: string; description?: string }) {
+        return this.commonMastersService.createHoliday({
+            name: data.name,
+            date: new Date(data.date),
+            companyId: data.companyId,
+            type: data.type,
+            description: data.description,
+        });
+    }
+
+    @Put('holidays/:id')
+    updateHoliday(@Param('id') id: string, @Body() data: { name?: string; date?: string; type?: string; description?: string; isActive?: boolean }) {
+        return this.commonMastersService.updateHoliday(id, {
+            name: data.name,
+            date: data.date ? new Date(data.date) : undefined,
+            type: data.type,
+            description: data.description,
+            isActive: data.isActive,
+        });
+    }
+
+    @Delete('holidays/:id')
+    deleteHoliday(@Param('id') id: string) {
+        return this.commonMastersService.deleteHoliday(id);
+    }
+
     @Get('uoms')
     findAllUoms(@Query('companyId') companyId: string) {
         return this.commonMastersService.findAllUoms(companyId);

@@ -173,6 +173,78 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const emptyForm = {
+    assetTag: '',
+    assetName: '',
+    assetCategory: 'laptop',
+    requestedBy: '',
+    employeeCode: '',
+    department: '',
+    issueType: 'hardware_failure',
+    issueDescription: '',
+    priority: 'medium',
+    location: '',
+    contactNumber: '',
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const created = await HrAssetsService.createAssetMaintenance({
+        recordType: 'request',
+        assetTag: form.assetTag,
+        assetName: form.assetName,
+        assetCategory: form.assetCategory,
+        requestedBy: form.requestedBy,
+        employeeCode: form.employeeCode,
+        department: form.department,
+        issueType: form.issueType,
+        issueDescription: form.issueDescription,
+        priority: form.priority,
+        requestDate: new Date().toISOString().slice(0, 10),
+        status: 'pending',
+        location: form.location,
+        contactNumber: form.contactNumber,
+      });
+      setMockRequests((prev) => [
+        {
+          id: created.id,
+          requestId: created.requestId || '',
+          assetTag: created.assetTag || form.assetTag,
+          assetName: created.assetName || form.assetName,
+          assetCategory: (created.assetCategory as MaintenanceRequest['assetCategory']) || (form.assetCategory as MaintenanceRequest['assetCategory']),
+          requestedBy: created.requestedBy || form.requestedBy,
+          employeeCode: created.employeeCode || form.employeeCode,
+          department: created.department || form.department,
+          issueType: (created.issueType as MaintenanceRequest['issueType']) || (form.issueType as MaintenanceRequest['issueType']),
+          issueDescription: created.issueDescription || form.issueDescription,
+          priority: (created.priority as MaintenanceRequest['priority']) || (form.priority as MaintenanceRequest['priority']),
+          requestDate: created.requestDate || new Date().toISOString().slice(0, 10),
+          expectedDate: created.expectedDate || undefined,
+          status: (created.status as MaintenanceRequest['status']) || 'pending',
+          assignedTo: created.assignedTo || undefined,
+          approvedBy: created.approvedBy || undefined,
+          approvalDate: created.approvalDate || undefined,
+          estimatedCost: created.estimatedCost != null ? Number(created.estimatedCost) : undefined,
+          location: created.location || form.location,
+          contactNumber: created.contactNumber || form.contactNumber,
+          remarks: created.remarks || undefined,
+        },
+        ...prev,
+      ]);
+      setForm(emptyForm);
+      setShowForm(false);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create request');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -596,12 +668,87 @@ export default function Page() {
               </button>
             </div>
             <div className="p-5">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Creating maintenance requests from this screen is not yet available — the maintenance service endpoint is pending.
+              {submitError && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {submitError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Tag</label>
+                  <input value={form.assetTag} onChange={(e) => setForm({ ...form, assetTag: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
+                  <input value={form.assetName} onChange={(e) => setForm({ ...form, assetName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Category</label>
+                  <select value={form.assetCategory} onChange={(e) => setForm({ ...form, assetCategory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="monitor">Monitor</option>
+                    <option value="printer">Printer</option>
+                    <option value="server">Server</option>
+                    <option value="network">Network</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Requested By</label>
+                  <input value={form.requestedBy} onChange={(e) => setForm({ ...form, requestedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                  <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issue Type</label>
+                  <select value={form.issueType} onChange={(e) => setForm({ ...form, issueType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="hardware_failure">Hardware Failure</option>
+                    <option value="software_issue">Software Issue</option>
+                    <option value="performance">Performance Issue</option>
+                    <option value="peripheral">Peripheral Issue</option>
+                    <option value="network">Network Issue</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                  <input value={form.contactNumber} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issue Description</label>
+                  <textarea value={form.issueDescription} onChange={(e) => setForm({ ...form, issueDescription: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="w-full mt-5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
-                Close
-              </button>
+              <div className="flex gap-2 mt-5">
+                <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60">
+                  {isSubmitting ? 'Creating…' : 'Create Request'}
+                </button>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -94,13 +94,53 @@ const PerformanceMonitoringPage = () => {
     };
   }, []);
 
-  const [history] = useState<PerformanceHistory[]>([
+  const [history, setHistory] = useState<PerformanceHistory[]>([
     { timestamp: '18:00', cpu: 42, memory: 65, disk: 210, network: 142, responseTime: 132, throughput: 1180 },
     { timestamp: '18:15', cpu: 45, memory: 66, disk: 215, network: 145, responseTime: 135, throughput: 1200 },
     { timestamp: '18:30', cpu: 48, memory: 68, disk: 220, network: 150, responseTime: 140, throughput: 1220 },
     { timestamp: '18:45', cpu: 46, memory: 67, disk: 218, network: 148, responseTime: 138, throughput: 1210 },
     { timestamp: '19:00', cpu: 45, memory: 68, disk: 234, network: 156, responseTime: 145, throughput: 1250 },
   ]);
+
+  // Load the performance time-series from the backend. Metric names are matched
+  // heuristically to the fixed chart series; the hardcoded array above is the
+  // fallback until (and unless) the fetch returns data.
+  useEffect(() => {
+    let active = true;
+    const pick = (values: Record<string, number>, needle: string): number => {
+      const key = Object.keys(values).find((k) =>
+        k.toLowerCase().includes(needle),
+      );
+      return key ? values[key] : 0;
+    };
+    ItAdminService.getMonitoringHistory({ kind: 'performance' })
+      .then((res) => {
+        if (!active || !res?.series || res.series.length === 0) return;
+        setHistory(
+          res.series.map((point) => {
+            const ts = point.timestamp;
+            const label = /\d{2}:\d{2}/.test(ts)
+              ? (ts.match(/\d{2}:\d{2}/) as RegExpMatchArray)[0]
+              : ts;
+            return {
+              timestamp: label,
+              cpu: pick(point.values, 'cpu'),
+              memory: pick(point.values, 'memory'),
+              disk: pick(point.values, 'disk'),
+              network: pick(point.values, 'network'),
+              responseTime: pick(point.values, 'response'),
+              throughput: pick(point.values, 'throughput'),
+            };
+          }),
+        );
+      })
+      .catch(() => {
+        // keep the fallback series on error
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stats: PerformanceStats = {
     avgCpu: Math.round(metrics.find(m => m.metric === 'CPU Usage')?.average || 0),

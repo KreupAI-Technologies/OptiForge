@@ -31,11 +31,9 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // NOTE: HrAssetsService has no vehicle-assignment write endpoint
-  // (only createAssetRequest/updateAssetRequest, and AssetManagementService.allocateAsset
-  // targets asset allocations, not vehicle assignments). Until a dedicated backend
-  // endpoint exists, the New Assignment / Return Vehicle actions optimistically update
-  // the locally-loaded `assignments` list only.
+  // New Assignment (handleAdd) persists via HrAssetsService.createVehicleAssignment.
+  // Return Vehicle still updates the locally-loaded `assignments` list only,
+  // pending a dedicated backend return transition.
   const [selected, setSelected] = useState<VehicleAssignment | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [returnTarget, setReturnTarget] = useState<VehicleAssignment | null>(null);
@@ -53,38 +51,60 @@ export default function Page() {
   });
   const [returnForm, setReturnForm] = useState({ odometerReadingEnd: '', remarks: '' });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const now = Date.now();
-    const newAssignment: VehicleAssignment = {
-      id: now.toString(),
-      assignmentId: `VA-${now}`,
-      vehicleNumber: addForm.vehicleNumber,
-      vehicleName: addForm.vehicleName,
-      registrationNumber: addForm.registrationNumber,
-      assignedTo: addForm.assignedTo,
-      employeeCode: addForm.employeeCode,
-      department: addForm.department,
-      designation: addForm.designation,
-      assignmentDate: new Date().toISOString(),
-      purpose: addForm.purpose,
-      status: 'active',
-      odometerReadingStart: Number(addForm.odometerReadingStart) || 0,
-      location: addForm.location,
-    };
-    setAssignments(prev => [newAssignment, ...prev]);
-    setShowAdd(false);
-    setAddForm({
-      vehicleName: '',
-      vehicleNumber: '',
-      registrationNumber: '',
-      assignedTo: '',
-      employeeCode: '',
-      department: '',
-      designation: '',
-      purpose: '',
-      odometerReadingStart: '',
-      location: '',
-    });
+    const odometerReadingStart = Number(addForm.odometerReadingStart) || 0;
+    try {
+      const a = await HrAssetsService.createVehicleAssignment({
+        assignmentId: `VA-${now}`,
+        vehicleNumber: addForm.vehicleNumber,
+        vehicleName: addForm.vehicleName,
+        registrationNumber: addForm.registrationNumber,
+        assignedTo: addForm.assignedTo,
+        employeeCode: addForm.employeeCode,
+        department: addForm.department,
+        designation: addForm.designation,
+        assignmentDate: new Date().toISOString(),
+        purpose: addForm.purpose,
+        odometerReadingStart,
+        location: addForm.location,
+      });
+      const created: VehicleAssignment = {
+        id: String(a.id ?? now),
+        assignmentId: a.assignmentId ?? `VA-${now}`,
+        vehicleNumber: a.vehicleNumber ?? addForm.vehicleNumber,
+        vehicleName: a.vehicleName ?? addForm.vehicleName,
+        registrationNumber: a.registrationNumber ?? addForm.registrationNumber,
+        assignedTo: a.assignedTo ?? addForm.assignedTo,
+        employeeCode: a.employeeCode ?? addForm.employeeCode,
+        department: a.department ?? addForm.department,
+        designation: a.designation ?? addForm.designation,
+        assignmentDate: a.assignmentDate ?? new Date().toISOString(),
+        returnDate: a.returnDate ?? undefined,
+        purpose: a.purpose ?? addForm.purpose,
+        status: (a.status ?? 'active') as VehicleAssignment['status'],
+        odometerReadingStart: Number(a.odometerReadingStart ?? odometerReadingStart),
+        odometerReadingEnd: a.odometerReadingEnd != null ? Number(a.odometerReadingEnd) : undefined,
+        location: a.location ?? addForm.location,
+        remarks: a.remarks ?? undefined,
+      };
+      setAssignments(prev => [created, ...prev]);
+      setShowAdd(false);
+      setAddForm({
+        vehicleName: '',
+        vehicleNumber: '',
+        registrationNumber: '',
+        assignedTo: '',
+        employeeCode: '',
+        department: '',
+        designation: '',
+        purpose: '',
+        odometerReadingStart: '',
+        location: '',
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save');
+    }
   };
 
   const handleReturn = () => {

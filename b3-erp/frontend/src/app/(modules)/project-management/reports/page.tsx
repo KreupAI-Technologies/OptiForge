@@ -318,15 +318,32 @@ export default function ProjectReportsPage() {
 
  const [mockReports, setMockReports] = useState<Report[]>([]);
  const [savingReport, setSavingReport] = useState(false);
+ const [savedTemplates, setSavedTemplates] = useState<ReportTemplate[]>([]);
 
  const reloadReports = async () => {
   const rows = await projectManagementService.listPmReports();
   setMockReports(Array.isArray(rows) ? (rows as unknown as Report[]) : []);
  };
 
+ const reloadTemplates = async () => {
+  const rows = await projectManagementService.listPmReportTemplates();
+  const mapped: ReportTemplate[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+   id: r.id,
+   templateName: r.templateName ?? r.template_name ?? 'Untitled Template',
+   reportType: r.reportType ?? r.report_type ?? 'Custom',
+   description: r.description ?? '',
+   dataPoints: r.dataPoints ?? r.data_points ?? [],
+   filters: r.filters ?? [],
+   charts: r.charts ?? [],
+   icon: Layout,
+  }));
+  setSavedTemplates(mapped);
+ };
+
  useEffect(() => {
   void seedReports;
   reloadReports().catch(() => setMockReports([]));
+  reloadTemplates().catch(() => setSavedTemplates([]));
  }, []);
 
  // Report templates
@@ -513,11 +530,33 @@ export default function ProjectReportsPage() {
   }
  };
 
- // NEEDS BACKEND: no report-template endpoint yet — customise/create template
- // close their modals without persisting.
- const handleCustomizeTemplate = (_data: any) => {
-  setShowCustomizeModal(false);
-  setSelectedTemplateForCustomize(null);
+ // Persist a customised template. If it already has a backend id, update it;
+ // otherwise create a new report-template record.
+ const handleCustomizeTemplate = async (data: any) => {
+  setSavingReport(true);
+  try {
+   const payload = {
+    templateName: data?.templateName ?? selectedTemplateForCustomize?.templateName,
+    reportType: data?.reportType ?? selectedTemplateForCustomize?.reportType,
+    description: data?.description ?? selectedTemplateForCustomize?.description,
+    dataPoints: data?.dataPoints ?? selectedTemplateForCustomize?.dataPoints,
+    filters: data?.filters ?? selectedTemplateForCustomize?.filters,
+    charts: data?.charts ?? selectedTemplateForCustomize?.charts,
+   };
+   const existingId = selectedTemplateForCustomize?.id;
+   const isBackendId = existingId && savedTemplates.some((t) => t.id === existingId);
+   const saved = isBackendId
+    ? await projectManagementService.updatePmReportTemplate(existingId!, payload)
+    : await projectManagementService.createPmReportTemplate(payload);
+   if (!saved) throw new Error('Save failed');
+   await reloadTemplates();
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to save template');
+  } finally {
+   setSavingReport(false);
+   setShowCustomizeModal(false);
+   setSelectedTemplateForCustomize(null);
+  }
  };
 
  const handlePreview = (report: Report) => {
@@ -555,9 +594,25 @@ export default function ProjectReportsPage() {
   // API call would go here
  };
 
- // NEEDS BACKEND: no report-template endpoint yet.
- const handleCreateTemplate = (_data: any) => {
-  // no-op until a report-template backend exists
+ const handleCreateTemplate = async (data: any) => {
+  setSavingReport(true);
+  try {
+   const created = await projectManagementService.createPmReportTemplate({
+    templateName: data?.templateName,
+    reportType: data?.reportType,
+    description: data?.description,
+    dataPoints: data?.dataPoints,
+    filters: data?.filters,
+    charts: data?.charts,
+   });
+   if (!created) throw new Error('Create failed');
+   await reloadTemplates();
+   setShowCreateTemplateModal(false);
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to create template');
+  } finally {
+   setSavingReport(false);
+  }
  };
 
  const handleViewHistory = (report: Report) => {
@@ -689,7 +744,7 @@ export default function ProjectReportsPage() {
         <div className="flex items-center justify-between">
          <div>
           <p className="text-sm text-gray-600">Report Templates</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{reportTemplates.length}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{reportTemplates.length + savedTemplates.length}</p>
          </div>
          <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
           <Layout className="w-6 h-6 text-purple-600" />
@@ -898,7 +953,7 @@ export default function ProjectReportsPage() {
      {/* Templates Tab */}
      {activeTab === 'templates' && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-       {reportTemplates.map((template) => {
+       {[...savedTemplates, ...reportTemplates].map((template) => {
         const IconComponent = template.icon;
         return (
          <div key={template.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow">

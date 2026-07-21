@@ -49,6 +49,70 @@ export default function Page() {
   const [detailSchedule, setDetailSchedule] = useState<PreventiveMaintenance | null>(null);
   const [showForm, setShowForm] = useState(false);
 
+  const emptyForm = {
+    assetTag: '',
+    assetName: '',
+    assetCategory: 'laptop',
+    maintenanceType: 'inspection',
+    frequency: 'monthly',
+    lastMaintenanceDate: '',
+    nextMaintenanceDate: '',
+    assignedTo: '',
+    estimatedDuration: '',
+    location: '',
+    priority: 'low',
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const created = await HrAssetsService.createPreventiveMaintenance({
+        assetTag: form.assetTag,
+        assetName: form.assetName,
+        assetCategory: form.assetCategory,
+        maintenanceType: form.maintenanceType,
+        frequency: form.frequency,
+        lastMaintenanceDate: form.lastMaintenanceDate,
+        nextMaintenanceDate: form.nextMaintenanceDate,
+        assignedTo: form.assignedTo,
+        estimatedDuration: Number(form.estimatedDuration) || 0,
+        status: 'upcoming',
+        location: form.location,
+        checklist: JSON.stringify([]),
+        priority: form.priority,
+      });
+      const row: PreventiveMaintenance = {
+        id: String(created.id),
+        scheduleId: created.scheduleId ?? '',
+        assetTag: created.assetTag ?? form.assetTag,
+        assetName: created.assetName ?? form.assetName,
+        assetCategory: (created.assetCategory ?? form.assetCategory) as PreventiveMaintenance['assetCategory'],
+        maintenanceType: (created.maintenanceType ?? form.maintenanceType) as PreventiveMaintenance['maintenanceType'],
+        frequency: (created.frequency ?? form.frequency) as PreventiveMaintenance['frequency'],
+        lastMaintenanceDate: created.lastMaintenanceDate ?? form.lastMaintenanceDate,
+        nextMaintenanceDate: created.nextMaintenanceDate ?? form.nextMaintenanceDate,
+        assignedTo: created.assignedTo ?? form.assignedTo,
+        estimatedDuration: Number(created.estimatedDuration ?? form.estimatedDuration ?? 0),
+        status: (created.status ?? 'upcoming') as PreventiveMaintenance['status'],
+        location: created.location ?? form.location,
+        checklist: parseChecklist(created.checklist),
+        priority: (created.priority ?? form.priority) as PreventiveMaintenance['priority'],
+        remarks: created.remarks ?? undefined,
+      };
+      setSchedules((prev) => [row, ...prev]);
+      setForm(emptyForm);
+      setShowForm(false);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to add schedule');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -436,12 +500,91 @@ export default function Page() {
               </button>
             </div>
             <div className="p-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Adding preventive maintenance schedules from this screen is not yet available — the schedule service endpoint is pending.
+              {submitError && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {submitError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Tag</label>
+                  <input value={form.assetTag} onChange={(e) => setForm({ ...form, assetTag: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
+                  <input value={form.assetName} onChange={(e) => setForm({ ...form, assetName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Category</label>
+                  <select value={form.assetCategory} onChange={(e) => setForm({ ...form, assetCategory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="server">Server</option>
+                    <option value="printer">Printer</option>
+                    <option value="network">Network</option>
+                    <option value="hvac">HVAC</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Maintenance Type</label>
+                  <select value={form.maintenanceType} onChange={(e) => setForm({ ...form, maintenanceType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="cleaning">Cleaning</option>
+                    <option value="inspection">Inspection</option>
+                    <option value="calibration">Calibration</option>
+                    <option value="lubrication">Lubrication</option>
+                    <option value="software_update">Software Update</option>
+                    <option value="comprehensive">Comprehensive</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                  <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half_yearly">Half-Yearly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Maintenance Date</label>
+                  <input type="date" value={form.lastMaintenanceDate} onChange={(e) => setForm({ ...form, lastMaintenanceDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Next Maintenance Date</label>
+                  <input type="date" value={form.nextMaintenanceDate} onChange={(e) => setForm({ ...form, nextMaintenanceDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                  <input value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Duration (hours)</label>
+                  <input type="number" value={form.estimatedDuration} onChange={(e) => setForm({ ...form, estimatedDuration: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
-                Close
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60">
+                  {isSubmitting ? 'Adding…' : 'Add Schedule'}
+                </button>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

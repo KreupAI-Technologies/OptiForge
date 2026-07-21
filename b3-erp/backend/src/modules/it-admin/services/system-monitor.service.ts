@@ -47,6 +47,43 @@ export class SystemMonitorService {
     return { total: rows.length, byStatus, bySeverity };
   }
 
+  /**
+   * Returns a recent time-series for a monitoring kind (default 'performance').
+   * Buckets stored rows by their `lastOccurred` timestamp (falling back to
+   * createdAt), producing one point per named metric per timestamp. Empty-safe:
+   * if no rows are stored the `series` array is empty — no fabricated data.
+   */
+  async history(
+    kind = 'performance',
+    companyId?: string,
+    limit = 30,
+  ): Promise<{
+    kind: string;
+    metrics: string[];
+    series: Array<{ timestamp: string; values: Record<string, number> }>;
+  }> {
+    const rows = await this.findAll({ kind, companyId });
+    const buckets = new Map<string, Record<string, number>>();
+    const metricSet = new Set<string>();
+    for (const r of rows) {
+      const ts =
+        r.lastOccurred ||
+        (r.createdAt instanceof Date
+          ? r.createdAt.toISOString()
+          : String(r.createdAt ?? ''));
+      if (!ts) continue;
+      metricSet.add(r.name);
+      const bucket = buckets.get(ts) ?? {};
+      if (typeof r.value === 'number') bucket[r.name] = r.value;
+      buckets.set(ts, bucket);
+    }
+    const series = Array.from(buckets.entries())
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .slice(-limit)
+      .map(([timestamp, values]) => ({ timestamp, values }));
+    return { kind, metrics: Array.from(metricSet), series };
+  }
+
   async findOne(id: string): Promise<SystemMonitor> {
     const record = await this.repository.findOne({ where: { id } });
     if (!record) throw new NotFoundException(`Monitor record ${id} not found`);

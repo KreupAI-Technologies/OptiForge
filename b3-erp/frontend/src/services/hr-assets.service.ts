@@ -253,7 +253,7 @@ export interface VehicleFuel {
 
 
 export interface IdCard { id: string; companyId: string; cardNumber?: string; cardType?: string; issuedTo?: string; employeeCode?: string; department?: string; designation?: string; issueDate?: string; expiryDate?: string; status?: string; bloodGroup?: string; emergencyContact?: string; photo?: boolean; location?: string; issuedBy?: string; remarks?: string; }
-export interface AccessCard { id: string; companyId: string; cardNumber?: string; cardType?: string; issuedTo?: string; employeeCode?: string; department?: string; designation?: string; issueDate?: string; expiryDate?: string; status?: string; accessLevel?: string; accessZones?: string; location?: string; issuedBy?: string; lastUsed?: string; remarks?: string; }
+export interface AccessCard { id: string; companyId: string; cardNumber?: string; cardType?: string; issuedTo?: string; employeeCode?: string; department?: string; designation?: string; issueDate?: string; expiryDate?: string; status?: string; accessLevel?: string; accessZones?: string | string[]; location?: string; issuedBy?: string; lastUsed?: string; remarks?: string; }
 export interface Stationery { id: string; companyId: string; itemCode?: string; itemName?: string; category?: string; brand?: string; unit?: string; totalQuantity?: number; issued?: number; available?: number; minStockLevel?: number; reorderLevel?: number; unitCost?: number | string; totalValue?: number | string; location?: string; supplier?: string; lastPurchaseDate?: string; status?: string; }
 export interface AssetAudit { id: string; companyId: string; auditId?: string; auditDate?: string; auditType?: string; location?: string; auditor?: string; totalAssets?: number; verified?: number; missing?: number; damaged?: number; status?: string; completionDate?: string; remarks?: string; }
 export interface VehicleAssignment { id: string; companyId: string; assignmentId?: string; vehicleNumber?: string; vehicleName?: string; registrationNumber?: string; assignedTo?: string; employeeCode?: string; department?: string; designation?: string; assignmentDate?: string; returnDate?: string; purpose?: string; status?: string; odometerReadingStart?: number; odometerReadingEnd?: number; location?: string; remarks?: string; }
@@ -401,5 +401,86 @@ export class HrAssetsService {
   static async getReportAllocation(companyId = 'company-1'): Promise<AllocationSummaryReport[]> {
     const data = await getJson<AllocationSummaryReport[]>(`/hr/asset-reports/allocation?${cid(companyId)}`);
     return Array.isArray(data) ? data : [];
+  }
+
+  // --- Authoring writes (POST) -------------------------------------------
+  // All target existing NestJS controllers under /hr/* which accept a
+  // Partial<Entity> & { companyId } body and return the persisted row.
+
+  static async createAssetTransfer(
+    payload: Partial<AssetTransfer>,
+    companyId = 'company-1',
+  ): Promise<AssetTransfer> {
+    return sendJson<AssetTransfer>('/hr/asset-transfers', 'POST', { companyId, ...payload });
+  }
+
+  static async createAssetReturn(
+    payload: Partial<AssetReturn>,
+    companyId = 'company-1',
+  ): Promise<AssetReturn> {
+    return sendJson<AssetReturn>('/hr/asset-returns', 'POST', { companyId, ...payload });
+  }
+
+  static async createAssetMaintenance(
+    payload: Partial<AssetMaintenance>,
+    companyId = 'company-1',
+  ): Promise<AssetMaintenance> {
+    return sendJson<AssetMaintenance>('/hr/asset-maintenance', 'POST', { companyId, ...payload });
+  }
+
+  static async createPreventiveMaintenance(
+    payload: Partial<PreventiveMaintenance>,
+    companyId = 'company-1',
+  ): Promise<PreventiveMaintenance> {
+    return sendJson<PreventiveMaintenance>('/hr/preventive-maintenance', 'POST', { companyId, ...payload });
+  }
+
+  static async createAmcContract(
+    payload: Partial<AmcContract>,
+    companyId = 'company-1',
+  ): Promise<AmcContract> {
+    return sendJson<AmcContract>('/hr/amc-contracts', 'POST', { companyId, ...payload });
+  }
+
+  static async createAssetAudit(
+    payload: Partial<AssetAudit>,
+    companyId = 'company-1',
+  ): Promise<AssetAudit> {
+    return sendJson<AssetAudit>('/hr/asset-audits', 'POST', { companyId, ...payload });
+  }
+
+  static async createVehicleFuel(
+    payload: Partial<VehicleFuel>,
+    companyId = 'company-1',
+  ): Promise<VehicleFuel> {
+    return sendJson<VehicleFuel>('/hr/vehicle-fuel', 'POST', { companyId, ...payload });
+  }
+
+  static async createVehicleAssignment(
+    payload: Partial<VehicleAssignment>,
+    companyId = 'company-1',
+  ): Promise<VehicleAssignment> {
+    return sendJson<VehicleAssignment>('/hr/vehicle-assignments', 'POST', { companyId, ...payload });
+  }
+
+  static async createIdCard(
+    payload: Partial<IdCard>,
+    companyId = 'company-1',
+  ): Promise<IdCard> {
+    return sendJson<IdCard>('/hr/id-cards', 'POST', { companyId, ...payload });
+  }
+
+  static async createAccessCard(
+    payload: Partial<AccessCard>,
+    companyId = 'company-1',
+  ): Promise<AccessCard> {
+    return sendJson<AccessCard>('/hr/access-cards', 'POST', { companyId, ...payload });
+  }
+
+  static async createStationery(
+    payload: Partial<Stationery>,
+    companyId = 'company-1',
+  ): Promise<Stationery> {
+    return sendJson<Stationery>('/hr/stationery', 'POST', { companyId, ...payload });
   }
 }

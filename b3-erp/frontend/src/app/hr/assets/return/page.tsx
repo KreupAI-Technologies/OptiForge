@@ -175,6 +175,78 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const emptyForm = {
+    assetTag: '',
+    assetType: '',
+    assetCategory: 'laptop',
+    returnedBy: '',
+    employeeCode: '',
+    department: '',
+    assignedDate: '',
+    returnDate: new Date().toISOString().slice(0, 10),
+    returnReason: 'resignation',
+    condition: 'good',
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const created = await HrAssetsService.createAssetReturn({
+        assetTag: form.assetTag,
+        assetType: form.assetType,
+        assetCategory: form.assetCategory,
+        returnedBy: form.returnedBy,
+        employeeCode: form.employeeCode,
+        department: form.department,
+        assignedDate: form.assignedDate,
+        returnDate: form.returnDate,
+        returnReason: form.returnReason,
+        condition: form.condition,
+        status: 'pending_inspection',
+        accessories: JSON.stringify([]),
+      });
+      let accessories: AssetReturn['accessories'] = [];
+      try {
+        accessories = created.accessories ? JSON.parse(created.accessories) : [];
+      } catch {
+        accessories = [];
+      }
+      setMockReturns((prev) => [
+        {
+          id: created.id,
+          returnId: created.returnId || '',
+          assetTag: created.assetTag || form.assetTag,
+          assetType: created.assetType || form.assetType,
+          assetCategory: (created.assetCategory as AssetReturn['assetCategory']) || (form.assetCategory as AssetReturn['assetCategory']),
+          returnedBy: created.returnedBy || form.returnedBy,
+          employeeCode: created.employeeCode || form.employeeCode,
+          department: created.department || form.department,
+          assignedDate: created.assignedDate || form.assignedDate,
+          returnDate: created.returnDate || form.returnDate,
+          returnReason: (created.returnReason as AssetReturn['returnReason']) || (form.returnReason as AssetReturn['returnReason']),
+          condition: (created.condition as AssetReturn['condition']) || (form.condition as AssetReturn['condition']),
+          status: (created.status as AssetReturn['status']) || 'pending_inspection',
+          inspectedBy: created.inspectedBy || undefined,
+          inspectionDate: created.inspectionDate || undefined,
+          inspectionNotes: created.inspectionNotes || undefined,
+          damageCharges: created.damageCharges != null ? Number(created.damageCharges) : undefined,
+          accessories,
+        },
+        ...prev,
+      ]);
+      setForm(emptyForm);
+      setShowForm(false);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to process return');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -599,12 +671,83 @@ export default function Page() {
               </button>
             </div>
             <div className="p-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Return processing is not yet available from this screen — the return service endpoint is pending.
+              {submitError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Tag</label>
+                  <input value={form.assetTag} onChange={(e) => setForm({ ...form, assetTag: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Type</label>
+                  <input value={form.assetType} onChange={(e) => setForm({ ...form, assetType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Category</label>
+                  <select value={form.assetCategory} onChange={(e) => setForm({ ...form, assetCategory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="tablet">Tablet</option>
+                    <option value="monitor">Monitor</option>
+                    <option value="printer">Printer</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Returned By</label>
+                  <input value={form.returnedBy} onChange={(e) => setForm({ ...form, returnedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                  <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Date</label>
+                  <input type="date" value={form.assignedDate} onChange={(e) => setForm({ ...form, assignedDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Return Date</label>
+                  <input type="date" value={form.returnDate} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Return Reason</label>
+                  <select value={form.returnReason} onChange={(e) => setForm({ ...form, returnReason: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="resignation">Resignation</option>
+                    <option value="transfer">Department Transfer</option>
+                    <option value="upgrade">Equipment Upgrade</option>
+                    <option value="damaged">Damaged Equipment</option>
+                    <option value="end_of_project">Project Completion</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                  <select value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="poor">Poor</option>
+                    <option value="damaged">Damaged</option>
+                  </select>
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
-                Close
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60">
+                  {isSubmitting ? 'Processing…' : 'Process Return'}
+                </button>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

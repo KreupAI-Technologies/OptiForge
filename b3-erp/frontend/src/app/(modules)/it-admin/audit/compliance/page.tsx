@@ -66,7 +66,7 @@ const ComplianceAuditPage = () => {
     setToast({ message, type });
   };
 
-  const [requirements] = useState<ComplianceRequirement[]>([
+  const [requirements, setRequirements] = useState<ComplianceRequirement[]>([
     {
       id: '1',
       category: 'GDPR',
@@ -180,6 +180,38 @@ const ComplianceAuditPage = () => {
       violations: 2,
     },
   ]);
+
+  // Load the compliance requirements catalog from the backend. The hardcoded
+  // array above serves as the initial value until the fetch resolves.
+  useEffect(() => {
+    let cancelled = false;
+    ItAdminService.getComplianceRequirements()
+      .then((rows) => {
+        if (cancelled || !rows || rows.length === 0) return;
+        setRequirements(
+          rows.map((dto) => ({
+            id: dto.id,
+            category: dto.standard,
+            requirement: dto.requirement,
+            description: dto.description ?? '',
+            status: dto.status,
+            compliance: dto.compliance,
+            lastChecked: dto.lastAssessed ?? '',
+            nextReview: dto.nextReview ?? '',
+            owner: dto.owner ?? '',
+            priority: dto.severity,
+            controls: 0,
+            violations: 0,
+          })),
+        );
+      })
+      .catch(() => {
+        // keep the fallback catalog on error
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [violations, setViolations] = useState<ComplianceViolation[]>([]);
 
@@ -312,8 +344,21 @@ const ComplianceAuditPage = () => {
     setSelectedItem(null);
   };
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
     showToast('Generating comprehensive compliance report...', 'info');
+    try {
+      const report = await ItAdminService.generateComplianceReport();
+      exportToCsv('compliance-report', [
+        report as unknown as Record<string, unknown>,
+        ...report.byStandard.map((s) => s as unknown as Record<string, unknown>),
+      ]);
+      showToast(
+        `Report generated — overall compliance ${report.overallCompliance}%`,
+        'success',
+      );
+    } catch {
+      showToast('Failed to generate compliance report', 'error');
+    }
   };
 
   return (

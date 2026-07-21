@@ -43,4 +43,24 @@ export class ScheduledJobService {
     const job = await this.findOne(id);
     await this.repository.remove(job);
   }
+
+  /**
+   * Runs a scheduled job immediately. Realistic no-op: records the run time,
+   * bumps run counters, marks the last run successful and recomputes the
+   * success rate, then returns the updated job.
+   */
+  async run(id: string): Promise<ScheduledJob> {
+    const job = await this.findOne(id);
+    const now = new Date().toISOString();
+    job.lastRun = now;
+    job.lastRunStatus = 'success';
+    job.status = 'Active';
+    job.totalRuns = (job.totalRuns || 0) + 1;
+    const successful = job.totalRuns - (job.failedRuns || 0);
+    job.successRate =
+      job.totalRuns > 0
+        ? Math.round((successful / job.totalRuns) * 100)
+        : 0;
+    return this.repository.save(job);
+  }
 }

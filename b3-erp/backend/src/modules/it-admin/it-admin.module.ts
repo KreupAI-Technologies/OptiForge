@@ -12,6 +12,9 @@ import { AuditLog } from './entities/audit-log.entity';
 import { UserSession } from './entities/user-session.entity';
 import { PasswordHistory } from './entities/password-history.entity';
 import { SystemConfig } from './entities/system-config.entity';
+import { ComplianceRequirement } from './entities/compliance-requirement.entity';
+import { ComplianceRequirementController } from './controllers/compliance-requirement.controller';
+import { ComplianceRequirementService } from './services/compliance-requirement.service';
 import { Notification } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
 import { UserPreference } from './entities/user-preference.entity';
@@ -146,6 +149,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
       BackupRecord,
       ExportDataset,
       SystemMonitor,
+      ComplianceRequirement,
     ]),
   ],
   controllers: [
@@ -178,6 +182,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
     BackupRecordController,
     ExportDatasetController,
     SystemMonitorController,
+    ComplianceRequirementController,
   ],
   providers: [
     UserService,
@@ -213,6 +218,7 @@ import { SystemMonitorController } from './controllers/system-monitor.controller
     BackupRecordService,
     ExportDatasetService,
     SystemMonitorService,
+    ComplianceRequirementService,
     // Seeders
     RoleSeederService,
     PermissionSeederService,

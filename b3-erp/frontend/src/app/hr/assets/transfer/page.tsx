@@ -174,6 +174,84 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const emptyForm = {
+    assetTag: '',
+    assetType: '',
+    assetCategory: 'laptop',
+    fromEmployee: '',
+    fromEmployeeCode: '',
+    fromDepartment: '',
+    fromLocation: '',
+    toEmployee: '',
+    toEmployeeCode: '',
+    toDepartment: '',
+    toLocation: '',
+    initiatedBy: '',
+    transferReason: 'department_transfer',
+    condition: 'good',
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const created = await HrAssetsService.createAssetTransfer({
+        assetTag: form.assetTag,
+        assetType: form.assetType,
+        assetCategory: form.assetCategory,
+        fromEmployee: form.fromEmployee,
+        fromEmployeeCode: form.fromEmployeeCode,
+        fromDepartment: form.fromDepartment,
+        fromLocation: form.fromLocation,
+        toEmployee: form.toEmployee,
+        toEmployeeCode: form.toEmployeeCode,
+        toDepartment: form.toDepartment,
+        toLocation: form.toLocation,
+        initiatedBy: form.initiatedBy,
+        initiatedDate: new Date().toISOString().slice(0, 10),
+        transferReason: form.transferReason,
+        condition: form.condition,
+        status: 'pending',
+      });
+      setMockTransfers((prev) => [
+        {
+          id: created.id,
+          transferId: created.transferId || '',
+          assetTag: created.assetTag || form.assetTag,
+          assetType: created.assetType || form.assetType,
+          assetCategory: (created.assetCategory as AssetTransfer['assetCategory']) || (form.assetCategory as AssetTransfer['assetCategory']),
+          fromEmployee: created.fromEmployee || form.fromEmployee,
+          fromEmployeeCode: created.fromEmployeeCode || form.fromEmployeeCode,
+          fromDepartment: created.fromDepartment || form.fromDepartment,
+          fromLocation: created.fromLocation || form.fromLocation,
+          toEmployee: created.toEmployee || form.toEmployee,
+          toEmployeeCode: created.toEmployeeCode || form.toEmployeeCode,
+          toDepartment: created.toDepartment || form.toDepartment,
+          toLocation: created.toLocation || form.toLocation,
+          initiatedBy: created.initiatedBy || form.initiatedBy,
+          initiatedDate: created.initiatedDate || new Date().toISOString().slice(0, 10),
+          transferReason: (created.transferReason as AssetTransfer['transferReason']) || (form.transferReason as AssetTransfer['transferReason']),
+          status: (created.status as AssetTransfer['status']) || 'pending',
+          approvedBy: created.approvedBy || undefined,
+          approvalDate: created.approvalDate || undefined,
+          completionDate: created.completionDate || undefined,
+          handoverNotes: created.handoverNotes || undefined,
+          condition: (created.condition as AssetTransfer['condition']) || (form.condition as AssetTransfer['condition']),
+        },
+        ...prev,
+      ]);
+      setForm(emptyForm);
+      setShowForm(false);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create transfer');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -596,12 +674,97 @@ export default function Page() {
               </button>
             </div>
             <div className="p-5">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Transfer creation is not yet available from this screen — the transfer service endpoint is pending.
+              {submitError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Tag</label>
+                  <input value={form.assetTag} onChange={(e) => setForm({ ...form, assetTag: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Type</label>
+                  <input value={form.assetType} onChange={(e) => setForm({ ...form, assetType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Category</label>
+                  <select value={form.assetCategory} onChange={(e) => setForm({ ...form, assetCategory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="tablet">Tablet</option>
+                    <option value="monitor">Monitor</option>
+                    <option value="printer">Printer</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Reason</label>
+                  <select value={form.transferReason} onChange={(e) => setForm({ ...form, transferReason: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="department_transfer">Department Transfer</option>
+                    <option value="replacement">Replacement</option>
+                    <option value="location_change">Location Change</option>
+                    <option value="project_requirement">Project Requirement</option>
+                    <option value="upgrade">Upgrade</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Employee</label>
+                  <input value={form.fromEmployee} onChange={(e) => setForm({ ...form, fromEmployee: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Employee Code</label>
+                  <input value={form.fromEmployeeCode} onChange={(e) => setForm({ ...form, fromEmployeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Department</label>
+                  <input value={form.fromDepartment} onChange={(e) => setForm({ ...form, fromDepartment: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Location</label>
+                  <input value={form.fromLocation} onChange={(e) => setForm({ ...form, fromLocation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Employee</label>
+                  <input value={form.toEmployee} onChange={(e) => setForm({ ...form, toEmployee: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Employee Code</label>
+                  <input value={form.toEmployeeCode} onChange={(e) => setForm({ ...form, toEmployeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Department</label>
+                  <input value={form.toDepartment} onChange={(e) => setForm({ ...form, toDepartment: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Location</label>
+                  <input value={form.toLocation} onChange={(e) => setForm({ ...form, toLocation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Initiated By</label>
+                  <input value={form.initiatedBy} onChange={(e) => setForm({ ...form, initiatedBy: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                  <select value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                  </select>
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="w-full mt-5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
-                Close
-              </button>
+              <div className="flex gap-2 mt-5">
+                <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60">
+                  {isSubmitting ? 'Creating…' : 'Create Transfer'}
+                </button>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

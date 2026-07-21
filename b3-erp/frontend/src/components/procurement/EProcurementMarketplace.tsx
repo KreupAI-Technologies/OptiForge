@@ -997,8 +997,7 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   };
 
   const handleAddToCart = (product: any) => {
-    console.log('Adding to cart:', product);
-    alert(`Add to Cart\n\nProduct: ${product?.name || 'Selected Product'}\nPrice: $${product?.price || '0.00'}\nSKU: ${product?.id || 'N/A'}\n\nQuantity: [___] ${product?.unit || 'units'}\n\nDelivery Options:\n○ Standard (5-7 days) - Free\n○ Express (2-3 days) - $${((product?.price || 0) * 0.05).toFixed(2)}\n○ Overnight - $${((product?.price || 0) * 0.10).toFixed(2)}\n\nAdd to:\n○ Shopping Cart (checkout later)\n○ Quick Order (checkout now)\n○ Save for Later\n\nBudget: ${product?.price ? 'Within approved budget ✓' : 'Check budget'}\n\n[Add to Cart] [Cancel]`);
+    addToCart(product);
   };
 
   const handleCompareProducts = () => {
@@ -1006,11 +1005,29 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
     alert(`Compare Products\n\nSelect 2-4 products to compare:\n\nComparison Criteria:\n☑ Price\n☑ Supplier rating\n☑ Delivery time\n☑ Specifications\n☑ Certifications\n☑ Warranty terms\n☑ Payment terms\n☑ Volume discounts\n\nCurrently Selected: 0 products\n\nClick products in catalog to add to comparison.\nThen click 'Compare' to see side-by-side view.\n\nComparison Table Format:\nFeature | Product A | Product B | Product C\nPrice   | $X       | $Y       | $Z\nRating  | ⭐⭐⭐⭐   | ⭐⭐⭐⭐⭐  | ⭐⭐⭐\n...`);
   };
 
-  const handlePlaceOrder = () => {
-    console.log('Placing order...');
-    const itemCount = Math.floor(Math.random() * 5) + 1;
-    const totalAmount = Math.floor(Math.random() * 5000) + 1000;
-    alert(`Place Order\n\nCart Summary:\n• Items: ${itemCount}\n• Subtotal: $${totalAmount.toFixed(2)}\n• Tax: $${(totalAmount * 0.08).toFixed(2)}\n• Shipping: $${Math.floor(Math.random() * 50)}.00\n• Total: $${(totalAmount * 1.08 + Math.floor(Math.random() * 50)).toFixed(2)}\n\nDelivery Information:\n• Address: [Select from saved addresses]\n• Contact: [Enter contact name/phone]\n• Instructions: [Special delivery notes]\n\nPayment Method:\n○ Corporate Account (Net 30)\n○ Purchase Card\n○ Wire Transfer\n○ Other\n\nApproval:\n${totalAmount > 10000 ? '⚠ Requires manager approval (Amount >$10K)' : '✓ Auto-approved (within limit)'}\n\n[Place Order] [Save as Draft] [Cancel]`);
+  const handlePlaceOrder = async () => {
+    if (!cartItems.length) {
+      alert('Your cart is empty. Add products before placing an order.');
+      return;
+    }
+    const subtotal = cartItems.reduce(
+      (sum, item) => sum + Number(item.price ?? 0) * Number(item.quantity ?? item.minOrder ?? 1),
+      0,
+    );
+    const proceed = window.confirm(
+      `Place Order\n\nItems: ${cartItems.length}\nSubtotal: $${subtotal.toFixed(2)}\n\nThis creates a Purchase Requisition from your cart. Continue?`,
+    );
+    if (!proceed) return;
+    try {
+      const pr = await procurementPagesService.placeMarketplaceOrder(cartItems, {
+        purpose: 'E-Marketplace cart checkout',
+      });
+      const prNumber = pr?.prNumber ?? pr?.data?.prNumber ?? pr?.id ?? 'created';
+      setCartItems([]);
+      alert(`Order placed. Purchase Requisition ${prNumber} created.`);
+    } catch (err: any) {
+      alert(`Failed to place order: ${err?.message ?? 'Unknown error'}`);
+    }
   };
 
   const handleTrackDelivery = () => {

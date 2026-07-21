@@ -327,25 +327,34 @@ export default function SupplierOnboarding() {
     }
   };
 
-  const handleRequestDocuments = (application: OnboardingApplication) => {
-    console.log('Requesting documents from:', application.id);
-
+  const handleRequestDocuments = async (application: OnboardingApplication) => {
     const pendingDocs = requiredDocuments.filter(doc => doc.status === 'pending');
     const rejectedDocs = requiredDocuments.filter(doc => doc.status === 'rejected');
-    const expiringDocs = requiredDocuments.filter(doc =>
-      doc.expiryDate && new Date(doc.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-    );
+    const missing = [...pendingDocs, ...rejectedDocs].map((d) => d.name);
 
-    alert(`Request Documents: ${application.companyName}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nAPPLICATION DETAILS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nApplication ID: ${application.id}\nContact: ${application.contactName}\nEmail: ${application.email}\nPhone: ${application.phone}\nCurrent Status: ${application.status.toUpperCase()}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT STATUS SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 Total Required Documents: ${requiredDocuments.filter(doc => doc.required).length}\n✓ Verified: ${requiredDocuments.filter(doc => doc.status === 'verified').length}\n📤 Uploaded (Pending Review): ${requiredDocuments.filter(doc => doc.status === 'uploaded').length}\n⏳ Pending Upload: ${pendingDocs.length}\n❌ Rejected/Needs Replacement: ${rejectedDocs.length}\n⚠️ Expiring Soon (< 30 days): ${expiringDocs.length}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nREQUIRED DOCUMENTS - PENDING\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${pendingDocs.length > 0 ? pendingDocs.map((doc, idx) =>
-  `${idx + 1}. ${doc.name}\n   Type: ${doc.type}\n   Status: PENDING UPLOAD\n   Required: ${doc.required ? 'YES (MANDATORY)' : 'Optional'}\n   Accepted Formats: PDF, JPG, PNG\n   Max Size: 10MB`
-).join('\n\n') : 'All required documents uploaded ✓'}\n\n${rejectedDocs.length > 0 ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nREJECTED - NEEDS REPLACEMENT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${rejectedDocs.map((doc, idx) =>
-  `${idx + 1}. ${doc.name}\n   Reason: [Document quality/authenticity issue]\n   Action: Upload replacement\n   Priority: HIGH`
-).join('\n\n')}\n\n` : ''}${expiringDocs.length > 0 ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nEXPIRING SOON - RENEWAL NEEDED\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${expiringDocs.map((doc, idx) =>
-  `${idx + 1}. ${doc.name}\n   Current Expiry: ${doc.expiryDate}\n   Days Remaining: ${Math.ceil((new Date(doc.expiryDate!).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}\n   Action: Upload renewed document`
-).join('\n\n')}\n\n` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT REQUEST OPTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. AUTOMATED EMAIL REQUEST:\n   ✓ Professional email template\n   ✓ Checklist of required documents\n   ✓ Upload instructions and portal link\n   ✓ Deadline for submission (7 days)\n   ✓ Contact details for questions\n\n2. PHONE FOLLOW-UP:\n   - Personal call to ${application.contactName}\n   - Explain document requirements\n   - Address any questions/concerns\n   - Confirm email received\n\n3. PORTAL NOTIFICATION:\n   - In-app notification\n   - Red badge on supplier portal\n   - Dashboard alert\n   - Required actions list\n\n4. URGENT REQUEST (EXPEDITED):\n   - Email + Phone + SMS\n   - 24-48 hour deadline\n   - Escalation to management\n   - For high-priority suppliers\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nREQUEST DETAILS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nDocument Request Type:\n□ Standard Request (7-day deadline)\n□ Urgent Request (2-day deadline)\n□ Reminder (for previous request)\n□ Escalation (2nd+ reminder)\n\nDelivery Method:\n☑ Email notification\n☑ Supplier portal notification\n□ SMS alert\n□ Phone call follow-up\n\nInclude:\n☑ Document checklist\n☑ Upload instructions\n☑ Deadline and consequences\n☑ Contact for assistance\n□ Sample documents\n\nEmail will be sent to:\n✉ ${application.email}\nCC: ${application.assignedTo}\n\nAutomated reminder: 2 days before deadline\nEscalation: If no response after deadline\n\nProceed with document request?`);
+    if (!window.confirm(
+      `Request Documents from ${application.companyName}?\n\n` +
+      `${missing.length > 0 ? `Requesting ${missing.length} document(s):\n- ${missing.join('\n- ')}` : 'Requesting standard onboarding documents.'}`,
+    )) return;
+
+    try {
+      await procurementPagesService.requestVendorDocuments(application.id, {
+        documents: missing,
+        message: `Please upload the following documents for onboarding: ${missing.join(', ') || 'standard onboarding documents'}`,
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      });
+      setApplications((prev) =>
+        prev.map((a) =>
+          a.id === application.id ? { ...a, status: 'documentation' } : a,
+        ),
+      );
+      alert(`Document request recorded for ${application.companyName}.`);
+    } catch (err: any) {
+      alert(`Failed to request documents: ${err?.message ?? 'Unknown error'}`);
+    }
   };
 
-  const handleCompleteOnboarding = (application: OnboardingApplication) => {
+  const handleCompleteOnboarding = async (application: OnboardingApplication) => {
     console.log('Completing onboarding:', application.id);
 
     if (application.status !== 'completed' && application.progress < 100) {
@@ -355,9 +364,20 @@ export default function SupplierOnboarding() {
       return;
     }
 
-    alert(`Complete Supplier Onboarding: ${application.companyName}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nONBOARDING SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✓ Application ID: ${application.id}\n✓ Company: ${application.companyName}\n✓ Contact: ${application.contactName}\n✓ Category: ${application.category}\n✓ Submitted: ${application.submittedDate}\n✓ Duration: ${Math.ceil((new Date().getTime() - new Date(application.submittedDate).getTime()) / (1000 * 60 * 60 * 24))} days\n✓ Assigned To: ${application.assignedTo}\n✓ Progress: 100%\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCOMPLETED STEPS ✓\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${onboardingSteps.filter(step => step.required).map((step, idx) =>
-  `${idx + 1}. ${step.title}\n   ✓ Completed: ${step.completedDate || 'Today'}\n   ${step.description}`
-).join('\n\n')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nFINAL ONBOARDING ACTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. SUPPLIER ACTIVATION:\n   ✓ Generate Supplier ID: SUP-${String(Math.floor(Math.random() * 10000)).padStart(5, '0')}\n   ✓ Create master data record in ERP\n   ✓ Set payment terms: Net 30\n   ✓ Credit limit: $50,000 (initial)\n   ✓ Supplier classification: ${application.category}\n   ✓ Preferred status: Under evaluation\n\n2. SYSTEM ACCESS SETUP:\n   ✓ Create supplier portal account\n   ✓ Username: ${application.email}\n   ✓ Send welcome email with credentials\n   ✓ Grant permissions: PO View, Invoice Submit\n   ✓ Enable notifications\n\n3. DOCUMENTATION:\n   ✓ Executed supplier agreement stored\n   ✓ All certificates archived\n   ✓ Background check results filed\n   ✓ Onboarding checklist completed\n   ✓ Approval trail documented\n\n4. NOTIFICATIONS:\n   ✉ Welcome email to supplier\n   ✉ Onboarding certificate (PDF)\n   ✉ Portal user guide and training video\n   ✉ Category manager notification\n   ✉ Procurement team update\n   ✉ Finance/AP team notification\n\n5. INTEGRATION:\n   ✓ ERP master data sync\n   ✓ Enable PO processing\n   ✓ Setup invoice routing\n   ✓ Configure payment methods\n   ✓ Link to contracts module\n\n6. POST-ONBOARDING:\n   - Schedule 30-day check-in call\n   - Assign to category manager\n   - Enable performance tracking\n   - Setup quarterly review\n   - Add to preferred supplier evaluation\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nWELCOME PACKAGE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSupplier will receive:\n📧 Welcome email with portal link\n📄 Onboarding completion certificate\n📚 Supplier handbook & policies\n🎥 Portal training video (15 min)\n📞 Dedicated support contact\n📅 Upcoming webinar invite\n\nFirst PO expected: Within 7 days\nInitial order value: ~$5,000\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCONFIRMATION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nMark ${application.companyName} as fully onboarded?\n\nThis will:\n✓ Close onboarding application\n✓ Activate supplier in all systems\n✓ Send welcome package\n✓ Enable transaction processing\n✓ Start performance monitoring\n\nProceed with onboarding completion?`);
+    if (!window.confirm(`Mark ${application.companyName} as fully onboarded?\n\nThis activates the supplier and closes the onboarding application.`)) return;
+    try {
+      await procurementPagesService.completeVendorOnboarding(application.id, {
+        notes: `Onboarding completed for ${application.companyName}`,
+      });
+      setApplications((prev) =>
+        prev.map((a) =>
+          a.id === application.id ? { ...a, status: 'completed', progress: 100 } : a,
+        ),
+      );
+      alert(`${application.companyName} onboarding completed and supplier activated.`);
+    } catch (err: any) {
+      alert(`Failed to complete onboarding: ${err?.message ?? 'Unknown error'}`);
+    }
   };
 
   const handleViewApplication = (application: OnboardingApplication) => {

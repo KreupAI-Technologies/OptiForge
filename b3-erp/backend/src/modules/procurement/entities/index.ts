@@ -14,6 +14,7 @@ export * from './vendor-contract.entity';
 export * from './audit-trail.entity';
 export * from './vendor-message.entity';
 export * from './sourcing-rule.entity';
+export * from './sourcing-strategy.entity';
 export * from './procurement-notification.entity';
 export * from './procurement-budget.entity';
 export * from './procurement-calendar-event.entity';

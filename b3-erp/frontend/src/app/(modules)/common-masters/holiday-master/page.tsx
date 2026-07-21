@@ -18,12 +18,47 @@ export default function HolidayMasterPage() {
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<{ name: string; date: string; type: string; description: string }>({
+    name: '', date: '', type: 'national', description: '',
+  });
+
+  const COMPANY_ID = '1';
+
+  const loadHolidays = async () => {
+    try {
+      setLoading(true);
+      const data = await hrMastersService.getAllHolidays(COMPANY_ID);
+      const transformedHolidays: Holiday[] = data.map((item): Holiday => ({
+        id: item.id,
+        holidayCode: `HOL-${item.name.substring(0, 3).toUpperCase()}`,
+        holidayName: item.name,
+        date: item.date.split('T')[0],
+        dayOfWeek: new Date(item.date).toLocaleDateString('en-US', { weekday: 'long' }),
+        holidayType: (item.type?.toLowerCase() || 'national') as any,
+        category: 'mandatory',
+        applicableLocations: ['All Locations'],
+        applicableFor: 'all',
+        description: item.name,
+        isActive: item.isActive,
+        isRecurring: false,
+        year: new Date(item.date).getFullYear(),
+      }));
+      setHolidays(transformedHolidays);
+    } catch (error) {
+      console.error('Error fetching holidays:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchHolidays = async () => {
       try {
         setLoading(true);
-        const data = await hrMastersService.getAllHolidays('1');
+        const data = await hrMastersService.getAllHolidays(COMPANY_ID);
 
         const transformedHolidays: Holiday[] = data.map((item): Holiday => ({
           id: item.id,
@@ -64,7 +99,14 @@ export default function HolidayMasterPage() {
   };
 
   const handleEditHoliday = (row: Holiday) => {
-    showToast(`Opening editor for: ${row.holidayName}`, 'info');
+    setEditingId(row.id);
+    setForm({
+      name: row.holidayName,
+      date: row.date,
+      type: row.holidayType,
+      description: row.description || '',
+    });
+    setShowModal(true);
   };
 
   const handleExport = () => {
@@ -73,7 +115,56 @@ export default function HolidayMasterPage() {
   };
 
   const handleAddHoliday = () => {
-    showToast('Opening form to add new holiday', 'info');
+    setEditingId(null);
+    setForm({ name: '', date: '', type: 'national', description: '' });
+    setShowModal(true);
+  };
+
+  const handleDeleteHoliday = async (row: Holiday) => {
+    if (!confirm(`Are you sure you want to delete ${row.holidayName}?`)) return;
+    try {
+      await hrMastersService.deleteHoliday(row.id);
+      setHolidays(prev => prev.filter(h => h.id !== row.id));
+      showToast('Holiday deleted', 'success');
+    } catch (error) {
+      console.error('Error deleting holiday:', error);
+      showToast('Failed to delete holiday', 'error');
+    }
+  };
+
+  const handleSaveHoliday = async () => {
+    if (!form.name.trim() || !form.date) {
+      showToast('Name and date are required', 'error');
+      return;
+    }
+    try {
+      setSaving(true);
+      if (editingId) {
+        await hrMastersService.updateHoliday(editingId, {
+          name: form.name,
+          date: form.date,
+          type: form.type,
+          description: form.description,
+        });
+        showToast('Holiday updated', 'success');
+      } else {
+        await hrMastersService.createHoliday({
+          name: form.name,
+          date: form.date,
+          companyId: COMPANY_ID,
+          type: form.type,
+          description: form.description,
+        });
+        showToast('Holiday created', 'success');
+      }
+      setShowModal(false);
+      await loadHolidays();
+    } catch (error) {
+      console.error('Error saving holiday:', error);
+      showToast('Failed to save holiday', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Filtered data
@@ -230,9 +321,7 @@ export default function HolidayMasterPage() {
             className="text-red-600 hover:text-red-800 text-sm font-medium"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Are you sure you want to delete ${row.holidayName}?`)) {
-                setHolidays(prev => prev.filter(h => h.id !== row.id));
-              }
+              handleDeleteHoliday(row);
             }}
           >
             Delete
@@ -462,6 +551,81 @@ export default function HolidayMasterPage() {
           </div>
         </div>
       </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingId ? 'Edit Holiday' : 'Add Holiday'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  placeholder="e.g. Independence Day"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                >
+                  <option value="national">National</option>
+                  <option value="regional">Regional</option>
+                  <option value="festival">Festival</option>
+                  <option value="restricted">Restricted</option>
+                  <option value="company">Company</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  rows={2}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveHoliday}
+                disabled={saving}
+                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

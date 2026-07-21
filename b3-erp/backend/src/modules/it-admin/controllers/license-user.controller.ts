@@ -53,6 +53,15 @@ export class LicenseUserController {
     return this.service.update(id, data);
   }
 
+  @Post(':id/renew')
+  @ApiOperation({ summary: 'Renew a user license (extend validity)' })
+  async renew(
+    @Param('id') id: string,
+    @Body() body?: { months?: number },
+  ): Promise<LicenseUser> {
+    return this.service.renew(id, body?.months ?? 12);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete license user' })

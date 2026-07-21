@@ -53,6 +53,12 @@ export class BackupRecordController {
     return this.service.update(id, data);
   }
 
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a backup record' })
+  async restore(@Param('id') id: string): Promise<BackupRecord> {
+    return this.service.restore(id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete backup record' })
