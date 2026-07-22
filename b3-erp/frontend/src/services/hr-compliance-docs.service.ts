@@ -3,6 +3,8 @@
 // /hr/documents/* to the NestJS domain backend. Plain fetch, mirrors the
 // pattern used by hr-shifts.service.ts.
 
+import { AttachmentsService } from './attachments.service';
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
@@ -42,6 +44,14 @@ async function putJson<T>(path: string, body: unknown): Promise<T> {
     throw new Error(`Request failed (${res.status})`);
   }
   return res.json();
+}
+
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
 }
 
 const qs = (companyId: string, extra?: Record<string, string | undefined>) => {
@@ -263,6 +273,7 @@ export interface HrDocument {
   status?: string;
   fileName?: string;
   fileSize?: string;
+  fileUrl?: string;
   verifiedBy?: string;
   verifiedOn?: string;
   remarks?: string;
@@ -353,6 +364,36 @@ export class HrComplianceDocsService {
     companyId = 'company-1',
   ): Promise<HrDocument> {
     return postJson<HrDocument>('/hr/documents', { companyId, ...payload });
+  }
+
+  /**
+   * Upload a real binary file to the generic attachments store, then create the
+   * HR document metadata record pointing at it (fileName + fileUrl). This is the
+   * one-call path for the /hr/documents/** upload pages: the file bytes are
+   * persisted by the AttachmentsModule and are streamable via fileUrl.
+   */
+  static async uploadDocumentFile(
+    file: File,
+    payload: Partial<HrDocument>,
+    entityId = 'new',
+    companyId = 'company-1',
+    uploadedBy?: string,
+  ): Promise<HrDocument> {
+    const attachment = await AttachmentsService.upload(
+      file,
+      'hr-document',
+      entityId,
+      uploadedBy,
+    );
+    return HrComplianceDocsService.createDocument(
+      {
+        ...payload,
+        fileName: file.name,
+        fileSize: formatFileSize(file.size),
+        fileUrl: AttachmentsService.downloadUrl(attachment.id),
+      },
+      companyId,
+    );
   }
 
   static async getCertificateRequests(recordType?: string, companyId = 'company-1'): Promise<CertificateRequest[]> {

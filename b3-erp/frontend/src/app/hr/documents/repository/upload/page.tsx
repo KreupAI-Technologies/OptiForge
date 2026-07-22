@@ -2,8 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Upload, Folder, AlertCircle } from 'lucide-react';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 const FOLDERS = [
   'HR Policies',
@@ -26,20 +25,13 @@ export default function UploadRepositoryPage() {
     setMessage(null);
     try {
       for (const file of Array.from(files)) {
-        const res = await fetch(`${API_BASE_URL}/hr/documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companyId: 'default-company-id',
-            docCategory: folder,
-            documentType: 'repository',
-            title: file.name,
-            fileName: file.name,
-            uploadedOn: new Date().toISOString().slice(0, 10),
-            status: 'pending',
-          }),
+        await HrComplianceDocsService.uploadDocumentFile(file, {
+          docCategory: folder,
+          documentType: 'repository',
+          title: file.name,
+          uploadedOn: new Date().toISOString().slice(0, 10),
+          status: 'pending',
         });
-        if (!res.ok) throw new Error('upload failed');
       }
       setMessage({ type: 'success', text: `Uploaded ${files.length} document(s) to "${folder}".` });
     } catch {

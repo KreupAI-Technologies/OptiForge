@@ -16,6 +16,7 @@ interface StatutoryDocument {
   status: 'verified' | 'pending' | 'rejected';
   fileSize: string;
   fileName: string;
+  fileUrl?: string;
   verifiedBy?: string;
   verifiedOn?: string;
   remarks?: string;
@@ -35,9 +36,9 @@ export default function StatutoryDocumentsPage() {
     documentName: '',
     uanNumber: '',
     esicNumber: '',
-    fileName: '',
   };
   const [form, setForm] = useState({ ...emptyForm });
+  const [file, setFile] = useState<File | null>(null);
 
   const load = async () => {
     setIsLoading(true);
@@ -57,6 +58,7 @@ export default function StatutoryDocumentsPage() {
           status: (row.status ?? 'pending') as StatutoryDocument['status'],
           fileSize: row.fileSize ?? '',
           fileName: row.fileName ?? '',
+          fileUrl: row.fileUrl,
           verifiedBy: row.verifiedBy ?? '',
           verifiedOn: row.verifiedOn ?? '',
           remarks: row.remarks ?? '',
@@ -76,15 +78,15 @@ export default function StatutoryDocumentsPage() {
   }, []);
 
   const handleCreate = async () => {
+    if (!file) return;
     setIsSaving(true);
     setLoadError(null);
     try {
-      await HrComplianceDocsService.createDocument({
+      await HrComplianceDocsService.uploadDocumentFile(file, {
         docCategory: 'statutory',
         documentType: form.documentType,
         documentNumber: form.formNumber,
         title: form.documentName,
-        fileName: form.fileName,
         status: 'pending',
         meta: {
           uanNumber: form.uanNumber,
@@ -93,6 +95,7 @@ export default function StatutoryDocumentsPage() {
       });
       await load();
       setForm({ ...emptyForm });
+      setFile(null);
       setShowUploadForm(false);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to create document');
@@ -305,14 +308,14 @@ export default function StatutoryDocumentsPage() {
               )}
 
               <div className="flex gap-2 pt-4 border-t border-gray-200">
-                <button className="flex items-center gap-2 px-4 py-2 text-teal-600 hover:bg-teal-50 rounded-lg font-medium text-sm">
+                <button onClick={() => doc.fileUrl && window.open(doc.fileUrl, '_blank')} disabled={!doc.fileUrl} title={doc.fileUrl ? 'View document' : 'No file attached'} className="flex items-center gap-2 px-4 py-2 text-teal-600 hover:bg-teal-50 rounded-lg font-medium text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                   <Eye className="h-4 w-4" />
                   View
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 text-teal-600 hover:bg-teal-50 rounded-lg font-medium text-sm">
+                <a href={doc.fileUrl || undefined} target="_blank" rel="noopener noreferrer" download={doc.fileName || undefined} aria-disabled={!doc.fileUrl} title={doc.fileUrl ? 'Download document' : 'No file attached'} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm ${doc.fileUrl ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 pointer-events-none opacity-40'}`}>
                   <Download className="h-4 w-4" />
                   Download
-                </button>
+                </a>
                 {doc.status === 'pending' && (
                   <button
                     onClick={() => handleDelete(doc.id)}
@@ -378,13 +381,14 @@ export default function StatutoryDocumentsPage() {
                 <input type="text" value={form.esicNumber} onChange={(e) => setForm(f => ({ ...f, esicNumber: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-gray-700">File Name</label>
-                <input type="text" value={form.fileName} onChange={(e) => setForm(f => ({ ...f, fileName: e.target.value }))} placeholder="e.g., pf_form11.pdf" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                <label className="mb-1 block text-sm font-medium text-gray-700">File</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                {file && <p className="mt-1 text-xs text-gray-500">{file.name}</p>}
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => { setForm({ ...emptyForm }); setShowUploadForm(false); }} disabled={isSaving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
-              <button onClick={handleCreate} disabled={isSaving || !form.documentType.trim()} className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50">{isSaving ? 'Saving…' : 'Save'}</button>
+              <button onClick={() => { setForm({ ...emptyForm }); setFile(null); setShowUploadForm(false); }} disabled={isSaving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleCreate} disabled={isSaving || !form.documentType.trim() || !file} className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50">{isSaving ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>

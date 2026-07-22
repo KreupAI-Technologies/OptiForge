@@ -72,16 +72,13 @@ export default function UploadDocumentsPage() {
 
     try {
       const uploadedOn = new Date().toISOString().split('T')[0];
-      // The /hr/documents endpoint persists document metadata records
-      // (one per file). Binary blob storage is a separate, not-yet-built
-      // service — see NEEDS BACKEND note.
+      // Persist the real file bytes to the attachments store and create one
+      // HR document metadata record per file, linked via fileName + fileUrl.
       await Promise.all(
         selectedFiles.map((file) =>
-          HrComplianceDocsService.createDocument({
+          HrComplianceDocsService.uploadDocumentFile(file, {
             docCategory: selectedCategory,
             title: file.name,
-            fileName: file.name,
-            fileSize: formatFileSize(file.size),
             uploadedOn,
             status: 'pending',
             remarks: description || undefined,

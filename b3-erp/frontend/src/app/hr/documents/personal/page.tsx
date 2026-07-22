@@ -17,6 +17,7 @@ interface PersonalDocument {
   status: 'verified' | 'pending' | 'rejected' | 'expired';
   fileSize: string;
   fileName: string;
+  fileUrl?: string;
   verifiedBy?: string;
   verifiedOn?: string;
   remarks?: string;
@@ -36,9 +37,9 @@ export default function PersonalDocumentsPage() {
     issueDate: '',
     expiryDate: '',
     issuingAuthority: '',
-    fileName: '',
   };
   const [form, setForm] = useState({ ...emptyForm });
+  const [file, setFile] = useState<File | null>(null);
 
   const load = async () => {
     try {
@@ -56,6 +57,7 @@ export default function PersonalDocumentsPage() {
         status: (r.status as PersonalDocument['status']) || 'pending',
         fileSize: r.fileSize || '',
         fileName: r.fileName || '',
+        fileUrl: r.fileUrl,
         verifiedBy: r.verifiedBy,
         verifiedOn: r.verifiedOn,
         remarks: r.remarks,
@@ -74,10 +76,11 @@ export default function PersonalDocumentsPage() {
   }, []);
 
   const handleCreate = async () => {
+    if (!file) return;
     setIsSaving(true);
     setError(null);
     try {
-      await HrComplianceDocsService.createDocument({
+      await HrComplianceDocsService.uploadDocumentFile(file, {
         docCategory: 'personal',
         documentType: form.documentType,
         documentNumber: form.documentNumber,
@@ -85,11 +88,11 @@ export default function PersonalDocumentsPage() {
         issuingAuthority: form.issuingAuthority,
         issueDate: form.issueDate || undefined,
         expiryDate: form.expiryDate || undefined,
-        fileName: form.fileName,
         status: 'pending',
       });
       await load();
       setForm({ ...emptyForm });
+      setFile(null);
       setShowUploadForm(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create document');
@@ -327,14 +330,27 @@ export default function PersonalDocumentsPage() {
               )}
 
               <div className="flex gap-2 pt-4 border-t border-gray-200">
-                <button className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm">
+                <button
+                  onClick={() => doc.fileUrl && window.open(doc.fileUrl, '_blank')}
+                  disabled={!doc.fileUrl}
+                  title={doc.fileUrl ? 'View document' : 'No file attached'}
+                  className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <Eye className="h-4 w-4" />
                   View
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm">
+                <a
+                  href={doc.fileUrl || undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={doc.fileName || undefined}
+                  aria-disabled={!doc.fileUrl}
+                  title={doc.fileUrl ? 'Download document' : 'No file attached'}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm ${doc.fileUrl ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 pointer-events-none opacity-40'}`}
+                >
                   <Download className="h-4 w-4" />
                   Download
-                </button>
+                </a>
                 {doc.status === 'pending' && (
                   <button
                     onClick={() => handleDelete(doc.id)}
@@ -392,8 +408,9 @@ export default function PersonalDocumentsPage() {
                 <input type="text" value={form.issuingAuthority} onChange={(e) => setForm(f => ({ ...f, issuingAuthority: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">File Name</label>
-                <input type="text" value={form.fileName} onChange={(e) => setForm(f => ({ ...f, fileName: e.target.value }))} placeholder="e.g., aadhaar.pdf" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="mb-1 block text-sm font-medium text-gray-700">File</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                {file && <p className="mt-1 text-xs text-gray-500">{file.name}</p>}
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Issue Date</label>
@@ -405,8 +422,8 @@ export default function PersonalDocumentsPage() {
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => { setForm({ ...emptyForm }); setShowUploadForm(false); }} disabled={isSaving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
-              <button onClick={handleCreate} disabled={isSaving || !form.documentType.trim()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">{isSaving ? 'Saving…' : 'Save'}</button>
+              <button onClick={() => { setForm({ ...emptyForm }); setFile(null); setShowUploadForm(false); }} disabled={isSaving} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button onClick={handleCreate} disabled={isSaving || !form.documentType.trim() || !file} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">{isSaving ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>
