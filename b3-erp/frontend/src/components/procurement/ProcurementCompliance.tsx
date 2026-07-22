@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { procurementPagesService } from '@/services/procurement-pages.service';
+import {
+  procurementComplianceRecordService,
+  ProcurementComplianceRecord,
+} from '@/services/procurement-compliance-record.service';
 import {
   Shield, CheckCircle, AlertTriangle, XCircle, Clock,
   FileText, Award, Users, Target, Activity, BarChart3,
@@ -40,6 +44,28 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   const [violationsData, setViolationsData] = useState<Array<{
     id: string; date: string; category: string; severity: string; description: string; status: string; dueDate: string;
   }>>([]);
+
+  // Compliance records CRUD (loaded from NestJS domain backend)
+  const [complianceRecords, setComplianceRecords] = useState<ProcurementComplianceRecord[]>([]);
+  const [recordsBusy, setRecordsBusy] = useState(false);
+  const [recordsError, setRecordsError] = useState<string | null>(null);
+
+  const loadRecords = useCallback(async () => {
+    setRecordsBusy(true);
+    setRecordsError(null);
+    try {
+      const data = await procurementComplianceRecordService.getRecords();
+      setComplianceRecords(data);
+    } catch (err) {
+      setRecordsError(err instanceof Error ? err.message : 'Failed to load compliance records');
+    } finally {
+      setRecordsBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRecords();
+  }, [loadRecords]);
 
   useEffect(() => {
     (async () => {
@@ -93,8 +119,20 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   }, []);
 
   // Handler Functions
-  const handleRunAudit = () => {
-    // Compliance audit workflow — backend not yet available.
+  // Repurposed: create a new compliance record.
+  const handleRunAudit = async () => {
+    const requirement = window.prompt('Compliance requirement')?.trim();
+    if (!requirement) return;
+    setRecordsBusy(true);
+    setRecordsError(null);
+    try {
+      await procurementComplianceRecordService.createRecord({ requirement, status: 'pending' });
+      await loadRecords();
+    } catch (err) {
+      setRecordsError(err instanceof Error ? err.message : 'Failed to create compliance record');
+    } finally {
+      setRecordsBusy(false);
+    }
   };
 
   const handleViewViolations = () => {
@@ -115,7 +153,7 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   };
 
   const handleRefresh = () => {
-    // Manual compliance data refresh — backend not yet available.
+    void loadRecords();
   };
 
   const handleSettings = () => {
@@ -148,12 +186,12 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={handleRunAudit}
-              disabled
+              disabled={recordsBusy}
               className="flex items-center space-x-2 px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Compliance audit workflow — backend not yet available"
+              title="Create compliance record"
             >
-              <Activity className="h-4 w-4" />
-              <span>Run Audit</span>
+              <Plus className="h-4 w-4" />
+              <span>New Record</span>
             </button>
             <button
               onClick={handleViewViolations}
@@ -184,9 +222,9 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
             </button>
             <button
               onClick={handleRefresh}
-              disabled
+              disabled={recordsBusy}
               className="flex items-center space-x-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Manual compliance data refresh — backend not yet available"
+              title="Refresh compliance records"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
@@ -450,6 +488,51 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Compliance Records (live from domain backend) */}
+          <div className="bg-white rounded-lg shadow p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">
+                Compliance Records ({complianceRecords.length})
+              </h3>
+              {recordsBusy && <span className="text-sm text-gray-500">Loading…</span>}
+            </div>
+            {recordsError && (
+              <div className="mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                {recordsError}
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Requirement</th>
+                    <th className="text-left py-2">Status</th>
+                    <th className="text-left py-2">Due Date</th>
+                    <th className="text-left py-2">Completed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {complianceRecords.length === 0 && !recordsBusy ? (
+                    <tr>
+                      <td colSpan={4} className="py-3 text-sm text-gray-500">
+                        No compliance records yet. Use “New Record” to add one.
+                      </td>
+                    </tr>
+                  ) : (
+                    complianceRecords.map((rec) => (
+                      <tr key={rec.id} className="border-b hover:bg-gray-50">
+                        <td className="py-2">{rec.requirement}</td>
+                        <td className="py-2">{rec.status}</td>
+                        <td className="py-2">{rec.dueDate ?? '—'}</td>
+                        <td className="py-2">{rec.completedDate ?? '—'}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

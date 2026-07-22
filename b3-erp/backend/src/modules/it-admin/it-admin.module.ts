@@ -29,6 +29,7 @@ import { SecurityAlert } from './entities/security-alert.entity';
 import { AlertRule } from './entities/alert-rule.entity';
 import { PasswordPolicy } from './entities/password-policy.entity';
 import { NotificationSetting } from './entities/notification-setting.entity';
+import { NotificationRule } from './entities/notification-rule.entity';
 import { UserGroup } from './entities/user-group.entity';
 import { LicenseFeature } from './entities/license-feature.entity';
 import { LicenseUser } from './entities/license-user.entity';
@@ -70,6 +71,7 @@ import { SecurityAlertService } from './services/security-alert.service';
 import { AlertRuleService } from './services/alert-rule.service';
 import { PasswordPolicyService } from './services/password-policy.service';
 import { NotificationSettingService } from './services/notification-setting.service';
+import { NotificationRuleService } from './services/notification-rule.service';
 import { UserGroupService } from './services/user-group.service';
 import { LicenseFeatureService } from './services/license-feature.service';
 import { LicenseUserService } from './services/license-user.service';
@@ -116,6 +118,7 @@ import { SecurityAlertController } from './controllers/security-alert.controller
 import { AlertRuleController } from './controllers/alert-rule.controller';
 import { PasswordPolicyController } from './controllers/password-policy.controller';
 import { NotificationSettingController } from './controllers/notification-setting.controller';
+import { NotificationRuleController } from './controllers/notification-rule.controller';
 import { UserGroupController } from './controllers/user-group.controller';
 import { LicenseFeatureController } from './controllers/license-feature.controller';
 import { LicenseUserController } from './controllers/license-user.controller';
@@ -159,6 +162,7 @@ import { EmailSettingsController } from './controllers/email-settings.controller
       AlertRule,
       PasswordPolicy,
       NotificationSetting,
+      NotificationRule,
       UserGroup,
       LicenseFeature,
       LicenseUser,
@@ -199,6 +203,7 @@ import { EmailSettingsController } from './controllers/email-settings.controller
     AlertRuleController,
     PasswordPolicyController,
     NotificationSettingController,
+    NotificationRuleController,
     UserGroupController,
     LicenseFeatureController,
     LicenseUserController,
@@ -241,6 +246,7 @@ import { EmailSettingsController } from './controllers/email-settings.controller
     AlertRuleService,
     PasswordPolicyService,
     NotificationSettingService,
+    NotificationRuleService,
     UserGroupService,
     LicenseFeatureService,
     LicenseUserService,

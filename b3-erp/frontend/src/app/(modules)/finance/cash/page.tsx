@@ -18,7 +18,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ArrowRight,
-  GitCompare
+  GitCompare,
+  X
 } from 'lucide-react'
 
 interface CashStats {
@@ -69,6 +70,87 @@ export default function CashManagementDashboard() {
   const [cashForecast, setCashForecast] = useState<CashForecast[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+
+  // Create Cash Transaction modal
+  const emptyCashForm = {
+    date: new Date().toISOString().slice(0, 10),
+    type: 'receipt' as 'receipt' | 'payment',
+    category: '',
+    amount: 0,
+    currency: 'INR',
+    description: '',
+    reference: '',
+  }
+  const [showCreate, setShowCreate] = useState(false)
+  const [cashForm, setCashForm] = useState<typeof emptyCashForm>(emptyCashForm)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // View-all full ledger (getCashTransactions)
+  const [showAll, setShowAll] = useState(false)
+  const [allTxns, setAllTxns] = useState<CashTransaction[]>([])
+  const [allLoading, setAllLoading] = useState(false)
+  const [allError, setAllError] = useState<string | null>(null)
+
+  const openCreate = () => {
+    setCashForm(emptyCashForm)
+    setSaveError(null)
+    setShowCreate(true)
+  }
+
+  const handleCreate = async () => {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await FinanceService.createCashTransaction({
+        date: cashForm.date,
+        type: cashForm.type,
+        category: cashForm.category,
+        amount: Number(cashForm.amount) || 0,
+        currency: cashForm.currency,
+        description: cashForm.description,
+        reference: cashForm.reference,
+      })
+      setShowCreate(false)
+      setReloadKey((k) => k + 1)
+      if (showAll) await loadAll()
+    } catch (e: any) {
+      setSaveError(e?.message || 'Failed to create cash transaction')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const loadAll = async () => {
+    setAllLoading(true)
+    setAllError(null)
+    try {
+      const data = await FinanceService.getCashTransactions()
+      const mapped: CashTransaction[] = (Array.isArray(data) ? data : []).map((t: any) => ({
+        id: String(t.id ?? t.reference ?? ''),
+        date: String(t.date ?? ''),
+        type: (t.type ?? 'receipt') as any,
+        category: String(t.category ?? ''),
+        description: String(t.description ?? ''),
+        amount: Number(t.amount ?? 0),
+        balance: Number(t.balance ?? 0),
+        account: String(t.account ?? t.reference ?? ''),
+        status: (t.status ?? 'pending') as any,
+      }))
+      setAllTxns(mapped)
+    } catch (e: any) {
+      setAllError(e?.message || 'Failed to load cash transactions')
+      setAllTxns([])
+    } finally {
+      setAllLoading(false)
+    }
+  }
+
+  const handleViewAll = async () => {
+    setShowAll((prev) => !prev)
+    if (!showAll) await loadAll()
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -135,7 +217,7 @@ export default function CashManagementDashboard() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -187,7 +269,10 @@ export default function CashManagementDashboard() {
 
             {/* Header Action */}
             <div className="flex items-center justify-end">
-              <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md">
+              <button
+                onClick={openCreate}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md"
+              >
                 <Wallet className="h-5 w-5" />
                 Cash Transaction
               </button>
@@ -344,15 +429,27 @@ export default function CashManagementDashboard() {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1">
-                      View All
+                    <button
+                      onClick={handleViewAll}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                    >
+                      {showAll ? 'Show Recent' : 'View All'}
                       <ArrowUpRight className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
                 <div className="p-6">
+                  {showAll && allLoading && (
+                    <p className="text-sm text-gray-500 mb-2">Loading all transactions…</p>
+                  )}
+                  {showAll && allError && (
+                    <p className="text-sm text-red-600 mb-2">{allError}</p>
+                  )}
+                  {showAll && !allLoading && !allError && allTxns.length === 0 && (
+                    <p className="text-sm text-gray-500 mb-2">No cash transactions found.</p>
+                  )}
                   <div className="space-y-2">
-                    {recentTransactions.map((txn) => (
+                    {(showAll ? allTxns : recentTransactions).map((txn) => (
                       <div key={txn.id} className="flex items-start justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
                         <div className="flex items-start gap-3">
                           <div className={`mt-1 p-2 rounded-full ${txn.type === 'receipt' ? 'bg-green-100' : 'bg-red-100'}`}>
@@ -462,6 +559,111 @@ export default function CashManagementDashboard() {
           </div>
         </div>
       </div>
+
+      {/* New Cash Transaction Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">New Cash Transaction</h3>
+              <button onClick={() => setShowCreate(false)} className="p-1 rounded hover:bg-gray-100">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              {saveError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={cashForm.date}
+                    onChange={(e) => setCashForm({ ...cashForm, date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={cashForm.type}
+                    onChange={(e) => setCashForm({ ...cashForm, type: e.target.value as 'receipt' | 'payment' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="receipt">Receipt</option>
+                    <option value="payment">Payment</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={cashForm.category}
+                    onChange={(e) => setCashForm({ ...cashForm, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <input
+                    type="number"
+                    value={cashForm.amount}
+                    onChange={(e) => setCashForm({ ...cashForm, amount: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <input
+                    type="text"
+                    value={cashForm.currency}
+                    onChange={(e) => setCashForm({ ...cashForm, currency: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference</label>
+                  <input
+                    type="text"
+                    value={cashForm.reference}
+                    onChange={(e) => setCashForm({ ...cashForm, reference: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={cashForm.description}
+                  onChange={(e) => setCashForm({ ...cashForm, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 text-sm disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

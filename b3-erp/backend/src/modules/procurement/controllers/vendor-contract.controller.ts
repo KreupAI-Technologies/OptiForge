@@ -3,6 +3,7 @@ import {
     Get,
     Post,
     Put,
+    Delete,
     Body,
     Param,
     Query,
@@ -60,6 +61,13 @@ export class VendorContractController {
         @Body() updateDto: Partial<VendorContract>,
     ): Promise<VendorContract> {
         return this.contractService.update(id, updateDto);
+    }
+
+    @Delete(':id')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiOperation({ summary: 'Delete vendor contract' })
+    async delete(@Param('id') id: string): Promise<void> {
+        return this.contractService.delete(id);
     }
 
     @Post(':id/submit')

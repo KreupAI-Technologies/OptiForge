@@ -36,6 +36,46 @@ export class SavingsInitiative {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   actualSavings: number;
 
+  // Baseline spend before the initiative (used by the savings calculator).
+  @Column({
+    name: 'baseline_cost',
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    default: 0,
+  })
+  baselineCost: number;
+
+  // Current/negotiated spend after the initiative.
+  @Column({
+    name: 'current_cost',
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    default: 0,
+  })
+  currentCost: number;
+
+  // Computed realized savings (persisted by /calculate).
+  @Column({
+    name: 'realized_savings',
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    default: 0,
+  })
+  realizedSavings: number;
+
+  // Computed projected (full-period) savings (persisted by /calculate).
+  @Column({
+    name: 'projected_savings',
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    default: 0,
+  })
+  projectedSavings: number;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   owner: string;
 

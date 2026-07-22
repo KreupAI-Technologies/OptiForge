@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { procurementPagesService } from '@/services/procurement-pages.service';
+import {
+  procurementRiskAssessmentService,
+  ProcurementRiskAssessment,
+} from '@/services/procurement-risk-assessment.service';
 import {
   Shield,
   AlertTriangle,
@@ -203,24 +207,96 @@ export default function ProcurementRiskManagement() {
 
   const COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899'];
 
-  // Handler 1: Identify Risks - Risk identification wizard
-  const handleIdentifyRisks = () => {
-    // Risk identification workflow — backend not yet available.
+  // Risk assessments loaded from the procurement risk-assessments backend.
+  const [riskAssessments, setRiskAssessments] = useState<ProcurementRiskAssessment[]>([]);
+  const [riskBusy, setRiskBusy] = useState(false);
+  const [riskError, setRiskError] = useState<string | null>(null);
+
+  const loadRisks = useCallback(async () => {
+    setRiskBusy(true);
+    setRiskError(null);
+    try {
+      const data = await procurementRiskAssessmentService.getAssessments();
+      setRiskAssessments(data);
+    } catch (err) {
+      setRiskError(err instanceof Error ? err.message : 'Failed to load risk assessments');
+    } finally {
+      setRiskBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRisks();
+  }, [loadRisks]);
+
+  // Handler 1: Identify Risks - create an 'identified' assessment
+  const handleIdentifyRisks = async () => {
+    const category = window.prompt('Risk category (e.g. supply-chain, financial, compliance)')?.trim();
+    if (!category) return;
+    setRiskBusy(true);
+    setRiskError(null);
+    try {
+      await procurementRiskAssessmentService.createAssessment({ category, status: 'identified' });
+      await loadRisks();
+      setActiveTab('risks');
+    } catch (err) {
+      setRiskError(err instanceof Error ? err.message : 'Failed to identify risk');
+    } finally {
+      setRiskBusy(false);
+    }
   };
 
-  // Handler 2: Assess Impact - Detailed impact assessment
-  const handleAssessImpact = () => {
-    // Risk impact assessment workflow — backend not yet available.
+  // Handler 2: Assess Impact - create an 'assessed' assessment with likelihood/impact
+  const handleAssessImpact = async () => {
+    const category = window.prompt('Risk category to assess (e.g. supply-chain, financial)')?.trim();
+    if (!category) return;
+    const likelihood = Number(window.prompt('Likelihood (1-5)', '3')) || 3;
+    const impact = Number(window.prompt('Impact (1-5)', '3')) || 3;
+    setRiskBusy(true);
+    setRiskError(null);
+    try {
+      await procurementRiskAssessmentService.createAssessment({
+        category,
+        likelihood,
+        impact,
+        status: 'assessed',
+      });
+      await loadRisks();
+      setActiveTab('risks');
+    } catch (err) {
+      setRiskError(err instanceof Error ? err.message : 'Failed to assess impact');
+    } finally {
+      setRiskBusy(false);
+    }
   };
 
-  // Handler 3: Create Mitigation Plan
-  const handleCreateMitigationPlan = () => {
-    // Mitigation plan development workflow — backend not yet available.
+  // Handler 3: Create Mitigation Plan - create a 'mitigating' assessment
+  const handleCreateMitigationPlan = async () => {
+    const category = window.prompt('Risk category for mitigation plan')?.trim();
+    if (!category) return;
+    const mitigationPlan = window.prompt('Mitigation plan details')?.trim();
+    if (!mitigationPlan) return;
+    setRiskBusy(true);
+    setRiskError(null);
+    try {
+      await procurementRiskAssessmentService.createAssessment({
+        category,
+        mitigationPlan,
+        status: 'mitigating',
+      });
+      await loadRisks();
+      setActiveTab('risks');
+    } catch (err) {
+      setRiskError(err instanceof Error ? err.message : 'Failed to create mitigation plan');
+    } finally {
+      setRiskBusy(false);
+    }
   };
 
-  // Handler 4: Monitor Risks
-  const handleMonitorRisks = () => {
-    // Real-time risk monitoring dashboard — backend not yet available.
+  // Handler 4: Monitor Risks - refresh the assessment list
+  const handleMonitorRisks = async () => {
+    await loadRisks();
+    setActiveTab('risks');
   };
 
   return (
@@ -238,8 +314,8 @@ export default function ProcurementRiskManagement() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleIdentifyRisks}
-              disabled
-              title="Risk identification workflow — backend not yet available"
+              disabled={riskBusy}
+              title="Identify a new procurement risk"
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
@@ -247,8 +323,8 @@ export default function ProcurementRiskManagement() {
             </button>
             <button
               onClick={handleAssessImpact}
-              disabled
-              title="Risk impact assessment workflow — backend not yet available"
+              disabled={riskBusy}
+              title="Assess likelihood and impact of a risk"
               className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <BarChart3 className="w-4 h-4" />
@@ -256,8 +332,8 @@ export default function ProcurementRiskManagement() {
             </button>
             <button
               onClick={handleCreateMitigationPlan}
-              disabled
-              title="Mitigation plan development workflow — backend not yet available"
+              disabled={riskBusy}
+              title="Create a mitigation plan for a risk"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FileText className="w-4 h-4" />
@@ -265,8 +341,8 @@ export default function ProcurementRiskManagement() {
             </button>
             <button
               onClick={handleMonitorRisks}
-              disabled
-              title="Real-time risk monitoring dashboard — backend not yet available"
+              disabled={riskBusy}
+              title="Refresh and monitor risk assessments"
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Activity className="w-4 h-4" />
@@ -618,6 +694,62 @@ export default function ProcurementRiskManagement() {
 
 {activeTab === 'risks' && (
             <div className="space-y-2">
+              {riskError && (
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {riskError}
+                </div>
+              )}
+
+              {/* Risk Assessments (loaded from backend) */}
+              <div className="bg-white border border-gray-200 rounded-lg">
+                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Risk Assessments ({riskAssessments.length})
+                  </h3>
+                  <button
+                    onClick={handleMonitorRisks}
+                    disabled={riskBusy}
+                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${riskBusy ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                </div>
+                {riskAssessments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-gray-500 border-b border-gray-200">
+                          <th className="px-4 py-2 font-medium">Category</th>
+                          <th className="px-4 py-2 font-medium">Risk Level</th>
+                          <th className="px-4 py-2 font-medium">Likelihood</th>
+                          <th className="px-4 py-2 font-medium">Impact</th>
+                          <th className="px-4 py-2 font-medium">Status</th>
+                          <th className="px-4 py-2 font-medium">Mitigation Plan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {riskAssessments.map((a) => (
+                          <tr key={a.id} className="border-b border-gray-100 last:border-0">
+                            <td className="px-4 py-2 text-gray-900">{a.category}</td>
+                            <td className="px-4 py-2 text-gray-700">{a.riskLevel}</td>
+                            <td className="px-4 py-2 text-gray-700">{a.likelihood}</td>
+                            <td className="px-4 py-2 text-gray-700">{a.impact}</td>
+                            <td className="px-4 py-2 text-gray-700">{a.status}</td>
+                            <td className="px-4 py-2 text-gray-600">{a.mitigationPlan || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-4 text-sm text-gray-500">
+                    {riskBusy ? 'Loading risk assessments…' : 'No risk assessments yet. Use "Identify Risks" to create one.'}
+                  </div>
+                )}
+              </div>
+
               {/* Risk Cards */}
               <div className="grid grid-cols-1 gap-2">
                 {risks.map((risk) => (

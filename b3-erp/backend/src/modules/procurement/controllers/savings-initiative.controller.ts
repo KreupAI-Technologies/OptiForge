@@ -57,6 +57,14 @@ export class SavingsInitiativeController {
     return this.savingsInitiativeService.update(companyId, id, data);
   }
 
+  @Post(':id/calculate')
+  calculate(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+  ): Promise<SavingsInitiative> {
+    return this.savingsInitiativeService.calculate(companyId, id);
+  }
+
   @Delete(':id')
   delete(
     @Headers('x-company-id') companyId: string,

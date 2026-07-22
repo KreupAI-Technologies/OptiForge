@@ -130,10 +130,31 @@ const ProcurementSavings: React.FC = () => {
   const totalActualSavings = savingsInitiatives.reduce((sum, i) => sum + i.actualSavings, 0);
   const totalInitiatives = savingsInitiatives.length;
 
+  const [calculating, setCalculating] = useState(false);
+
   // Handler functions
-  const handleCalculateSavings = () => {
-    console.log('Calculating savings...');
-    alert('Calculate Procurement Savings - This would open the savings calculation wizard with methodology selection, baseline establishment, and approval workflow.');
+  // Recompute realized/projected savings for every loaded initiative via the
+  // backend calculator (POST /procurement/savings-initiatives/:id/calculate),
+  // then refresh the list so derived totals reflect the persisted results.
+  const handleCalculateSavings = async () => {
+    if (!savingsInitiatives.length) {
+      alert('No savings initiatives to calculate.');
+      return;
+    }
+    setCalculating(true);
+    try {
+      await Promise.all(
+        savingsInitiatives.map((i) =>
+          procurementSavingsService.calculateInitiative(i.id),
+        ),
+      );
+      await loadInitiatives();
+    } catch (err) {
+      console.error('Failed to calculate savings:', err);
+      alert('Failed to calculate savings. Please try again.');
+    } finally {
+      setCalculating(false);
+    }
   };
 
   const handleTrackInitiatives = () => {
@@ -258,11 +279,12 @@ const ProcurementSavings: React.FC = () => {
             </button>
             <button
               onClick={handleCalculateSavings}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+              disabled={calculating}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Calculate Savings"
             >
               <DollarSign className="h-4 w-4" />
-              <span>Calculate</span>
+              <span>{calculating ? 'Calculating…' : 'Calculate'}</span>
             </button>
             <button
               onClick={handleExportReports}
@@ -904,10 +926,11 @@ const ProcurementSavings: React.FC = () => {
               <div className="space-y-2">
                 <button
                   onClick={handleCalculateSavings}
-                  className="w-full flex items-center space-x-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                  disabled={calculating}
+                  className="w-full flex items-center space-x-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <DollarSign className="h-4 w-4" />
-                  <span>Calculate Savings</span>
+                  <span>{calculating ? 'Calculating…' : 'Calculate Savings'}</span>
                 </button>
                 <button
                   onClick={handleTrackInitiatives}

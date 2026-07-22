@@ -109,6 +109,14 @@ export interface EstimatorPerformance {
   averageTurnaroundDays: number;
 }
 
+export interface CategoryPerformance {
+  category: string;
+  totalEstimates: number;
+  winRate: number;
+  avgValue: number;
+  accuracy: number;
+}
+
 export interface HistoricalBenchmark {
   id: string;
   companyId: string;
@@ -566,6 +574,21 @@ class EstimationAnalyticsService {
       return MOCK_ESTIMATOR_PERFORMANCE.filter(
         (p) => p.companyId === companyId && p.year === year && p.month === month
       );
+    }
+  }
+
+  // Category Performance — real aggregation of estimates by category.
+  // No mock fallback: on error, surface an empty list so the page shows its
+  // empty-state rather than fabricated rows.
+  async getCategoryPerformance(): Promise<CategoryPerformance[]> {
+    try {
+      const response = await apiClient.get<CategoryPerformance[]>(
+        `${this.baseUrl}/category-performance`
+      );
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error('API Error fetching category performance:', error);
+      return [];
     }
   }
 

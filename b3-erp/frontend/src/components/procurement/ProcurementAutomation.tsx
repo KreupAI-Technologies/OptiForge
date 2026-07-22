@@ -1,7 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { procurementPagesService } from '@/services/procurement-pages.service'
+import {
+  procurementAutomationRuleService,
+  type ProcurementAutomationRule
+} from '@/services/procurement-automation-rule.service'
 import {
   Cpu,
   Bot,
@@ -45,12 +49,7 @@ import {
   LineChart,
   Gauge
 } from 'lucide-react'
-import {
-  ConfigureRulesModal,
-  TestAutomationModal,
-  ViewLogsModal,
-  ManageAutomationModal
-} from '@/components/procurement/AutomationModals'
+import { ViewLogsModal } from '@/components/procurement/AutomationModals'
 import {
   LineChart as ReLineChart,
   Line,
@@ -113,74 +112,154 @@ export default function ProcurementAutomation() {
   const [selectedRule, setSelectedRule] = useState<AutomationRule | null>(null)
   const [showAIConfig, setShowAIConfig] = useState(false)
 
-  // Modal states
-  const [isConfigureModalOpen, setIsConfigureModalOpen] = useState(false)
-  const [isTestModalOpen, setIsTestModalOpen] = useState(false)
+  // Modal states — only the read-only logs modal remains; rule CRUD is prompt-driven.
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false)
-  const [isManageModalOpen, setIsManageModalOpen] = useState(false)
   const [selectedAutomation, setSelectedAutomation] = useState<AutomationRule | null>(null)
-  const [isNewRule, setIsNewRule] = useState(false)
 
-  // Modal handlers
-  const handleConfigureRule = (rule?: AutomationRule) => {
-    setSelectedAutomation(rule || null)
-    setIsNewRule(!rule)
-    setIsConfigureModalOpen(true)
-  }
-
-  const handleTestAutomation = (rule: AutomationRule) => {
-    setSelectedAutomation(rule)
-    setIsTestModalOpen(true)
-  }
-
-  const handleViewLogs = (rule: AutomationRule) => {
-    setSelectedAutomation(rule)
-    setIsLogsModalOpen(true)
-  }
-
-  const handleManageAutomation = (rule: AutomationRule) => {
-    setSelectedAutomation(rule)
-    setIsManageModalOpen(true)
-  }
-
-  // Mock data
+  // Automation rules — sourced from the real NestJS backend (procurement/automation-rules).
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([])
+  const [rulesBusy, setRulesBusy] = useState(false)
+  const [rulesError, setRulesError] = useState<string | null>(null)
+
+  // Insight/analytics data (unchanged source).
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([])
   const [processMetrics, setProcessMetrics] = useState<ProcessMetric[]>([])
   const [automationTrend, setAutomationTrend] = useState<{ month: string; manual: number; automated: number; ai: number }[]>([])
   const [workflowStages, setWorkflowStages] = useState<{ stage: string; automated: number; time: string; previousTime: string }[]>([])
 
+  // Map the backend rule shape to the component's AutomationRule view model.
+  // isActive true => 'active', false => 'paused'.
+  const mapRule = (r: ProcurementAutomationRule): AutomationRule => ({
+    id: String(r.id),
+    name: r.name || 'Untitled Rule',
+    type: 'workflow',
+    status: r.isActive ? 'active' : 'paused',
+    triggersPerDay: 0,
+    successRate: 100,
+    timeSaved: 0,
+    lastRun: '—',
+    nextRun: 'Continuous',
+    aiEnabled: false
+  })
+
+  const loadRules = useCallback(async () => {
+    setRulesBusy(true)
+    setRulesError(null)
+    try {
+      const rules = await procurementAutomationRuleService.getRules()
+      setAutomationRules(rules.map(mapRule))
+    } catch (err) {
+      setRulesError(err instanceof Error ? err.message : 'Failed to load automation rules')
+    } finally {
+      setRulesBusy(false)
+    }
+  }, [])
+
   useEffect(() => {
-    const loadAutomationRules = async () => {
+    loadRules()
+  }, [loadRules])
+
+  // Analytics (trend/metrics/insights/workflow stages) still come from the insights endpoint.
+  useEffect(() => {
+    const loadInsights = async () => {
       try {
         const insights = await procurementPagesService.getAutomationInsights()
-
         setAutomationTrend(Array.isArray(insights?.automationTrend) ? insights.automationTrend : [])
         setProcessMetrics(Array.isArray(insights?.processMetrics) ? insights.processMetrics : [])
         setWorkflowStages(Array.isArray(insights?.workflowStages) ? insights.workflowStages : [])
         setAiInsights(Array.isArray(insights?.aiInsights) ? insights.aiInsights : [])
-
-        const rules: any[] = Array.isArray(insights?.rules) ? insights.rules : []
-        if (rules.length === 0) return
-        const mapped: AutomationRule[] = rules.map((r: any) => ({
-          id: String(r?.id ?? ''),
-          name: String(r?.name ?? 'Untitled Rule'),
-          type: 'workflow',
-          status: r?.active ? 'active' : 'paused',
-          triggersPerDay: Number(r?.runs ?? 0),
-          successRate: 100,
-          timeSaved: Number(r?.savedHours ?? 0),
-          lastRun: '—',
-          nextRun: 'Continuous',
-          aiEnabled: false
-        }))
-        setAutomationRules(mapped)
       } catch (err) {
-        console.error('Failed to load automation rules', err)
+        console.error('Failed to load automation insights', err)
       }
     }
-    loadAutomationRules()
+    loadInsights()
   }, [])
+
+  // View execution logs (read-only diagnostics modal).
+  const handleViewLogs = (rule: AutomationRule) => {
+    setSelectedAutomation(rule)
+    setIsLogsModalOpen(true)
+  }
+
+  // ---- Real backend actions (window.prompt input, try/finally + reload). ----
+  // Create a rule (used by "New Automation" / "Configure Automation" empty-state).
+  const handleCreateRule = async () => {
+    const name = window.prompt('New automation rule name')?.trim()
+    if (!name) return
+    const trigger = window.prompt(
+      'Trigger for this rule (e.g. event, schedule, manual)',
+      'event'
+    )?.trim()
+    if (!trigger) return
+    setRulesBusy(true)
+    setRulesError(null)
+    try {
+      await procurementAutomationRuleService.createRule({ name, trigger, isActive: true })
+      await loadRules()
+    } catch (err) {
+      setRulesError(err instanceof Error ? err.message : 'Failed to create automation rule')
+    } finally {
+      setRulesBusy(false)
+    }
+  }
+
+  // Toggle active/paused.
+  const handleToggleRule = async (rule: AutomationRule) => {
+    if (!rule?.id) {
+      setRulesError('Cannot toggle rule: missing id.')
+      return
+    }
+    setRulesBusy(true)
+    setRulesError(null)
+    try {
+      await procurementAutomationRuleService.toggleRule(rule.id)
+      await loadRules()
+    } catch (err) {
+      setRulesError(err instanceof Error ? err.message : `Failed to toggle ${rule.name}`)
+    } finally {
+      setRulesBusy(false)
+    }
+  }
+
+  // Rename / edit a rule.
+  const handleRenameRule = async (rule: AutomationRule) => {
+    if (!rule?.id) {
+      setRulesError('Cannot edit rule: missing id.')
+      return
+    }
+    const name = window.prompt('Rule name', rule.name)?.trim()
+    if (!name || name === rule.name) return
+    setRulesBusy(true)
+    setRulesError(null)
+    try {
+      await procurementAutomationRuleService.updateRule(rule.id, { name })
+      await loadRules()
+    } catch (err) {
+      setRulesError(err instanceof Error ? err.message : `Failed to update ${rule.name}`)
+    } finally {
+      setRulesBusy(false)
+    }
+  }
+
+  // Delete a rule.
+  const handleDeleteRule = async (rule: AutomationRule) => {
+    if (!rule?.id) {
+      setRulesError('Cannot delete rule: missing id.')
+      return
+    }
+    const ok = window.confirm(`Delete automation rule "${rule.name}"? This cannot be undone.`)
+    if (!ok) return
+    setRulesBusy(true)
+    setRulesError(null)
+    try {
+      await procurementAutomationRuleService.deleteRule(rule.id)
+      await loadRules()
+    } catch (err) {
+      setRulesError(err instanceof Error ? err.message : `Failed to delete ${rule.name}`)
+    } finally {
+      setRulesBusy(false)
+    }
+  }
 
   const aiPredictions = [
     { metric: 'Demand Forecast', accuracy: 87, improvement: 12 },
@@ -248,8 +327,9 @@ export default function ProcurementAutomation() {
               View Logs
             </button>
             <button
-              onClick={() => handleConfigureRule()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+              onClick={handleCreateRule}
+              disabled={rulesBusy}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               New Automation
@@ -446,6 +526,11 @@ export default function ProcurementAutomation() {
 
           {activeTab === 'automation' && (
             <div className="space-y-3">
+              {rulesError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {rulesError}
+                </div>
+              )}
               {/* Automation Rules */}
               <div className="space-y-2">
                 {automationRules.map((rule) => (
@@ -512,32 +597,37 @@ export default function ProcurementAutomation() {
                         </span>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleConfigureRule(rule)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-                            title="Configure Rule"
+                            onClick={() => handleRenameRule(rule)}
+                            disabled={rulesBusy}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Rename / edit rule"
                           >
-                            <Settings className="w-4 h-4 text-gray-600" />
+                            <Edit className="w-4 h-4 text-gray-600" />
                           </button>
                           <button
-                            onClick={() => handleTestAutomation(rule)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-                            title="Test Automation"
+                            onClick={() => handleToggleRule(rule)}
+                            disabled={rulesBusy}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={rule.status === 'active' ? 'Pause rule' : 'Activate rule'}
                           >
-                            <Play className="w-4 h-4 text-green-600" />
+                            {rule.status === 'active'
+                              ? <Pause className="w-4 h-4 text-yellow-600" />
+                              : <Play className="w-4 h-4 text-green-600" />}
                           </button>
                           <button
-                            onClick={() => handleViewLogs(rule)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-                            title="View Logs"
+                            disabled
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm opacity-50 cursor-not-allowed"
+                            title="Test automation (no backend test endpoint available)"
                           >
-                            <Eye className="w-4 h-4 text-blue-600" />
+                            <Activity className="w-4 h-4 text-gray-400" />
                           </button>
                           <button
-                            onClick={() => handleManageAutomation(rule)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-                            title="Manage Status"
+                            onClick={() => handleDeleteRule(rule)}
+                            disabled={rulesBusy}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-red-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete rule"
                           >
-                            <Shield className="w-4 h-4 text-purple-600" />
+                            <XCircle className="w-4 h-4 text-red-600" />
                           </button>
                         </div>
                       </div>
@@ -552,8 +642,9 @@ export default function ProcurementAutomation() {
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Create New Automation Rule</h3>
                 <p className="text-sm text-gray-600 mb-2">Set up intelligent automation for your procurement processes</p>
                 <button
-                  onClick={() => handleConfigureRule()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  onClick={handleCreateRule}
+                  disabled={rulesBusy}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Configure Automation
                 </button>
@@ -956,50 +1047,7 @@ export default function ProcurementAutomation() {
         </div>
       </div>
 
-      {/* Automation Modals */}
-      <ConfigureRulesModal
-        isOpen={isConfigureModalOpen}
-        onClose={() => setIsConfigureModalOpen(false)}
-        automation={selectedAutomation ? {
-          id: selectedAutomation.id,
-          name: selectedAutomation.name,
-          type: selectedAutomation.type,
-          status: selectedAutomation.status,
-          triggersPerDay: selectedAutomation.triggersPerDay,
-          successRate: selectedAutomation.successRate,
-          timeSaved: selectedAutomation.timeSaved,
-          lastRun: selectedAutomation.lastRun,
-          nextRun: selectedAutomation.nextRun,
-          aiEnabled: selectedAutomation.aiEnabled
-        } : undefined}
-        onSubmit={(data) => {
-          downloadJson('automation-rule-config', data);
-          setIsConfigureModalOpen(false);
-        }}
-        isNew={isNewRule}
-      />
-
-      <TestAutomationModal
-        isOpen={isTestModalOpen}
-        onClose={() => setIsTestModalOpen(false)}
-        automation={selectedAutomation ? {
-          id: selectedAutomation.id,
-          name: selectedAutomation.name,
-          type: selectedAutomation.type,
-          status: selectedAutomation.status,
-          triggersPerDay: selectedAutomation.triggersPerDay,
-          successRate: selectedAutomation.successRate,
-          timeSaved: selectedAutomation.timeSaved,
-          lastRun: selectedAutomation.lastRun,
-          nextRun: selectedAutomation.nextRun,
-          aiEnabled: selectedAutomation.aiEnabled
-        } : undefined}
-        onSubmit={(data) => {
-          downloadJson('automation-test-run', data);
-          setIsTestModalOpen(false);
-        }}
-      />
-
+      {/* Automation execution logs (read-only diagnostics) */}
       <ViewLogsModal
         isOpen={isLogsModalOpen}
         onClose={() => setIsLogsModalOpen(false)}
@@ -1018,27 +1066,6 @@ export default function ProcurementAutomation() {
         onExport={(data) => {
           downloadJson('automation-logs', data);
           setIsLogsModalOpen(false);
-        }}
-      />
-
-      <ManageAutomationModal
-        isOpen={isManageModalOpen}
-        onClose={() => setIsManageModalOpen(false)}
-        automation={selectedAutomation ? {
-          id: selectedAutomation.id,
-          name: selectedAutomation.name,
-          type: selectedAutomation.type,
-          status: selectedAutomation.status,
-          triggersPerDay: selectedAutomation.triggersPerDay,
-          successRate: selectedAutomation.successRate,
-          timeSaved: selectedAutomation.timeSaved,
-          lastRun: selectedAutomation.lastRun,
-          nextRun: selectedAutomation.nextRun,
-          aiEnabled: selectedAutomation.aiEnabled
-        } : undefined}
-        onSubmit={(data) => {
-          downloadJson('automation-settings', data);
-          setIsManageModalOpen(false);
         }}
       />
     </div>

@@ -173,6 +173,12 @@ export class EstimateAnalyticsController {
     );
   }
 
+  // Category Performance — real aggregation of estimates by category
+  @Get('category-performance')
+  getCategoryPerformance(@Headers('x-company-id') companyId: string) {
+    return this.estimateAnalyticsService.getCategoryPerformance(companyId);
+  }
+
   // Historical Benchmarks
   @Post('benchmarks')
   createBenchmark(

@@ -22,3 +22,8 @@ export * from './procurement-category.service';
 export * from './savings-initiative.service';
 export * from './vendor-scorecard.service';
 export * from './vendor.service';
+export * from './procurement-report-template.service';
+export * from './procurement-automation-rule.service';
+export * from './procurement-risk-assessment.service';
+export * from './procurement-compliance-record.service';
+export * from './supplier-diversity-program.service';

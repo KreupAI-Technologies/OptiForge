@@ -65,4 +65,52 @@ export class SavingsInitiativeService {
     const entity = await this.findOne(companyId, id);
     await this.savingsRepository.remove(entity);
   }
+
+  /**
+   * Compute realized and projected savings for an initiative from its own
+   * fields and persist the result. Realized savings derive from
+   * baselineCost - currentCost when both are set; otherwise fall back to the
+   * recorded actualSavings. Projected savings extrapolate the realized run-rate
+   * across the full initiative period (startDate..endDate); if no period is
+   * defined it defaults to the greater of realized savings or targetSavings.
+   */
+  async calculate(companyId: string, id: string): Promise<SavingsInitiative> {
+    const entity = await this.findOne(companyId, id);
+
+    const baseline = Number(entity.baselineCost) || 0;
+    const current = Number(entity.currentCost) || 0;
+    const target = Number(entity.targetSavings) || 0;
+
+    // Realized savings: prefer explicit baseline/current delta.
+    let realized: number;
+    if (baseline > 0 || current > 0) {
+      realized = Math.max(baseline - current, 0);
+    } else {
+      realized = Number(entity.actualSavings) || 0;
+    }
+
+    // Projected (full-period) savings: extrapolate realized by elapsed fraction.
+    let projected = realized;
+    const start = entity.startDate ? new Date(entity.startDate).getTime() : null;
+    const end = entity.endDate ? new Date(entity.endDate).getTime() : null;
+    if (start !== null && end !== null && end > start) {
+      const now = Date.now();
+      const elapsed = Math.min(Math.max(now - start, 0), end - start);
+      const fraction = elapsed / (end - start);
+      if (fraction > 0) {
+        projected = Math.round((realized / fraction) * 100) / 100;
+      } else {
+        projected = Math.max(realized, target);
+      }
+    } else {
+      projected = Math.max(realized, target);
+    }
+
+    entity.realizedSavings = Math.round(realized * 100) / 100;
+    entity.projectedSavings = Math.round(projected * 100) / 100;
+    // Keep actualSavings in sync with the freshly computed realized figure.
+    entity.actualSavings = entity.realizedSavings;
+
+    return this.savingsRepository.save(entity);
+  }
 }

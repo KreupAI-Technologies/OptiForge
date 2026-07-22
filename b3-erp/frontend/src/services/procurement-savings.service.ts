@@ -89,4 +89,14 @@ export const procurementSavingsService = {
       method: 'DELETE',
     });
   },
+
+  // POST /procurement/savings-initiatives/:id/calculate
+  // Recomputes realized/projected savings from the initiative's fields and
+  // persists the result. Returns the updated initiative.
+  async calculateInitiative(id: string): Promise<SavingsInitiative> {
+    return request<SavingsInitiative>(
+      `/procurement/savings-initiatives/${id}/calculate`,
+      { method: 'POST' },
+    );
+  },
 };

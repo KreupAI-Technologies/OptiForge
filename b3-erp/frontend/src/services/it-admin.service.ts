@@ -54,6 +54,20 @@ export interface AutomationRuleDto {
   updatedAt: string;
 }
 
+export interface NotificationRuleDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  eventType: string;
+  channel: string; // 'email' | 'sms' | 'in-app'
+  recipients?: string[];
+  conditions?: Record<string, unknown> | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SecurityAlertDto {
   id: string;
   companyId?: string;
@@ -748,6 +762,56 @@ class ItAdminServiceClass {
 
   async deleteAutomationRule(id: string): Promise<void> {
     return request<void>(`/it-admin/automation-rules/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- Notification Rules ---
+  async getNotificationRules(params?: {
+    companyId?: string;
+    eventType?: string;
+    channel?: string;
+    isActive?: string;
+  }): Promise<NotificationRuleDto[]> {
+    return request<NotificationRuleDto[]>(
+      `/it-admin/notification-rules${qs(params)}`,
+    );
+  }
+
+  async createNotificationRule(
+    data: Partial<NotificationRuleDto>,
+  ): Promise<NotificationRuleDto> {
+    return request<NotificationRuleDto>('/it-admin/notification-rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateNotificationRule(
+    id: string,
+    data: Partial<NotificationRuleDto>,
+  ): Promise<NotificationRuleDto> {
+    return request<NotificationRuleDto>(`/it-admin/notification-rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleNotificationRule(
+    id: string,
+    isActive?: boolean,
+  ): Promise<NotificationRuleDto> {
+    return request<NotificationRuleDto>(
+      `/it-admin/notification-rules/${id}/toggle`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive }),
+      },
+    );
+  }
+
+  async deleteNotificationRule(id: string): Promise<void> {
+    return request<void>(`/it-admin/notification-rules/${id}`, {
       method: 'DELETE',
     });
   }

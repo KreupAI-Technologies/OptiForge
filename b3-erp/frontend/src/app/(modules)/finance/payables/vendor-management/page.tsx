@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 interface Vendor {
+  recordId: string;
   vendorId: string;
   vendorName: string;
   contactPerson: string;
@@ -56,6 +57,45 @@ interface Vendor {
   vendorSince: string;
 }
 
+interface VendorFormState {
+  id?: string;
+  vendorName: string;
+  vendorCode: string;
+  vendorCategory: string;
+  gstNumber: string;
+  panNumber: string;
+  creditLimit: string;
+  paymentTerms: string;
+  creditPeriod: string;
+  riskRating: string;
+  accountStatus: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+}
+
+const emptyVendorForm: VendorFormState = {
+  vendorName: '',
+  vendorCode: '',
+  vendorCategory: '',
+  gstNumber: '',
+  panNumber: '',
+  creditLimit: '',
+  paymentTerms: '',
+  creditPeriod: '',
+  riskRating: 'low',
+  accountStatus: 'active',
+  contactPerson: '',
+  email: '',
+  phone: '',
+  address: '',
+  city: '',
+  state: '',
+};
+
 export default function VendorManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -67,6 +107,85 @@ export default function VendorManagementPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Add/Edit vendor modal
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<VendorFormState>(emptyVendorForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const openAddForm = () => {
+    setForm(emptyVendorForm);
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const openEditForm = (v: Vendor) => {
+    setForm({
+      id: v.recordId,
+      vendorName: v.vendorName,
+      vendorCode: v.vendorId,
+      vendorCategory: v.vendorCategory,
+      gstNumber: v.gstNumber,
+      panNumber: v.panNumber,
+      creditLimit: v.creditLimit ? String(v.creditLimit) : '',
+      paymentTerms: v.paymentTerms,
+      creditPeriod: v.averagePaymentDays ? String(v.averagePaymentDays) : '',
+      riskRating: v.riskRating,
+      accountStatus: v.status,
+      contactPerson: v.contactPerson,
+      email: v.email,
+      phone: v.phone,
+      address: v.address,
+      city: v.city,
+      state: v.state,
+    });
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const handleSaveVendor = async () => {
+    if (!form.vendorName.trim()) {
+      setFormError('Vendor name is required');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      const payload = {
+        vendorName: form.vendorName,
+        vendorCode: form.vendorCode || undefined,
+        vendorCategory: form.vendorCategory || undefined,
+        gstNumber: form.gstNumber || undefined,
+        panNumber: form.panNumber || undefined,
+        creditLimit: form.creditLimit ? Number(form.creditLimit) : 0,
+        paymentTerms: form.paymentTerms || undefined,
+        creditPeriod: form.creditPeriod ? Number(form.creditPeriod) : 0,
+        riskRating: form.riskRating,
+        accountStatus: form.accountStatus,
+        vendorContact: {
+          contactPerson: form.contactPerson,
+          email: form.email,
+          phone: form.phone,
+          address: form.address,
+          city: form.city,
+          state: form.state,
+        },
+      };
+      if (form.id) {
+        await FinanceService.updateVendorAccount(form.id, payload);
+      } else {
+        await FinanceService.createVendorAccount(payload);
+      }
+      setShowForm(false);
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Failed to save vendor');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +203,7 @@ export default function VendorManagementPage() {
           const status = String(r.accountStatus ?? 'active').toLowerCase();
           const contact = r.vendorContact ?? {};
           return {
+            recordId: r.id ?? '',
             vendorId: r.vendorId ?? r.id ?? '',
             vendorName: r.vendorName ?? '',
             contactPerson: contact.contactPerson ?? r.contactPerson ?? '',
@@ -124,7 +244,7 @@ export default function VendorManagementPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reloadKey]);
 
 
   // Stats derived from live vendors (no fabricated numbers)
@@ -228,7 +348,10 @@ export default function VendorManagementPage() {
                 <Download className="h-4 w-4" />
                 <span>Export</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+              <button
+                onClick={openAddForm}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
                 <Plus className="h-4 w-4" />
                 <span>Add Vendor</span>
               </button>
@@ -440,7 +563,10 @@ export default function VendorManagementPage() {
                       <Eye className="h-4 w-4" />
                       View Details
                     </button>
-                    <button className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                    <button
+                      onClick={() => openEditForm(vendor)}
+                      className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                    >
                       <Edit className="h-4 w-4" />
                       Edit
                     </button>
@@ -587,6 +713,124 @@ export default function VendorManagementPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add / Edit Vendor Modal */}
+          {showForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 z-50">
+              <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {form.id ? 'Edit Vendor' : 'Add Vendor'}
+                    </h2>
+                    <button
+                      onClick={() => setShowForm(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {formError && (
+                    <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                      {formError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Name *</label>
+                      <input value={form.vendorName} onChange={(e) => setForm({ ...form, vendorName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Code</label>
+                      <input value={form.vendorCode} onChange={(e) => setForm({ ...form, vendorCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                      <input value={form.vendorCategory} onChange={(e) => setForm({ ...form, vendorCategory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">GST Number</label>
+                      <input value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number</label>
+                      <input value={form.panNumber} onChange={(e) => setForm({ ...form, panNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Credit Limit</label>
+                      <input type="number" value={form.creditLimit} onChange={(e) => setForm({ ...form, creditLimit: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
+                      <input value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Credit Period (days)</label>
+                      <input type="number" value={form.creditPeriod} onChange={(e) => setForm({ ...form, creditPeriod: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Risk Rating</label>
+                      <select value={form.riskRating} onChange={(e) => setForm({ ...form, riskRating: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select value={form.accountStatus} onChange={(e) => setForm({ ...form, accountStatus: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                      <input value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                      <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                      <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                      <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                      <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 mt-5">
+                    <button
+                      onClick={() => setShowForm(false)}
+                      className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveVendor}
+                      disabled={saving}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    >
+                      {saving ? 'Saving…' : form.id ? 'Update Vendor' : 'Create Vendor'}
+                    </button>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { procurementPagesService } from '@/services/procurement-pages.service';
+import {
+  supplierDiversityProgramService,
+  SupplierDiversityProgram,
+} from '@/services/supplier-diversity-program.service';
 import {
   Users, Globe, Award, TrendingUp, BarChart3, Target, Plus,
   Edit, Download, RefreshCw, Settings, CheckCircle, XCircle,
@@ -34,6 +38,28 @@ const SupplierDiversity: React.FC = () => {
 
   // Diverse suppliers - seeded with sample data, populated from API
   const [diverseSuppliers, setDiverseSuppliers] = useState<DiverseSupplier[]>([]);
+
+  // Diversity programs (net-new backend: procurement/diversity-programs)
+  const [diversityPrograms, setDiversityPrograms] = useState<SupplierDiversityProgram[]>([]);
+  const [programsBusy, setProgramsBusy] = useState(false);
+  const [programsError, setProgramsError] = useState<string | null>(null);
+
+  const loadPrograms = useCallback(async () => {
+    setProgramsBusy(true);
+    setProgramsError(null);
+    try {
+      const data = await supplierDiversityProgramService.getPrograms();
+      setDiversityPrograms(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setProgramsError(err instanceof Error ? err.message : 'Failed to load diversity programs');
+    } finally {
+      setProgramsBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPrograms();
+  }, [loadPrograms]);
 
   // Populate diverse suppliers from the diversity insights API
   useEffect(() => {
@@ -130,24 +156,73 @@ const SupplierDiversity: React.FC = () => {
     // Diversity spend tracking workflow — backend not yet available.
   };
 
-  const handleSetGoals = () => {
-    // Diversity goal-setting workflow — backend not yet available.
+  const handleSetGoals = async () => {
+    const category = window.prompt('Diversity category for goal (e.g. Women-Owned)')?.trim();
+    if (!category) return;
+    const goalPercentRaw = window.prompt('Goal percent (0-100)')?.trim();
+    if (goalPercentRaw == null) return;
+    setProgramsBusy(true);
+    setProgramsError(null);
+    try {
+      await supplierDiversityProgramService.createProgram({
+        category,
+        goalPercent: Number(goalPercentRaw) || 0,
+        status: 'active',
+      });
+      await loadPrograms();
+    } catch (err) {
+      setProgramsError(err instanceof Error ? err.message : 'Failed to set diversity goal');
+    } finally {
+      setProgramsBusy(false);
+    }
   };
 
   const handleGenerateReports = () => {
     // Diversity report generation — backend not yet available.
   };
 
-  const handleCertifySuppliers = () => {
-    // Supplier certification management — backend not yet available.
+  const handleCertifySuppliers = async () => {
+    const category = window.prompt('Diversity category (e.g. Minority-Owned)')?.trim();
+    if (!category) return;
+    const certificationType = window.prompt('Certification type (e.g. MBE, WBE, VOSB)')?.trim();
+    if (!certificationType) return;
+    setProgramsBusy(true);
+    setProgramsError(null);
+    try {
+      await supplierDiversityProgramService.createProgram({
+        category,
+        certificationType,
+        status: 'certified',
+      });
+      await loadPrograms();
+    } catch (err) {
+      setProgramsError(err instanceof Error ? err.message : 'Failed to record certification');
+    } finally {
+      setProgramsBusy(false);
+    }
   };
 
-  const handleAddDiverseSupplier = () => {
-    // Diverse supplier onboarding workflow — backend not yet available.
+  const handleAddDiverseSupplier = async () => {
+    const category = window.prompt('Diversity category for new program (e.g. Women-Owned)')?.trim();
+    if (!category) return;
+    setProgramsBusy(true);
+    setProgramsError(null);
+    try {
+      await supplierDiversityProgramService.createProgram({
+        category,
+        status: 'prospect',
+      });
+      await loadPrograms();
+    } catch (err) {
+      setProgramsError(err instanceof Error ? err.message : 'Failed to add diversity program');
+    } finally {
+      setProgramsBusy(false);
+    }
   };
 
   const handleManagePrograms = () => {
-    // Diversity program management — backend not yet available.
+    setActiveTab('programs');
+    loadPrograms();
   };
 
   const handleViewAnalytics = () => {
@@ -155,7 +230,7 @@ const SupplierDiversity: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    // Manual diversity data refresh — backend not yet available.
+    loadPrograms();
   };
 
   const handleSettings = () => {
@@ -174,18 +249,18 @@ const SupplierDiversity: React.FC = () => {
           <div className="flex space-x-2">
             <button
               onClick={handleAddDiverseSupplier}
-              disabled
+              disabled={programsBusy}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Diverse supplier onboarding — backend not yet available"
+              title="Add a diversity program"
             >
               <Plus className="h-4 w-4" />
               <span>Add Supplier</span>
             </button>
             <button
               onClick={handleManagePrograms}
-              disabled
+              disabled={programsBusy}
               className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Diversity program management — backend not yet available"
+              title="Manage diversity programs"
             >
               <Award className="h-4 w-4" />
               <span>Programs</span>
@@ -201,9 +276,9 @@ const SupplierDiversity: React.FC = () => {
             </button>
             <button
               onClick={handleRefresh}
-              disabled
+              disabled={programsBusy}
               className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Manual diversity data refresh — backend not yet available"
+              title="Refresh diversity programs"
             >
               <RefreshCw className="h-4 w-4" />
               <span>Refresh</span>
@@ -291,18 +366,18 @@ const SupplierDiversity: React.FC = () => {
               </button>
               <button
                 onClick={handleSetGoals}
-                disabled
+                disabled={programsBusy}
                 className="inline-flex items-center gap-1.5 px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg hover:bg-blue-100 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Diversity goal-setting — backend not yet available"
+                title="Set a diversity goal"
               >
                 <Target className="w-4 h-4 text-blue-600" />
                 <span className="text-blue-700">Set Goals</span>
               </button>
               <button
                 onClick={handleCertifySuppliers}
-                disabled
+                disabled={programsBusy}
                 className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 bg-green-50 rounded-lg hover:bg-green-100 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Supplier certification management — backend not yet available"
+                title="Record a supplier certification"
               >
                 <Shield className="w-4 h-4 text-green-600" />
                 <span className="text-green-700">Certify</span>
@@ -504,8 +579,8 @@ const SupplierDiversity: React.FC = () => {
                 </button>
                 <button
                   onClick={handleSetGoals}
-                  disabled
-                  title="Diversity goal-setting — backend not yet available"
+                  disabled={programsBusy}
+                  title="Set a diversity goal"
                   className="w-full flex items-center space-x-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Target className="h-4 w-4" />
@@ -556,6 +631,69 @@ const SupplierDiversity: React.FC = () => {
       {/* Programs Tab */}
       {activeTab === 'programs' && (
         <div className="space-y-3">
+          {/* Diversity Programs (from backend) */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Diversity Programs ({diversityPrograms.length})
+              </h3>
+              <button
+                onClick={handleRefresh}
+                disabled={programsBusy}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh diversity programs"
+              >
+                <RefreshCw className="w-4 h-4 text-gray-600" />
+                <span className="text-gray-700">Refresh</span>
+              </button>
+            </div>
+            {programsError && (
+              <div className="px-3 py-2 text-sm text-red-700 bg-red-50 border-b border-red-100">
+                {programsError}
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certification</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goal %</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {diversityPrograms.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-4 text-center text-sm text-gray-500">
+                        {programsBusy ? 'Loading…' : 'No diversity programs yet.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    diversityPrograms.map((p) => (
+                      <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{p.category}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{p.certificationType ?? '—'}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(p.status)}`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {p.goalPercent != null ? `${p.goalPercent}%` : '—'}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {p.spendAmount != null ? `$${(p.spendAmount / 1000).toFixed(0)}K` : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-white rounded-lg shadow p-3">
               <div className="flex items-center justify-between mb-2">

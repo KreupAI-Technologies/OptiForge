@@ -9,7 +9,10 @@ import {
   WinLossRecord,
   WinLossStatus,
 } from '../entities/estimate-analytics.entity';
-import { CostEstimate } from '../entities/cost-estimate.entity';
+import {
+  CostEstimate,
+  CostEstimateStatus,
+} from '../entities/cost-estimate.entity';
 
 @Injectable()
 export class EstimateAnalyticsService {
@@ -640,5 +643,92 @@ export class EstimateAnalyticsService {
       periodStart: new Date(new Date().getFullYear(), 0, 1),
       periodEnd: new Date(),
     });
+  }
+
+  // Category-performance breakdown — aggregates real cost-estimate rows by their
+  // material-cost-breakdown category. For each category returns count of estimates
+  // touching it, win rate (won = Approved/Converted over all decided estimates),
+  // average estimated value contributed by that category, and a variance-based
+  // accuracy proxy (100 − avg contingency%). Pure aggregation, no new table.
+  async getCategoryPerformance(companyId: string): Promise<
+    {
+      category: string;
+      totalEstimates: number;
+      winRate: number;
+      avgValue: number;
+      accuracy: number;
+    }[]
+  > {
+    const estimates = await this.costEstimateRepository.find({
+      where: { companyId },
+    });
+
+    const WON = new Set<CostEstimateStatus>([
+      CostEstimateStatus.APPROVED,
+      CostEstimateStatus.CONVERTED,
+    ]);
+    const DECIDED = new Set<CostEstimateStatus>([
+      CostEstimateStatus.APPROVED,
+      CostEstimateStatus.CONVERTED,
+      CostEstimateStatus.REJECTED,
+    ]);
+
+    const stats = new Map<
+      string,
+      {
+        count: number;
+        won: number;
+        decided: number;
+        totalValue: number;
+        contingencySum: number;
+        contingencyCount: number;
+      }
+    >();
+
+    for (const e of estimates) {
+      const breakdown = e.materialCostBreakdown || [];
+      const isWon = WON.has(e.status);
+      const isDecided = DECIDED.has(e.status);
+      const contingencyPct = Number(e.contingencyPercentage) || 0;
+
+      // Deduplicate categories within a single estimate so count reflects the
+      // number of estimates touching the category, not line items.
+      const seen = new Set<string>();
+      for (const b of breakdown) {
+        const category = b.categoryName;
+        if (!category || seen.has(category)) continue;
+        seen.add(category);
+
+        const s =
+          stats.get(category) || {
+            count: 0,
+            won: 0,
+            decided: 0,
+            totalValue: 0,
+            contingencySum: 0,
+            contingencyCount: 0,
+          };
+        s.count += 1;
+        if (isWon) s.won += 1;
+        if (isDecided) s.decided += 1;
+        s.totalValue += Number(b.amount) || 0;
+        s.contingencySum += contingencyPct;
+        s.contingencyCount += 1;
+        stats.set(category, s);
+      }
+    }
+
+    return Array.from(stats.entries())
+      .map(([category, s]) => ({
+        category,
+        totalEstimates: s.count,
+        winRate: s.decided > 0 ? (s.won / s.decided) * 100 : 0,
+        avgValue: s.count > 0 ? s.totalValue / s.count : 0,
+        accuracy:
+          s.contingencyCount > 0
+            ? Math.max(0, 100 - s.contingencySum / s.contingencyCount)
+            : 0,
+      }))
+      .sort((a, b) => b.totalEstimates - a.totalEstimates);
   }
 }

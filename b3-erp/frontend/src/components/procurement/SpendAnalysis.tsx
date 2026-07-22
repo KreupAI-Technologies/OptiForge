@@ -1,7 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { procurementPagesService } from '@/services/procurement-pages.service'
+import {
+  procurementReportTemplateService,
+  type ProcurementReportTemplate,
+} from '@/services/procurement-report-template.service'
 import {
   DollarSign,
   TrendingUp,
@@ -45,7 +49,9 @@ import {
   CreateCustomReportModal,
   ExportReportModal,
   ScheduleReportModal,
-  DashboardCustomizationModal
+  DashboardCustomizationModal,
+  type ReportConfig,
+  type ScheduledReport
 } from '@/components/procurement/AnalyticsModals'
 import {
   LineChart,
@@ -110,6 +116,24 @@ export default function SpendAnalysis() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isScheduleReportModalOpen, setIsScheduleReportModalOpen] = useState(false)
   const [isDashboardCustomizationModalOpen, setIsDashboardCustomizationModalOpen] = useState(false)
+
+  // Saved report templates — persisted via the NestJS procurement report-templates endpoint.
+  const [reportTemplates, setReportTemplates] = useState<ProcurementReportTemplate[]>([])
+  const [templatesError, setTemplatesError] = useState<string | null>(null)
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      const templates = await procurementReportTemplateService.getTemplates('spend-analysis')
+      setReportTemplates(templates)
+      setTemplatesError(null)
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to load report templates')
+    }
+  }, [])
+
+  useEffect(() => {
+    loadTemplates()
+  }, [loadTemplates])
 
   // API-backed data
   const [spendByCategory, setSpendByCategory] = useState<SpendData[]>([])
@@ -220,7 +244,42 @@ export default function SpendAnalysis() {
   const calculateTotalSpend = () => spendByCategory.reduce((sum, cat) => sum + cat.current, 0)
   const calculateTotalSavings = () => savingsOpportunities.reduce((sum, opp) => sum + opp.potential, 0)
 
-  // ---- Client-side artifact helpers (no backend persistence endpoint exists) ----
+  // ---- Report template persistence (custom report + schedule saved to backend) ----
+  const handleSaveCustomReport = async (data: ReportConfig) => {
+    const name = data.reportName?.trim() || window.prompt('Report name')?.trim()
+    if (!name) return
+    try {
+      await procurementReportTemplateService.createTemplate({
+        name,
+        reportType: 'spend-analysis',
+        description: data.description || undefined,
+        config: data,
+      })
+      await loadTemplates()
+      setIsCreateReportModalOpen(false)
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to save report template')
+    }
+  }
+
+  const handleSaveScheduledReport = async (data: ScheduledReport) => {
+    const name = data.reportName?.trim() || window.prompt('Scheduled report name')?.trim()
+    if (!name) return
+    try {
+      await procurementReportTemplateService.createTemplate({
+        name,
+        reportType: 'spend-analysis',
+        config: data,
+        schedule: data.frequency || undefined,
+      })
+      await loadTemplates()
+      setIsScheduleReportModalOpen(false)
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to save scheduled report')
+    }
+  }
+
+  // ---- Client-side artifact helpers (CSV/JSON export runs entirely in-browser) ----
   const triggerDownload = (filename: string, mime: string, content: string) => {
     const blob = new Blob([content], { type: mime })
     const url = URL.createObjectURL(blob)
@@ -297,6 +356,33 @@ export default function SpendAnalysis() {
               Customize
             </button>
           </div>
+        </div>
+
+        {/* Saved report templates (persisted via backend) */}
+        <div className="mb-3">
+          {templatesError ? (
+            <p className="text-sm text-red-600">{templatesError}</p>
+          ) : reportTemplates.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-gray-600">
+                Saved report templates ({reportTemplates.length}):
+              </span>
+              {reportTemplates.map((t) => (
+                <span
+                  key={t.id}
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs"
+                >
+                  <FileText className="w-3 h-3" />
+                  {t.name}
+                  {t.schedule ? ` · ${t.schedule}` : ''}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              No saved report templates yet. Use Create Report or Schedule to save one.
+            </p>
+          )}
         </div>
 
         {/* Key Metrics */}
@@ -1003,15 +1089,14 @@ export default function SpendAnalysis() {
       </div>
 
       {/* Spend Analysis Modals.
-          Note: procurement backend exposes no report/schedule/dashboard persistence
-          endpoints (spend-analysis + insights controllers are GET-only), so these
-          modals produce a real client-side artifact instead of a fake API call. */}
+          Create Report / Schedule persist a report template via the NestJS
+          procurement/report-templates endpoint; Export and Dashboard layout
+          remain client-side artifacts. */}
       <CreateCustomReportModal
         isOpen={isCreateReportModalOpen}
         onClose={() => setIsCreateReportModalOpen(false)}
         onSubmit={(data) => {
-          downloadJson('spend-analysis-report-config', data)
-          setIsCreateReportModalOpen(false)
+          void handleSaveCustomReport(data)
         }}
       />
 
@@ -1029,8 +1114,7 @@ export default function SpendAnalysis() {
         isOpen={isScheduleReportModalOpen}
         onClose={() => setIsScheduleReportModalOpen(false)}
         onSubmit={(data) => {
-          downloadJson('spend-analysis-schedule', data)
-          setIsScheduleReportModalOpen(false)
+          void handleSaveScheduledReport(data)
         }}
       />
 

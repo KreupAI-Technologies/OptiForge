@@ -28,6 +28,11 @@ import {
   SpendAnalysisController,
   ProcurementInsightsController,
   SourcingStrategyController,
+  ProcurementReportTemplateController,
+  ProcurementAutomationRuleController,
+  ProcurementRiskAssessmentController,
+  ProcurementComplianceRecordController,
+  SupplierDiversityProgramController,
 } from './controllers';
 import {
   AuditTrail,
@@ -55,6 +60,11 @@ import {
   VendorQuotation,
   Vendor,
   SourcingStrategy,
+  ProcurementReportTemplate,
+  ProcurementAutomationRule,
+  ProcurementRiskAssessment,
+  ProcurementComplianceRecord,
+  SupplierDiversityProgram,
 } from './entities';
 import {
   ApprovalThresholdSeederService,
@@ -78,6 +88,11 @@ import {
   VendorQuotationService,
   VendorService,
   SourcingStrategyService,
+  ProcurementReportTemplateService,
+  ProcurementAutomationRuleService,
+  ProcurementRiskAssessmentService,
+  ProcurementComplianceRecordService,
+  SupplierDiversityProgramService,
 } from './services';
 import { ApprovalMatrixService } from './services/approval-matrix.service';
 import { AuditTrailService } from './services/audit-trail.service';
@@ -123,6 +138,11 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
       SourcingStrategy,
       SupplierPortalMessage,
       SupplierPortalDocument,
+      ProcurementReportTemplate,
+      ProcurementAutomationRule,
+      ProcurementRiskAssessment,
+      ProcurementComplianceRecord,
+      SupplierDiversityProgram,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -154,6 +174,11 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
     ProcurementInsightsController,
     SourcingStrategyController,
     SupplierPortalController,
+    ProcurementReportTemplateController,
+    ProcurementAutomationRuleController,
+    ProcurementRiskAssessmentController,
+    ProcurementComplianceRecordController,
+    SupplierDiversityProgramController,
   ],
   providers: [
     ApprovalMatrixService,
@@ -187,6 +212,11 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
     VendorService,
     SourcingStrategyService,
     SupplierPortalService,
+    ProcurementReportTemplateService,
+    ProcurementAutomationRuleService,
+    ProcurementRiskAssessmentService,
+    ProcurementComplianceRecordService,
+    SupplierDiversityProgramService,
   ],
   exports: [
     ApprovalMatrixService,

@@ -14,7 +14,10 @@ import {
   Settings,
   AlertCircle,
   CheckCircle,
-  Filter
+  Filter,
+  Save,
+  Trash2,
+  X
 } from 'lucide-react'
 import { FinanceService } from '@/services/finance.service'
 
@@ -86,6 +89,90 @@ export default function CashFlowForecastPage() {
   const [forecast, setForecast] = useState<ForecastPeriod[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Saved forecast scenarios (real backend)
+  const [savedScenarios, setSavedScenarios] = useState<any[]>([])
+  const [scenariosKey, setScenariosKey] = useState(0)
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
+  const [scenarioName, setScenarioName] = useState('')
+  const [savingScenario, setSavingScenario] = useState(false)
+  const [scenarioError, setScenarioError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await FinanceService.getForecastScenarios()
+        if (!cancelled) setSavedScenarios(Array.isArray(data) ? data : [])
+      } catch {
+        if (!cancelled) setSavedScenarios([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [scenariosKey])
+
+  // Convert selected horizon (days) -> months for the scenario payload
+  const horizonMonths = Math.max(1, Math.round(Number(forecastHorizon) / 30))
+  const activeAssumptions =
+    scenarios.find((s) => s.type === selectedScenario)?.assumptions ??
+    scenarios[1].assumptions
+
+  const handleSaveScenario = async () => {
+    if (!scenarioName.trim()) {
+      setScenarioError('Scenario name is required.')
+      return
+    }
+    setSavingScenario(true)
+    setScenarioError(null)
+    try {
+      await FinanceService.createForecastScenario({
+        name: scenarioName.trim(),
+        assumptions: {
+          scenarioType: selectedScenario,
+          horizonDays: Number(forecastHorizon),
+          collectionEfficiency: activeAssumptions.collectionEfficiency,
+          paymentDelay: activeAssumptions.paymentDelay,
+        },
+        horizonMonths,
+        growthRate: activeAssumptions.salesGrowth,
+      })
+      setSaveModalOpen(false)
+      setScenarioName('')
+      setScenariosKey((k) => k + 1)
+    } catch (err) {
+      setScenarioError(err instanceof Error ? err.message : 'Failed to save scenario')
+    } finally {
+      setSavingScenario(false)
+    }
+  }
+
+  const handleApplyScenario = (scenario: any) => {
+    const a = scenario?.assumptions ?? {}
+    const days = Number(a.horizonDays ?? (scenario?.horizonMonths ? scenario.horizonMonths * 30 : 0))
+    if (days) {
+      // Snap to the nearest available horizon option
+      const options = [30, 60, 90, 180, 365]
+      const nearest = options.reduce((prev, cur) =>
+        Math.abs(cur - days) < Math.abs(prev - days) ? cur : prev,
+      )
+      setForecastHorizon(String(nearest))
+    }
+    const type = a.scenarioType as 'optimistic' | 'base' | 'pessimistic' | undefined
+    if (type === 'optimistic' || type === 'base' || type === 'pessimistic') {
+      setSelectedScenario(type)
+    }
+  }
+
+  const handleDeleteScenario = async (id: string) => {
+    try {
+      await FinanceService.deleteForecastScenario(id)
+      setScenariosKey((k) => k + 1)
+    } catch {
+      /* keep UI intact on failure */
+    }
+  }
 
   const loadForecast = useCallback(async () => {
     setIsLoading(true)
@@ -292,6 +379,17 @@ export default function CashFlowForecastPage() {
                     <option value="180">180 Days</option>
                     <option value="365">1 Year</option>
                   </select>
+                  <button
+                    onClick={() => {
+                      setScenarioName('')
+                      setScenarioError(null)
+                      setSaveModalOpen(true)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    <Save className="h-4 w-4" />
+                    Save Scenario
+                  </button>
                 </div>
               </div>
 
@@ -327,6 +425,52 @@ export default function CashFlowForecastPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Saved Scenarios */}
+              <div className="mt-4 border-t border-gray-200 pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-900">Saved Scenarios</h4>
+                  <span className="text-xs text-gray-500">{savedScenarios.length} saved</span>
+                </div>
+                {savedScenarios.length === 0 ? (
+                  <p className="text-sm text-gray-400">
+                    No saved scenarios yet. Use “Save Scenario” to capture the current forecast parameters.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {savedScenarios.map((sc: any) => (
+                      <div key={sc.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="font-semibold text-gray-900">{sc.name}</p>
+                          <button
+                            onClick={() => handleDeleteScenario(sc.id)}
+                            title="Delete scenario"
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <div className="flex justify-between">
+                            <span>Growth Rate:</span>
+                            <span className="font-medium text-gray-900">{sc.growthRate ?? '—'}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Horizon:</span>
+                            <span className="font-medium text-gray-900">{sc.horizonMonths ?? '—'} months</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleApplyScenario(sc)}
+                          className="mt-2 w-full px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -447,6 +591,64 @@ export default function CashFlowForecastPage() {
           </div>
         </div>
       </div>
+
+      {/* Save Scenario Modal */}
+      {saveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Save Forecast Scenario</h3>
+              <button onClick={() => setSaveModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {scenarioError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {scenarioError}
+                </div>
+              )}
+              <label className="block text-sm">
+                <span className="text-gray-700">Scenario Name</span>
+                <input
+                  value={scenarioName}
+                  onChange={(e) => setScenarioName(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Q3 Base Case"
+                />
+              </label>
+              <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Base scenario:</span>
+                  <span className="font-medium text-gray-900 capitalize">{selectedScenario}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Growth Rate:</span>
+                  <span className="font-medium text-gray-900">{activeAssumptions.salesGrowth}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Horizon:</span>
+                  <span className="font-medium text-gray-900">
+                    {forecastHorizon} days ({horizonMonths} months)
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setSaveModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveScenario}
+                disabled={savingScenario || !scenarioName.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {savingScenario ? 'Saving…' : 'Save Scenario'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

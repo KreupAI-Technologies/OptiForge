@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Bell, AlertTriangle, Info, CheckCircle, Clock, DollarSign, TrendingUp, Settings, Mail, MessageSquare } from 'lucide-react'
 import { FinanceService } from '@/services/finance.service'
+import { ItAdminService, NotificationRuleDto } from '@/services/it-admin.service'
 
 interface Alert {
   id: string
@@ -107,63 +108,90 @@ export default function AlertsNotificationsPage() {
     }
   }
 
-  const [notificationRules] = useState<NotificationRule[]>([
-    {
-      id: '1',
-      name: 'Invoice Overdue Alert',
-      description: 'Notify when invoices are overdue by more than 7 days',
-      trigger: 'Daily at 9:00 AM',
-      condition: 'Due date > 7 days past',
-      recipients: ['accounts@company.com', 'manager@company.com'],
-      channels: ['email', 'in_app'],
-      status: 'active',
-      frequency: 'Daily'
-    },
-    {
-      id: '2',
-      name: 'Approval Queue Alert',
-      description: 'Notify approvers when items are pending approval',
-      trigger: 'Real-time on submission',
-      condition: 'Status = Pending Approval',
-      recipients: ['cfo@company.com', 'controller@company.com'],
-      channels: ['email', 'sms', 'in_app'],
-      status: 'active',
-      frequency: 'Real-time'
-    },
-    {
-      id: '3',
-      name: 'Budget Variance Alert',
-      description: 'Alert when department budget variance exceeds threshold',
-      trigger: 'Weekly on Monday 8:00 AM',
-      condition: 'Variance > 10%',
-      recipients: ['budget@company.com', 'dept-heads@company.com'],
-      channels: ['email', 'in_app'],
-      status: 'active',
-      frequency: 'Weekly'
-    },
-    {
-      id: '4',
-      name: 'Large Transaction Alert',
-      description: 'Notify on transactions exceeding ₹10,00,000',
-      trigger: 'Real-time on posting',
-      condition: 'Amount > ₹10,00,000',
-      recipients: ['cfo@company.com', 'audit@company.com'],
-      channels: ['email', 'sms', 'in_app'],
-      status: 'active',
-      frequency: 'Real-time'
-    },
-    {
-      id: '5',
-      name: 'Compliance Deadline Reminder',
-      description: 'Remind about upcoming tax and regulatory filings',
-      trigger: '5 days before deadline',
-      condition: 'Due date within 5 days',
-      recipients: ['tax@company.com', 'compliance@company.com'],
-      channels: ['email', 'in_app'],
-      status: 'active',
-      frequency: 'As scheduled'
+  const [notificationRules, setNotificationRules] = useState<NotificationRule[]>([])
+
+  // Map a single backend channel ('email' | 'sms' | 'in-app') to the page's
+  // channel union ('email' | 'sms' | 'in_app').
+  const mapChannel = (channel: string): NotificationRule['channels'][number] => {
+    switch (channel) {
+      case 'sms':
+        return 'sms'
+      case 'in-app':
+      case 'in_app':
+        return 'in_app'
+      default:
+        return 'email'
     }
-  ])
+  }
+
+  const mapRule = (dto: NotificationRuleDto): NotificationRule => ({
+    id: dto.id,
+    name: dto.name,
+    description: dto.description ?? '',
+    trigger: dto.eventType,
+    condition: dto.conditions ? JSON.stringify(dto.conditions) : '—',
+    recipients: dto.recipients ?? [],
+    channels: [mapChannel(dto.channel)],
+    status: dto.isActive ? 'active' : 'paused',
+    frequency: 'Event-driven'
+  })
+
+  const loadNotificationRules = async () => {
+    try {
+      const data = await ItAdminService.getNotificationRules()
+      setNotificationRules((data ?? []).map(mapRule))
+    } catch (e) {
+      console.error('Failed to load notification rules', e)
+      setNotificationRules([])
+    }
+  }
+
+  useEffect(() => {
+    loadNotificationRules()
+  }, [])
+
+  const handleCreateRule = async () => {
+    try {
+      await ItAdminService.createNotificationRule({
+        companyId: 'default-company-id',
+        name: 'New Notification Rule',
+        eventType: 'invoice.overdue',
+        channel: 'email',
+        recipients: [],
+        isActive: true
+      })
+      await loadNotificationRules()
+    } catch (e) {
+      console.error('Failed to create notification rule', e)
+    }
+  }
+
+  const handleToggleRule = async (rule: NotificationRule) => {
+    try {
+      await ItAdminService.updateNotificationRule(rule.id, {
+        name: rule.name,
+        isActive: rule.status !== 'active'
+      })
+      await loadNotificationRules()
+    } catch (e) {
+      console.error('Failed to update notification rule', e)
+    }
+  }
+
+  const handleDeleteRule = async (rule: NotificationRule) => {
+    try {
+      await ItAdminService.deleteNotificationRule(rule.id)
+      await loadNotificationRules()
+    } catch (e) {
+      console.error('Failed to delete notification rule', e)
+    }
+  }
+
+  // "Test" has no backend counterpart; client-side no-op with a descriptive
+  // title rather than a faked send.
+  const handleTestRule = (rule: NotificationRule) => {
+    console.info(`Test dispatch is not available for rule "${rule.name}".`)
+  }
 
   const stats = {
     totalAlerts: alerts.length,
@@ -326,7 +354,18 @@ export default function AlertsNotificationsPage() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-gray-900">Notification Rules</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Notification Rules</h2>
+              <button
+                onClick={handleCreateRule}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-white"
+              >
+                New Rule
+              </button>
+            </div>
+            {notificationRules.length === 0 && (
+              <p className="text-sm text-gray-500">No notification rules configured.</p>
+            )}
             {notificationRules.map((rule) => (
               <div key={rule.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <div className="flex items-start justify-between mb-3">
@@ -385,11 +424,24 @@ export default function AlertsNotificationsPage() {
                 </div>
 
                 <div className="flex gap-2 mt-4">
-                  <button className="flex-1 px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 text-sm">
-                    Edit Rule
+                  <button
+                    onClick={() => handleToggleRule(rule)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 text-sm"
+                  >
+                    {rule.status === 'active' ? 'Pause Rule' : 'Activate Rule'}
                   </button>
-                  <button className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 text-sm">
+                  <button
+                    onClick={() => handleTestRule(rule)}
+                    title="Test dispatch is not available for this rule"
+                    className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 text-sm"
+                  >
                     Test
+                  </button>
+                  <button
+                    onClick={() => handleDeleteRule(rule)}
+                    className="px-3 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 text-sm"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>

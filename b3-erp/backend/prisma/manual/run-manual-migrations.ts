@@ -142,6 +142,24 @@ const MIGRATION_ORDER: string[] = [
     '2026_07_add_payment_refund_columns.sql',
     '2026_07_add_pm_site_photos.sql',
     '2026_07_add_project_closure_feedback.sql',
+    // Net-new Finance greenfield subsystems (intercompany, cash ledger, currency
+    // master, collection activity, reminders, forecast scenarios)
+    '2026_07_finance_intercompany_transactions.sql',
+    '2026_07_finance_cash_transactions.sql',
+    '2026_07_finance_currency_master.sql',
+    '2026_07_finance_collection_activities.sql',
+    '2026_07_finance_payment_reminders.sql',
+    '2026_07_finance_forecast_scenarios.sql',
+    // Net-new Procurement greenfield subsystems (report templates, automation
+    // rules, risk assessments, compliance records, diversity programs, savings calc)
+    '2026_07_procurement_report_templates.sql',
+    '2026_07_procurement_automation_rules.sql',
+    '2026_07_procurement_risk_assessments.sql',
+    '2026_07_procurement_compliance_records.sql',
+    '2026_07_procurement_supplier_diversity.sql',
+    '2026_07_procurement_savings_calculate.sql',
+    // Net-new IT-Admin notification rules
+    '2026_07_itadmin_notification_rules.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

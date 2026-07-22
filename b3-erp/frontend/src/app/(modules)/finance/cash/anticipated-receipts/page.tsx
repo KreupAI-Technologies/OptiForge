@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Send,
 } from 'lucide-react';
 
 interface AnticipatedReceipt {
@@ -145,6 +146,43 @@ export default function AnticipatedReceiptsPage() {
   const [formData, setFormData] = useState<typeof emptyForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [viewReceipt, setViewReceipt] = useState<AnticipatedReceipt | null>(null);
+
+  // Send Reminder (per-row)
+  const [reminderReceipt, setReminderReceipt] = useState<AnticipatedReceipt | null>(null);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [reminderError, setReminderError] = useState<string | null>(null);
+  const [reminderSentId, setReminderSentId] = useState<string | null>(null);
+
+  const openReminderModal = (receipt: AnticipatedReceipt) => {
+    setReminderReceipt(receipt);
+    setReminderMessage('');
+    setReminderError(null);
+  };
+
+  const handleSendReminder = async () => {
+    if (!reminderReceipt) return;
+    setSendingReminder(true);
+    setReminderError(null);
+    try {
+      await FinanceService.sendReminder({
+        targetType: 'receivable',
+        targetId: reminderReceipt.id,
+        channel: 'email',
+        message:
+          reminderMessage.trim() ||
+          `Reminder: payment of ${formatCurrency(reminderReceipt.balanceAmount || reminderReceipt.expectedAmount)} expected on ${reminderReceipt.expectedDate}.`,
+      });
+      const sentId = reminderReceipt.id;
+      setReminderReceipt(null);
+      setReminderSentId(sentId);
+      setTimeout(() => setReminderSentId((cur) => (cur === sentId ? null : cur)), 4000);
+    } catch (err) {
+      setReminderError(err instanceof Error ? err.message : 'Failed to send reminder');
+    } finally {
+      setSendingReminder(false);
+    }
+  };
 
   const openCreateModal = () => {
     setFormMode('create');
@@ -555,6 +593,21 @@ export default function AnticipatedReceiptsPage() {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => openReminderModal(receipt)}
+                            title={reminderSentId === receipt.id ? 'Reminder sent' : 'Send reminder'}
+                            className={`p-2 rounded-lg transition-colors ${
+                              reminderSentId === receipt.id
+                                ? 'text-green-600 bg-green-50'
+                                : 'text-purple-600 hover:bg-purple-50'
+                            }`}
+                          >
+                            {reminderSentId === receipt.id ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <Send className="w-4 h-4" />
+                            )}
+                          </button>
+                          <button
                             onClick={() => handleDeleteReceipt(receipt.id)}
                             title="Delete receipt"
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -711,6 +764,54 @@ export default function AnticipatedReceiptsPage() {
             <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
               <button onClick={() => { const r = viewReceipt; setViewReceipt(null); openEditModal(r); }} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">Edit</button>
               <button onClick={() => setViewReceipt(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Reminder Modal */}
+      {reminderReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Send Reminder</h3>
+              <button onClick={() => setReminderReceipt(null)} className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {reminderError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {reminderError}
+                </div>
+              )}
+              <p className="text-sm text-gray-600">
+                An email reminder will be sent to {reminderReceipt.customerName || 'the customer'}
+                {reminderReceipt.contactEmail ? ` (${reminderReceipt.contactEmail})` : ''} regarding{' '}
+                {reminderReceipt.receiptNumber}.
+              </p>
+              <label className="block text-sm">
+                <span className="text-gray-700">Message (optional)</span>
+                <textarea
+                  value={reminderMessage}
+                  onChange={(e) => setReminderMessage(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Leave blank to use the default reminder message…"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setReminderReceipt(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleSendReminder}
+                disabled={sendingReminder}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {sendingReminder ? 'Sending…' : 'Send Reminder'}
+              </button>
             </div>
           </div>
         </div>

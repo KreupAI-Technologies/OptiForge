@@ -14,6 +14,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     throw new Error(`Request failed (${res.status}) for ${path}`);
   }
+  if (res.status === 204) return undefined as unknown as T;
   return res.json() as Promise<T>;
 }
 
@@ -40,6 +41,11 @@ export const procurementContractService = {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
+  },
+
+  // DELETE /procurement/contracts/:id (hard delete)
+  async deleteContract(id: string): Promise<void> {
+    await request<void>(`/procurement/contracts/${id}`, { method: 'DELETE' });
   },
 
   // POST /procurement/contracts/:id/submit

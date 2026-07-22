@@ -25,6 +25,7 @@ import {
   User,
   XCircle,
   History,
+  Send,
 } from 'lucide-react';
 
 // TypeScript Interfaces
@@ -215,6 +216,33 @@ export default function ViewPayablePage() {
   const [notFound, setNotFound] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Send Reminder modal
+  const [reminderModalOpen, setReminderModalOpen] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [reminderError, setReminderError] = useState<string | null>(null);
+  const [reminderSent, setReminderSent] = useState(false);
+
+  const handleSendReminder = async () => {
+    setSendingReminder(true);
+    setReminderError(null);
+    try {
+      await FinanceService.sendReminder({
+        targetType: 'payable',
+        targetId: payableId,
+        channel: 'email',
+        message: reminderMessage.trim() || undefined,
+      });
+      setReminderModalOpen(false);
+      setReminderSent(true);
+      setTimeout(() => setReminderSent(false), 4000);
+    } catch (err: any) {
+      setReminderError(err?.message || 'Failed to send reminder');
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     if (!payableId) {
@@ -337,6 +365,12 @@ export default function ViewPayablePage() {
           Payable not found.
         </div>
       )}
+      {reminderSent && (
+        <div className="mb-3 bg-green-50 border border-green-200 rounded-lg p-2 text-sm text-green-700 flex items-center">
+          <CheckCircle className="h-4 w-4 mr-1" />
+          Reminder sent.
+        </div>
+      )}
       {!isLoading && !notFound && (
       <>
       {/* Header */}
@@ -399,6 +433,17 @@ export default function ViewPayablePage() {
               >
                 <CreditCard className="h-4 w-4" />
                 <span>Record Payment</span>
+              </button>
+              <button
+                onClick={() => {
+                  setReminderMessage('');
+                  setReminderError(null);
+                  setReminderModalOpen(true);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Send className="h-4 w-4" />
+                <span>Send Reminder</span>
               </button>
               <button
                 onClick={handleGenerateReport}
@@ -785,6 +830,52 @@ export default function ViewPayablePage() {
         )}
       </div>
       </>
+      )}
+
+      {/* Send Reminder Modal */}
+      {reminderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Send Payment Reminder</h3>
+              <button onClick={() => setReminderModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {reminderError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {reminderError}
+                </div>
+              )}
+              <p className="text-sm text-gray-600">
+                An email reminder will be sent to {payable.vendorName || 'the vendor'}.
+              </p>
+              <label className="block text-sm">
+                <span className="text-gray-700">Message (optional)</span>
+                <textarea
+                  value={reminderMessage}
+                  onChange={(e) => setReminderMessage(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Optional custom message…"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setReminderModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleSendReminder}
+                disabled={sendingReminder}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {sendingReminder ? 'Sending…' : 'Send Reminder'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

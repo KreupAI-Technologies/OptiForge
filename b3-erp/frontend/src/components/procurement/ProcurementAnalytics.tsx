@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3, TrendingUp, DollarSign, Package, Users,
   Clock, Target, Activity, PieChart, LineChart as LineChartIcon,
@@ -21,9 +21,15 @@ import {
   CreateCustomReportModal,
   ExportReportModal,
   ScheduleReportModal,
-  DashboardCustomizationModal
+  DashboardCustomizationModal,
+  type ReportConfig,
+  type ScheduledReport
 } from '@/components/procurement/AnalyticsModals'
 import { procurementPagesService } from '@/services/procurement-pages.service'
+import {
+  procurementReportTemplateService,
+  type ProcurementReportTemplate,
+} from '@/services/procurement-report-template.service'
 
 interface ProcurementAnalyticsProps {}
 
@@ -38,6 +44,24 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isScheduleReportModalOpen, setIsScheduleReportModalOpen] = useState(false)
   const [isDashboardCustomizationModalOpen, setIsDashboardCustomizationModalOpen] = useState(false)
+
+  // Saved report templates — persisted via the NestJS procurement report-templates endpoint.
+  const [reportTemplates, setReportTemplates] = useState<ProcurementReportTemplate[]>([])
+  const [templatesError, setTemplatesError] = useState<string | null>(null)
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      const templates = await procurementReportTemplateService.getTemplates('custom-report')
+      setReportTemplates(templates)
+      setTemplatesError(null)
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to load report templates')
+    }
+  }, [])
+
+  useEffect(() => {
+    loadTemplates()
+  }, [loadTemplates])
 
   // KPI data — totalSpend / totalOrders / activeSuppliers / avgOrderValue wired
   // from getAnalyticsInsights().kpis. Change/target deltas are not part of the
@@ -928,7 +952,42 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
     </svg>
   );
 
-  // ---- Client-side artifact helpers (no report/schedule/dashboard persistence endpoint exists) ----
+  // ---- Report template persistence (custom report + schedule saved to backend) ----
+  const handleSaveCustomReport = async (data: ReportConfig) => {
+    const name = data.reportName?.trim() || window.prompt('Report name')?.trim()
+    if (!name) return
+    try {
+      await procurementReportTemplateService.createTemplate({
+        name,
+        reportType: 'custom-report',
+        description: data.description || undefined,
+        config: data,
+      })
+      await loadTemplates()
+      setIsCreateReportModalOpen(false)
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to save report template')
+    }
+  }
+
+  const handleSaveScheduledReport = async (data: ScheduledReport) => {
+    const name = data.reportName?.trim() || window.prompt('Scheduled report name')?.trim()
+    if (!name) return
+    try {
+      await procurementReportTemplateService.createTemplate({
+        name,
+        reportType: 'custom-report',
+        config: data,
+        schedule: data.frequency || undefined,
+      })
+      await loadTemplates()
+      setIsScheduleReportModalOpen(false)
+    } catch (err) {
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to save scheduled report')
+    }
+  }
+
+  // ---- Client-side artifact helpers (CSV/JSON export runs entirely in-browser) ----
   const triggerDownload = (filename: string, mime: string, content: string) => {
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
@@ -1010,6 +1069,33 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
             </button>
           </div>
         </div>
+
+        {/* Saved report templates (persisted via backend) */}
+        <div className="mt-3">
+          {templatesError ? (
+            <p className="text-sm text-red-600">{templatesError}</p>
+          ) : reportTemplates.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-gray-600">
+                Saved report templates ({reportTemplates.length}):
+              </span>
+              {reportTemplates.map((t) => (
+                <span
+                  key={t.id}
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs"
+                >
+                  <FileText className="h-3 w-3" />
+                  {t.name}
+                  {t.schedule ? ` · ${t.schedule}` : ''}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              No saved report templates yet. Use Create Report or Schedule to save one.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -1040,8 +1126,7 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
         isOpen={isCreateReportModalOpen}
         onClose={() => setIsCreateReportModalOpen(false)}
         onSubmit={(data) => {
-          downloadJson('procurement-report-config', data)
-          setIsCreateReportModalOpen(false)
+          void handleSaveCustomReport(data)
         }}
       />
 
@@ -1058,8 +1143,7 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
         isOpen={isScheduleReportModalOpen}
         onClose={() => setIsScheduleReportModalOpen(false)}
         onSubmit={(data) => {
-          downloadJson('procurement-report-schedule', data)
-          setIsScheduleReportModalOpen(false)
+          void handleSaveScheduledReport(data)
         }}
       />
 

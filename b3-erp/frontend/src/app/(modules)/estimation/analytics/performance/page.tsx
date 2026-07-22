@@ -20,7 +20,8 @@ import {
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow'
 import {
   estimationAnalyticsService,
-  EstimatorPerformance as EstimatorPerformanceApi
+  EstimatorPerformance as EstimatorPerformanceApi,
+  CategoryPerformance as CategoryPerformanceApi
 } from '@/services/estimation-analytics.service'
 
 interface EstimatorPerformance {
@@ -51,20 +52,26 @@ export default function EstimationAnalyticsPerformancePage() {
 
   const [loading, setLoading] = useState(true)
   const [apiPerformance, setApiPerformance] = useState<EstimatorPerformanceApi[]>([])
+  const [apiCategories, setApiCategories] = useState<CategoryPerformanceApi[]>([])
 
   const loadPerformance = async () => {
     setLoading(true)
     try {
       const now = new Date()
-      const data = await estimationAnalyticsService.getAllEstimatorsPerformance(
-        companyId,
-        now.getFullYear(),
-        now.getMonth() + 1
-      )
-      setApiPerformance(Array.isArray(data) ? data : [])
+      const [perf, categories] = await Promise.all([
+        estimationAnalyticsService.getAllEstimatorsPerformance(
+          companyId,
+          now.getFullYear(),
+          now.getMonth() + 1
+        ),
+        estimationAnalyticsService.getCategoryPerformance()
+      ])
+      setApiPerformance(Array.isArray(perf) ? perf : [])
+      setApiCategories(Array.isArray(categories) ? categories : [])
     } catch (e) {
       console.error('Failed to load estimator performance', e)
       setApiPerformance([])
+      setApiCategories([])
     } finally {
       setLoading(false)
     }
@@ -93,8 +100,17 @@ export default function EstimationAnalyticsPerformancePage() {
     }
   })
 
-  // No category breakdown from this endpoint; render empty-state.
-  const categoryMetrics: CategoryMetrics[] = []
+  // Category breakdown from real aggregation of estimate rows.
+  // `value` is reconstructed as avgValue * count so the table's value/count
+  // division yields the backend-computed avgValue. avgTime has no per-category
+  // source, so it stays 0 rather than being fabricated.
+  const categoryMetrics: CategoryMetrics[] = apiCategories.map((c) => ({
+    category: c.category,
+    count: c.totalEstimates,
+    value: c.avgValue * c.totalEstimates,
+    avgTime: 0,
+    winRate: c.winRate
+  }))
 
   const getPerformanceColor = (value: number, type: 'winRate' | 'accuracy' | 'productivity') => {
     if (type === 'winRate') {

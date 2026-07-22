@@ -25,3 +25,8 @@ export * from './vendor-scorecard.entity';
 export * from './vendor.entity';
 export * from './supplier-portal-message.entity';
 export * from './supplier-portal-document.entity';
+export * from './procurement-report-template.entity';
+export * from './procurement-automation-rule.entity';
+export * from './procurement-risk-assessment.entity';
+export * from './procurement-compliance-record.entity';
+export * from './supplier-diversity-program.entity';

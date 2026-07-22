@@ -41,6 +41,12 @@ import {
 import { ApVendorAccount } from './entities/ap-vendor-account.entity';
 import { ArCustomerAccount } from './entities/ar-customer-account.entity';
 import { AdvancedFeature } from './entities/advanced-feature.entity';
+import { IntercompanyTransaction } from './entities/intercompany-transaction.entity';
+import { CashTransaction } from './entities/cash-transaction.entity';
+import { CurrencyMaster } from './entities/currency-master.entity';
+import { CollectionActivity } from './entities/collection-activity.entity';
+import { PaymentReminder } from './entities/payment-reminder.entity';
+import { ForecastScenario } from './entities/forecast-scenario.entity';
 import {
   FinanceExchangeRate,
   FinanceRecurringTransaction,
@@ -73,6 +79,12 @@ import { AdvancedAnalyticsController } from './controllers/advanced-analytics.co
 import { ApVendorAccountController } from './controllers/ap-vendor-account.controller';
 import { ArCustomerAccountController } from './controllers/ar-customer-account.controller';
 import { AdvancedFeatureController } from './controllers/advanced-feature.controller';
+import { IntercompanyTransactionController } from './controllers/intercompany-transaction.controller';
+import { CashTransactionController } from './controllers/cash-transaction.controller';
+import { CurrencyMasterController } from './controllers/currency-master.controller';
+import { CollectionActivityController } from './controllers/collection-activity.controller';
+import { PaymentReminderController } from './controllers/payment-reminder.controller';
+import { ForecastScenarioController } from './controllers/forecast-scenario.controller';
 
 // Services
 import {
@@ -101,6 +113,12 @@ import { AdvancedAnalyticsService } from './services/advanced-analytics.service'
 import { ApVendorAccountService } from './services/ap-vendor-account.service';
 import { ArCustomerAccountService } from './services/ar-customer-account.service';
 import { AdvancedFeatureService } from './services/advanced-feature.service';
+import { IntercompanyTransactionService } from './services/intercompany-transaction.service';
+import { CashTransactionService } from './services/cash-transaction.service';
+import { CurrencyMasterService } from './services/currency-master.service';
+import { CollectionActivityService } from './services/collection-activity.service';
+import { PaymentReminderService } from './services/payment-reminder.service';
+import { ForecastScenarioService } from './services/forecast-scenario.service';
 import { FinanceExtrasService } from './services/finance-extras.service';
 import { FinanceExtrasController } from './controllers/finance-extras.controller';
 import { FinanceOperationsService } from './services/finance-operations.service';
@@ -183,6 +201,14 @@ import { ProfitLossExportController } from './controllers/profit-loss-export.con
       ArCustomerAccount,
       AdvancedFeature,
 
+      // Net-new finance subsystems
+      IntercompanyTransaction,
+      CashTransaction,
+      CurrencyMaster,
+      CollectionActivity,
+      PaymentReminder,
+      ForecastScenario,
+
       // Finance extras (new page-backing entities)
       FinanceExchangeRate,
       FinanceRecurringTransaction,
@@ -213,6 +239,12 @@ import { ProfitLossExportController } from './controllers/profit-loss-export.con
     ApVendorAccountController,
     ArCustomerAccountController,
     AdvancedFeatureController,
+    IntercompanyTransactionController,
+    CashTransactionController,
+    CurrencyMasterController,
+    CollectionActivityController,
+    PaymentReminderController,
+    ForecastScenarioController,
     FinanceExtrasController,
     FinanceOperationsController,
     GstReturnController,
@@ -245,6 +277,12 @@ import { ProfitLossExportController } from './controllers/profit-loss-export.con
     ApVendorAccountService,
     ArCustomerAccountService,
     AdvancedFeatureService,
+    IntercompanyTransactionService,
+    CashTransactionService,
+    CurrencyMasterService,
+    CollectionActivityService,
+    PaymentReminderService,
+    ForecastScenarioService,
     FinanceExtrasService,
     FinanceOperationsService,
     GstReturnService,

@@ -242,6 +242,90 @@ export default function ViewReceivablePage() {
   const [notFound, setNotFound] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Real collection activities from the backend for this receivable
+  const [activities, setActivities] = useState<any[]>([]);
+  const [activitiesKey, setActivitiesKey] = useState(0);
+
+  // Log Call / Send Email / Schedule Meeting modal
+  const [activityModal, setActivityModal] = useState<null | 'call' | 'email' | 'meeting'>(null);
+  const [activityNotes, setActivityNotes] = useState('');
+  const [activityFollowUp, setActivityFollowUp] = useState('');
+  const [savingActivity, setSavingActivity] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+
+  // Send Reminder modal
+  const [reminderModalOpen, setReminderModalOpen] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [reminderError, setReminderError] = useState<string | null>(null);
+  const [reminderSent, setReminderSent] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!receivableId) return;
+    (async () => {
+      try {
+        const data = await FinanceService.getCollectionActivities(receivableId);
+        if (!cancelled) setActivities(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setActivities([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [receivableId, activitiesKey]);
+
+  const openActivityModal = (type: 'call' | 'email' | 'meeting') => {
+    setActivityNotes('');
+    setActivityFollowUp('');
+    setActivityError(null);
+    setActivityModal(type);
+  };
+
+  const handleSubmitActivity = async () => {
+    if (!activityModal || !activityNotes.trim()) {
+      setActivityError('Notes are required.');
+      return;
+    }
+    setSavingActivity(true);
+    setActivityError(null);
+    try {
+      await FinanceService.createCollectionActivity({
+        receivableId,
+        activityType: activityModal,
+        notes: activityNotes.trim(),
+        followUpDate: activityFollowUp || undefined,
+      });
+      setActivityModal(null);
+      setActivitiesKey((k) => k + 1);
+    } catch (err: any) {
+      setActivityError(err?.message || 'Failed to record activity');
+    } finally {
+      setSavingActivity(false);
+    }
+  };
+
+  const handleSendReminder = async () => {
+    setSendingReminder(true);
+    setReminderError(null);
+    try {
+      await FinanceService.sendReminder({
+        targetType: 'receivable',
+        targetId: receivableId,
+        channel: 'email',
+        message: reminderMessage.trim() || undefined,
+      });
+      setReminderModalOpen(false);
+      setReminderSent(true);
+      setTimeout(() => setReminderSent(false), 4000);
+    } catch (err: any) {
+      setReminderError(err?.message || 'Failed to send reminder');
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     if (!receivableId) {
@@ -378,6 +462,12 @@ export default function ViewReceivablePage() {
           Receivable not found.
         </div>
       )}
+      {reminderSent && (
+        <div className="mb-3 bg-green-50 border border-green-200 rounded-lg p-2 text-sm text-green-700 flex items-center">
+          <CheckCircle className="h-4 w-4 mr-1" />
+          Reminder sent.
+        </div>
+      )}
       {!isLoading && !notFound && (
       <>
       {/* Header */}
@@ -444,7 +534,14 @@ export default function ViewReceivablePage() {
                 <CreditCard className="h-4 w-4" />
                 <span>Record Payment</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+              <button
+                onClick={() => {
+                  setReminderMessage('');
+                  setReminderError(null);
+                  setReminderModalOpen(true);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
                 <Send className="h-4 w-4" />
                 <span>Send Reminder</span>
               </button>
@@ -798,83 +895,203 @@ export default function ViewReceivablePage() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xl font-bold text-gray-900">Collection Activity Timeline</h3>
               <div className="flex flex-wrap gap-2">
-                <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium">
+                <button
+                  onClick={() => openActivityModal('call')}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium"
+                >
                   <PhoneCall className="h-4 w-4" />
                   <span>Log Call</span>
                 </button>
-                <button className="flex items-center space-x-1 px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-medium">
+                <button
+                  onClick={() => openActivityModal('email')}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-medium"
+                >
                   <Mail className="h-4 w-4" />
                   <span>Send Email</span>
                 </button>
-                <button className="flex items-center space-x-1 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium">
+                <button
+                  onClick={() => openActivityModal('meeting')}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium"
+                >
                   <User className="h-4 w-4" />
                   <span>Schedule Meeting</span>
                 </button>
               </div>
             </div>
 
-            <div className="space-y-2">
-              {receivable.collectionActivities.map((activity, index) => {
-                const ActivityIcon = activityIcons[activity.activityType];
-                const isLast = index === receivable.collectionActivities.length - 1;
+            {activities.length === 0 ? (
+              <p className="text-sm text-gray-400">No collection activities recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {activities.map((activity: any, index: number) => {
+                  const type = (activity.activityType as keyof typeof activityIcons) || 'follow_up';
+                  const ActivityIcon = activityIcons[type] || Clock;
+                  const colorClass = activityTypeColors[type] || 'bg-gray-100 text-gray-600 border-gray-200';
+                  const isLast = index === activities.length - 1;
+                  const followUp = activity.followUpDate ? String(activity.followUpDate).slice(0, 10) : '';
+                  const created = activity.createdAt ? String(activity.createdAt).slice(0, 10) : '';
 
-                return (
-                  <div key={activity.id} className="relative">
-                    {!isLast && (
-                      <div className="absolute left-5 top-12 bottom-0 w-0.5 bg-gray-300"></div>
-                    )}
+                  return (
+                    <div key={activity.id ?? index} className="relative">
+                      {!isLast && (
+                        <div className="absolute left-5 top-12 bottom-0 w-0.5 bg-gray-300"></div>
+                      )}
 
-                    <div className="flex items-start space-x-4">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${activityTypeColors[activity.activityType]}`}>
-                        <ActivityIcon className="h-5 w-5" />
-                      </div>
-
-                      <div className="flex-1 bg-gray-50 rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h4 className="text-base font-bold text-gray-900 capitalize">{activity.activityType.replace('_', ' ')}</h4>
-                              <span className={`text-xs font-semibold px-2 py-1 rounded ${activityTypeColors[activity.activityType]}`}>
-                                {activity.outcome}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-500">
-                              {activity.date} at {activity.time} • by {activity.performedBy}
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Contact: <span className="font-medium">{activity.contactPerson}</span>
-                            </p>
-                          </div>
+                      <div className="flex items-start space-x-4">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${colorClass}`}>
+                          <ActivityIcon className="h-5 w-5" />
                         </div>
 
-                        <p className="text-sm text-gray-700 mb-2">{activity.notes}</p>
-
-                        {activity.promiseAmount && (
-                          <div className="bg-orange-50 border border-orange-200 rounded p-2 mb-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-semibold text-orange-900">Promise to Pay:</span>
-                              <span className="text-sm font-bold text-orange-900">{formatCurrency(activity.promiseAmount)}</span>
+                        <div className="flex-1 bg-gray-50 rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <h4 className="text-base font-bold text-gray-900 capitalize">{String(activity.activityType || '').replace('_', ' ')}</h4>
+                              {activity.outcome && (
+                                <span className={`text-xs font-semibold px-2 py-1 rounded ${colorClass}`}>
+                                  {activity.outcome}
+                                </span>
+                              )}
                             </div>
-                            <p className="text-xs text-orange-700 mt-1">Expected Date: {activity.promiseDate}</p>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await FinanceService.deleteCollectionActivity(activity.id);
+                                  setActivitiesKey((k) => k + 1);
+                                } catch {
+                                  /* keep UI intact on failure */
+                                }
+                              }}
+                              title="Delete activity"
+                              className="text-red-500 hover:text-red-700 flex-shrink-0"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </button>
                           </div>
-                        )}
 
-                        {activity.nextFollowUp && (
-                          <div className="flex items-center space-x-2 text-sm text-blue-600">
-                            <Clock className="h-4 w-4" />
-                            <span>Next Follow-up: {activity.nextFollowUp}</span>
-                          </div>
-                        )}
+                          {activity.createdBy && (
+                            <p className="text-sm text-gray-500">
+                              {created && `${created} • `}by {activity.createdBy}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-700 mt-1">{activity.notes}</p>
+
+                          {followUp && (
+                            <div className="flex items-center space-x-2 text-sm text-blue-600 mt-2">
+                              <Clock className="h-4 w-4" />
+                              <span>Next Follow-up: {followUp}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
       </>
+      )}
+
+      {/* Log Call / Send Email / Schedule Meeting Modal */}
+      {activityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 capitalize">
+                {activityModal === 'call' ? 'Log Call' : activityModal === 'email' ? 'Send Email' : 'Schedule Meeting'}
+              </h3>
+              <button onClick={() => setActivityModal(null)} className="p-1 text-gray-400 hover:text-gray-600">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {activityError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {activityError}
+                </div>
+              )}
+              <label className="block text-sm">
+                <span className="text-gray-700">Notes</span>
+                <textarea
+                  value={activityNotes}
+                  onChange={(e) => setActivityNotes(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter details…"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-gray-700">Follow-up Date (optional)</span>
+                <input
+                  type="date"
+                  value={activityFollowUp}
+                  onChange={(e) => setActivityFollowUp(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setActivityModal(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitActivity}
+                disabled={savingActivity || !activityNotes.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {savingActivity ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Reminder Modal */}
+      {reminderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Send Payment Reminder</h3>
+              <button onClick={() => setReminderModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {reminderError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {reminderError}
+                </div>
+              )}
+              <p className="text-sm text-gray-600">
+                An email reminder will be sent to {receivable.customerName || 'the customer'}.
+              </p>
+              <label className="block text-sm">
+                <span className="text-gray-700">Message (optional)</span>
+                <textarea
+                  value={reminderMessage}
+                  onChange={(e) => setReminderMessage(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Optional custom message…"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button onClick={() => setReminderModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleSendReminder}
+                disabled={sendingReminder}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {sendingReminder ? 'Sending…' : 'Send Reminder'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

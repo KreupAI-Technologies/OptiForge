@@ -21,7 +21,8 @@ import {
   Building,
   FileText,
   Mail,
-  Phone
+  Phone,
+  X
 } from 'lucide-react';
 import { FinanceService } from '@/services/finance.service';
 
@@ -62,6 +63,68 @@ export default function CollectionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Collection activities (real backend records)
+  const [activities, setActivities] = useState<any[]>([]);
+
+  // Record Collection modal
+  const emptyActivityForm = {
+    receivableId: '',
+    activityType: 'call' as 'call' | 'email' | 'meeting' | 'note',
+    notes: '',
+    followUpDate: '',
+    outcome: '',
+  };
+  const [activityModalOpen, setActivityModalOpen] = useState(false);
+  const [activityForm, setActivityForm] = useState(emptyActivityForm);
+  const [savingActivity, setSavingActivity] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+
+  const openRecordModal = (receivableId = '') => {
+    setActivityForm({ ...emptyActivityForm, receivableId });
+    setActivityError(null);
+    setActivityModalOpen(true);
+  };
+
+  const handleSubmitActivity = async () => {
+    if (!activityForm.receivableId || !activityForm.notes.trim()) {
+      setActivityError('Receivable and notes are required.');
+      return;
+    }
+    setSavingActivity(true);
+    setActivityError(null);
+    try {
+      await FinanceService.createCollectionActivity({
+        receivableId: activityForm.receivableId,
+        activityType: activityForm.activityType,
+        notes: activityForm.notes.trim(),
+        followUpDate: activityForm.followUpDate || undefined,
+        outcome: activityForm.outcome || undefined,
+      });
+      setActivityModalOpen(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setActivityError(err instanceof Error ? err.message : 'Failed to record collection activity');
+    } finally {
+      setSavingActivity(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await FinanceService.getCollectionActivities();
+        if (!cancelled) setActivities(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setActivities([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,7 +288,10 @@ export default function CollectionsPage() {
                 <Download className="h-4 w-4" />
                 <span>{isExporting ? 'Exporting...' : 'Export'}</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+              <button
+                onClick={() => openRecordModal()}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
                 <Plus className="h-4 w-4" />
                 <span>Record Collection</span>
               </button>
@@ -417,6 +483,13 @@ export default function CollectionsPage() {
                           <button className="text-green-600 hover:text-green-800">
                             <Edit className="h-4 w-4" />
                           </button>
+                          <button
+                            onClick={() => openRecordModal(collection.id)}
+                            title="Record collection activity"
+                            className="text-emerald-600 hover:text-emerald-800"
+                          >
+                            <Phone className="h-4 w-4" />
+                          </button>
                           <button className="text-purple-600 hover:text-purple-800">
                             <Printer className="h-4 w-4" />
                           </button>
@@ -428,8 +501,146 @@ export default function CollectionsPage() {
               </table>
             </div>
           </div>
+
+          {/* Recent Collection Activities */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-gray-900">Recent Collection Activities</h3>
+              <span className="text-xs text-gray-500">{activities.length} activities</span>
+            </div>
+            {activities.length === 0 ? (
+              <p className="text-sm text-gray-400">No collection activities recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {activities.slice(0, 10).map((a: any) => (
+                  <div key={a.id} className="flex items-start justify-between border border-gray-100 rounded-lg p-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 capitalize">
+                          {a.activityType}
+                        </span>
+                        {a.outcome && <span className="text-xs text-gray-500">{a.outcome}</span>}
+                      </div>
+                      <p className="text-sm text-gray-700 mt-1">{a.notes}</p>
+                      {a.followUpDate && (
+                        <p className="text-xs text-blue-600 mt-0.5">Follow-up: {String(a.followUpDate).slice(0, 10)}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await FinanceService.deleteCollectionActivity(a.id);
+                          setReloadKey((k) => k + 1);
+                        } catch {
+                          /* no-op: keep UI intact on failure */
+                        }
+                      }}
+                      title="Delete activity"
+                      className="text-red-500 hover:text-red-700 flex-shrink-0"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Record Collection Modal */}
+      {activityModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Record Collection Activity</h3>
+              <button onClick={() => setActivityModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {activityError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {activityError}
+                </div>
+              )}
+              <label className="block text-sm">
+                <span className="text-gray-700">Receivable / Customer</span>
+                <select
+                  value={activityForm.receivableId}
+                  onChange={(e) => setActivityForm({ ...activityForm, receivableId: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select receivable…</option>
+                  {collections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.customerName} ({c.customerCode})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-gray-700">Activity Type</span>
+                <select
+                  value={activityForm.activityType}
+                  onChange={(e) => setActivityForm({ ...activityForm, activityType: e.target.value as any })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="call">Call</option>
+                  <option value="email">Email</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="note">Note</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-gray-700">Notes</span>
+                <textarea
+                  value={activityForm.notes}
+                  onChange={(e) => setActivityForm({ ...activityForm, notes: e.target.value })}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="What was discussed / done…"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-sm">
+                  <span className="text-gray-700">Follow-up Date</span>
+                  <input
+                    type="date"
+                    value={activityForm.followUpDate}
+                    onChange={(e) => setActivityForm({ ...activityForm, followUpDate: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-gray-700">Outcome</span>
+                  <input
+                    value={activityForm.outcome}
+                    onChange={(e) => setActivityForm({ ...activityForm, outcome: e.target.value })}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g. Promise to pay"
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200">
+              <button
+                onClick={() => setActivityModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitActivity}
+                disabled={savingActivity || !activityForm.receivableId || !activityForm.notes.trim()}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {savingActivity ? 'Saving…' : 'Record'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

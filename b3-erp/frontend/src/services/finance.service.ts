@@ -2016,6 +2016,186 @@ export class FinanceService {
     const res = await this.request<any>(`/finance/payments/${id}/receipt`);
     return res && typeof res === 'object' && 'data' in res ? res.data : res;
   }
+
+  // ==========================================================================
+  // Vendor accounts (Accounts Payable master) — @Controller('finance/payables')
+  // (getVendorAccounts / getPayable already defined above)
+  // ==========================================================================
+  static async createVendorAccount(payload: any): Promise<any> {
+    return this.request<any>('/finance/payables', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async updateVendorAccount(id: string, payload: any): Promise<any> {
+    return this.request<any>(`/finance/payables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async deleteVendorAccount(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/finance/payables/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // Intercompany transactions — @Controller('finance/intercompany-transactions')
+  // ==========================================================================
+  static async getIntercompanyTransactions(): Promise<any[]> {
+    return this.request<any[]>('/finance/intercompany-transactions');
+  }
+
+  static async getIntercompanyTransaction(id: string): Promise<any> {
+    return this.request<any>(`/finance/intercompany-transactions/${id}`);
+  }
+
+  static async createIntercompanyTransaction(payload: any): Promise<any> {
+    return this.request<any>('/finance/intercompany-transactions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async updateIntercompanyTransaction(id: string, payload: any): Promise<any> {
+    return this.request<any>(`/finance/intercompany-transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async deleteIntercompanyTransaction(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/finance/intercompany-transactions/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // Cash transactions ledger — @Controller('finance/cash-transactions')
+  // ==========================================================================
+  static async getCashTransactions(): Promise<any[]> {
+    return this.request<any[]>('/finance/cash-transactions');
+  }
+
+  static async createCashTransaction(payload: any): Promise<any> {
+    return this.request<any>('/finance/cash-transactions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async updateCashTransaction(id: string, payload: any): Promise<any> {
+    return this.request<any>(`/finance/cash-transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async deleteCashTransaction(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/finance/cash-transactions/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // Currency master — @Controller('finance/currency-master')
+  // ==========================================================================
+  static async getCurrencies(): Promise<any[]> {
+    return this.request<any[]>('/finance/currency-master');
+  }
+
+  static async createCurrency(payload: any): Promise<any> {
+    return this.request<any>('/finance/currency-master', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async updateCurrency(id: string, payload: any): Promise<any> {
+    return this.request<any>(`/finance/currency-master/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async deleteCurrency(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/finance/currency-master/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // Collection activities — @Controller('finance/collection-activities')
+  // ==========================================================================
+  static async getCollectionActivities(receivableId?: string): Promise<any[]> {
+    const qs = receivableId ? `?receivableId=${encodeURIComponent(receivableId)}` : '';
+    return this.request<any[]>(`/finance/collection-activities${qs}`);
+  }
+
+  static async createCollectionActivity(payload: any): Promise<any> {
+    return this.request<any>('/finance/collection-activities', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async deleteCollectionActivity(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/finance/collection-activities/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // Payment reminders — @Controller('finance/reminders')
+  // ==========================================================================
+  static async getReminders(targetType?: string, targetId?: string): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (targetType) params.set('targetType', targetType);
+    if (targetId) params.set('targetId', targetId);
+    const qs = params.toString();
+    return this.request<any[]>(`/finance/reminders${qs ? `?${qs}` : ''}`);
+  }
+
+  static async sendReminder(payload: {
+    targetType: string;
+    targetId: string;
+    channel?: string;
+    message?: string;
+  }): Promise<any> {
+    return this.request<any>('/finance/reminders', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ==========================================================================
+  // Forecast scenarios — @Controller('finance/forecast-scenarios')
+  // ==========================================================================
+  static async getForecastScenarios(): Promise<any[]> {
+    return this.request<any[]>('/finance/forecast-scenarios');
+  }
+
+  static async createForecastScenario(payload: any): Promise<any> {
+    return this.request<any>('/finance/forecast-scenarios', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async updateForecastScenario(id: string, payload: any): Promise<any> {
+    return this.request<any>(`/finance/forecast-scenarios/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async deleteForecastScenario(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/finance/forecast-scenarios/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 // Export singleton instance

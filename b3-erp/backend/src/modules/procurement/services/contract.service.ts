@@ -115,6 +115,11 @@ export class ContractService {
     return await this.contractRepository.save(contract);
   }
 
+  async delete(id: string): Promise<void> {
+    const contract = await this.findOne(id);
+    await this.contractRepository.remove(contract);
+  }
+
   async submitForApproval(id: string, submittedBy: string): Promise<VendorContract> {
     const contract = await this.findOne(id);
 

@@ -24,3 +24,8 @@ export * from './vendor-scorecard.controller';
 export * from './vendor.controller';
 export * from './spend-analysis.controller';
 export * from './procurement-insights.controller';
+export * from './procurement-report-template.controller';
+export * from './procurement-automation-rule.controller';
+export * from './procurement-risk-assessment.controller';
+export * from './procurement-compliance-record.controller';
+export * from './supplier-diversity-program.controller';

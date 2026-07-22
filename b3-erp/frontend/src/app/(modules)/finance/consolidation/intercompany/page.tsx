@@ -16,7 +16,8 @@ import {
   Download,
   Eye,
   Edit,
-  Plus
+  Plus,
+  X
 } from 'lucide-react'
 
 interface IntercompanyTransaction {
@@ -41,6 +42,164 @@ export default function IntercompanyTransactionsPage() {
   const [transactions, setTransactions] = useState<IntercompanyTransaction[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Intercompany transactions ledger (net-new endpoint)
+  interface LedgerTxn {
+    id: string
+    entityFrom: string
+    entityTo: string
+    transactionType: string
+    amount: number
+    currency: string
+    date: string
+    status: string
+    description: string
+    reference: string
+  }
+
+  const emptyForm = {
+    entityFrom: '',
+    entityTo: '',
+    transactionType: 'sale',
+    amount: 0,
+    currency: 'INR',
+    date: new Date().toISOString().slice(0, 10),
+    status: 'pending',
+    description: '',
+    reference: '',
+  }
+
+  const [ledger, setLedger] = useState<LedgerTxn[]>([])
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [ledgerError, setLedgerError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [form, setForm] = useState<typeof emptyForm>(emptyForm)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLedgerLoading(true)
+      setLedgerError(null)
+      try {
+        const data = await FinanceService.getIntercompanyTransactions()
+        if (cancelled) return
+        const rows: LedgerTxn[] = (Array.isArray(data) ? data : []).map((r: any, i: number) => ({
+          id: String(r.id ?? i),
+          entityFrom: String(r.entityFrom ?? ''),
+          entityTo: String(r.entityTo ?? ''),
+          transactionType: String(r.transactionType ?? ''),
+          amount: Number(r.amount) || 0,
+          currency: String(r.currency ?? 'INR'),
+          date: String(r.date ?? ''),
+          status: String(r.status ?? ''),
+          description: String(r.description ?? ''),
+          reference: String(r.reference ?? ''),
+        }))
+        setLedger(rows)
+      } catch (e: any) {
+        if (!cancelled) {
+          setLedgerError(e?.message || 'Failed to load intercompany transactions')
+          setLedger([])
+        }
+      } finally {
+        if (!cancelled) setLedgerLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey])
+
+  const openCreate = () => {
+    setModalMode('create')
+    setActiveId(null)
+    setForm(emptyForm)
+    setSaveError(null)
+  }
+
+  const openEdit = async (id: string) => {
+    setModalMode('edit')
+    setActiveId(id)
+    setSaveError(null)
+    const existing = ledger.find((t) => t.id === id)
+    if (existing) {
+      setForm({
+        entityFrom: existing.entityFrom,
+        entityTo: existing.entityTo,
+        transactionType: existing.transactionType || 'sale',
+        amount: existing.amount,
+        currency: existing.currency || 'INR',
+        date: existing.date ? String(existing.date).slice(0, 10) : emptyForm.date,
+        status: existing.status || 'pending',
+        description: existing.description,
+        reference: existing.reference,
+      })
+    }
+    try {
+      const fresh = await FinanceService.getIntercompanyTransaction(id)
+      if (fresh) {
+        setForm((prev) => ({
+          ...prev,
+          entityFrom: String(fresh.entityFrom ?? prev.entityFrom),
+          entityTo: String(fresh.entityTo ?? prev.entityTo),
+          transactionType: String(fresh.transactionType ?? prev.transactionType),
+          amount: Number(fresh.amount ?? prev.amount) || 0,
+          currency: String(fresh.currency ?? prev.currency),
+          date: fresh.date ? String(fresh.date).slice(0, 10) : prev.date,
+          status: String(fresh.status ?? prev.status),
+          description: String(fresh.description ?? prev.description),
+          reference: String(fresh.reference ?? prev.reference),
+        }))
+      }
+    } catch {
+      /* keep local values on fetch failure */
+    }
+  }
+
+  const openView = async (id: string) => {
+    await openEdit(id)
+    setModalMode('view')
+  }
+
+  const closeModal = () => {
+    setModalMode(null)
+    setActiveId(null)
+    setSaveError(null)
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const payload = {
+        entityFrom: form.entityFrom,
+        entityTo: form.entityTo,
+        transactionType: form.transactionType,
+        amount: Number(form.amount) || 0,
+        currency: form.currency,
+        date: form.date,
+        status: form.status,
+        description: form.description,
+        reference: form.reference,
+      }
+      if (modalMode === 'edit' && activeId) {
+        await FinanceService.updateIntercompanyTransaction(activeId, payload)
+      } else {
+        await FinanceService.createIntercompanyTransaction(payload)
+      }
+      closeModal()
+      setReloadKey((k) => k + 1)
+    } catch (e: any) {
+      setSaveError(e?.message || 'Failed to save transaction')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -144,7 +303,10 @@ export default function IntercompanyTransactionsPage() {
             {loading && <p className="text-sm text-gray-500 mt-1">Loading…</p>}
             {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md">
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
+          >
             <Plus className="h-5 w-5" />
             New Transaction
           </button>
@@ -304,7 +466,228 @@ export default function IntercompanyTransactionsPage() {
             </div>
           ))}
         </div>
+
+        {/* Intercompany Transactions Ledger (managed) */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Recorded Intercompany Transactions</h2>
+              <p className="text-sm text-gray-600">Create, view and edit intercompany entries</p>
+              {ledgerLoading && <p className="text-sm text-gray-500 mt-1">Loading…</p>}
+              {ledgerError && <p className="text-sm text-red-600 mt-1">{ledgerError}</p>}
+            </div>
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+            >
+              <Plus className="h-4 w-4" />
+              New Transaction
+            </button>
+          </div>
+
+          {ledger.length === 0 && !ledgerLoading ? (
+            <p className="text-sm text-gray-500 py-4 text-center">No intercompany transactions recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-600 border-b border-gray-200">
+                    <th className="py-2 pr-3 font-medium">Reference</th>
+                    <th className="py-2 pr-3 font-medium">From</th>
+                    <th className="py-2 pr-3 font-medium">To</th>
+                    <th className="py-2 pr-3 font-medium">Type</th>
+                    <th className="py-2 pr-3 font-medium">Date</th>
+                    <th className="py-2 pr-3 font-medium text-right">Amount</th>
+                    <th className="py-2 pr-3 font-medium">Status</th>
+                    <th className="py-2 pr-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledger.map((row) => (
+                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-2 pr-3 font-medium text-gray-900">{row.reference || '—'}</td>
+                      <td className="py-2 pr-3 text-gray-700">{row.entityFrom}</td>
+                      <td className="py-2 pr-3 text-gray-700">{row.entityTo}</td>
+                      <td className="py-2 pr-3 text-gray-700">{row.transactionType}</td>
+                      <td className="py-2 pr-3 text-gray-700">{row.date ? new Date(row.date).toLocaleDateString('en-IN') : '—'}</td>
+                      <td className="py-2 pr-3 text-right font-semibold text-gray-900">{formatCurrency(row.amount)}</td>
+                      <td className="py-2 pr-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(row.status)}`}>
+                          {(row.status || '').toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openView(row.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs"
+                          >
+                            <Eye className="h-4 w-4 text-gray-600" />
+                            <span className="text-gray-700">View</span>
+                          </button>
+                          <button
+                            onClick={() => openEdit(row.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs"
+                          >
+                            <Edit className="h-4 w-4 text-gray-600" />
+                            <span className="text-gray-700">Edit</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Create / Edit / View Modal */}
+      {modalMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {modalMode === 'create' && 'New Intercompany Transaction'}
+                {modalMode === 'edit' && 'Edit Intercompany Transaction'}
+                {modalMode === 'view' && 'Intercompany Transaction'}
+              </h3>
+              <button onClick={closeModal} className="p-1 rounded hover:bg-gray-100">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              {saveError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Entity From</label>
+                  <input
+                    type="text"
+                    value={form.entityFrom}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, entityFrom: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Entity To</label>
+                  <input
+                    type="text"
+                    value={form.entityTo}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, entityTo: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
+                  <select
+                    value={form.transactionType}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, transactionType: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  >
+                    <option value="sale">Sale</option>
+                    <option value="purchase">Purchase</option>
+                    <option value="transfer">Transfer</option>
+                    <option value="loan">Loan</option>
+                    <option value="service">Service</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="posted">Posted</option>
+                    <option value="reconciled">Reconciled</option>
+                    <option value="eliminated">Eliminated</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <input
+                    type="number"
+                    value={form.amount}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <input
+                    type="text"
+                    value={form.currency}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={form.date}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference</label>
+                  <input
+                    type="text"
+                    value={form.reference}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => setForm({ ...form, reference: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={form.description}
+                  disabled={modalMode === 'view'}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                {modalMode === 'view' ? 'Close' : 'Cancel'}
+              </button>
+              {modalMode !== 'view' && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 text-sm disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : modalMode === 'edit' ? 'Update' : 'Create'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -269,6 +269,26 @@ export default function ContractManagement() {
     }
   };
 
+  // Hard-delete a contract via DELETE /procurement/contracts/:id, then refresh.
+  const handleDeleteContract = async (contract: Contract) => {
+    const backendId = (contract as Contract & { _backendId?: string })._backendId;
+    if (!backendId) {
+      setActionError(`Cannot delete ${contract.id}: missing contract id.`);
+      return;
+    }
+    if (!confirm(`Permanently delete contract ${contract.id} — ${contract.title}?\n\nThis cannot be undone.`)) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await procurementContractService.deleteContract(backendId);
+      await loadContracts();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to delete ${contract.id}`);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const handleViewTerms = (contract: Contract) => {
     console.log('Viewing contract terms:', contract.id, contract);
     alert(`Contract Terms: ${contract.id} - ${contract.title}. Value: $${(contract.value / 1000).toFixed(0)}K, Type: ${contract.type.toUpperCase()}, Auto-Renewal: ${contract.autoRenew ? 'Yes' : 'No'}.`);
@@ -947,6 +967,16 @@ export default function ContractManagement() {
                             >
                               <FileText className="w-4 h-4 text-gray-600" />
                               <span className="text-gray-700">Terms</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteContract(contract)}
+                              disabled={actionBusy}
+                              className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete Contract"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                              <span className="text-red-700">Delete</span>
                             </button>
 
                             <button
