@@ -31,7 +31,16 @@ export class PaymentReminder {
   sentAt: Date;
 
   @Column({ length: 30, default: 'sent' })
-  status: string;
+  status: string; // sent | queued | failed | no_recipient
+
+  @Column({ name: 'recipient_email', length: 255, nullable: true })
+  recipientEmail: string;
+
+  @Column({ length: 255, nullable: true })
+  subject: string;
+
+  @Column({ type: 'int', default: 0 })
+  attempts: number;
 
   @Column({ name: 'company_id', length: 100, nullable: true })
   companyId: string;

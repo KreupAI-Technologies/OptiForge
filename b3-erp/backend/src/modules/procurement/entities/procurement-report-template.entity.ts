@@ -29,9 +29,22 @@ export class ProcurementReportTemplate {
   @Column({ type: 'jsonb', nullable: true })
   config: any;
 
-  // Cron-like or human schedule string; null = ad-hoc.
+  // Cron-like or human schedule string ('daily'|'weekly'|'monthly'|cron); null = ad-hoc.
   @Column({ type: 'varchar', length: 100, nullable: true })
   schedule: string;
+
+  // Email recipients for scheduled delivery (array of addresses).
+  @Column({ type: 'jsonb', nullable: true })
+  recipients: string[];
+
+  @Column({ name: 'last_run_at', type: 'timestamp', nullable: true })
+  lastRunAt: Date;
+
+  @Column({ name: 'next_run_at', type: 'timestamp', nullable: true })
+  nextRunAt: Date;
+
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean;
 
   @Column({ name: 'created_by', type: 'varchar', length: 100, nullable: true })
   createdBy: string;

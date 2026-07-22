@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bull';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { PaymentReminderProcessor } from './processors/payment-reminder.processor';
+import { FINANCE_REMINDERS_QUEUE } from './services/payment-reminder.service';
 
 // Entities
 import {
@@ -221,6 +225,20 @@ import { ProfitLossExportController } from './controllers/profit-loss-export.con
       FinanceReportTemplate,
       FinanceIntegration,
     ]),
+
+    // Async delivery of payment reminders via Bull (Redis from global forRootAsync).
+    BullModule.registerQueue({
+      name: FINANCE_REMINDERS_QUEUE,
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: false,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      },
+    }),
+
+    // EmailService for real email delivery.
+    NotificationsModule,
   ],
   controllers: [
     ChartOfAccountsController,
@@ -282,6 +300,7 @@ import { ProfitLossExportController } from './controllers/profit-loss-export.con
     CurrencyMasterService,
     CollectionActivityService,
     PaymentReminderService,
+    PaymentReminderProcessor,
     ForecastScenarioService,
     FinanceExtrasService,
     FinanceOperationsService,

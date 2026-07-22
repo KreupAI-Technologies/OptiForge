@@ -172,6 +172,10 @@ export default function AnticipatedReceiptsPage() {
         message:
           reminderMessage.trim() ||
           `Reminder: payment of ${formatCurrency(reminderReceipt.balanceAmount || reminderReceipt.expectedAmount)} expected on ${reminderReceipt.expectedDate}.`,
+        // No customer email available on this list view — backend marks 'no_recipient'.
+        subject: reminderReceipt.customerName
+          ? `Payment Reminder — ${reminderReceipt.customerName}`
+          : 'Payment Reminder',
       });
       const sentId = reminderReceipt.id;
       setReminderReceipt(null);

@@ -28,6 +28,8 @@
     "guard:no-db-push": "bash scripts/guard-no-prisma-push.sh"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1092.0",
+    "@aws-sdk/s3-request-presigner": "^3.1092.0",
     "@nestjs/bull": "^10.0.1",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^10.3.0",

@@ -2163,6 +2163,8 @@ export class FinanceService {
     targetId: string;
     channel?: string;
     message?: string;
+    recipientEmail?: string;
+    subject?: string;
   }): Promise<any> {
     return this.request<any>('/finance/reminders', {
       method: 'POST',

@@ -35,6 +35,9 @@ export class ProcurementAutomationRule {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ name: 'last_evaluated_at', type: 'timestamp', nullable: true })
+  lastEvaluatedAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -315,6 +315,10 @@ export default function ViewReceivablePage() {
         targetId: receivableId,
         channel: 'email',
         message: reminderMessage.trim() || undefined,
+        recipientEmail: receivable.customerContact?.email || undefined,
+        subject: receivable.customerName
+          ? `Payment Reminder — ${receivable.customerName}`
+          : 'Payment Reminder',
       });
       setReminderModalOpen(false);
       setReminderSent(true);

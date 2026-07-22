@@ -232,6 +232,10 @@ export default function ViewPayablePage() {
         targetId: payableId,
         channel: 'email',
         message: reminderMessage.trim() || undefined,
+        recipientEmail: payable.vendorContact?.email || undefined,
+        subject: payable.vendorName
+          ? `Payment Reminder — ${payable.vendorName}`
+          : 'Payment Reminder',
       });
       setReminderModalOpen(false);
       setReminderSent(true);

@@ -50,6 +50,28 @@ export class EmailService {
     }
 
     /**
+     * Send a generic transactional email (arbitrary recipient/subject/body).
+     * Used by finance reminder delivery, scheduled reports, and automation rules.
+     */
+    async sendMail(to: string, subject: string, html: string, text?: string): Promise<boolean> {
+        try {
+            await this.transporter.sendMail({
+                from: process.env.SMTP_FROM || '"ERP System" <noreply@erp.com>',
+                to,
+                subject,
+                html,
+                text,
+            });
+
+            this.logger.log(`✅ Email sent to ${to} (subject: "${subject}")`);
+            return true;
+        } catch (error) {
+            this.logger.error(`❌ Failed to send email to ${to}:`, error);
+            return false;
+        }
+    }
+
+    /**
      * Send daily digest email
      */
     async sendDailyDigest(userId: string, notifications: PrismaNotification[]): Promise<boolean> {

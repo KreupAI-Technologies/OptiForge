@@ -72,18 +72,26 @@ export class AttachmentsController {
     return this.service.list(entityType, entityId);
   }
 
-  /** Stream the raw file with its stored content-type. */
+  /**
+   * Download the raw file. S3-backed objects are served via a 302 redirect to a
+   * short-lived presigned URL; local files are streamed with their stored
+   * content-type (byte-identical to the historical behavior).
+   */
   @Get(':id/download')
   async download(
     @Param('id') id: string,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<StreamableFile> {
-    const { attachment, absolutePath } = await this.service.getOne(id);
+  ): Promise<StreamableFile | void> {
+    const target = await this.service.getDownloadTarget(id);
+    if (target.kind === 'redirect') {
+      res.redirect(302, target.url);
+      return;
+    }
     res.set({
-      'Content-Type': attachment.mimeType || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${attachment.fileName}"`,
+      'Content-Type': target.attachment.mimeType || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${target.attachment.fileName}"`,
     });
-    return new StreamableFile(createReadStream(absolutePath));
+    return new StreamableFile(createReadStream(target.absolutePath));
   }
 
   @Delete(':id')

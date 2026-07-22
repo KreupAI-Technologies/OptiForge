@@ -2,19 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  unlinkSync,
-} from 'fs';
-import { extname, join, resolve } from 'path';
+import { extname, join } from 'path';
 import * as ExcelJS from 'exceljs';
 import { Attachment } from '../entities/attachment.entity';
+import { StorageService } from '../../../common/storage/storage.service';
 
 /**
- * Local-disk storage directory (relative to the backend process cwd). Files are
- * written here keyed by a generated uuid; the DB row holds the original name.
+ * Local-disk storage directory prefix used when building object keys (relative
+ * to the backend process cwd). StorageService owns the actual read/write and,
+ * when S3 is enabled, may place the bytes in the object store instead — keys are
+ * provider-tagged so reads/deletes route back correctly.
  */
 const UPLOAD_DIR = 'uploads';
 
@@ -32,16 +29,8 @@ export class AttachmentsService {
   constructor(
     @InjectRepository(Attachment)
     private readonly repo: Repository<Attachment>,
-  ) {
-    this.ensureUploadDir();
-  }
-
-  private ensureUploadDir(): void {
-    const abs = resolve(process.cwd(), UPLOAD_DIR);
-    if (!existsSync(abs)) {
-      mkdirSync(abs, { recursive: true });
-    }
-  }
+    private readonly storage: StorageService,
+  ) {}
 
   private toBuffer(file: UploadedFileLike): Buffer {
     if (file.buffer) return file.buffer;
@@ -53,24 +42,31 @@ export class AttachmentsService {
     return Buffer.alloc(0);
   }
 
-  /** Persist an uploaded file to disk and record it. */
+  /**
+   * Persist an uploaded file (S3 when configured/reachable, else local disk)
+   * and record it. The provider-tagged storage key returned by StorageService
+   * is stored on the row so downloads/deletes route to the right backend.
+   */
   async store(
     file: UploadedFileLike,
     entityType: string,
     entityId: string,
     uploadedBy?: string | null,
   ): Promise<Attachment> {
-    this.ensureUploadDir();
     const ext = extname(file.originalname || '') || '';
-    const storageKey = join(UPLOAD_DIR, `${randomUUID()}${ext}`);
-    const absPath = resolve(process.cwd(), storageKey);
-    writeFileSync(absPath, this.toBuffer(file));
+    const objectKey = join(UPLOAD_DIR, `${randomUUID()}${ext}`);
+    const mimeType = file.mimetype || 'application/octet-stream';
+    const { storageKey } = await this.storage.put(
+      objectKey,
+      this.toBuffer(file),
+      mimeType,
+    );
 
     const row = this.repo.create({
       entityType,
       entityId,
       fileName: file.originalname,
-      mimeType: file.mimetype || 'application/octet-stream',
+      mimeType,
       size: file.size ?? 0,
       storageKey,
       uploadedBy: uploadedBy ?? null,
@@ -91,29 +87,45 @@ export class AttachmentsService {
     }
   }
 
-  /** Fetch one row plus its absolute on-disk path (for streaming). */
-  async getOne(
-    id: string,
-  ): Promise<{ attachment: Attachment; absolutePath: string }> {
+  /** Fetch one attachment row by id (or 404). */
+  async getOne(id: string): Promise<Attachment> {
     const attachment = await this.repo.findOne({ where: { id } });
     if (!attachment) {
       throw new NotFoundException(`Attachment ${id} not found`);
     }
-    const absolutePath = resolve(process.cwd(), attachment.storageKey);
-    return { attachment, absolutePath };
+    return attachment;
   }
 
-  /** Delete the DB row and its file from disk. */
-  async remove(id: string): Promise<void> {
-    const attachment = await this.repo.findOne({ where: { id } });
-    if (!attachment) {
-      throw new NotFoundException(`Attachment ${id} not found`);
+  /**
+   * Resolve how to serve an attachment's bytes:
+   *  - S3-backed rows → a presigned URL for a 302 redirect.
+   *  - Local rows     → the absolute on-disk path for streaming.
+   */
+  async getDownloadTarget(
+    id: string,
+  ): Promise<
+    | { attachment: Attachment; kind: 'redirect'; url: string }
+    | { attachment: Attachment; kind: 'stream'; absolutePath: string }
+  > {
+    const attachment = await this.getOne(id);
+    if (this.storage.isS3Key(attachment.storageKey)) {
+      const url = await this.storage.getDownloadUrl(attachment.storageKey);
+      if (url) return { attachment, kind: 'redirect', url };
     }
-    const absPath = resolve(process.cwd(), attachment.storageKey);
+    return {
+      attachment,
+      kind: 'stream',
+      absolutePath: this.storage.localAbsolutePath(attachment.storageKey),
+    };
+  }
+
+  /** Delete the DB row and its stored object (S3 or local; best-effort). */
+  async remove(id: string): Promise<void> {
+    const attachment = await this.getOne(id);
     try {
-      if (existsSync(absPath)) unlinkSync(absPath);
+      await this.storage.delete(attachment.storageKey);
     } catch {
-      /* best-effort file cleanup; still remove the row */
+      /* best-effort object cleanup; still remove the row */
     }
     await this.repo.delete(id);
   }

@@ -1,6 +1,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkflowModule } from '../workflow/workflow.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { ProcurementReportSchedulerService } from './services/procurement-report-scheduler.service';
+import { ProcurementAutomationEvaluatorService } from './services/procurement-automation-evaluator.service';
 import {
   AuditTrailController,
   BomReceiptController,
@@ -145,6 +148,8 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
       SupplierDiversityProgram,
     ]),
     forwardRef(() => WorkflowModule),
+    // EmailService for scheduled reports + automation-rule alerts.
+    NotificationsModule,
   ],
   controllers: [
     AuditTrailController,
@@ -217,6 +222,9 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
     ProcurementRiskAssessmentService,
     ProcurementComplianceRecordService,
     SupplierDiversityProgramService,
+    // Scheduled execution engines (Bull/@Cron).
+    ProcurementReportSchedulerService,
+    ProcurementAutomationEvaluatorService,
   ],
   exports: [
     ApprovalMatrixService,

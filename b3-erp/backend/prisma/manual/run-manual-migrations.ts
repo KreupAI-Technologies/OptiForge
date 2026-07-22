@@ -160,6 +160,11 @@ const MIGRATION_ORDER: string[] = [
     '2026_07_procurement_savings_calculate.sql',
     // Net-new IT-Admin notification rules
     '2026_07_itadmin_notification_rules.sql',
+    // Delivery/execution engine: reminder email delivery columns, procurement
+    // report-template scheduling columns, automation-rule evaluation timestamp
+    '2026_07_finance_reminder_delivery.sql',
+    '2026_07_procurement_report_schedule.sql',
+    '2026_07_procurement_automation_eval.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {
