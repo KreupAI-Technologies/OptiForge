@@ -137,6 +137,11 @@ const MIGRATION_ORDER: string[] = [
     // Net-new IT-Admin operational backends (compliance violations, cleanup
     // tasks, export templates, monitored servers, email test logs)
     'orphan_itadmin_operational.sql',
+    // Net-new gap-closing endpoints (additive, idempotent): finance payment
+    // refund/failure columns, PM site-photo persistence, project-closure feedback
+    '2026_07_add_payment_refund_columns.sql',
+    '2026_07_add_pm_site_photos.sql',
+    '2026_07_add_project_closure_feedback.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {
