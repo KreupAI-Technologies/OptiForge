@@ -90,6 +90,25 @@ export default function Page() {
   };
 
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [detailReturn, setDetailReturn] = useState<PTReturn | null>(null);
+
+  const handleDownloadReturn = (r: PTReturn) => {
+    const url = (r as any).documentUrl || (r as any).fileUrl || (r as any).url;
+    if (url) { window.open(url, '_blank'); return; }
+    const escape = (v: string) => `"${(String(v) ?? '').replace(/"/g, '""')}"`;
+    const headers = ['Return Month', 'State', 'RC Number', 'Due Date', 'Filing Date', 'Status', 'Total Employees', 'Covered Employees', 'PT Deducted', 'PT Paid', 'Challan Number'];
+    const row = [r.returnMonth, r.state, r.rcNumber, r.dueDate, r.filingDate ?? '', r.status, String(r.totalEmployees), String(r.coveredEmployees), String(r.totalPTDeducted), String(r.totalPTPaid), r.challanNumber ?? ''];
+    const csv = [headers.map(escape).join(','), row.map(escape).join(',')].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `pt-return-${r.returnMonth || r.id}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  };
 
   const handleSubmitReturn = async (id: string) => {
     try {
@@ -335,11 +354,11 @@ export default function Page() {
                 )}
 
                 <div className="flex gap-2">
-                  <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center gap-2">
+                  <button onClick={() => setDetailReturn(ptReturn)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center gap-2">
                     <FileText className="h-4 w-4" />
                     View Details
                   </button>
-                  <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <button onClick={() => handleDownloadReturn(ptReturn)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Download className="h-4 w-4" />
                     Download Return
                   </button>
@@ -365,6 +384,38 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {detailReturn && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">PT Return — {detailReturn.returnMonth}</h2>
+              <button onClick={() => setDetailReturn(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">State:</span> <span className="font-medium text-gray-900">{detailReturn.state}</span></div>
+              <div><span className="text-gray-500">RC Number:</span> <span className="font-medium text-gray-900">{detailReturn.rcNumber}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailReturn.status}</span></div>
+              <div><span className="text-gray-500">Due Date:</span> <span className="font-medium text-gray-900">{detailReturn.dueDate}</span></div>
+              {detailReturn.filingDate && <div><span className="text-gray-500">Filing Date:</span> <span className="font-medium text-gray-900">{detailReturn.filingDate}</span></div>}
+              <div><span className="text-gray-500">Total Employees:</span> <span className="font-medium text-gray-900">{detailReturn.totalEmployees}</span></div>
+              <div><span className="text-gray-500">Covered Employees:</span> <span className="font-medium text-gray-900">{detailReturn.coveredEmployees}</span></div>
+              <div><span className="text-gray-500">PT Deducted:</span> <span className="font-medium text-gray-900">₹{detailReturn.totalPTDeducted.toLocaleString()}</span></div>
+              <div><span className="text-gray-500">PT Paid:</span> <span className="font-medium text-gray-900">₹{detailReturn.totalPTPaid.toLocaleString()}</span></div>
+              {detailReturn.challanNumber && <div><span className="text-gray-500">Challan Number:</span> <span className="font-medium text-gray-900">{detailReturn.challanNumber}</span></div>}
+            </div>
+            {detailReturn.remarks && (
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 mb-3">
+                <p className="text-xs text-yellow-600 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm text-yellow-900">{detailReturn.remarks}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailReturn(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

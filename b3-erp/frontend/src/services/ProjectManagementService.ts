@@ -3098,6 +3098,38 @@ class ProjectManagementService {
         return this.pmModulePost<any>('/api/procurement/grn', data);
     }
 
+    /**
+     * Received line-items for a project's GRN entry, derived from the project's
+     * latest BOM (header + details + item) on the NestJS side. Empty-safe.
+     */
+    async getGrnItems(projectId: string): Promise<Array<{
+        id: string;
+        itemId: string;
+        description: string;
+        orderedQty: number;
+        receivedQty: number;
+        unit: string;
+    }>> {
+        return this.pmModuleGet(`/api/procurement/grn-items/${projectId}`);
+    }
+
+    /**
+     * Shortfall line-items for a project's Purchase Requisition, derived from the
+     * latest BOM compared against on-hand item stock on the NestJS side. Empty-safe.
+     */
+    async getPrShortfallItems(projectId: string): Promise<Array<{
+        id: string;
+        itemId: string;
+        name: string;
+        category: string;
+        shortfallQty: number;
+        orderQty: number;
+        unit: string;
+        preferredVendor: string;
+    }>> {
+        return this.pmModuleGet(`/api/procurement/pr-shortfall-items/${projectId}`);
+    }
+
     // ---------------------------------------------------------------------
     // PROJECT-SCOPED PROCUREMENT + PRODUCTION writes (NestJS).
     // Backs the (modules)/project-management/procurement/* and production/*

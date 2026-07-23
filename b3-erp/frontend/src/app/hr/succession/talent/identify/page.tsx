@@ -28,6 +28,27 @@ export default function Page() {
   const [rows, setRows] = useState<TalentEmployee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<TalentEmployee | null>(null);
+  const [editForm, setEditForm] = useState<Partial<TalentEmployee>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { id, ...rest } = { ...editRow, ...editForm } as TalentEmployee;
+      await HrTalentService.updateSuccession(editRow.id, { data: rest });
+      setRows(prev => prev.map(r => r.id === editRow.id ? { ...r, ...editForm } : r));
+      setEditRow(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -209,13 +230,56 @@ export default function Page() {
               <button onClick={() => router.push('/hr/succession/talent/profiles')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 View Profile
               </button>
-              <button onClick={() => router.push('/hr/succession/plans/create')} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm">
+              <button
+                onClick={() => { setEditRow(emp); setEditForm({ classification: emp.classification, performance: emp.performance, potential: emp.potential }); setSaveError(null); }}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm"
+              >
+                Edit Talent
+              </button>
+              <button onClick={() => router.push('/hr/succession/plans/create')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                 Create Development Plan
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {editRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Edit Talent Record</h2>
+              <p className="text-sm text-gray-600">{editRow.name} • {editRow.currentPosition}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Classification</label>
+                <select value={editForm.classification ?? 'solid_performer'} onChange={(e) => setEditForm(f => ({ ...f, classification: e.target.value as TalentEmployee['classification'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="star">Star</option>
+                  <option value="high_potential">High Potential</option>
+                  <option value="core_player">Core Player</option>
+                  <option value="solid_performer">Solid Performer</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Performance (%)</label>
+                <input type="number" min={0} max={100} value={editForm.performance ?? 0} onChange={(e) => setEditForm(f => ({ ...f, performance: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Potential (%)</label>
+                <input type="number" min={0} max={100} value={editForm.potential ?? 0} onChange={(e) => setEditForm(f => ({ ...f, potential: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+            {saveError && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <button onClick={() => setEditRow(null)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm disabled:opacity-50">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

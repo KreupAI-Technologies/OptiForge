@@ -101,6 +101,25 @@ export default function Page() {
   };
 
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [detailReturn, setDetailReturn] = useState<TDSReturn | null>(null);
+
+  const handleDownloadReturn = (r: TDSReturn) => {
+    const url = (r as any).documentUrl || (r as any).fileUrl || (r as any).url;
+    if (url) { window.open(url, '_blank'); return; }
+    const escape = (v: string) => `"${(String(v) ?? '').replace(/"/g, '""')}"`;
+    const headers = ['Quarter', 'Financial Year', 'Form Type', 'Establishment', 'TAN', 'Due Date', 'Filing Date', 'Status', 'Total Deductees', 'Gross Salary', 'TDS Deducted', 'TDS Deposited', 'Acknowledgment Number'];
+    const row = [r.quarter, r.financialYear, r.formType, r.establishment, r.tanNumber, r.dueDate, r.filingDate ?? '', r.status, String(r.totalDeductees), String(r.grossSalary), String(r.totalTDSDeducted), String(r.totalTDSDeposited), r.acknowledgmentNumber ?? ''];
+    const csv = [headers.map(escape).join(','), row.map(escape).join(',')].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `tds-return-${r.quarter}-${r.financialYear || r.id}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  };
 
   const handleSubmitReturn = async (id: string) => {
     try {
@@ -361,11 +380,11 @@ export default function Page() {
                 )}
 
                 <div className="flex gap-2">
-                  <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium flex items-center gap-2">
+                  <button onClick={() => setDetailReturn(tdsReturn)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium flex items-center gap-2">
                     <FileText className="h-4 w-4" />
                     View Details
                   </button>
-                  <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <button onClick={() => handleDownloadReturn(tdsReturn)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Download className="h-4 w-4" />
                     Download Return
                   </button>
@@ -391,6 +410,53 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {detailReturn && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">TDS Return — {detailReturn.quarter} {detailReturn.financialYear}</h2>
+              <button onClick={() => setDetailReturn(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">Form Type:</span> <span className="font-medium text-gray-900">{detailReturn.formType}</span></div>
+              <div><span className="text-gray-500">Establishment:</span> <span className="font-medium text-gray-900">{detailReturn.establishment}</span></div>
+              <div><span className="text-gray-500">TAN Number:</span> <span className="font-medium text-gray-900">{detailReturn.tanNumber}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailReturn.status}</span></div>
+              <div><span className="text-gray-500">Due Date:</span> <span className="font-medium text-gray-900">{detailReturn.dueDate}</span></div>
+              {detailReturn.filingDate && <div><span className="text-gray-500">Filing Date:</span> <span className="font-medium text-gray-900">{detailReturn.filingDate}</span></div>}
+              <div><span className="text-gray-500">Total Deductees:</span> <span className="font-medium text-gray-900">{detailReturn.totalDeductees}</span></div>
+              <div><span className="text-gray-500">Gross Salary:</span> <span className="font-medium text-gray-900">₹{detailReturn.grossSalary.toLocaleString()}</span></div>
+              <div><span className="text-gray-500">TDS Deducted:</span> <span className="font-medium text-gray-900">₹{detailReturn.totalTDSDeducted.toLocaleString()}</span></div>
+              <div><span className="text-gray-500">TDS Deposited:</span> <span className="font-medium text-gray-900">₹{detailReturn.totalTDSDeposited.toLocaleString()}</span></div>
+              {detailReturn.acknowledgmentNumber && <div><span className="text-gray-500">Acknowledgment:</span> <span className="font-medium text-gray-900">{detailReturn.acknowledgmentNumber}</span></div>}
+            </div>
+            {detailReturn.challanDetails && detailReturn.challanDetails.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-3">
+                <p className="text-xs text-gray-500 uppercase font-medium mb-2">Challan Details</p>
+                <div className="space-y-2">
+                  {detailReturn.challanDetails.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-900">{c.challanNumber}</span>
+                      <span className="text-gray-600">{c.date}</span>
+                      <span className="font-medium text-indigo-700">₹{c.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {detailReturn.remarks && (
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 mb-3">
+                <p className="text-xs text-yellow-600 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm text-yellow-900">{detailReturn.remarks}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailReturn(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

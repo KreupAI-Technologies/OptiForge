@@ -45,6 +45,8 @@ import {
 import {
   HrSafetyService,
   SafetyReport,
+  KpiCard,
+  DepartmentScore,
   rowsToCsv,
   downloadTextFile,
 } from '@/services/hr-safety.service';
@@ -65,10 +67,25 @@ interface LaggingIndicatorRow {
   trend: string;
 }
 
-// Named statutory ratios (TRIR/LTIR/DART…) with targets and prior-period
-// trends — a fixed metric shape the flat report list does not carry as
-// discrete keys; the list instead feeds the leading/lagging tables below.
-const kpiData = {
+type KpiKey =
+  | 'trir'
+  | 'ltir'
+  | 'dart'
+  | 'severity'
+  | 'nearMissRatio'
+  | 'trainingCompletion'
+  | 'auditScore'
+  | 'incidentsClosed';
+
+type KpiDataShape = Record<KpiKey, KpiCard>;
+
+// Fallback defaults for the named statutory ratios (TRIR/LTIR/DART…) with
+// targets/trends; the value fields for dart/severity/nearMissRatio/training/
+// audit/incidentsClosed are overwritten by the server aggregate
+// (getReportBreakdowns('kpi')). TRIR/LTIR values are overridden separately via
+// the trends summary (computedTrir/computedLtir). Kept as fallback so cards
+// never render empty if the fetch fails.
+const DEFAULT_KPI_DATA: KpiDataShape = {
   trir: { value: 1.8, target: 2.0, trend: -15, status: 'On Track' },
   ltir: { value: 0.4, target: 0.5, trend: -20, status: 'On Track' },
   dart: { value: 0.6, target: 0.8, trend: -10, status: 'On Track' },
@@ -79,10 +96,10 @@ const kpiData = {
   incidentsClosed: { value: 87, target: 90, trend: 8, status: 'On Track' }
 };
 
-// Per-department scores are not derivable from the flat report list; left as
-// reference series pending a department-bucketed feed. The TRIR/LTIR monthly
-// time-series is now computed server-side (see monthlyKPITrend state below).
-const departmentScores = [
+// Fallback per-department scores; overwritten by the department-bucketed feed
+// (getReportBreakdowns('kpi').departmentScores). The TRIR/LTIR monthly
+// time-series is computed server-side (see monthlyKPITrend state below).
+const DEFAULT_DEPARTMENT_SCORES: DepartmentScore[] = [
   { dept: 'Manufacturing', score: 91, target: 95 },
   { dept: 'Warehouse', score: 88, target: 95 },
   { dept: 'Maintenance', score: 95, target: 95 },
@@ -102,6 +119,10 @@ export default function SafetyKPIsPage() {
   const [monthlyKPITrend, setMonthlyKPITrend] = useState<
     Array<{ month: string; trir: number; ltir: number; target: number }>
   >([]);
+  const [kpiData, setKpiData] = useState<KpiDataShape>(DEFAULT_KPI_DATA);
+  const [departmentScores, setDepartmentScores] = useState<DepartmentScore[]>(
+    DEFAULT_DEPARTMENT_SCORES,
+  );
   // Computed TRIR/LTIR summary; overrides the static card reference values.
   const [computedTrir, setComputedTrir] = useState<number | null>(null);
   const [computedLtir, setComputedLtir] = useState<number | null>(null);
@@ -125,9 +146,10 @@ export default function SafetyKPIsPage() {
               ? 12
               : 12; // ytd
       try {
-        const [rows, trends] = await Promise.all([
+        const [rows, trends, breakdown] = await Promise.all([
           HrSafetyService.getReports('kpi'),
           HrSafetyService.getTrends(monthsBack),
+          HrSafetyService.getReportBreakdowns('kpi'),
         ]);
         const leading: LeadingIndicatorRow[] = [];
         const lagging: LaggingIndicatorRow[] = [];
@@ -167,6 +189,14 @@ export default function SafetyKPIsPage() {
           );
           setComputedTrir(trends.summary.trir);
           setComputedLtir(trends.summary.ltir);
+          // Merge server-computed card values over the reference defaults so
+          // TRIR/LTIR keys (overridden separately) retain their labels.
+          if (breakdown.kpiData && Object.keys(breakdown.kpiData).length > 0) {
+            setKpiData((prev) => ({ ...prev, ...breakdown.kpiData }));
+          }
+          if (breakdown.departmentScores.length > 0) {
+            setDepartmentScores(breakdown.departmentScores);
+          }
         }
       } catch (err) {
         if (!cancelled) {

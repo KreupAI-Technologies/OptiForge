@@ -113,6 +113,56 @@ export default function Page() {
     diversityTrainingTarget: 450
   };
 
+  const handleDownloadEEO = () => {
+    const escape = (v: string) => `"${(String(v) ?? '').replace(/"/g, '""')}"`;
+    const catHeaders = ['Category', 'Total', 'Male', 'Female', 'Other', 'Female %', 'Target Female %', 'Target Met'];
+    const catRows = eeoCategories.map(c => [
+      c.category, String(c.total), String(c.male), String(c.female), String(c.other),
+      ((c.female / c.total) * 100).toFixed(1) + '%', c.targetFemale + '%', c.targetMet ? 'Yes' : 'No'
+    ]);
+    const hiringHeaders = ['Year', 'Quarter', 'Total Applications', 'Male Applicants', 'Female Applicants', 'Diverse Applicants', 'Total Hired', 'Male Hired', 'Female Hired', 'Diverse Hired', 'Selection Rate'];
+    const hiringRows = hiringData2025.map(d => [
+      d.year, d.quarter, String(d.totalApplications), String(d.maleApplicants), String(d.femaleApplicants), String(d.diverseApplicants),
+      String(d.totalHired), String(d.maleHired), String(d.femaleHired), String(d.diverseHired), String(d.selectionRate)
+    ]);
+    const lines: string[] = [
+      'EEO-1 Report - ' + selectedYear,
+      '',
+      'Job Category Breakdown',
+      catHeaders.map(escape).join(','),
+      ...catRows.map(row => row.map(escape).join(',')),
+      '',
+      '2025 Hiring Statistics',
+      hiringHeaders.map(escape).join(','),
+      ...hiringRows.map(row => row.map(escape).join(',')),
+      '',
+      'Promotions & Advancement',
+      escape('Total Promotions') + ',' + escape(String(promotionData.totalPromotions)),
+      escape('Male Promoted') + ',' + escape(String(promotionData.malePromoted)) + ',' + escape(promotionData.malePromotionRate + '%'),
+      escape('Female Promoted') + ',' + escape(String(promotionData.femalePromoted)) + ',' + escape(promotionData.femalePromotionRate + '%'),
+      '',
+      'Compensation Equity',
+      escape('Avg Male Salary') + ',' + escape('₹' + (compensationData.avgMaleSalary / 100000).toFixed(1) + 'L'),
+      escape('Avg Female Salary') + ',' + escape('₹' + (compensationData.avgFemaleSalary / 100000).toFixed(1) + 'L'),
+      escape('Gender Pay Gap') + ',' + escape(compensationData.genderPayGap + '%'),
+      '',
+      'Training & Development',
+      escape('Total Training Hours') + ',' + escape(String(trainingData.totalTrainingHours)),
+      escape('Avg Male Training Hours') + ',' + escape(String(trainingData.avgMaleTraining)),
+      escape('Avg Female Training Hours') + ',' + escape(String(trainingData.avgFemaleTraining)),
+    ];
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `eeo-1-report-${selectedYear}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  };
+
   const filteredCategories = selectedCategory === 'all'
     ? eeoCategories
     : eeoCategories.filter(c => c.category.toLowerCase().includes(selectedCategory.toLowerCase()));
@@ -203,7 +253,7 @@ export default function Page() {
           </div>
 
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2">
+            <button onClick={handleDownloadEEO} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2">
               <Download className="h-4 w-4" />
               Download EEO-1 Report
             </button>

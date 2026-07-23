@@ -5,6 +5,9 @@ import { Vendor } from '../entities/vendor.entity';
 import { PurchaseOrder } from '../entities/purchase-order.entity';
 import { SupplierPortalMessage } from '../entities/supplier-portal-message.entity';
 import { SupplierPortalDocument } from '../entities/supplier-portal-document.entity';
+import { SupplierPortalInvoice } from '../entities/supplier-portal-invoice.entity';
+import { SupplierPortalQuote } from '../entities/supplier-portal-quote.entity';
+import { SupplierPortalCatalogItem } from '../entities/supplier-portal-catalog-item.entity';
 
 const DEFAULT_COMPANY = 'company-001';
 
@@ -22,6 +25,12 @@ export class SupplierPortalService {
     private readonly messageRepo: Repository<SupplierPortalMessage>,
     @InjectRepository(SupplierPortalDocument)
     private readonly documentRepo: Repository<SupplierPortalDocument>,
+    @InjectRepository(SupplierPortalInvoice)
+    private readonly invoiceRepo: Repository<SupplierPortalInvoice>,
+    @InjectRepository(SupplierPortalQuote)
+    private readonly quoteRepo: Repository<SupplierPortalQuote>,
+    @InjectRepository(SupplierPortalCatalogItem)
+    private readonly catalogRepo: Repository<SupplierPortalCatalogItem>,
   ) {}
 
   private vendorName(v: Vendor): string {
@@ -176,5 +185,124 @@ export class SupplierPortalService {
       status: data.status ?? 'valid',
     });
     return this.documentRepo.save(entity);
+  }
+
+  // ---- purchase orders for a supplier (real PO rows, no mocks) ----
+  async getSupplierPurchaseOrders(supplierId: string) {
+    if (!supplierId) return [];
+    const pos = await this.poRepo.find({
+      where: { vendorId: supplierId },
+      order: { poDate: 'DESC' },
+      take: 100,
+    });
+    return pos.map((po) => ({
+      id: po.id,
+      poNumber: po.poNumber,
+      poDate: po.poDate,
+      deliveryDate: po.deliveryDate,
+      status: po.status,
+      totalAmount: Number(po.totalAmount) || 0,
+      currency: po.currency,
+      receivedPercentage: Number(po.receivedPercentage) || 0,
+    }));
+  }
+
+  // ---- supplier invoices (real additive table) ----
+  async getInvoices(companyId: string, supplierId?: string) {
+    const where: Record<string, any> = { companyId: companyId || DEFAULT_COMPANY };
+    if (supplierId) where.supplierId = supplierId;
+    return this.invoiceRepo.find({ where, order: { createdAt: 'DESC' } });
+  }
+
+  async createInvoice(companyId: string, data: Partial<SupplierPortalInvoice>) {
+    const entity = this.invoiceRepo.create({
+      companyId: companyId || DEFAULT_COMPANY,
+      supplierId: data.supplierId ?? '',
+      supplierName: data.supplierName ?? '',
+      invoiceNumber: data.invoiceNumber ?? '',
+      poNumber: data.poNumber ?? undefined,
+      invoiceDate: data.invoiceDate ?? undefined,
+      dueDate: data.dueDate ?? undefined,
+      amount: data.amount ?? 0,
+      currency: data.currency ?? 'USD',
+      status: data.status ?? 'submitted',
+      notes: data.notes ?? undefined,
+    });
+    return this.invoiceRepo.save(entity);
+  }
+
+  // ---- supplier quotes (real additive table) ----
+  async getQuotes(companyId: string, supplierId?: string) {
+    const where: Record<string, any> = { companyId: companyId || DEFAULT_COMPANY };
+    if (supplierId) where.supplierId = supplierId;
+    return this.quoteRepo.find({ where, order: { createdAt: 'DESC' } });
+  }
+
+  async createQuote(companyId: string, data: Partial<SupplierPortalQuote>) {
+    const entity = this.quoteRepo.create({
+      companyId: companyId || DEFAULT_COMPANY,
+      supplierId: data.supplierId ?? '',
+      supplierName: data.supplierName ?? '',
+      itemName: data.itemName ?? '',
+      reference: data.reference ?? undefined,
+      quantity: data.quantity ?? 0,
+      unitPrice: data.unitPrice ?? 0,
+      currency: data.currency ?? 'USD',
+      leadTimeDays: data.leadTimeDays ?? undefined,
+      validUntil: data.validUntil ?? undefined,
+      status: data.status ?? 'submitted',
+      notes: data.notes ?? undefined,
+    });
+    return this.quoteRepo.save(entity);
+  }
+
+  // ---- supplier catalog items (real additive table, upsert by sku) ----
+  async getCatalogItems(companyId: string, supplierId?: string) {
+    const where: Record<string, any> = { companyId: companyId || DEFAULT_COMPANY };
+    if (supplierId) where.supplierId = supplierId;
+    return this.catalogRepo.find({ where, order: { updatedAt: 'DESC' } });
+  }
+
+  async upsertCatalogItem(
+    companyId: string,
+    data: Partial<SupplierPortalCatalogItem>,
+  ) {
+    const company = companyId || DEFAULT_COMPANY;
+    const supplierId = data.supplierId ?? '';
+    const sku = data.sku ?? '';
+    const existing = sku
+      ? await this.catalogRepo.findOne({
+          where: { companyId: company, supplierId, sku },
+        })
+      : null;
+    if (existing) {
+      Object.assign(existing, {
+        supplierName: data.supplierName ?? existing.supplierName,
+        name: data.name ?? existing.name,
+        category: data.category ?? existing.category,
+        uom: data.uom ?? existing.uom,
+        unitPrice: data.unitPrice ?? existing.unitPrice,
+        currency: data.currency ?? existing.currency,
+        leadTimeDays: data.leadTimeDays ?? existing.leadTimeDays,
+        status: data.status ?? existing.status,
+        description: data.description ?? existing.description,
+      });
+      return this.catalogRepo.save(existing);
+    }
+    const entity = this.catalogRepo.create({
+      companyId: company,
+      supplierId,
+      supplierName: data.supplierName ?? '',
+      sku,
+      name: data.name ?? '',
+      category: data.category ?? undefined,
+      uom: data.uom ?? undefined,
+      unitPrice: data.unitPrice ?? 0,
+      currency: data.currency ?? 'USD',
+      leadTimeDays: data.leadTimeDays ?? undefined,
+      status: data.status ?? 'active',
+      description: data.description ?? undefined,
+    });
+    return this.catalogRepo.save(entity);
   }
 }

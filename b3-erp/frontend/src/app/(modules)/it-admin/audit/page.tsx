@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Download, Eye, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Download, Eye, CheckCircle, XCircle, AlertCircle, RefreshCw, X } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { AuditLogService, AuditLog as ServiceAuditLog } from '@/services/audit-log.service';
 
@@ -27,6 +27,7 @@ export default function AuditPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [detailRow, setDetailRow] = useState<AuditLog | null>(null);
 
   useEffect(() => {
     const fetchAuditLogs = async () => {
@@ -82,8 +83,8 @@ export default function AuditPage() {
     exportToCsv('audit-logs', currentLogs as unknown as Record<string, unknown>[]);
   };
 
-  const handleViewDetails = (logId: string) => {
-    showToast(`Viewing details for log: ${logId}`, 'info');
+  const handleViewDetails = (log: AuditLog) => {
+    setDetailRow(log);
   };
 
   const filteredLogs = auditLogs.filter(log => {
@@ -382,7 +383,7 @@ export default function AuditPage() {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                     <button
-                      onClick={() => handleViewDetails(log.id)}
+                      onClick={() => handleViewDetails(log)}
                       className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                      
                     >
@@ -438,6 +439,77 @@ export default function AuditPage() {
           </div>
         </div>
       </div>
+
+      {/* Detail Modal */}
+      {detailRow && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">Audit Log Details</h3>
+              <button
+                onClick={() => setDetailRow(null)}
+                className="p-1 rounded hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="p-6 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Log ID</label>
+                <div className="bg-gray-50 rounded-lg p-2 text-sm font-mono text-gray-900">{detailRow.id}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Timestamp</label>
+                <div className="bg-gray-50 rounded-lg p-2 text-sm text-gray-900">{detailRow.timestamp}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">User</label>
+                <div className="bg-gray-50 rounded-lg p-2 text-sm text-gray-900">{detailRow.user}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Action</label>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getActionTypeBadgeClass(detailRow.actionType)}`}>
+                    {detailRow.actionType.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Module</label>
+                <div className="bg-gray-50 rounded-lg p-2 text-sm text-gray-900">{detailRow.module}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Severity</label>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getSeverityBadgeClass(detailRow.severity)}`}>
+                    {detailRow.severity.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">IP Address</label>
+                <div className="bg-gray-50 rounded-lg p-2 text-sm font-mono text-gray-900">{detailRow.ipAddress}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">User Agent</label>
+                <div className="bg-gray-50 rounded-lg p-2 text-sm text-gray-900 break-all">{detailRow.userAgent}</div>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">{detailRow.description}</div>
+              </div>
+            </div>
+            <div className="flex justify-end p-4 border-t border-gray-200">
+              <button
+                onClick={() => setDetailRow(null)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 # Finance — Detailed Issues Report
 
 **Verified:** 2026-07-21
+**Re-verified:** 2026-07-23 (after remediation) — ✅ **1 PARTIAL page now FIXED**
+**Phase-2 confirm:** 2026-07-23 — code re-inspected: **0 PARTIAL remain.** The lower "STUB" rows in this doc were stale. `handleViewSchedule` opens a real modal (`setScheduleModal`); `handlePauseSchedule` calls `FinanceService.updateFixedAsset(assetId, { isDepreciable: false })`. No further work needed. Frontend `tsc --noEmit` = 0 errors.
 **Scope:** The 1 Finance page flagged in `Optiforge_Whats_Left.md`
 **Method:** Direct code inspection of the flagged file
 
@@ -17,16 +19,16 @@ Only the 1 flagged page was verified in this pass. Say the word if you want a fu
 
 ---
 
-## Corrected Numbers
+## Corrected Numbers (after 2026-07-23 remediation)
 
-| Status | Count | Notes |
-|---|---:|---|
-| **Actually FIXED** | 0 | |
-| **PARTIAL** | 1 | Real fetch + 3 primary actions wired; 2 secondary actions stubbed |
-| **Real BROKEN** | 0 | |
-| **Total flagged** | **1** | |
+| Status | Previous | Now | Change |
+|---|---:|---:|---|
+| **Actually FIXED** | 0 | **1** | +1 ✅ |
+| **PARTIAL** | 1 | **0** | −1 |
+| **Real BROKEN** | 0 | 0 | |
+| **Total flagged** | 1 | 1 | |
 
-**Bottom line:** the previous audit label "No fetch — handleRunDepreciation toast only" is **stale on both counts**. Fetch is real, and Run Depreciation actually calls a service. Only 2 secondary buttons (View Schedule, Pause Schedule) remain as toast stubs.
+**Bottom line:** ✅ **The 1 flagged Finance page is now fully FIXED**. View Schedule now opens a real modal via `setScheduleModal`, and Pause Schedule now calls `FinanceService.updateFixedAsset(assetId, { isDepreciable: false })` with a confirmation dialog and loading state (L131-148, L581, L587-588).
 
 ---
 
@@ -43,8 +45,8 @@ Only the 1 flagged page was verified in this pass. Say the word if you want a fu
 | Run Depreciation button | **WIRED** | L331 onClick → `handleRunDepreciation` (L73) → `FinanceService.runDepreciation()` (L78); shows progress toast + refreshes on success |
 | Manual Entry button | **WIRED** | L337 onClick → `handleManualEntry` (L90) → `FinanceService.manualDepreciationEntry(assetCode, amount)` (L96); prompt-based input, refreshes on success |
 | Export button | **WIRED** | L343 onClick → `handleExport` (L107) → `exportToCsv('depreciation-schedules', filteredSchedules)` |
-| View Schedule (row action) | **STUB** | L535 onClick → `handleViewSchedule` (L111) — toast only. Code comment L113-118 says "In a real app, you would fetch detailed depreciation schedule from API, open modal, etc." |
-| Pause Schedule (row action) | **STUB** | L541 onClick → `handlePauseSchedule` (L120) — toast only. Code comment L124-128 says "In a real app, you would PUT to /api/assets/depreciation/pause/{assetId}, update status, log the pause action" |
+| View Schedule (row action) | **WIRED** ✅ | `handleViewSchedule` → `setScheduleModal(schedule)` opens a real month-by-month modal (verified 2026-07-23; earlier "toast only" note was stale) |
+| Pause Schedule (row action) | **WIRED** ✅ | `handlePauseSchedule` → `FinanceService.updateFixedAsset(assetId, { isDepreciable: false })` with confirm + loading state (verified 2026-07-23) |
 | Search / filters | Working | L58-60, L232-249 client-side filter on fetched data |
 | Statistics cards | Derived from real data | L252-263 aggregates fetched schedules/entries |
 | Toast notifications | Working | L67-70 |

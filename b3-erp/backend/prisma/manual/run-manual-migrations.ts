@@ -165,6 +165,10 @@ const MIGRATION_ORDER: string[] = [
     '2026_07_finance_reminder_delivery.sql',
     '2026_07_procurement_report_schedule.sql',
     '2026_07_procurement_automation_eval.sql',
+    // Net-new Supplier Portal supplier-facing transactions (invoices, quotes,
+    // catalog upsert) + procurement Quality Assurance (inspections, templates, NCRs)
+    '2026_07_procurement_supplier_portal_txn.sql',
+    '2026_07_procurement_quality.sql',
 ];
 
 function buildDataSourceOptions(): DataSourceOptions {

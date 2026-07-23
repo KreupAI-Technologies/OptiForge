@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Clock, Download, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Clock, Download, FileText, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 import { DocumentManagementService } from '@/services/document-management.service';
 
@@ -17,6 +17,8 @@ interface CertificateRequest {
   deliveredOn?: string;
   rejectedReason?: string;
   deliveryMode: 'email' | 'physical' | 'both';
+  fileUrl?: string;
+  documentUrl?: string;
 }
 
 export default function CertificateStatusPage() {
@@ -25,6 +27,7 @@ export default function CertificateStatusPage() {
   const [mockRequests, setMockRequests] = useState<CertificateRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [detailRequest, setDetailRequest] = useState<CertificateRequest | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +48,8 @@ export default function CertificateStatusPage() {
           deliveredOn: row.deliveredOn ?? '',
           rejectedReason: row.rejectedReason ?? '',
           deliveryMode: (row.deliveryMode ?? 'email') as CertificateRequest['deliveryMode'],
+          fileUrl: (row as unknown as Record<string, unknown>).fileUrl as string | undefined,
+          documentUrl: (row as unknown as Record<string, unknown>).documentUrl as string | undefined,
         }));
         if (!cancelled) setMockRequests(mapped);
       } catch (err) {
@@ -70,6 +75,47 @@ export default function CertificateStatusPage() {
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to cancel request');
     }
+  };
+
+  const handleDownloadCertificate = (request: CertificateRequest) => {
+    const url = request.fileUrl || request.documentUrl;
+    if (url) {
+      window.open(url, '_blank');
+      return;
+    }
+    // Generate a client-side HTML certificate blob
+    const typeLabel = typeLabels[request.type] ?? request.type;
+    const requestedOn = request.requestDate
+      ? new Date(request.requestDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+    const deliveredOn = request.deliveredOn
+      ? new Date(request.deliveredOn).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${typeLabel}</title>
+<style>body{font-family:Georgia,serif;text-align:center;padding:60px;color:#1f2937}
+.frame{border:8px double #2563eb;padding:48px;border-radius:12px}
+h1{font-size:34px;color:#2563eb;margin-bottom:8px}
+h2{font-size:22px;margin:24px 0}
+.meta{color:#6b7280;margin-top:24px;font-size:14px}</style></head>
+<body><div class="frame">
+<h1>${typeLabel}</h1>
+<p>This certifies the following request</p>
+<h2>Purpose: ${request.purpose || '—'}</h2>
+<div class="meta">
+<p>Request ID: ${request.id} &bull; Requested on: ${requestedOn}</p>
+${request.approvedBy ? `<p>Approved by: ${request.approvedBy}</p>` : ''}
+${deliveredOn ? `<p>Delivered on: ${deliveredOn}</p>` : ''}
+</div></div></body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `certificate-${request.type}-${request.id}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
   };
 
   const filteredRequests = useMemo(() => {
@@ -316,7 +362,10 @@ export default function CertificateStatusPage() {
 
             <div className="flex gap-2 pt-4 border-t border-gray-200">
               {(request.status === 'delivered' || request.status === 'generated') && (
-                <button className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm">
+                <button
+                  onClick={() => handleDownloadCertificate(request)}
+                  className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm"
+                >
                   <Download className="h-4 w-4" />
                   Download Certificate
                 </button>
@@ -329,7 +378,10 @@ export default function CertificateStatusPage() {
                   Cancel Request
                 </button>
               )}
-              <button className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button
+                onClick={() => setDetailRequest(request)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm"
+              >
                 View Details
               </button>
             </div>
@@ -359,6 +411,95 @@ export default function CertificateStatusPage() {
           <li>• For urgent requests, contact HR department at hr@company.com</li>
         </ul>
       </div>
+
+      {detailRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Certificate Request Details</h2>
+              <button onClick={() => setDetailRequest(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Request ID</p>
+                  <p className="text-sm font-semibold text-gray-900">{detailRequest.id}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Type</p>
+                  <p className="text-sm font-semibold text-gray-900">{typeLabels[detailRequest.type]}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Status</p>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[detailRequest.status]}`}>
+                    {detailRequest.status.charAt(0).toUpperCase() + detailRequest.status.slice(1)}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Delivery Mode</p>
+                  <p className="text-sm font-semibold text-gray-900 capitalize">{detailRequest.deliveryMode}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Purpose</p>
+                  <p className="text-sm text-gray-900">{detailRequest.purpose || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Request Date</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {detailRequest.requestDate ? new Date(detailRequest.requestDate).toLocaleDateString('en-IN') : '—'}
+                  </p>
+                </div>
+                {detailRequest.approvedBy && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Approved By</p>
+                    <p className="text-sm font-semibold text-gray-900">{detailRequest.approvedBy}</p>
+                    {detailRequest.approvedOn && (
+                      <p className="text-xs text-gray-500">{new Date(detailRequest.approvedOn).toLocaleDateString('en-IN')}</p>
+                    )}
+                  </div>
+                )}
+                {detailRequest.generatedOn && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Generated On</p>
+                    <p className="text-sm font-semibold text-gray-900">{new Date(detailRequest.generatedOn).toLocaleDateString('en-IN')}</p>
+                  </div>
+                )}
+                {detailRequest.deliveredOn && (
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Delivered On</p>
+                    <p className="text-sm font-semibold text-gray-900">{new Date(detailRequest.deliveredOn).toLocaleDateString('en-IN')}</p>
+                  </div>
+                )}
+                {detailRequest.rejectedReason && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-1">Rejection Reason</p>
+                    <p className="text-sm text-red-700">{detailRequest.rejectedReason}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              {(detailRequest.status === 'delivered' || detailRequest.status === 'generated') && (
+                <button
+                  onClick={() => { handleDownloadCertificate(detailRequest); setDetailRequest(null); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </button>
+              )}
+              <button
+                onClick={() => setDetailRequest(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -110,6 +110,14 @@ import { SupplierPortalService } from './services/supplier-portal.service';
 import { SupplierPortalController } from './controllers/supplier-portal.controller';
 import { SupplierPortalMessage } from './entities/supplier-portal-message.entity';
 import { SupplierPortalDocument } from './entities/supplier-portal-document.entity';
+import { SupplierPortalInvoice } from './entities/supplier-portal-invoice.entity';
+import { SupplierPortalQuote } from './entities/supplier-portal-quote.entity';
+import { SupplierPortalCatalogItem } from './entities/supplier-portal-catalog-item.entity';
+import { ProcurementQualityController } from './controllers/procurement-quality.controller';
+import { ProcurementQualityService } from './services/procurement-quality.service';
+import { ProcurementInspection } from './entities/procurement-inspection.entity';
+import { ProcurementInspectionTemplate } from './entities/procurement-inspection-template.entity';
+import { ProcurementNcr } from './entities/procurement-ncr.entity';
 
 @Module({
   imports: [
@@ -141,6 +149,12 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
       SourcingStrategy,
       SupplierPortalMessage,
       SupplierPortalDocument,
+      SupplierPortalInvoice,
+      SupplierPortalQuote,
+      SupplierPortalCatalogItem,
+      ProcurementInspection,
+      ProcurementInspectionTemplate,
+      ProcurementNcr,
       ProcurementReportTemplate,
       ProcurementAutomationRule,
       ProcurementRiskAssessment,
@@ -179,6 +193,7 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
     ProcurementInsightsController,
     SourcingStrategyController,
     SupplierPortalController,
+    ProcurementQualityController,
     ProcurementReportTemplateController,
     ProcurementAutomationRuleController,
     ProcurementRiskAssessmentController,
@@ -217,6 +232,7 @@ import { SupplierPortalDocument } from './entities/supplier-portal-document.enti
     VendorService,
     SourcingStrategyService,
     SupplierPortalService,
+    ProcurementQualityService,
     ProcurementReportTemplateService,
     ProcurementAutomationRuleService,
     ProcurementRiskAssessmentService,

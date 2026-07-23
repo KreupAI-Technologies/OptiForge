@@ -93,6 +93,8 @@ export default function Page() {
   }, []);
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [detailAction, setDetailAction] = useState<DisciplinaryAction | null>(null);
+  const [evidenceAction, setEvidenceAction] = useState<DisciplinaryAction | null>(null);
 
   const handleFileAppeal = async (id: string) => {
     try {
@@ -408,12 +410,12 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2">
+              <button onClick={() => setDetailAction(action)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 View Full Record
               </button>
               {action.evidenceDocuments && action.evidenceDocuments.length > 0 && (
-                <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium flex items-center gap-2">
+                <button onClick={() => setEvidenceAction(action)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   View Evidence ({action.evidenceDocuments.length})
                 </button>
@@ -431,6 +433,82 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailAction && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Disciplinary Record — {detailAction.employeeName}</h2>
+              <button onClick={() => setDetailAction(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">Employee ID:</span> <span className="font-medium text-gray-900">{detailAction.employeeId}</span></div>
+              <div><span className="text-gray-500">Department:</span> <span className="font-medium text-gray-900">{detailAction.department}</span></div>
+              <div><span className="text-gray-500">Designation:</span> <span className="font-medium text-gray-900">{detailAction.designation}</span></div>
+              <div><span className="text-gray-500">Action Type:</span> <span className="font-medium text-gray-900">{detailAction.actionType.replace(/_/g, ' ')}</span></div>
+              <div><span className="text-gray-500">Violation Category:</span> <span className="font-medium text-gray-900">{detailAction.violationCategory}</span></div>
+              <div><span className="text-gray-500">Severity:</span> <span className="font-medium text-gray-900">{detailAction.severity}</span></div>
+              <div><span className="text-gray-500">Incident Date:</span> <span className="font-medium text-gray-900">{detailAction.incidentDate}</span></div>
+              <div><span className="text-gray-500">Action Date:</span> <span className="font-medium text-gray-900">{detailAction.actionDate}</span></div>
+              <div><span className="text-gray-500">Issued By:</span> <span className="font-medium text-gray-900">{detailAction.issuedBy}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailAction.status}</span></div>
+              <div><span className="text-gray-500">Appeal Status:</span> <span className="font-medium text-gray-900">{detailAction.appealStatus.replace(/_/g, ' ')}</span></div>
+              {detailAction.effectiveUntil && <div><span className="text-gray-500">Effective Until:</span> <span className="font-medium text-gray-900">{detailAction.effectiveUntil}</span></div>}
+            </div>
+            <div className="bg-red-50 rounded-lg p-3 border border-red-200 mb-3">
+              <p className="text-xs text-red-600 uppercase font-medium mb-1">Description</p>
+              <p className="text-sm text-red-900">{detailAction.description}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-3">
+              <p className="text-xs text-gray-500 uppercase font-medium mb-1">Justification</p>
+              <p className="text-sm text-gray-900">{detailAction.justification}</p>
+            </div>
+            {detailAction.witnessList && detailAction.witnessList.length > 0 && (
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-3">
+                <p className="text-xs text-blue-600 uppercase font-medium mb-1">Witnesses</p>
+                <p className="text-sm text-blue-900">{detailAction.witnessList.join(', ')}</p>
+              </div>
+            )}
+            {detailAction.employeeStatement && (
+              <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 mb-3">
+                <p className="text-xs text-purple-600 uppercase font-medium mb-1">Employee Statement</p>
+                <p className="text-sm text-purple-900">{detailAction.employeeStatement}</p>
+              </div>
+            )}
+            {detailAction.remarks && (
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 mb-3">
+                <p className="text-xs text-yellow-600 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm text-yellow-900">{detailAction.remarks}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailAction(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {evidenceAction && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Evidence Documents — {evidenceAction.employeeName}</h2>
+              <button onClick={() => setEvidenceAction(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <ul className="space-y-2">
+              {evidenceAction.evidenceDocuments?.map((doc, i) => (
+                <li key={i} className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-sm text-gray-900 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                  {doc}
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setEvidenceAction(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

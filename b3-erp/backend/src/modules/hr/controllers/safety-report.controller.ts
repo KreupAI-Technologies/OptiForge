@@ -25,6 +25,15 @@ export class SafetyReportController {
     return this.service.findAll(companyId || 'company-1', recordType);
   }
 
+  // Static route MUST be declared before the greedy ':id' param route.
+  @Get('analytics/breakdowns')
+  getBreakdowns(
+    @Query('companyId') companyId: string,
+    @Query('kind') kind: string,
+  ) {
+    return this.service.getBreakdowns(companyId || 'company-1', kind || 'kpi');
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string): Promise<SafetyReport> {
     return this.service.findOne(id);

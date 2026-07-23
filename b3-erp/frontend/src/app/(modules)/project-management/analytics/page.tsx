@@ -55,12 +55,84 @@ interface ResourceUtilization {
  efficiency: number;
 }
 
+// Fallback series used only until real/derived data overwrites it.
+const FALLBACK_MONTHLY_DATA: MonthlyData[] = [
+ { month: 'Jul 24', revenue: 8500000, cost: 6200000, profit: 2300000, projectsCompleted: 2 },
+ { month: 'Aug 24', revenue: 11200000, cost: 8100000, profit: 3100000, projectsCompleted: 3 },
+ { month: 'Sep 24', revenue: 9800000, cost: 7000000, profit: 2800000, projectsCompleted: 2 },
+ { month: 'Oct 24', revenue: 13500000, cost: 9800000, profit: 3700000, projectsCompleted: 4 },
+ { month: 'Nov 24', revenue: 12100000, cost: 8700000, profit: 3400000, projectsCompleted: 3 },
+ { month: 'Dec 24', revenue: 15200000, cost: 10800000, profit: 4400000, projectsCompleted: 4 },
+ { month: 'Jan 25', revenue: 16800000, cost: 12100000, profit: 4700000, projectsCompleted: 4 },
+];
+
+const FALLBACK_RESOURCE_UTILIZATION: ResourceUtilization[] = [
+ { department: 'Installation Team', allocated: 85, available: 15, utilization: 85, efficiency: 92 },
+ { department: 'Project Management', allocated: 78, available: 22, utilization: 78, efficiency: 88 },
+ { department: 'Quality Control', allocated: 62, available: 38, utilization: 62, efficiency: 95 },
+ { department: 'Design & Engineering', allocated: 70, available: 30, utilization: 70, efficiency: 90 },
+ { department: 'Procurement', allocated: 55, available: 45, utilization: 55, efficiency: 85 },
+ { department: 'Service & Support', allocated: 48, available: 52, utilization: 48, efficiency: 87 },
+];
+
+/** Group projects into a monthly revenue/cost/profit series keyed by end month. */
+function deriveMonthlyData(projects: Project[]): MonthlyData[] {
+ const buckets = new Map<string, { sortKey: number; month: string; revenue: number; cost: number; profit: number; projectsCompleted: number }>();
+ for (const p of projects) {
+  const ref = p.endDate || p.startDate;
+  if (!ref) continue;
+  const d = new Date(ref);
+  if (Number.isNaN(d.getTime())) continue;
+  const sortKey = d.getFullYear() * 12 + d.getMonth();
+  const month = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+  const revenue = p.budgetAllocated || 0;
+  const cost = p.budgetSpent || 0;
+  const existing = buckets.get(month) ?? { sortKey, month, revenue: 0, cost: 0, profit: 0, projectsCompleted: 0 };
+  existing.revenue += revenue;
+  existing.cost += cost;
+  existing.profit += revenue - cost;
+  if (p.status === 'Completed') existing.projectsCompleted += 1;
+  buckets.set(month, existing);
+ }
+ return Array.from(buckets.values())
+  .sort((a, b) => a.sortKey - b.sortKey)
+  .map(({ sortKey, ...rest }) => rest);
+}
+
+/** Aggregate resource-level utilization rows into department-level bars. */
+function deriveResourceUtilization(rows: any[]): ResourceUtilization[] {
+ const buckets = new Map<string, { util: number; eff: number; count: number }>();
+ for (const r of rows) {
+  const dept = String(r?.department ?? r?.role ?? 'Unassigned');
+  const util = Number(r?.utilization ?? 0);
+  const eff = Number(r?.efficiency ?? 0);
+  const b = buckets.get(dept) ?? { util: 0, eff: 0, count: 0 };
+  b.util += util;
+  b.eff += eff;
+  b.count += 1;
+  buckets.set(dept, b);
+ }
+ return Array.from(buckets.entries()).map(([department, b]) => {
+  const utilization = Math.round(b.util / b.count);
+  const efficiency = Math.round(b.eff / b.count);
+  return {
+   department,
+   allocated: utilization,
+   available: Math.max(0, 100 - utilization),
+   utilization,
+   efficiency,
+  };
+ });
+}
+
 export default function ProjectAnalyticsPage() {
  const [timeRange, setTimeRange] = useState<'month' | 'quarter' | 'year'>('month');
  const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'profit' | 'projects'>('revenue');
  const [isLoading, setIsLoading] = useState(true);
  const [projects, setProjects] = useState<Project[]>([]);
  const [summary, setSummary] = useState<PmAnalyticsSummary | null>(null);
+ const [monthlyData, setMonthlyData] = useState<MonthlyData[]>(FALLBACK_MONTHLY_DATA);
+ const [resourceUtilization, setResourceUtilization] = useState<ResourceUtilization[]>(FALLBACK_RESOURCE_UTILIZATION);
 
  // Modal states
  const [isCustomDashboardModalOpen, setIsCustomDashboardModalOpen] = useState(false);
@@ -81,12 +153,23 @@ export default function ProjectAnalyticsPage() {
   const fetchProjects = async () => {
    setIsLoading(true);
    try {
-    const [data, summaryData] = await Promise.all([
+    const [data, summaryData, utilRows] = await Promise.all([
      projectManagementService.getProjects(),
      projectManagementService.getPmAnalyticsSummary(),
+     projectManagementService.getPmResourceUtilization().catch(() => []),
     ]);
     setProjects(data);
     setSummary(summaryData);
+
+    // Monthly series: derive from real projects grouped by month; keep the
+    // seeded fallback only when there is nothing to group.
+    const derivedMonthly = deriveMonthlyData(data);
+    if (derivedMonthly.length > 0) setMonthlyData(derivedMonthly);
+
+    // Resource utilization: aggregate the real per-resource endpoint into
+    // department bars; keep the seeded fallback only when the feed is empty.
+    const derivedUtil = deriveResourceUtilization(Array.isArray(utilRows) ? utilRows : []);
+    if (derivedUtil.length > 0) setResourceUtilization(derivedUtil);
    } catch (error) {
     console.error('Error fetching projects for analytics:', error);
    } finally {
@@ -140,16 +223,6 @@ export default function ProjectAnalyticsPage() {
  // Use computed metrics
  const metrics = computedMetrics;
 
- const monthlyData: MonthlyData[] = [
-  { month: 'Jul 24', revenue: 8500000, cost: 6200000, profit: 2300000, projectsCompleted: 2 },
-  { month: 'Aug 24', revenue: 11200000, cost: 8100000, profit: 3100000, projectsCompleted: 3 },
-  { month: 'Sep 24', revenue: 9800000, cost: 7000000, profit: 2800000, projectsCompleted: 2 },
-  { month: 'Oct 24', revenue: 13500000, cost: 9800000, profit: 3700000, projectsCompleted: 4 },
-  { month: 'Nov 24', revenue: 12100000, cost: 8700000, profit: 3400000, projectsCompleted: 3 },
-  { month: 'Dec 24', revenue: 15200000, cost: 10800000, profit: 4400000, projectsCompleted: 4 },
-  { month: 'Jan 25', revenue: 16800000, cost: 12100000, profit: 4700000, projectsCompleted: 4 },
- ];
-
  const fallbackProjectTypeMetrics: ProjectTypeMetrics[] = [
   { type: 'Commercial Kitchen', count: 18, revenue: 52000000, avgDuration: 105, successRate: 83, color: 'bg-blue-500' },
   { type: 'Cold Room', count: 12, revenue: 38000000, avgDuration: 78, successRate: 92, color: 'bg-cyan-500' },
@@ -169,15 +242,6 @@ export default function ProjectAnalyticsPage() {
       color: t.color,
      }))
    : fallbackProjectTypeMetrics;
-
- const resourceUtilization: ResourceUtilization[] = [
-  { department: 'Installation Team', allocated: 85, available: 15, utilization: 85, efficiency: 92 },
-  { department: 'Project Management', allocated: 78, available: 22, utilization: 78, efficiency: 88 },
-  { department: 'Quality Control', allocated: 62, available: 38, utilization: 62, efficiency: 95 },
-  { department: 'Design & Engineering', allocated: 70, available: 30, utilization: 70, efficiency: 90 },
-  { department: 'Procurement', allocated: 55, available: 45, utilization: 55, efficiency: 85 },
-  { department: 'Service & Support', allocated: 48, available: 52, utilization: 48, efficiency: 87 },
- ];
 
  const fallbackTopProjects = [
   { name: 'Taj Hotels - Commercial Kitchen', revenue: 8500000, profit: 2550000, margin: 30, status: 'In Progress' },
@@ -199,6 +263,19 @@ export default function ProjectAnalyticsPage() {
  };
 
  const maxValue = getMaxValue();
+
+ // Insight cards derived from the already-computed real KPIs and aggregated
+ // resource / project-type data rather than hard-coded copy.
+ const totalProfit = metrics.totalRevenue - metrics.totalCost;
+ const topRevenueType = [...projectTypeMetrics].sort((a, b) => b.revenue - a.revenue)[0];
+ const busiestResource = [...resourceUtilization].sort((a, b) => b.utilization - a.utilization)[0];
+ const bestSuccessType = [...projectTypeMetrics].sort((a, b) => b.successRate - a.successRate)[0];
+
+ const revenueInsight = `Total revenue of ₹${(metrics.totalRevenue / 10000000).toFixed(1)}Cr at a ${metrics.profitMargin}% margin (₹${(totalProfit / 10000000).toFixed(1)}Cr profit).${topRevenueType ? ` ${topRevenueType.type} is the top revenue contributor.` : ''}`;
+ const resourceInsight = busiestResource
+  ? `${busiestResource.department} is at ${busiestResource.utilization}% utilization${busiestResource.utilization >= 80 ? ' — consider hiring or reallocating resources for upcoming projects.' : ' and has spare capacity.'}`
+  : 'Resource utilization data is being collected.';
+ const deliveryInsight = `${metrics.onTimeDelivery}% on-time delivery across ${metrics.totalProjects} projects (${metrics.delayedProjects} delayed).${bestSuccessType ? ` ${bestSuccessType.type} leads with a ${bestSuccessType.successRate}% success rate.` : ''}`;
 
  // Modal Handlers
  const handleSaveDashboardConfig = (config: any) => {
@@ -730,9 +807,9 @@ export default function ProjectAnalyticsPage() {
        <TrendingUp className="h-5 w-5 text-green-600" />
       </div>
       <div>
-       <p className="text-sm font-semibold text-green-900">Strong Revenue Growth</p>
+       <p className="text-sm font-semibold text-green-900">Revenue &amp; Profitability</p>
        <p className="text-xs text-green-700 mt-1">
-        Revenue increased by 18% this quarter. Commercial Kitchen and Switchgear projects are key contributors.
+        {revenueInsight}
        </p>
       </div>
      </div>
@@ -744,9 +821,9 @@ export default function ProjectAnalyticsPage() {
        <AlertTriangle className="h-5 w-5 text-yellow-600" />
       </div>
       <div>
-       <p className="text-sm font-semibold text-yellow-900">Resource Optimization Needed</p>
+       <p className="text-sm font-semibold text-yellow-900">Resource Optimization</p>
        <p className="text-xs text-yellow-700 mt-1">
-        Installation Team is at 85% utilization. Consider hiring or reallocating resources for upcoming projects.
+        {resourceInsight}
        </p>
       </div>
      </div>
@@ -758,9 +835,9 @@ export default function ProjectAnalyticsPage() {
        <Users className="h-5 w-5 text-blue-600" />
       </div>
       <div>
-       <p className="text-sm font-semibold text-blue-900">High Customer Satisfaction</p>
+       <p className="text-sm font-semibold text-blue-900">Delivery Performance</p>
        <p className="text-xs text-blue-700 mt-1">
-        4.2/5.0 rating across {metrics.completedProjects} projects. Modular Kitchen segment achieving 100% success rate.
+        {deliveryInsight}
        </p>
       </div>
      </div>

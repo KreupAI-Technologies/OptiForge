@@ -20,6 +20,16 @@ export class ProcurementController {
         return this.service.getPRs(projectId);
     }
 
+    @Get('grn-items/:projectId')
+    getGRNItems(@Param('projectId') projectId: string) {
+        return this.service.getGRNItems(projectId);
+    }
+
+    @Get('pr-shortfall-items/:projectId')
+    getPRShortfallItems(@Param('projectId') projectId: string) {
+        return this.service.getPRShortfallItems(projectId);
+    }
+
     @Post('grn')
     createGRN(@Body() data: { purchaseOrderId: string; receivedBy: string; deliveryNoteRef: string }) {
         return this.service.createGRN(data.purchaseOrderId, data.receivedBy, data.deliveryNoteRef);

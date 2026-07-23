@@ -36,6 +36,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [detailGrievance, setDetailGrievance] = useState<Grievance | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -352,7 +353,7 @@ export default function Page() {
             )}
 
             <div className="flex items-center gap-2">
-              <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium flex items-center gap-2">
+              <button onClick={() => setDetailGrievance(grievance)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 View Full Details
               </button>
@@ -383,6 +384,62 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailGrievance && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Grievance Details — {detailGrievance.grievanceNumber}</h2>
+              <button onClick={() => setDetailGrievance(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">Employee:</span> <span className="font-medium text-gray-900">{detailGrievance.employeeName}</span></div>
+              <div><span className="text-gray-500">Department:</span> <span className="font-medium text-gray-900">{detailGrievance.department}</span></div>
+              <div><span className="text-gray-500">Category:</span> <span className="font-medium text-gray-900">{detailGrievance.category}</span></div>
+              <div><span className="text-gray-500">Subcategory:</span> <span className="font-medium text-gray-900">{detailGrievance.subcategory}</span></div>
+              <div><span className="text-gray-500">Priority:</span> <span className="font-medium text-gray-900">{detailGrievance.priority}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailGrievance.status}</span></div>
+              <div><span className="text-gray-500">Filed Date:</span> <span className="font-medium text-gray-900">{detailGrievance.filedDate}</span></div>
+              {detailGrievance.assignedTo && <div><span className="text-gray-500">Assigned To:</span> <span className="font-medium text-gray-900">{detailGrievance.assignedTo}</span></div>}
+              {detailGrievance.targetResolutionDate && <div><span className="text-gray-500">Target Resolution:</span> <span className="font-medium text-gray-900">{detailGrievance.targetResolutionDate}</span></div>}
+              {detailGrievance.actualResolutionDate && <div><span className="text-gray-500">Actual Resolution:</span> <span className="font-medium text-gray-900">{detailGrievance.actualResolutionDate}</span></div>}
+              <div><span className="text-gray-500">Anonymous:</span> <span className="font-medium text-gray-900">{detailGrievance.isAnonymous ? 'Yes' : 'No'}</span></div>
+              <div><span className="text-gray-500">Evidence Provided:</span> <span className="font-medium text-gray-900">{detailGrievance.evidenceProvided ? 'Yes' : 'No'}</span></div>
+            </div>
+            <div className="bg-orange-50 rounded-lg p-3 border border-orange-200 mb-3">
+              <p className="text-xs text-orange-600 uppercase font-medium mb-1">Description</p>
+              <p className="text-sm text-orange-900">{detailGrievance.description}</p>
+            </div>
+            {detailGrievance.witnesses && detailGrievance.witnesses.length > 0 && (
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-3">
+                <p className="text-xs text-blue-600 uppercase font-medium mb-1">Witnesses</p>
+                <p className="text-sm text-blue-900">{detailGrievance.witnesses.join(', ')}</p>
+              </div>
+            )}
+            {detailGrievance.resolutionDetails && (
+              <div className="bg-green-50 rounded-lg p-3 border border-green-200 mb-3">
+                <p className="text-xs text-green-600 uppercase font-medium mb-1">Resolution Details</p>
+                <p className="text-sm text-green-900">{detailGrievance.resolutionDetails}</p>
+              </div>
+            )}
+            {detailGrievance.employeeSatisfaction && (
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-3">
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Employee Satisfaction</p>
+                <p className="text-sm font-bold text-gray-900">{detailGrievance.employeeSatisfaction.toUpperCase()}</p>
+              </div>
+            )}
+            {detailGrievance.remarks && (
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 mb-3">
+                <p className="text-xs text-yellow-600 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm text-yellow-900">{detailGrievance.remarks}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailGrievance(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

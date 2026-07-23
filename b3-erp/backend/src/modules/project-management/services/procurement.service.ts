@@ -71,6 +71,92 @@ export class ProcurementService {
         return this.prRepository.find({ where: { projectId }, order: { createdAt: 'DESC' } });
     }
 
+    /**
+     * Latest-BOM line items for a project, shaped for the GRN entry screen.
+     * Sourced from the project's most recent BOM (header + details + item),
+     * so "ordered" quantities and descriptions reflect real BOM data rather
+     * than hard-coded placeholders. receivedQty defaults to orderedQty.
+     */
+    async getGRNItems(projectId: string): Promise<Array<{
+        id: string;
+        itemId: string;
+        description: string;
+        orderedQty: number;
+        receivedQty: number;
+        unit: string;
+    }>> {
+        const header = await this.bomHeaderRepository.findOne({
+            where: { projectId },
+            order: { version: 'DESC', createdAt: 'DESC' },
+        });
+        if (!header) return [];
+
+        const details = await this.bomDetailRepository.find({
+            where: { headerId: header.id },
+            relations: ['item'],
+            order: { createdAt: 'ASC' },
+        });
+
+        return details.map((d) => {
+            const orderedQty = Number(d.quantity) || 0;
+            return {
+                id: d.id,
+                itemId: d.itemId,
+                description: d.item?.itemName ?? d.item?.itemDescription ?? 'Item',
+                orderedQty,
+                receivedQty: orderedQty,
+                unit: d.uom ?? d.item?.baseUOM ?? 'nos',
+            };
+        });
+    }
+
+    /**
+     * Shortfall line items for a project's Purchase Requisition, sourced from
+     * the latest BOM compared against on-hand item stock. Only BOM lines whose
+     * required quantity exceeds current stock are returned, with the computed
+     * shortfall and a suggested order quantity.
+     */
+    async getPRShortfallItems(projectId: string): Promise<Array<{
+        id: string;
+        itemId: string;
+        name: string;
+        category: string;
+        shortfallQty: number;
+        orderQty: number;
+        unit: string;
+        preferredVendor: string;
+    }>> {
+        const header = await this.bomHeaderRepository.findOne({
+            where: { projectId },
+            order: { version: 'DESC', createdAt: 'DESC' },
+        });
+        if (!header) return [];
+
+        const details = await this.bomDetailRepository.find({
+            where: { headerId: header.id },
+            relations: ['item'],
+            order: { createdAt: 'ASC' },
+        });
+
+        return details
+            .map((d) => {
+                const requiredQty = Number(d.quantity) || 0;
+                const availableQty = Number(d.item?.currentStock) || 0;
+                const shortfallQty = Math.max(0, requiredQty - availableQty);
+                return {
+                    id: d.id,
+                    itemId: d.itemId,
+                    name: d.item?.itemName ?? d.item?.itemDescription ?? 'Item',
+                    category: d.item?.category ?? d.item?.itemType ?? 'General',
+                    shortfallQty,
+                    orderQty: shortfallQty,
+                    unit: d.uom ?? d.item?.baseUOM ?? 'nos',
+                    preferredVendor: d.item?.preferredVendorName ?? 'Generic',
+                };
+            })
+            .filter((line) => line.shortfallQty > 0);
+    }
+
     // --- Goods Receipt (GRN) ---
 
     async createGRN(purchaseOrderId: string, receivedBy: string, deliveryNoteRef: string): Promise<GRN> {

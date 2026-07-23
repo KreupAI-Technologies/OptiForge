@@ -20,11 +20,78 @@ import {
 
 interface ProcurementComplianceProps {}
 
+interface ComplianceRequirement {
+  id: string;
+  requirement: string;
+  category: string;
+  status: string;
+  score: number;
+  met: number;
+  total: number;
+  lastAudit: string;
+  nextReview: string;
+  owner: string;
+}
+
+interface ComplianceViolation {
+  id: string;
+  date: string;
+  category: string;
+  severity: string;
+  description: string;
+  status: string;
+  dueDate: string;
+}
+
+type ComplianceModal =
+  | { type: 'violations' }
+  | { type: 'requirement'; req: ComplianceRequirement }
+  | { type: 'monitor' }
+  | { type: 'training' }
+  | { type: 'policies' }
+  | { type: 'record' }
+  | { type: 'settings' };
+
+function toCsv(rows: Array<Record<string, unknown>>): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown): string => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [
+    headers.join(','),
+    ...rows.map((r) => headers.map((h) => escape(r[h])).join(',')),
+  ].join('\n');
+}
+
+function downloadCsv(filename: string, rows: Array<Record<string, unknown>>): void {
+  const csv = toCsv(rows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedCompliance, setSelectedCompliance] = useState<any>(null);
   const [showRealTimeMonitoring, setShowRealTimeMonitoring] = useState(true);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+
+  // Active client-side modal + policy record form.
+  const [modal, setModal] = useState<ComplianceModal | null>(null);
+  const [policyForm, setPolicyForm] = useState<{ requirement: string; category: string; dueDate: string; evidence: string }>({
+    requirement: '', category: '', dueDate: '', evidence: '',
+  });
+  const [recordForm, setRecordForm] = useState<{ requirement: string; supplierId: string; dueDate: string; evidence: string }>({
+    requirement: '', supplierId: '', dueDate: '', evidence: '',
+  });
+  const closeModal = () => setModal(null);
 
   // Compliance metrics (defaults render before load; summary fields merged from API)
   const [complianceMetrics, setComplianceMetrics] = useState({
@@ -39,11 +106,9 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   });
 
   // Compliance requirements (loaded from API)
-  const [complianceRequirements, setComplianceRequirements] = useState<any[]>([]);
+  const [complianceRequirements, setComplianceRequirements] = useState<ComplianceRequirement[]>([]);
   // Compliance violations (loaded from API)
-  const [violationsData, setViolationsData] = useState<Array<{
-    id: string; date: string; category: string; severity: string; description: string; status: string; dueDate: string;
-  }>>([]);
+  const [violationsData, setViolationsData] = useState<ComplianceViolation[]>([]);
 
   // Compliance records CRUD (loaded from NestJS domain backend)
   const [complianceRecords, setComplianceRecords] = useState<ProcurementComplianceRecord[]>([]);
@@ -71,7 +136,17 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
     (async () => {
       try {
         const v = await procurementPagesService.getComplianceViolations();
-        setViolationsData((v || []) as any[]);
+        setViolationsData(
+          (Array.isArray(v) ? v : []).map((x: any): ComplianceViolation => ({
+            id: String(x?.id ?? ''),
+            date: String(x?.date ?? ''),
+            category: String(x?.category ?? ''),
+            severity: String(x?.severity ?? ''),
+            description: String(x?.description ?? ''),
+            status: String(x?.status ?? ''),
+            dueDate: String(x?.dueDate ?? ''),
+          })),
+        );
       } catch (err) {
         console.error('Failed to load compliance violations:', err);
         setViolationsData([]);
@@ -119,15 +194,30 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   }, []);
 
   // Handler Functions
-  // Repurposed: create a new compliance record.
-  const handleRunAudit = async () => {
-    const requirement = window.prompt('Compliance requirement')?.trim();
-    if (!requirement) return;
+  // Create a new compliance record (via modal form).
+  const handleRunAudit = () => {
+    setRecordForm({ requirement: '', supplierId: '', dueDate: '', evidence: '' });
+    setRecordsError(null);
+    setModal({ type: 'record' });
+  };
+
+  const submitRecord = async () => {
+    if (!recordForm.requirement.trim()) {
+      setRecordsError('Requirement is required.');
+      return;
+    }
     setRecordsBusy(true);
     setRecordsError(null);
     try {
-      await procurementComplianceRecordService.createRecord({ requirement, status: 'pending' });
+      await procurementComplianceRecordService.createRecord({
+        requirement: recordForm.requirement.trim(),
+        status: 'pending',
+        supplierId: recordForm.supplierId.trim() || undefined,
+        dueDate: recordForm.dueDate || undefined,
+        evidence: recordForm.evidence.trim() || undefined,
+      });
       await loadRecords();
+      closeModal();
     } catch (err) {
       setRecordsError(err instanceof Error ? err.message : 'Failed to create compliance record');
     } finally {
@@ -135,42 +225,84 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
     }
   };
 
-  const handleViewViolations = () => {
-    // Violation drill-down / remediation workflow — backend not yet available.
-  };
+  const handleViewViolations = () => setModal({ type: 'violations' });
 
   const handleGenerateReport = () => {
-    // Compliance report generation — backend not yet available.
+    // Compliance report -> CSV of the live requirements dataset.
+    downloadCsv(
+      'compliance-report.csv',
+      complianceRequirements.map((r) => ({
+        requirement: r.requirement,
+        category: r.category,
+        status: r.status,
+        score: r.score,
+        met: r.met,
+        total: r.total,
+        lastAudit: r.lastAudit,
+        nextReview: r.nextReview,
+        owner: r.owner,
+      })),
+    );
   };
 
   const handleSetPolicies = () => {
-    // Policy lifecycle management — backend not yet available.
+    setPolicyForm({ requirement: '', category: '', dueDate: '', evidence: '' });
+    setRecordsError(null);
+    setModal({ type: 'policies' });
   };
 
-  const handleViewRequirement = (req: any) => {
-    // Requirement detail drill-down — backend not yet available.
-    void req;
+  // Reuse the compliance-record store for policy records (fits the "requirement" model).
+  const submitPolicy = async () => {
+    if (!policyForm.requirement.trim()) {
+      setRecordsError('Policy requirement is required.');
+      return;
+    }
+    setRecordsBusy(true);
+    setRecordsError(null);
+    try {
+      await procurementComplianceRecordService.createRecord({
+        requirement: policyForm.requirement.trim(),
+        status: 'pending',
+        evidence: policyForm.category.trim()
+          ? `Policy · ${policyForm.category.trim()}${policyForm.evidence.trim() ? ` — ${policyForm.evidence.trim()}` : ''}`
+          : policyForm.evidence.trim() || undefined,
+        dueDate: policyForm.dueDate || undefined,
+      });
+      await loadRecords();
+      closeModal();
+    } catch (err) {
+      setRecordsError(err instanceof Error ? err.message : 'Failed to create policy record');
+    } finally {
+      setRecordsBusy(false);
+    }
   };
+
+  const handleViewRequirement = (req: ComplianceRequirement) => setModal({ type: 'requirement', req });
 
   const handleRefresh = () => {
     void loadRecords();
   };
 
-  const handleSettings = () => {
-    // Compliance settings configuration — backend not yet available.
-  };
+  const handleSettings = () => setModal({ type: 'settings' });
 
   const handleExport = () => {
-    // Compliance data export — backend not yet available.
+    // Export live requirements + records to CSV.
+    downloadCsv(
+      'compliance-export.csv',
+      complianceRequirements.map((r) => ({
+        requirement: r.requirement,
+        category: r.category,
+        status: r.status,
+        score: r.score,
+        nextReview: r.nextReview,
+        owner: r.owner,
+      })),
+    );
   };
 
-  const handleMonitorCompliance = () => {
-    // Real-time compliance monitoring dashboard — backend not yet available.
-  };
+  const handleMonitorCompliance = () => setModal({ type: 'monitor' });
 
-  const handleTrainingCompliance = () => {
-    // Compliance training management — backend not yet available.
-  };
+  const handleTrainingCompliance = () => setModal({ type: 'training' });
 
   return (
     <div className="p-6">
@@ -195,30 +327,51 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
             </button>
             <button
               onClick={handleViewViolations}
-              disabled
-              className="flex items-center space-x-2 px-4 py-2 bg-white text-red-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Violation drill-down / remediation workflow — backend not yet available"
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-red-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="View compliance violations"
             >
               <AlertTriangle className="h-4 w-4" />
               <span>Violations</span>
             </button>
             <button
               onClick={handleGenerateReport}
-              disabled
-              className="flex items-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Compliance report generation — backend not yet available"
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Generate compliance report (CSV)"
             >
               <FileText className="h-4 w-4" />
               <span>Report</span>
             </button>
             <button
               onClick={handleSetPolicies}
-              disabled
-              className="flex items-center space-x-2 px-4 py-2 bg-white text-purple-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Policy lifecycle management — backend not yet available"
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-purple-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Add a compliance policy record"
             >
               <Lock className="h-4 w-4" />
               <span>Policies</span>
+            </button>
+            <button
+              onClick={handleMonitorCompliance}
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-teal-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Real-time compliance monitoring"
+            >
+              <Activity className="h-4 w-4" />
+              <span>Monitor</span>
+            </button>
+            <button
+              onClick={handleTrainingCompliance}
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-emerald-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Compliance training"
+            >
+              <Users className="h-4 w-4" />
+              <span>Training</span>
+            </button>
+            <button
+              onClick={handleExport}
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Export compliance data (CSV)"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export</span>
             </button>
             <button
               onClick={handleRefresh}
@@ -230,9 +383,8 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
             </button>
             <button
               onClick={handleSettings}
-              disabled
-              className="flex items-center space-x-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Compliance settings configuration — backend not yet available"
+              className="flex items-center space-x-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              title="Compliance settings"
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -313,7 +465,7 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
               </div>
               <div className="text-3xl font-bold text-gray-900">{complianceMetrics.nonCompliant + complianceMetrics.pending}</div>
               <div className="text-xs text-amber-600 mt-1">{complianceMetrics.nonCompliant} critical</div>
-              <button className="mt-1 text-xs text-amber-700 hover:text-amber-800 font-medium">
+              <button onClick={handleMonitorCompliance} className="mt-1 text-xs text-amber-700 hover:text-amber-800 font-medium">
                 Review Now →
               </button>
             </div>
@@ -343,7 +495,7 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
               <div className="flex-1">
                 <h4 className="text-sm font-semibold text-gray-900">Critical Violations</h4>
                 <p className="text-xs text-gray-600 mt-1">{complianceMetrics.incidentsThisMonth} incidents reported this month - 2 require immediate action</p>
-                <button className="text-xs text-red-600 hover:text-red-700 font-medium mt-1">View Details →</button>
+                <button onClick={handleViewViolations} className="text-xs text-red-600 hover:text-red-700 font-medium mt-1">View Details →</button>
               </div>
             </div>
 
@@ -478,9 +630,8 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
                       <td className="py-2">
                         <button
                           onClick={() => handleViewRequirement(req)}
-                          disabled
-                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Requirement detail view — backend not yet available"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm transition-colors"
+                          title="View requirement detail"
                         >
                           <Eye className="h-4 w-4 text-gray-600" />
                           <span className="text-gray-700">View</span>
@@ -539,8 +690,215 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
           </div>
         </div>
       )}
+
+      {modal && renderModal()}
     </div>
   );
+
+  function renderModal() {
+    if (!modal) return null;
+    const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500';
+    const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+
+    let title = '';
+    let body: React.ReactNode = null;
+    let footer: React.ReactNode = (
+      <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+    );
+
+    if (modal.type === 'violations') {
+      title = 'Compliance Violations';
+      body = violationsData.length === 0 ? (
+        <p className="text-sm text-gray-500">No violations recorded.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-600">
+                <th className="py-2 pr-3">Date</th>
+                <th className="py-2 pr-3">Category</th>
+                <th className="py-2 pr-3">Severity</th>
+                <th className="py-2 pr-3">Description</th>
+                <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3">Due</th>
+              </tr>
+            </thead>
+            <tbody>
+              {violationsData.map((v) => (
+                <tr key={v.id} className="border-b hover:bg-gray-50">
+                  <td className="py-2 pr-3">{v.date}</td>
+                  <td className="py-2 pr-3">{v.category}</td>
+                  <td className="py-2 pr-3">{v.severity}</td>
+                  <td className="py-2 pr-3">{v.description}</td>
+                  <td className="py-2 pr-3">{v.status}</td>
+                  <td className="py-2 pr-3">{v.dueDate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          {violationsData.length > 0 && (
+            <button onClick={() => downloadCsv('compliance-violations.csv', violationsData as unknown as Array<Record<string, unknown>>)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-2">
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
+          )}
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+        </div>
+      );
+    } else if (modal.type === 'requirement') {
+      const r = modal.req;
+      title = `Requirement — ${r.requirement}`;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <div><span className="text-gray-500">Category:</span> <span className="font-medium">{r.category}</span></div>
+          <div><span className="text-gray-500">Status:</span> <span className="font-medium">{r.status}</span></div>
+          <div><span className="text-gray-500">Score:</span> <span className="font-medium">{r.score}%</span></div>
+          <div><span className="text-gray-500">Met / Total:</span> <span className="font-medium">{r.met} / {r.total}</span></div>
+          <div><span className="text-gray-500">Last Audit:</span> <span className="font-medium">{r.lastAudit || '—'}</span></div>
+          <div><span className="text-gray-500">Next Review:</span> <span className="font-medium">{r.nextReview || '—'}</span></div>
+          <div><span className="text-gray-500">Owner:</span> <span className="font-medium">{r.owner || '—'}</span></div>
+        </div>
+      );
+    } else if (modal.type === 'monitor') {
+      title = 'Real-Time Compliance Monitoring';
+      body = (
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-500">Overall Score</div><div className="text-2xl font-bold">{complianceMetrics.overallScore}%</div></div>
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-500">Compliant</div><div className="text-2xl font-bold">{complianceMetrics.compliant}</div></div>
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-500">Non-Compliant</div><div className="text-2xl font-bold">{complianceMetrics.nonCompliant}</div></div>
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-500">Pending</div><div className="text-2xl font-bold">{complianceMetrics.pending}</div></div>
+          </div>
+          <div>
+            <div className="font-medium mb-1">Items needing attention</div>
+            {complianceRequirements.filter((r) => r.status !== 'compliant').length === 0 ? (
+              <p className="text-gray-500">All requirements compliant.</p>
+            ) : (
+              <ul className="list-disc pl-5">
+                {complianceRequirements.filter((r) => r.status !== 'compliant').map((r) => (
+                  <li key={r.id}>{r.requirement} — {r.status} ({r.score}%)</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      );
+    } else if (modal.type === 'training') {
+      title = 'Compliance Training';
+      const owners = Array.from(new Set(complianceRequirements.map((r) => r.owner).filter(Boolean)));
+      body = (
+        <div className="space-y-3 text-sm">
+          <p className="text-gray-600">Training coverage derived from requirement owners.</p>
+          {owners.length === 0 ? (
+            <p className="text-gray-500">No owners assigned to requirements yet.</p>
+          ) : (
+            <ul className="list-disc pl-5">
+              {owners.map((o) => (
+                <li key={o}>{o}: owns {complianceRequirements.filter((r) => r.owner === o).length} requirement(s)</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    } else if (modal.type === 'record') {
+      title = 'New Compliance Record';
+      body = (
+        <div className="space-y-3">
+          {recordsError && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{recordsError}</div>
+          )}
+          <div>
+            <label className={labelCls}>Requirement *</label>
+            <input className={inputCls} value={recordForm.requirement} onChange={(e) => setRecordForm({ ...recordForm, requirement: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Supplier ID</label>
+            <input className={inputCls} value={recordForm.supplierId} onChange={(e) => setRecordForm({ ...recordForm, supplierId: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Due Date</label>
+            <input type="date" className={inputCls} value={recordForm.dueDate} onChange={(e) => setRecordForm({ ...recordForm, dueDate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Evidence / Notes</label>
+            <textarea className={inputCls} rows={2} value={recordForm.evidence} onChange={(e) => setRecordForm({ ...recordForm, evidence: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={submitRecord} disabled={recordsBusy} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
+            {recordsBusy ? 'Saving…' : 'Add Record'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'settings') {
+      title = 'Compliance Settings';
+      body = (
+        <div className="space-y-3 text-sm">
+          <label className="flex items-center justify-between">
+            <span>Auto-refresh monitoring</span>
+            <input type="checkbox" checked={autoRefreshEnabled} onChange={(e) => setAutoRefreshEnabled(e.target.checked)} className="rounded" />
+          </label>
+          <label className="flex items-center justify-between">
+            <span>Show real-time monitoring panel</span>
+            <input type="checkbox" checked={showRealTimeMonitoring} onChange={(e) => setShowRealTimeMonitoring(e.target.checked)} className="rounded" />
+          </label>
+          <p className="text-gray-500">Display preferences (client-side).</p>
+        </div>
+      );
+    } else if (modal.type === 'policies') {
+      title = 'Add Compliance Policy';
+      body = (
+        <div className="space-y-3">
+          {recordsError && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{recordsError}</div>
+          )}
+          <div>
+            <label className={labelCls}>Policy Requirement *</label>
+            <input className={inputCls} value={policyForm.requirement} onChange={(e) => setPolicyForm({ ...policyForm, requirement: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Category</label>
+            <input className={inputCls} value={policyForm.category} onChange={(e) => setPolicyForm({ ...policyForm, category: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Due Date</label>
+            <input type="date" className={inputCls} value={policyForm.dueDate} onChange={(e) => setPolicyForm({ ...policyForm, dueDate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Notes / Evidence</label>
+            <textarea className={inputCls} rows={2} value={policyForm.evidence} onChange={(e) => setPolicyForm({ ...policyForm, evidence: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={submitPolicy} disabled={recordsBusy} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50">
+            {recordsBusy ? 'Saving…' : 'Add Policy'}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeModal}>
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-3 border-b">
+            <h3 className="text-lg font-semibold">{title}</h3>
+            <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          </div>
+          <div className="px-5 py-4">{body}</div>
+          <div className="px-5 py-3 border-t flex justify-end">{footer}</div>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default ProcurementCompliance;

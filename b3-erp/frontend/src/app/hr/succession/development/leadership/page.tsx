@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Award, Users, BookOpen, Calendar, TrendingUp, CheckCircle, Clock } from 'lucide-react';
+import { Award, Users, BookOpen, Calendar, TrendingUp, CheckCircle, Clock, Pencil } from 'lucide-react';
 import { HrTalentService } from '@/services/hr-talent.service';
 
 interface LeadershipProgram {
@@ -36,6 +36,27 @@ export default function Page() {
   const [rows, setRows] = useState<LeadershipProgram[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<LeadershipProgram | null>(null);
+  const [editForm, setEditForm] = useState<Partial<LeadershipProgram>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { id, ...rest } = { ...editRow, ...editForm } as LeadershipProgram;
+      await HrTalentService.updateSuccession(editRow.id, { data: rest });
+      setRows(prev => prev.map(r => r.id === editRow.id ? { ...r, ...editForm } : r));
+      setEditRow(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -288,10 +309,77 @@ export default function Page() {
                   Coordinator: <span className="font-semibold text-gray-900">{program.coordinator.split(' ')[0]}</span>
                 </div>
               </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => { setEditRow(program); setEditForm({ programName: program.programName, status: program.status, level: program.level, provider: program.provider, duration: program.duration, location: program.location, coordinator: program.coordinator }); setSaveError(null); }}
+                  className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit Program
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {editRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Edit Leadership Program</h2>
+              <p className="text-sm text-gray-600">{editRow.programName}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-5 py-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Program Name</label>
+                <input type="text" value={editForm.programName ?? ''} onChange={(e) => setEditForm(f => ({ ...f, programName: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={editForm.status ?? 'upcoming'} onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value as LeadershipProgram['status'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="upcoming">Upcoming</option>
+                  <option value="ongoing">Ongoing</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                <select value={editForm.level ?? 'mid_level'} onChange={(e) => setEditForm(f => ({ ...f, level: e.target.value as LeadershipProgram['level'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="executive">Executive</option>
+                  <option value="senior">Senior</option>
+                  <option value="mid_level">Mid-Level</option>
+                  <option value="emerging">Emerging</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                <input type="text" value={editForm.provider ?? ''} onChange={(e) => setEditForm(f => ({ ...f, provider: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                <input type="text" value={editForm.duration ?? ''} onChange={(e) => setEditForm(f => ({ ...f, duration: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={editForm.location ?? ''} onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Coordinator</label>
+                <input type="text" value={editForm.coordinator ?? ''} onChange={(e) => setEditForm(f => ({ ...f, coordinator: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+            {saveError && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <button onClick={() => setEditRow(null)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm disabled:opacity-50">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

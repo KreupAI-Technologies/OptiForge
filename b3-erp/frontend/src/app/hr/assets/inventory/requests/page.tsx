@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { ShoppingBag, User, Calendar, Package, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { ShoppingBag, User, Calendar, Package, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
 import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetRequest {
@@ -23,11 +23,21 @@ interface AssetRequest {
   remarks?: string;
 }
 
+const emptyCreateForm = {
+  assetName: '',
+  assetType: 'laptop' as AssetRequest['assetType'],
+  quantity: '1',
+  priority: 'medium' as AssetRequest['priority'],
+  purpose: '',
+  department: '',
+  requester: '',
+  employeeCode: '',
+};
+
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-
 
   const [mockRequests, setMockRequests] = useState<AssetRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,8 +46,39 @@ export default function Page() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [detailRequest, setDetailRequest] = useState<AssetRequest | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const refresh = () => setReloadKey((k) => k + 1);
+
+  const handleCreate = async () => {
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      await HrAssetsService.createAssetRequest({
+        assetName: createForm.assetName,
+        assetCategory: createForm.assetType,
+        quantity: Number(createForm.quantity) || 1,
+        priority: createForm.priority,
+        purpose: createForm.purpose,
+        department: createForm.department,
+        requester: createForm.requester,
+        employeeCode: createForm.employeeCode,
+        requestDate: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        requestId: `REQ-${Date.now()}`,
+      });
+      setCreateForm(emptyCreateForm);
+      setShowCreateForm(false);
+      refresh();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create request');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const handleUpdateStatus = async (
     request: AssetRequest,
@@ -223,7 +264,7 @@ export default function Page() {
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm flex items-center justify-center gap-2">
+            <button onClick={() => setShowCreateForm(true)} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm flex items-center justify-center gap-2">
               <ShoppingBag className="h-4 w-4" />
               New Request
             </button>
@@ -349,6 +390,87 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {showCreateForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-xl font-bold">New Asset Request</h2>
+              <button onClick={() => setShowCreateForm(false)} className="text-white hover:bg-white/20 rounded-lg p-1">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              {createError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {createError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
+                  <input value={createForm.assetName} onChange={(e) => setCreateForm({ ...createForm, assetName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. Dell Laptop" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Type</label>
+                  <select value={createForm.assetType} onChange={(e) => setCreateForm({ ...createForm, assetType: e.target.value as AssetRequest['assetType'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="monitor">Monitor</option>
+                    <option value="furniture">Furniture</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                  <input type="number" min="1" value={createForm.quantity} onChange={(e) => setCreateForm({ ...createForm, quantity: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select value={createForm.priority} onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value as AssetRequest['priority'] })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Requester</label>
+                  <input value={createForm.requester} onChange={(e) => setCreateForm({ ...createForm, requester: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Code</label>
+                  <input value={createForm.employeeCode} onChange={(e) => setCreateForm({ ...createForm, employeeCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <select value={createForm.department} onChange={(e) => setCreateForm({ ...createForm, department: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select Department</option>
+                    <option value="Sales">Sales</option>
+                    <option value="IT">IT</option>
+                    <option value="HR">HR</option>
+                    <option value="Marketing">Marketing</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+                  <input value={createForm.purpose} onChange={(e) => setCreateForm({ ...createForm, purpose: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Reason for request" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={handleCreate} disabled={isCreating} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60">
+                  {isCreating ? 'Submitting…' : 'Submit Request'}
+                </button>
+                <button onClick={() => { setShowCreateForm(false); setCreateError(null); setCreateForm(emptyCreateForm); }} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {detailRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3" onClick={() => setDetailRequest(null)}>

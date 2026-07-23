@@ -272,6 +272,94 @@ export interface SafetyTrends {
   };
 }
 
+// --- Report/analytics breakdown shapes (server-aggregated) ------------------
+
+export interface IncidentShiftBucket {
+  shift: string;
+  count: number;
+  percentage: number;
+}
+
+export interface IncidentRootCause {
+  cause: string;
+  count: number;
+  percentage: number;
+}
+
+export interface SafetyIncidentBreakdowns {
+  incidentsByShift: IncidentShiftBucket[];
+  rootCauses: IncidentRootCause[];
+}
+
+export interface RegulatoryFramework {
+  name: string;
+  total: number;
+  compliant: number;
+  score: number;
+  status: string;
+}
+
+export interface ComplianceCategory {
+  category: string;
+  compliant: number;
+}
+
+export interface ComplianceDeadline {
+  id: string;
+  requirement: string;
+  framework: string;
+  dueDate: string;
+  daysLeft: number;
+  priority: string;
+}
+
+export interface AuditHistoryRow {
+  date: string;
+  type: string;
+  scope: string;
+  score: number;
+  findings: number;
+  status: string;
+}
+
+export interface ComplianceBreakdown {
+  regulatoryFrameworks: RegulatoryFramework[];
+  complianceByCategory: ComplianceCategory[];
+  upcomingDeadlines: ComplianceDeadline[];
+  auditHistory: AuditHistoryRow[];
+}
+
+export interface KpiCard {
+  value: number;
+  target: number;
+  trend: number;
+  status: string;
+}
+
+export interface DepartmentScore {
+  dept: string;
+  score: number;
+  target: number;
+}
+
+export interface KpiBreakdown {
+  kpiData: Record<string, KpiCard>;
+  departmentScores: DepartmentScore[];
+}
+
+export interface ExposureMetric {
+  label: string;
+  value: string;
+  limit: string;
+  status: string;
+  icon: string;
+  color: string;
+}
+
+export interface OccupationalBreakdown {
+  exposureMetrics: ExposureMetric[];
+}
+
 /**
  * Build a CSV string from an array of objects. Columns default to the union of
  * keys across rows. Values are stringified and RFC-4180 quoted. Pure client-side
@@ -349,6 +437,50 @@ export class HrSafetyService {
         ltir: 0,
       },
     };
+  }
+
+  /**
+   * Incident breakdowns (by shift, by root cause) aggregated server-side from
+   * the incident rows. Empty-safe: arrays default to [] on a malformed body.
+   */
+  static async getIncidentBreakdowns(
+    companyId = 'company-1',
+  ): Promise<SafetyIncidentBreakdowns> {
+    const data = await getJson<SafetyIncidentBreakdowns>(
+      `/hr/safety-incidents/analytics/breakdowns?${qs(companyId)}`,
+    );
+    return {
+      incidentsByShift: Array.isArray(data?.incidentsByShift)
+        ? data.incidentsByShift
+        : [],
+      rootCauses: Array.isArray(data?.rootCauses) ? data.rootCauses : [],
+    };
+  }
+
+  /**
+   * Report/dashboard breakdown shapes (compliance | kpi | occupational)
+   * aggregated server-side from inspection/training/incident rows plus
+   * reference config. Returned raw; callers narrow by `kind`.
+   */
+  static async getReportBreakdowns(
+    kind: 'compliance',
+    companyId?: string,
+  ): Promise<ComplianceBreakdown>;
+  static async getReportBreakdowns(
+    kind: 'kpi',
+    companyId?: string,
+  ): Promise<KpiBreakdown>;
+  static async getReportBreakdowns(
+    kind: 'occupational',
+    companyId?: string,
+  ): Promise<OccupationalBreakdown>;
+  static async getReportBreakdowns(
+    kind: 'compliance' | 'kpi' | 'occupational',
+    companyId = 'company-1',
+  ): Promise<ComplianceBreakdown | KpiBreakdown | OccupationalBreakdown> {
+    return getJson<ComplianceBreakdown | KpiBreakdown | OccupationalBreakdown>(
+      `/hr/safety-reports/analytics/breakdowns?${qs(companyId, { kind })}`,
+    );
   }
 
   static async getIncidents(

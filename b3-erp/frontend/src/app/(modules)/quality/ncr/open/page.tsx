@@ -25,6 +25,8 @@ import {
   Plus,
   ArrowRight,
   FileWarning,
+  CheckCircle,
+  UserCheck,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
 
@@ -51,6 +53,17 @@ export default function OpenNCRsPage() {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('date');
   const [loading, setLoading] = useState(false);
+
+  // Quick Close modal state
+  const [quickCloseTarget, setQuickCloseTarget] = useState<NCR | null>(null);
+  const [closureNotes, setClosureNotes] = useState('');
+  const [closureSubmitting, setClosureSubmitting] = useState(false);
+
+  // Assign / Update Status modal state
+  const [assignTarget, setAssignTarget] = useState<NCR | null>(null);
+  const [assignStatus, setAssignStatus] = useState<NCRStatus>(NCRStatus.UNDER_REVIEW);
+  const [assignedTo, setAssignedTo] = useState('');
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   // Load projects
   useEffect(() => {
@@ -103,6 +116,44 @@ export default function OpenNCRsPage() {
       toast({ title: 'Error', description: 'Failed to load open NCRs', variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleQuickClose = async () => {
+    if (!quickCloseTarget) return;
+    setClosureSubmitting(true);
+    try {
+      await NCRService.closeNCR(quickCloseTarget.id, {
+        closedBy: 'current-user',
+        closedByName: 'Current User',
+        closureNotes,
+      });
+      toast({ title: 'NCR Closed', description: `${quickCloseTarget.ncrNumber} has been closed successfully.` });
+      setQuickCloseTarget(null);
+      setClosureNotes('');
+      await loadNCRs();
+    } catch (error) {
+      console.error('Failed to close NCR:', error);
+      toast({ title: 'Error', description: 'Failed to close NCR. Please try again.', variant: 'destructive' });
+    } finally {
+      setClosureSubmitting(false);
+    }
+  };
+
+  const handleAssignUpdate = async () => {
+    if (!assignTarget) return;
+    setAssignSubmitting(true);
+    try {
+      await NCRService.updateNCR(assignTarget.id, { status: assignStatus, discoveredByName: assignedTo || assignTarget.discoveredByName });
+      toast({ title: 'NCR Updated', description: `${assignTarget.ncrNumber} status updated to ${assignStatus}.` });
+      setAssignTarget(null);
+      setAssignedTo('');
+      await loadNCRs();
+    } catch (error) {
+      console.error('Failed to update NCR:', error);
+      toast({ title: 'Error', description: 'Failed to update NCR. Please try again.', variant: 'destructive' });
+    } finally {
+      setAssignSubmitting(false);
     }
   };
 
@@ -430,13 +481,31 @@ export default function OpenNCRsPage() {
                         <div className={`border rounded p-2 text-sm ${ncr.severity === 'critical' ? 'bg-red-50 border-red-200 text-red-800' : ncr.severity === 'major' ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-yellow-50 border-yellow-200 text-yellow-800'}`}>
                           <strong>Description:</strong> {ncr.description}
                         </div>
-                        <div className="flex gap-2 mt-3">
+                        <div className="flex gap-2 mt-3 flex-wrap">
                           <Button variant="outline" size="sm" onClick={() => router.push(`/quality/ncr/${ncr.id}?projectId=${selectedProject.id}`)}>
                             <Eye className="w-4 h-4 mr-1" />
                             View Details
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => router.push(`/quality/capa/new?ncrId=${ncr.id}&projectId=${selectedProject.id}`)}>
                             Create CAPA <ArrowRight className="w-4 h-4 ml-1" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-green-300 text-green-700 hover:bg-green-50"
+                            onClick={() => { setQuickCloseTarget(ncr); setClosureNotes(''); }}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Quick Close
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                            onClick={() => { setAssignTarget(ncr); setAssignStatus(NCRStatus.UNDER_REVIEW); setAssignedTo(''); }}
+                          >
+                            <UserCheck className="w-4 h-4 mr-1" />
+                            Assign
                           </Button>
                         </div>
                       </div>
@@ -448,6 +517,105 @@ export default function OpenNCRsPage() {
           </>
         )}
       </div>
+
+      {/* Quick Close Modal */}
+      {quickCloseTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">Quick Close NCR</h3>
+              <button onClick={() => setQuickCloseTarget(null)} className="p-1 rounded hover:bg-gray-100">
+                <XCircle className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-gray-600">
+                Close <span className="font-semibold">{quickCloseTarget.ncrNumber}</span>: {quickCloseTarget.title}
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Closure Notes <span className="text-red-500">*</span></label>
+                <textarea
+                  rows={4}
+                  value={closureNotes}
+                  onChange={(e) => setClosureNotes(e.target.value)}
+                  placeholder="Describe the resolution and reason for closure..."
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200">
+              <Button variant="outline" onClick={() => setQuickCloseTarget(null)} disabled={closureSubmitting}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={handleQuickClose}
+                disabled={closureSubmitting || !closureNotes.trim()}
+              >
+                {closureSubmitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                Close NCR
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign / Update Status Modal */}
+      {assignTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">Assign NCR</h3>
+              <button onClick={() => setAssignTarget(null)} className="p-1 rounded hover:bg-gray-100">
+                <XCircle className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-gray-600">
+                Update <span className="font-semibold">{assignTarget.ncrNumber}</span>: {assignTarget.title}
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Status</label>
+                <select
+                  value={assignStatus}
+                  onChange={(e) => setAssignStatus(e.target.value as NCRStatus)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value={NCRStatus.UNDER_REVIEW}>Under Review</option>
+                  <option value={NCRStatus.CONTAINMENT}>Containment</option>
+                  <option value={NCRStatus.ROOT_CAUSE}>Root Cause</option>
+                  <option value={NCRStatus.DISPOSITION}>Disposition</option>
+                  <option value={NCRStatus.CAPA_REQUIRED}>CAPA Required</option>
+                  <option value={NCRStatus.CAPA_IN_PROGRESS}>CAPA In Progress</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                <input
+                  type="text"
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  placeholder="Enter assignee name..."
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200">
+              <Button variant="outline" onClick={() => setAssignTarget(null)} disabled={assignSubmitting}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={handleAssignUpdate}
+                disabled={assignSubmitting}
+              >
+                {assignSubmitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <UserCheck className="w-4 h-4 mr-1" />}
+                Update NCR
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
