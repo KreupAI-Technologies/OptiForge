@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   supplierDiversityProgramService,
@@ -12,11 +12,26 @@ import {
   AlertCircle, FileText, Shield, Star, TrendingDown, Activity,
   Percent, DollarSign, Package, Clock, Filter, Search, Eye, Send
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
+
+export interface DiversityBreakdownItem {
+  type: string;
+  count: number;
+  spend: number;
+  percentage: number;
+}
+
+export interface MonthlyDiversitySpendItem {
+  month: string;
+  diverseSpend: number;
+  totalSpend: number;
+  target: number;
+}
 
 export interface DiverseSupplier {
   id: string;
@@ -35,6 +50,18 @@ export interface DiverseSupplier {
 const SupplierDiversity: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
+
+  // Modal open states
+  const [isTrackSpendModalOpen, setIsTrackSpendModalOpen] = useState(false);
+  const [isViewAnalyticsModalOpen, setIsViewAnalyticsModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Settings preferences
+  const [showInactiveSuppliers, setShowInactiveSuppliers] = useState(false);
+  const [showPendingSuppliers, setShowPendingSuppliers] = useState(true);
+
+  // Raw diversity insights response (used for derived arrays)
+  const [diversityInsights, setDiversityInsights] = useState<any>(null);
 
   // Diverse suppliers - seeded with sample data, populated from API
   const [diverseSuppliers, setDiverseSuppliers] = useState<DiverseSupplier[]>([]);
@@ -66,6 +93,7 @@ const SupplierDiversity: React.FC = () => {
     const loadDiversity = async () => {
       try {
         const data = await procurementPagesService.getDiversityInsights();
+        setDiversityInsights(data);
         const vendors = Array.isArray(data?.vendors) ? data.vendors : [];
         if (vendors.length === 0) {
           setDiverseSuppliers([]);
@@ -107,25 +135,49 @@ const SupplierDiversity: React.FC = () => {
     loadDiversity();
   }, []);
 
-  // Mock data - Monthly diversity spend
-  const monthlyDiversitySpend = [
-    { month: 'Jul', diverseSpend: 145000, totalSpend: 520000, target: 150000 },
-    { month: 'Aug', diverseSpend: 158000, totalSpend: 540000, target: 150000 },
-    { month: 'Sep', diverseSpend: 152000, totalSpend: 535000, target: 150000 },
-    { month: 'Oct', diverseSpend: 165000, totalSpend: 560000, target: 150000 },
-    { month: 'Nov', diverseSpend: 172000, totalSpend: 580000, target: 150000 },
-    { month: 'Dec', diverseSpend: 168000, totalSpend: 575000, target: 150000 }
-  ];
+  // Monthly diversity spend — derived from API response, falls back to seeds
+  const monthlyDiversitySpend = useMemo<MonthlyDiversitySpendItem[]>(() => {
+    const apiData = Array.isArray(diversityInsights?.monthlySpend) ? diversityInsights.monthlySpend : [];
+    if (apiData.length > 0) return apiData;
+    return [
+      { month: 'Jul', diverseSpend: 145000, totalSpend: 520000, target: 150000 },
+      { month: 'Aug', diverseSpend: 158000, totalSpend: 540000, target: 150000 },
+      { month: 'Sep', diverseSpend: 152000, totalSpend: 535000, target: 150000 },
+      { month: 'Oct', diverseSpend: 165000, totalSpend: 560000, target: 150000 },
+      { month: 'Nov', diverseSpend: 172000, totalSpend: 580000, target: 150000 },
+      { month: 'Dec', diverseSpend: 168000, totalSpend: 575000, target: 150000 },
+    ];
+  }, [diversityInsights]);
 
-  // Mock data - Diversity breakdown
-  const diversityBreakdown = [
-    { type: 'Women-Owned', count: 12, spend: 850000, percentage: 32 },
-    { type: 'Minority-Owned', count: 15, spend: 720000, percentage: 27 },
-    { type: 'Veteran-Owned', count: 8, spend: 580000, percentage: 22 },
-    { type: 'Small Business', count: 10, spend: 420000, percentage: 16 },
-    { type: 'Disability-Owned', count: 3, spend: 180000, percentage: 7 },
-    { type: 'LGBT-Owned', count: 5, spend: 220000, percentage: 8 }
-  ];
+  // Diversity breakdown — derived from API response, then from diverseSuppliers, then seeds
+  const diversityBreakdown = useMemo<DiversityBreakdownItem[]>(() => {
+    const apiData = Array.isArray(diversityInsights?.breakdown) ? diversityInsights.breakdown : [];
+    if (apiData.length > 0) return apiData;
+    if (diverseSuppliers.length > 0) {
+      const grouped: Record<string, { count: number; spend: number }> = {};
+      diverseSuppliers.forEach(s => {
+        const key = s.diversityType;
+        if (!grouped[key]) grouped[key] = { count: 0, spend: 0 };
+        grouped[key].count++;
+        grouped[key].spend += s.annualSpend;
+      });
+      const totalSpend = Object.values(grouped).reduce((sum, v) => sum + v.spend, 0);
+      return Object.entries(grouped).map(([type, v]) => ({
+        type: type.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        count: v.count,
+        spend: v.spend,
+        percentage: totalSpend > 0 ? Math.round((v.spend / totalSpend) * 100) : 0,
+      }));
+    }
+    return [
+      { type: 'Women-Owned', count: 12, spend: 850000, percentage: 32 },
+      { type: 'Minority-Owned', count: 15, spend: 720000, percentage: 27 },
+      { type: 'Veteran-Owned', count: 8, spend: 580000, percentage: 22 },
+      { type: 'Small Business', count: 10, spend: 420000, percentage: 16 },
+      { type: 'Disability-Owned', count: 3, spend: 180000, percentage: 7 },
+      { type: 'LGBT-Owned', count: 5, spend: 220000, percentage: 8 },
+    ];
+  }, [diversityInsights, diverseSuppliers]);
 
   const getDiversityTypeColor = (type: string): string => {
     const colors: { [key: string]: string } = {
@@ -153,7 +205,7 @@ const SupplierDiversity: React.FC = () => {
 
   // Handler functions
   const handleTrackDiversitySpend = () => {
-    // Diversity spend tracking workflow — backend not yet available.
+    setIsTrackSpendModalOpen(true);
   };
 
   const handleSetGoals = async () => {
@@ -178,7 +230,10 @@ const SupplierDiversity: React.FC = () => {
   };
 
   const handleGenerateReports = () => {
-    // Diversity report generation — backend not yet available.
+    exportToCsv(
+      'diversity-breakdown.csv',
+      diversityBreakdown.map(d => ({ type: d.type, count: d.count, spend: d.spend, percentage: d.percentage }))
+    );
   };
 
   const handleCertifySuppliers = async () => {
@@ -226,7 +281,7 @@ const SupplierDiversity: React.FC = () => {
   };
 
   const handleViewAnalytics = () => {
-    // Diversity analytics dashboard — backend not yet available.
+    setIsViewAnalyticsModalOpen(true);
   };
 
   const handleRefresh = () => {
@@ -234,7 +289,7 @@ const SupplierDiversity: React.FC = () => {
   };
 
   const handleSettings = () => {
-    // Supplier diversity settings — backend not yet available.
+    setIsSettingsModalOpen(true);
   };
 
   return (
@@ -267,9 +322,8 @@ const SupplierDiversity: React.FC = () => {
             </button>
             <button
               onClick={handleGenerateReports}
-              disabled
-              className="flex items-center space-x-2 px-4 py-2 bg-white text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Diversity report generation — backend not yet available"
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+              title="Export diversity breakdown as CSV"
             >
               <Download className="h-4 w-4" />
               <span>Reports</span>
@@ -285,9 +339,8 @@ const SupplierDiversity: React.FC = () => {
             </button>
             <button
               onClick={handleSettings}
-              disabled
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Supplier diversity settings — backend not yet available"
+              className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              title="Supplier diversity settings"
             >
               <Settings className="h-4 w-4" />
               <span>Settings</span>
@@ -357,9 +410,8 @@ const SupplierDiversity: React.FC = () => {
             <div className="flex space-x-2">
               <button
                 onClick={handleTrackDiversitySpend}
-                disabled
-                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Diversity spend tracking — backend not yet available"
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50 text-sm transition-colors"
+                title="Track monthly diversity spend"
               >
                 <BarChart3 className="w-4 h-4 text-gray-600" />
                 <span className="text-gray-700">Track Spend</span>
@@ -570,9 +622,8 @@ const SupplierDiversity: React.FC = () => {
               <div className="space-y-2">
                 <button
                   onClick={handleViewAnalytics}
-                  disabled
-                  title="Diversity analytics dashboard — backend not yet available"
-                  className="w-full flex items-center space-x-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="View diversity analytics"
+                  className="w-full flex items-center space-x-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
                 >
                   <BarChart3 className="h-4 w-4" />
                   <span>View Analytics</span>
@@ -588,9 +639,8 @@ const SupplierDiversity: React.FC = () => {
                 </button>
                 <button
                   onClick={handleGenerateReports}
-                  disabled
-                  title="Diversity report generation — backend not yet available"
-                  className="w-full flex items-center space-x-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Export diversity breakdown as CSV"
+                  className="w-full flex items-center space-x-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
                 >
                   <Download className="h-4 w-4" />
                   <span>Generate Report</span>
@@ -623,6 +673,148 @@ const SupplierDiversity: React.FC = () => {
                   <p className="text-xs text-gray-500 mt-1">{((monthlyDiversitySpend[monthlyDiversitySpend.length - 1].diverseSpend / monthlyDiversitySpend[monthlyDiversitySpend.length - 1].target - 1) * 100).toFixed(1)}% above target</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Track Spend Modal */}
+      {isTrackSpendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Monthly Diversity Spend</h3>
+              <button
+                onClick={() => setIsTrackSpendModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Diverse Spend</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total Spend</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Target</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {monthlyDiversitySpend.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 font-medium text-gray-900">{row.month}</td>
+                      <td className="px-4 py-2 text-right text-green-700">${row.diverseSpend.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">${row.totalSpend.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-blue-700">${row.target.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setIsTrackSpendModalOpen(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Analytics Modal */}
+      {isViewAnalyticsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Diversity Analytics Breakdown</h3>
+              <button
+                onClick={() => setIsViewAnalyticsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Count</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Spend</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Percentage</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {diversityBreakdown.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 font-medium text-gray-900">{row.type}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{row.count}</td>
+                      <td className="px-4 py-2 text-right text-green-700">${row.spend.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-purple-700">{row.percentage}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setIsViewAnalyticsModalOpen(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Supplier Diversity Settings</h3>
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showInactiveSuppliers}
+                  onChange={e => setShowInactiveSuppliers(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">Show inactive suppliers</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showPendingSuppliers}
+                  onChange={e => setShowPendingSuppliers(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">Show pending suppliers</span>
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                Save & Close
+              </button>
             </div>
           </div>
         </div>

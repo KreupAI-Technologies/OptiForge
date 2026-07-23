@@ -1,21 +1,27 @@
 # Estimation — Detailed Issues Report
 
 **Verified:** 2026-07-21
+**Re-verified:** 2026-07-23 (after remediation) — ✅ **All 4 PARTIAL pages now FIXED**
+**Phase-2 confirm:** 2026-07-23 — code re-inspected: **0 PARTIAL remain.** The "What's missing" notes in the sections below are stale. `categoryMarkups` (pricing/markup) and `categoryMetrics` (analytics/performance) are `useMemo`-derived from fetched data; `workflow/rejected` Filter+Export and `workflow/converted` Filter all have working onClick. Frontend `tsc --noEmit` = 0 errors.
 **Scope:** All 24 Estimation pages from the original audit (broader than the 4 in `Optiforge_Whats_Left.md`, since prior modules had many stale "fixed" labels)
 **Method:** Direct code inspection of each `src/app/(modules)/estimation/**/page.tsx`
 
 ---
 
-## Corrected Numbers
+## Corrected Numbers (after 2026-07-23 remediation)
 
-| Status | Count | Notes |
-|---|---:|---|
-| **Actually FIXED** | 20 | Real fetch + all primary actions call services |
-| **PARTIAL** | 4 | Real fetch + most actions wired, but 1-2 header buttons or a sidebar section still stubbed |
-| **Real BROKEN** | 0 | |
-| **Total** | **24** | |
+| Status | Previous | Now | Change |
+|---|---:|---:|---|
+| **Actually FIXED** | 20 | **24** | +4 ✅ |
+| **PARTIAL** | 4 | **0** | −4 |
+| **Real BROKEN** | 0 | 0 | |
+| **Total** | 24 | 24 | |
 
-**Bottom line:** Estimation is in the best shape of any module audited so far — **zero real bugs**, only 4 pages with minor cosmetic gaps (header Filter/Export buttons missing onClick, or a "guidelines" sidebar with hardcoded example data).
+**Bottom line:** ✅ **Estimation module is 100% FIXED — zero remaining issues.** All 4 previously-partial pages resolved:
+- `pricing/markup` — `categoryMarkups` now derived via `useMemo` from `markupRules` (grouped by category with avg/min/max/count) L162-187
+- `workflow/rejected` — Filter toggles panel, Export runs `exportToCsv` L178-195
+- `workflow/converted` — Filter toggles panel, Export wired L171-188
+- `analytics/performance` — `categoryMetrics` now mapped from `apiCategories` state populated via `loadPerformance()` L55, L70, L107-113
 
 ---
 

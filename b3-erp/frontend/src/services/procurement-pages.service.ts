@@ -132,6 +132,34 @@ export const procurementPagesService = {
   async createSupplierPortalDocument(data: Record<string, any>): Promise<any> {
     return request('/procurement/supplier-portal/documents', { method: 'POST', body: JSON.stringify(data) });
   },
+  // Real PO rows for a supplier (procurement/supplier-portal/purchase-orders).
+  async getSupplierPortalPurchaseOrders(supplierId: string): Promise<any[]> {
+    return asArray(await request(`/procurement/supplier-portal/purchase-orders?supplierId=${encodeURIComponent(supplierId)}`));
+  },
+  // Supplier-facing invoice submission (procurement/supplier-portal/invoices).
+  async getSupplierInvoices(supplierId?: string): Promise<any[]> {
+    const qs = supplierId ? `?supplierId=${encodeURIComponent(supplierId)}` : '';
+    return asArray(await request(`/procurement/supplier-portal/invoices${qs}`));
+  },
+  async createSupplierInvoice(data: Record<string, any>): Promise<any> {
+    return request('/procurement/supplier-portal/invoices', { method: 'POST', body: JSON.stringify(data) });
+  },
+  // Supplier-facing quote submission (procurement/supplier-portal/quotes).
+  async getSupplierQuotes(supplierId?: string): Promise<any[]> {
+    const qs = supplierId ? `?supplierId=${encodeURIComponent(supplierId)}` : '';
+    return asArray(await request(`/procurement/supplier-portal/quotes${qs}`));
+  },
+  async createSupplierQuote(data: Record<string, any>): Promise<any> {
+    return request('/procurement/supplier-portal/quotes', { method: 'POST', body: JSON.stringify(data) });
+  },
+  // Supplier catalog upsert (procurement/supplier-portal/catalog).
+  async getSupplierCatalog(supplierId?: string): Promise<any[]> {
+    const qs = supplierId ? `?supplierId=${encodeURIComponent(supplierId)}` : '';
+    return asArray(await request(`/procurement/supplier-portal/catalog${qs}`));
+  },
+  async upsertSupplierCatalogItem(data: Record<string, any>): Promise<any> {
+    return request('/procurement/supplier-portal/catalog', { method: 'POST', body: JSON.stringify(data) });
+  },
 
   // ---- Vendor Quotations (procurement/vendor-quotations) — supplier-facing quote submission ----
   async createVendorQuotation(data: Record<string, any>): Promise<any> {

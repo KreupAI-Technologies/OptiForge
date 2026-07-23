@@ -54,9 +54,90 @@ export interface SupplierDocument {
   size: string;
 }
 
+interface SupplierPO {
+  poNumber: string;
+  poDate: string;
+  deliveryDate: string;
+  status: string;
+  totalAmount: number;
+  currency: string;
+  receivedPercentage: number;
+}
+
+interface InvoiceForm {
+  invoiceNumber: string;
+  poNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  amount: string;
+  currency: string;
+  notes: string;
+}
+
+interface QuoteForm {
+  itemName: string;
+  reference: string;
+  quantity: string;
+  unitPrice: string;
+  currency: string;
+  leadTimeDays: string;
+  validUntil: string;
+  notes: string;
+}
+
+interface CatalogForm {
+  sku: string;
+  name: string;
+  category: string;
+  uom: string;
+  unitPrice: string;
+  currency: string;
+  leadTimeDays: string;
+  status: string;
+}
+
+type ModalKind =
+  | { type: 'pos'; supplier: SupplierProfile; pos: SupplierPO[] }
+  | { type: 'invoice'; supplier: SupplierProfile }
+  | { type: 'quote'; supplier: SupplierProfile }
+  | { type: 'catalog'; supplier: SupplierProfile }
+  | { type: 'documents'; supplier: SupplierProfile; docs: SupplierDocument[] }
+  | { type: 'upload'; supplier: SupplierProfile }
+  | { type: 'profile'; supplier: SupplierProfile }
+  | { type: 'performance'; supplier: SupplierProfile }
+  | { type: 'message'; supplier: SupplierProfile }
+  | { type: 'messages' }
+  | { type: 'manage-documents' }
+  | { type: 'settings' };
+
+function toCsv(rows: Array<Record<string, unknown>>): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown): string => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [
+    headers.join(','),
+    ...rows.map((r) => headers.map((h) => escape(r[h])).join(',')),
+  ].join('\n');
+}
+
+function downloadCsv(filename: string, rows: Array<Record<string, unknown>>): void {
+  const csv = toCsv(rows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 const SupplierPortal: React.FC = () => {
   const [activeView, setActiveView] = useState<'suppliers' | 'collaboration' | 'documents'>('suppliers');
-  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
 
   // Supplier profiles derived from real vendor data (procurement/supplier-portal/suppliers).
   const [suppliers, setSuppliers] = useState<SupplierProfile[]>([]);
@@ -66,6 +147,32 @@ const SupplierPortal: React.FC = () => {
 
   // Supplier documents (procurement/supplier-portal/documents).
   const [documents, setDocuments] = useState<SupplierDocument[]>([]);
+
+  // Active modal (view/detail/form). Client-side; no window.alert/prompt.
+  const [modal, setModal] = useState<ModalKind | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const emptyInvoice: InvoiceForm = {
+    invoiceNumber: '', poNumber: '', invoiceDate: '', dueDate: '', amount: '', currency: 'USD', notes: '',
+  };
+  const emptyQuote: QuoteForm = {
+    itemName: '', reference: '', quantity: '', unitPrice: '', currency: 'USD', leadTimeDays: '', validUntil: '', notes: '',
+  };
+  const emptyCatalog: CatalogForm = {
+    sku: '', name: '', category: '', uom: 'EA', unitPrice: '', currency: 'USD', leadTimeDays: '', status: 'active',
+  };
+  const [invoiceForm, setInvoiceForm] = useState<InvoiceForm>(emptyInvoice);
+  const [quoteForm, setQuoteForm] = useState<QuoteForm>(emptyQuote);
+  const [catalogForm, setCatalogForm] = useState<CatalogForm>(emptyCatalog);
+  const [messageForm, setMessageForm] = useState<{ subject: string; body: string }>({ subject: '', body: '' });
+  const [uploadForm, setUploadForm] = useState<{ documentType: string; fileName: string; expiryDate: string }>({ documentType: '', fileName: '', expiryDate: '' });
+
+  const closeModal = () => {
+    setModal(null);
+    setFormError(null);
+    setSubmitting(false);
+  };
 
   const reloadPortal = React.useCallback(async () => {
     try {
@@ -169,74 +276,198 @@ const SupplierPortal: React.FC = () => {
     }
   };
 
-  // Handler Functions
-  const handleViewPOs = (supplier: SupplierProfile) => {
-    console.log('Viewing POs for:', supplier.id);
-
-    const mockPOs = [
-      { poNumber: 'PO-2025-1245', date: '2025-10-15', amount: 125000, items: 45, status: 'Open', delivery: '2025-10-30' },
-      { poNumber: 'PO-2025-1198', date: '2025-10-10', amount: 89500, items: 28, status: 'Delivered', delivery: '2025-10-22' },
-      { poNumber: 'PO-2025-1156', date: '2025-10-05', amount: 156000, items: 62, status: 'In Transit', delivery: '2025-10-25' },
-      { poNumber: 'PO-2025-1089', date: '2025-09-28', amount: 73200, items: 31, status: 'Completed', delivery: '2025-10-12' },
-      { poNumber: 'PO-2025-0987', date: '2025-09-15', amount: 94800, items: 38, status: 'Completed', delivery: '2025-09-30' }
-    ];
-
-    alert(`Purchase Orders: ${supplier.name}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSUPPLIER INFORMATION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSupplier: ${supplier.name}\nCode: ${supplier.code}\nCategory: ${supplier.category}\nPayment Terms: ${supplier.paymentTerms}\nActive Orders: ${supplier.activeOrders}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPURCHASE ORDERS (Last 90 Days)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${mockPOs.map((po, idx) =>
-  `${idx + 1}. ${po.poNumber}\n   Date Issued: ${po.date}\n   Amount: $${po.amount.toLocaleString()}\n   Items: ${po.items} line items\n   Delivery Date: ${po.delivery}\n   Status: ${po.status.toUpperCase()}\n   ${po.status === 'Open' ? '   ⚠️ Action Required: Confirm delivery date' : po.status === 'In Transit' ? '   ✈️ Shipment in progress' : po.status === 'Delivered' ? '   ✓ Awaiting invoice submission' : '   ✓ Closed'}`
-).join('\n\n')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPO SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal POs (90 days): ${mockPOs.length}\nOpen POs: ${mockPOs.filter(po => po.status === 'Open').length}\nIn Transit: ${mockPOs.filter(po => po.status === 'In Transit').length}\nTotal Value: $${mockPOs.reduce((sum, po) => sum + po.amount, 0).toLocaleString()}\nTotal Items: ${mockPOs.reduce((sum, po) => sum + po.items, 0)} line items\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPO ACTIONS AVAILABLE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n• View full PO details and line items\n• Download PO PDF\n• Acknowledge PO receipt\n• Update delivery schedule\n• Submit advanced ship notice (ASN)\n• Request PO modifications\n• Track shipment status\n• Upload shipping documents\n• View payment status\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nNEXT ACTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${supplier.activeOrders > 0 ? `⏰ PENDING ACTIONS (${supplier.activeOrders} POs):\n- PO-2025-1245: Confirm delivery date by Oct 25\n- PO-2025-1156: Submit ASN before shipment\n- Update tracking for in-transit orders\n\n` : '✓ No pending PO actions\n\n'}RECENT ACTIVITY:\n- Last order received: ${mockPOs[0].date}\n- Last delivery: ${mockPOs.find(po => po.status === 'Completed')?.delivery}\n- On-time delivery rate: ${supplier.onTimeDelivery}%\n\nClick on any PO number to view complete details, line items, specifications, and documents.`);
+  // Handler Functions — all open client-side modals or wire to real services.
+  const handleViewPOs = async (supplier: SupplierProfile) => {
+    setFormError(null);
+    try {
+      const raw = await procurementPagesService.getSupplierPortalPurchaseOrders(supplier.id);
+      const pos: SupplierPO[] = (Array.isArray(raw) ? raw : []).map((p: any): SupplierPO => ({
+        poNumber: String(p?.poNumber ?? ''),
+        poDate: p?.poDate ? String(p.poDate).slice(0, 10) : '',
+        deliveryDate: p?.deliveryDate ? String(p.deliveryDate).slice(0, 10) : '',
+        status: String(p?.status ?? ''),
+        totalAmount: Number(p?.totalAmount) || 0,
+        currency: String(p?.currency ?? 'USD'),
+        receivedPercentage: Number(p?.receivedPercentage) || 0,
+      }));
+      setModal({ type: 'pos', supplier, pos });
+    } catch (err) {
+      setModal({ type: 'pos', supplier, pos: [] });
+      setFormError(err instanceof Error ? err.message : 'Failed to load purchase orders');
+    }
   };
 
   const handleSubmitInvoice = (supplier: SupplierProfile) => {
-    console.log('Submitting invoice for:', supplier.id);
+    setInvoiceForm(emptyInvoice);
+    setFormError(null);
+    setModal({ type: 'invoice', supplier });
+  };
 
-    const eligiblePOs = ['PO-2025-1198 ($89,500 - Delivered Oct 22)', 'PO-2025-1089 ($73,200 - Delivered Oct 12)', 'PO-2025-0987 ($94,800 - Delivered Sep 30)'];
+  const submitInvoice = async (supplier: SupplierProfile) => {
+    if (!invoiceForm.invoiceNumber.trim() || !invoiceForm.amount.trim()) {
+      setFormError('Invoice number and amount are required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementPagesService.createSupplierInvoice({
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        invoiceNumber: invoiceForm.invoiceNumber.trim(),
+        poNumber: invoiceForm.poNumber.trim() || undefined,
+        invoiceDate: invoiceForm.invoiceDate || undefined,
+        dueDate: invoiceForm.dueDate || undefined,
+        amount: Number(invoiceForm.amount) || 0,
+        currency: invoiceForm.currency,
+        notes: invoiceForm.notes.trim() || undefined,
+        status: 'submitted',
+      });
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to submit invoice');
+      setSubmitting(false);
+    }
+  };
 
-    alert(`Submit Invoice: ${supplier.name}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSUPPLIER DETAILS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSupplier: ${supplier.name}\nCode: ${supplier.code}\nPayment Terms: ${supplier.paymentTerms}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nINVOICE SUBMISSION FORM\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nREQUIRED INFORMATION:\n\n1. BASIC DETAILS:\n   □ Invoice Number (your reference)\n   □ Invoice Date\n   □ Currency (USD, EUR, etc.)\n   □ Payment Due Date\n\n2. SELECT PURCHASE ORDER:\n   ${eligiblePOs.length > 0 ? `Available POs for invoicing:\n   ${eligiblePOs.map((po, idx) => `${idx + 1}. ${po}`).join('\n   ')}` : 'No completed POs available for invoicing'}\n\n3. LINE ITEMS:\n   □ Match PO line items (auto-populated)\n   □ Quantity delivered\n   □ Unit price (must match PO)\n   □ Total amount per line\n   □ Tax/VAT if applicable\n\n4. ATTACHMENTS:\n   □ Invoice PDF (required)\n   □ Proof of delivery/packing slip\n   □ Quality certificates (if required)\n   □ Shipping documents\n   □ Other supporting documents\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nINVOICE SUBMISSION RULES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✓ REQUIREMENTS:\n- PO must be fully/partially delivered\n- Invoice amount ≤ PO amount\n- All required documents attached\n- Invoice format: PDF, max 10MB\n- Valid tax ID/VAT number\n\n⚠️ COMMON REJECTION REASONS:\n- Missing PO reference\n- Price mismatch with PO\n- Missing delivery confirmation\n- Incorrect billing details\n- Duplicate invoice number\n- Missing required certificates\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPAYMENT PROCESS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nUpon submission:\n1. VALIDATION (1-2 hours):\n   - Auto-check PO match\n   - Verify pricing\n   - Validate documents\n\n2. REVIEW (2-3 business days):\n   - AP team review\n   - Manager approval (if >$10K)\n   - Resolve any discrepancies\n\n3. PAYMENT (${supplier.paymentTerms}):\n   - Payment scheduled\n   - Email notification sent\n   - Funds transferred via ACH/Wire\n\nPAYMENT TRACKING:\n- Real-time status updates\n- Email notifications at each stage\n- Expected payment date displayed\n- Remittance advice sent\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSUPPORT & ASSISTANCE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nQuestions?\n📧 Email: ap@company.com\n📞 Phone: 1-800-PAY-FAST\n💬 Portal: Live chat (Mon-Fri 9-5 EST)\n\nFor invoice status inquiries:\n- Check "My Invoices" tab\n- Use invoice tracking feature\n- Contact AP team with invoice #\n\nProceed to invoice submission form?`);
+  const handleSubmitQuote = (supplier: SupplierProfile) => {
+    setQuoteForm(emptyQuote);
+    setFormError(null);
+    setModal({ type: 'quote', supplier });
+  };
+
+  const submitQuote = async (supplier: SupplierProfile) => {
+    if (!quoteForm.itemName.trim() || !quoteForm.unitPrice.trim()) {
+      setFormError('Item name and unit price are required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementPagesService.createSupplierQuote({
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        itemName: quoteForm.itemName.trim(),
+        reference: quoteForm.reference.trim() || undefined,
+        quantity: Number(quoteForm.quantity) || 0,
+        unitPrice: Number(quoteForm.unitPrice) || 0,
+        currency: quoteForm.currency,
+        leadTimeDays: quoteForm.leadTimeDays ? Number(quoteForm.leadTimeDays) : undefined,
+        validUntil: quoteForm.validUntil || undefined,
+        notes: quoteForm.notes.trim() || undefined,
+        status: 'submitted',
+      });
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to submit quote');
+      setSubmitting(false);
+    }
   };
 
   const handleUpdateCatalog = (supplier: SupplierProfile) => {
-    console.log('Updating catalog for:', supplier.id);
-
-    alert(`Update Product Catalog: ${supplier.name}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSUPPLIER INFORMATION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSupplier: ${supplier.name}\nCode: ${supplier.code}\nCategory: ${supplier.category}\nCurrent Catalog Items: 247\nLast Update: 2025-09-15\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCATALOG UPDATE OPTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. ADD NEW PRODUCTS:\n   - Upload product data (Excel/CSV template)\n   - Product name and description\n   - SKU/part number\n   - Category/classification\n   - Unit of measure\n   - Pricing (unit price, MOQ, volume discounts)\n   - Lead time and availability\n   - Specifications and datasheet\n   - Images (up to 5 per product)\n   - Compliance certifications\n\n2. UPDATE EXISTING PRODUCTS:\n   - Search by SKU/name\n   - Modify pricing\n   - Update availability/lead time\n   - Change specifications\n   - Add/update images\n   - Update certifications\n   - Mark as discontinued\n\n3. BULK UPDATE:\n   - Download current catalog (Excel)\n   - Make changes offline\n   - Upload updated file\n   - System validates changes\n   - Review and confirm updates\n\n4. PRICE UPDATES:\n   - Individual product pricing\n   - Category-wide price changes\n   - Volume discount tiers\n   - Promotional pricing (with dates)\n   - Contract-based pricing\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nUPLOAD REQUIREMENTS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nDATA FIELDS (Required*):\n* Product Name\n* SKU/Part Number\n* Category\n* Unit Price\n* Unit of Measure\n* Lead Time (days)\n  Description (500 char max)\n  Manufacturer Part Number\n  Technical Specifications\n  Datasheet URL/PDF\n  Minimum Order Quantity\n  Stock Availability\n\nIMAGE REQUIREMENTS:\n- Format: JPG, PNG\n- Max size: 5MB per image\n- Recommended: 1200x1200px\n- White/transparent background\n- Multiple angles if applicable\n\nDOCUMENT REQUIREMENTS:\n- Datasheets: PDF, max 20MB\n- Certifications: PDF (ISO, RoHS, etc.)\n- Safety data sheets (if applicable)\n- CAD files (optional)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nAPPROVAL PROCESS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. SUBMISSION:\n   - Upload catalog updates\n   - System validates format\n   - Check for duplicates/errors\n\n2. AUTO-APPROVAL:\n   ✓ Price updates < 10%\n   ✓ Specification corrections\n   ✓ Image/description updates\n   → APPROVED IMMEDIATELY\n\n3. MANUAL REVIEW (2-3 days):\n   - New product additions\n   - Price increases > 10%\n   - Category changes\n   - Major specification changes\n   → Category Manager Review\n\n4. ACTIVATION:\n   - Approved items go live\n   - Email confirmation sent\n   - Catalog version updated\n   - Buyers notified of changes\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCATALOG FEATURES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✓ Searchable by buyers\n✓ Filterable by category/specs\n✓ Quick quote requests\n✓ Add to RFQ directly\n✓ Price history tracking\n✓ Automated updates to buyer favorites\n✓ Integration with procurement system\n✓ Analytics: views, quotes, orders\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nHELP & RESOURCES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📥 Download Excel template\n📚 Catalog management guide (PDF)\n🎥 Video tutorial (12 min)\n💬 Live chat support\n📧 Email: catalog@company.com\n\nBEST PRACTICES:\n- Update catalog monthly\n- Keep descriptions detailed & accurate\n- Use high-quality images\n- Set realistic lead times\n- Include all certifications\n- Respond to buyer questions promptly\n\nProceed to catalog update form?`);
+    setCatalogForm(emptyCatalog);
+    setFormError(null);
+    setModal({ type: 'catalog', supplier });
   };
 
-  const handleDownloadDocuments = (supplier: SupplierProfile) => {
-    console.log('Downloading documents for:', supplier.id);
-
-    const supplierDocs = documents.filter(doc => doc.supplierId === supplier.id);
-
-    alert(`Download Documents: ${supplier.name}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSUPPLIER DOCUMENTS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${supplierDocs.length > 0 ? supplierDocs.map((doc, idx) =>
-  `${idx + 1}. ${doc.documentType}\n   File: ${doc.fileName}\n   Size: ${doc.size}\n   Uploaded: ${doc.uploadedAt}\n   ${doc.expiryDate ? `Expires: ${doc.expiryDate}` : 'No expiry'}\n   Status: ${doc.status.toUpperCase()}\n   ${doc.status === 'expired' ? '❌ RENEWAL REQUIRED' : doc.status === 'expiring' ? '⚠️ EXPIRES SOON' : '✓ Valid'}`
-).join('\n\n') : 'No documents on file'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT CATEGORIES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. COMPLIANCE CERTIFICATES:\n   - ISO certifications (9001, 14001, etc.)\n   - Industry-specific certifications\n   - Environmental compliance\n   - Safety certifications\n\n2. LEGAL & TAX:\n   - Business registration\n   - Tax forms (W9, VAT registration)\n   - Insurance certificates\n   - NDA/Contracts\n\n3. QUALITY DOCUMENTS:\n   - Quality assurance plans\n   - Material safety data sheets (MSDS)\n   - Product certifications\n   - Test reports & inspections\n\n4. OPERATIONAL:\n   - Product catalogs\n   - Price lists\n   - Technical specifications\n   - User manuals\n\n5. TRANSACTION DOCUMENTS:\n   - Purchase orders (PDFs)\n   - Invoices and receipts\n   - Shipping documents\n   - Delivery confirmations\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOWNLOAD OPTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSINGLE DOWNLOAD:\n□ Select document from list\n□ Click download icon\n□ File downloads immediately\n\nBULK DOWNLOAD:\n□ Select multiple documents (checkboxes)\n□ Click "Download Selected"\n□ ZIP file created and downloaded\n\nDOWNLOAD ALL:\n□ Download complete document package\n□ All supplier documents in one ZIP\n□ Organized by category folders\n\nSCHEDULED REPORTS:\n□ Weekly/monthly document summary\n□ Expiring certificates alert\n□ New documents notification\n□ Automated delivery via email\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nUPLOAD NEW DOCUMENTS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nEasily upload additional documents:\n1. Click "Upload Document"\n2. Select document type/category\n3. Add description and expiry date\n4. Choose file (PDF, max 20MB)\n5. Submit for review\n\nAuto-notifications:\n- Procurement team notified\n- Approval within 1-2 days\n- Certificate expiry reminders (30 days)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT STATUS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nValid Documents: ${supplierDocs.filter(d => d.status === 'valid').length}\nExpiring Soon: ${supplierDocs.filter(d => d.status === 'expiring').length}\nExpired: ${supplierDocs.filter(d => d.status === 'expired').length}\n\n${supplierDocs.filter(d => d.status === 'expiring' || d.status === 'expired').length > 0 ? `⚠️ ACTION REQUIRED:\n${supplierDocs.filter(d => d.status === 'expiring' || d.status === 'expired').map(d => `- ${d.documentType}: ${d.status === 'expired' ? 'EXPIRED' : 'Expires ' + d.expiryDate}`).join('\n')}\n\nPlease upload renewed certificates to maintain compliance status.` : '✓ All documents are current and valid.'}\n\nSelect documents to download?`);
+  const submitCatalog = async (supplier: SupplierProfile) => {
+    if (!catalogForm.sku.trim() || !catalogForm.name.trim()) {
+      setFormError('SKU and product name are required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementPagesService.upsertSupplierCatalogItem({
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        sku: catalogForm.sku.trim(),
+        name: catalogForm.name.trim(),
+        category: catalogForm.category.trim() || undefined,
+        uom: catalogForm.uom.trim() || undefined,
+        unitPrice: Number(catalogForm.unitPrice) || 0,
+        currency: catalogForm.currency,
+        leadTimeDays: catalogForm.leadTimeDays ? Number(catalogForm.leadTimeDays) : undefined,
+        status: catalogForm.status,
+      });
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update catalog');
+      setSubmitting(false);
+    }
   };
 
-  const handleMessageBuyer = async (supplier: SupplierProfile) => {
-    const subject = window.prompt(`Message to buyer regarding ${supplier.name}\n\nSubject:`);
-    if (!subject) return;
-    const body = window.prompt('Message body:');
-    if (!body) return;
+  const handleDownloadDocuments = async (supplier: SupplierProfile) => {
+    setFormError(null);
+    try {
+      const raw = await procurementPagesService.getSupplierPortalDocuments(supplier.id);
+      const docs: SupplierDocument[] = (Array.isArray(raw) ? raw : []).map((d: any): SupplierDocument => ({
+        id: String(d?.id ?? ''),
+        supplierId: String(d?.supplierId ?? ''),
+        supplierName: String(d?.supplierName ?? ''),
+        documentType: String(d?.documentType ?? ''),
+        fileName: String(d?.fileName ?? ''),
+        uploadedAt: d?.createdAt ? String(d.createdAt).slice(0, 10) : '',
+        expiryDate: d?.expiryDate ? String(d.expiryDate).slice(0, 10) : undefined,
+        status: (d?.status ?? 'valid') as SupplierDocument['status'],
+        size: String(d?.size ?? ''),
+      }));
+      setModal({ type: 'documents', supplier, docs });
+    } catch (err) {
+      setModal({ type: 'documents', supplier, docs: [] });
+      setFormError(err instanceof Error ? err.message : 'Failed to load documents');
+    }
+  };
+
+  const exportSupplierDocuments = (docs: SupplierDocument[], supplier: SupplierProfile) => {
+    downloadCsv(
+      `documents-${supplier.code || supplier.id}.csv`,
+      docs.map((d) => ({
+        documentType: d.documentType,
+        fileName: d.fileName,
+        uploadedAt: d.uploadedAt,
+        expiryDate: d.expiryDate ?? '',
+        status: d.status,
+        size: d.size,
+      })),
+    );
+  };
+
+  const handleMessageBuyer = (supplier: SupplierProfile) => {
+    setMessageForm({ subject: '', body: '' });
+    setFormError(null);
+    setModal({ type: 'message', supplier });
+  };
+
+  const submitMessage = async (supplier: SupplierProfile) => {
+    if (!messageForm.subject.trim() || !messageForm.body.trim()) {
+      setFormError('Subject and message body are required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
     try {
       await procurementPagesService.createSupplierPortalMessage({
         supplierId: supplier.id,
         supplierName: supplier.name,
         type: 'general',
-        subject,
-        message: body,
+        subject: messageForm.subject.trim(),
+        message: messageForm.body.trim(),
         status: 'unread',
         priority: 'medium',
       });
       await reloadPortal();
+      closeModal();
       setActiveView('collaboration');
     } catch (err) {
-      console.error('Failed to send message:', err);
-      alert('Failed to send message. Please try again.');
+      setFormError(err instanceof Error ? err.message : 'Failed to send message');
+      setSubmitting(false);
     }
   };
 
   const handleViewSupplierProfile = (supplier: SupplierProfile) => {
-    console.log('Viewing profile for:', supplier.id);
-
-    alert(`Supplier Profile: ${supplier.name}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCOMPANY INFORMATION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSupplier Name: ${supplier.name}\nSupplier Code: ${supplier.code}\nCategory: ${supplier.category}\nStatus: ${supplier.status.toUpperCase()}\nOverall Rating: ${supplier.rating}/5.0 ⭐\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCONTACT INFORMATION\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPrimary Contact: ${supplier.contact.name}\nEmail: ${supplier.contact.email}\nPhone: ${supplier.contact.phone}\nLast Activity: ${supplier.lastActivity}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPERFORMANCE METRICS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOn-Time Delivery: ${supplier.onTimeDelivery}%\nQuality Score: ${supplier.qualityScore}%\nResponsiveness: ${95 + Math.random() * 5}%\nCompliance Rate: ${98 + Math.random() * 2}%\n\nPERFORMANCE TREND:\n${supplier.onTimeDelivery >= 95 ? '📈 Excellent - Consistently exceeding targets' : supplier.onTimeDelivery >= 90 ? '✓ Good - Meeting expectations' : supplier.onTimeDelivery >= 85 ? '⚠️ Fair - Needs improvement' : '❌ Poor - Action required'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBUSINESS RELATIONSHIP\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Spend (YTD): $${supplier.totalSpend.toLocaleString()}\nActive Orders: ${supplier.activeOrders}\nPayment Terms: ${supplier.paymentTerms}\nCredit Limit: $${(supplier.totalSpend * 1.5).toLocaleString()}\n\nRELATIONSHIP TYPE:\n${supplier.totalSpend >= 2000000 ? '⭐ Strategic Partner' : supplier.totalSpend >= 1000000 ? '✓ Preferred Supplier' : '○ Standard Supplier'}\n\nPARTNERSHIP SINCE: 2023-03-15\nCONTRACT STATUS: Active (expires 2026-03-14)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCAPABILITIES & CERTIFICATIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nCertifications:\n✓ ISO 9001:2015 (Quality Management)\n✓ ISO 14001:2015 (Environmental)\n${supplier.category === 'Electronic Components' ? '✓ IPC-A-610 (Electronics)\n✓ RoHS Compliance' : supplier.category === 'Raw Materials' ? '✓ Material certifications\n✓ Safety compliance' : '✓ Industry-specific certs'}\n\nCapabilities:\n- ${supplier.category} manufacturing\n- Just-in-time delivery\n- Custom product development\n- Quality inspection & testing\n- Technical support\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRECENT ACTIVITY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nLast 30 Days:\n• Orders placed: ${Math.ceil(supplier.activeOrders / 2)}\n• Invoices submitted: ${Math.ceil(supplier.activeOrders / 3)}\n• Messages exchanged: ${Math.ceil(supplier.activeOrders * 1.5)}\n• Documents uploaded: ${Math.ceil(supplier.activeOrders / 4)}\n• Deliveries completed: ${Math.ceil(supplier.activeOrders / 2.5)}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nQUICK ACTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n• View all purchase orders\n• Submit new invoice\n• Send message to buyer\n• Update product catalog\n• Download documents\n• View contract details\n• Check payment status\n• Update contact information\n• Request quote\n• View performance scorecard`);
+    setFormError(null);
+    setModal({ type: 'profile', supplier });
   };
 
   const handleRefresh = () => {
@@ -244,74 +475,82 @@ const SupplierPortal: React.FC = () => {
   };
 
   // Real document register upload (metadata record) -> POST + reload.
-  const handleUploadDocument = async (supplier?: SupplierProfile) => {
+  const handleUploadDocument = (supplier?: SupplierProfile) => {
     const target = supplier ?? suppliers[0];
     if (!target) {
-      alert('No supplier available to attach a document to.');
+      setFormError('No supplier available to attach a document to.');
       return;
     }
-    const documentType = window.prompt('Document type (e.g. ISO 9001 Certificate):');
-    if (!documentType) return;
-    const fileName = window.prompt('File name (e.g. iso9001.pdf):');
-    if (!fileName) return;
-    const expiryDate = window.prompt('Expiry date (YYYY-MM-DD, optional):') || undefined;
+    setUploadForm({ documentType: '', fileName: '', expiryDate: '' });
+    setFormError(null);
+    setModal({ type: 'upload', supplier: target });
+  };
+
+  const submitUpload = async (supplier: SupplierProfile) => {
+    if (!uploadForm.documentType.trim() || !uploadForm.fileName.trim()) {
+      setFormError('Document type and file name are required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
     try {
       await procurementPagesService.createSupplierPortalDocument({
-        supplierId: target.id,
-        supplierName: target.name,
-        documentType,
-        fileName,
-        expiryDate,
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        documentType: uploadForm.documentType.trim(),
+        fileName: uploadForm.fileName.trim(),
+        expiryDate: uploadForm.expiryDate || undefined,
         status: 'valid',
       });
       await reloadPortal();
+      closeModal();
       setActiveView('documents');
     } catch (err) {
-      console.error('Failed to upload document:', err);
-      alert('Failed to upload document. Please try again.');
+      setFormError(err instanceof Error ? err.message : 'Failed to upload document');
+      setSubmitting(false);
     }
   };
 
   const handleSettings = () => {
-    console.log('Opening supplier portal settings...');
-    alert('Supplier Portal Settings\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n1. NOTIFICATION PREFERENCES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nEmail Notifications:\n□ New purchase orders\n□ PO modifications/cancellations\n□ Payment processed\n□ Invoice approved/rejected\n□ Message from buyer\n□ Document expiring soon\n□ Performance scorecard updates\n□ System announcements\n\nNotification Frequency:\n○ Real-time (immediate)\n● Daily digest (8 AM)\n○ Weekly summary (Mondays)\n\nNotification Recipients:\n- Add additional email addresses\n- Role-based routing\n- Escalation contacts\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n2. PORTAL APPEARANCE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nDisplay Options:\n□ Dark mode\n□ Compact view\n□ Show/hide metrics dashboard\n□ Default landing page\n□ Items per page (10/25/50/100)\n\nLanguage:\n● English\n○ Spanish\n○ French\n○ German\n○ Chinese\n\nTime Zone: EST (UTC-5)\nDate Format: MM/DD/YYYY\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n3. DOCUMENT MANAGEMENT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAuto-Upload Settings:\n- Enable automatic catalog sync\n- Schedule: Daily/Weekly/Monthly\n- FTP/SFTP credentials\n- File format: Excel/CSV/XML\n\nDocument Retention:\n- Archive after: 90 days/1 year/2 years\n- Auto-download confirmations\n- Backup to external storage\n\nExpiry Reminders:\n□ 60 days before expiry\n□ 30 days before expiry (default)\n□ 15 days before expiry\n□ 7 days before expiry\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n4. USER ACCESS MANAGEMENT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nCurrent Users:\n- ${supplier.contact.name} (Admin)\n- Add additional users\n- Assign roles and permissions\n\nUser Roles:\n- Admin: Full access\n- Finance: Invoices & payments\n- Operations: POs & deliveries\n- Sales: Catalog & messaging\n- View-only: Read access\n\nSecurity:\n□ Require password change every 90 days\n□ Enable two-factor authentication\n□ Session timeout: 30 minutes\n□ IP address restrictions\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n5. INTEGRATION SETTINGS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAPI Access:\n□ Enable API for system integration\n- Generate API key\n- API documentation\n- Webhook configuration\n- Rate limits\n\nEDI Integration:\n□ Enable EDI transactions\n- EDI partner ID\n- Transaction sets (850, 810, 856)\n- Testing environment\n\nThird-Party Integrations:\n□ Accounting software (QuickBooks, SAP)\n□ Shipping carriers (FedEx, UPS)\n□ Inventory management systems\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n6. CATALOG SETTINGS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nCatalog Display:\n□ Show pricing to all buyers\n□ Show inventory levels\n□ Show lead times\n□ Allow custom quotes\n\nPricing Rules:\n- Volume discount tiers\n- Contract-based pricing\n- Seasonal pricing\n- Promotional periods\n\nUpdate Approval:\n○ Auto-approve all updates\n● Require approval for new products\n○ Require approval for all changes\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n7. PAYMENT & BILLING\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPayment Methods:\n☑ ACH/Direct deposit (preferred)\n□ Wire transfer\n□ Check\n\nBanking Information:\n- Bank name: [Update]\n- Account number: [Update]\n- Routing number: [Update]\n- Swift code: [Update]\n\nInvoice Preferences:\n- Default payment terms: ${supplier.paymentTerms}\n- Invoice format: PDF/XML\n- Early payment discount: 2% 10 Net 30\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n8. SUPPORT & HELP\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nHelp Resources:\n📚 User guide & tutorials\n🎥 Video training library\n💬 Live chat support\n📧 Email support ticket\n📞 Phone support hotline\n\nFeedback:\n- Submit feature requests\n- Report issues\n- Rate your experience\n\nSave configuration changes?');
+    setFormError(null);
+    setModal({ type: 'settings' });
   };
 
   const handleExportData = () => {
-    console.log('Exporting supplier portal data...');
-    alert('Export Supplier Portal Data\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nEXPORT OPTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. PURCHASE ORDERS:\n   - All POs (last 90 days)\n   - Open/active POs only\n   - Completed POs\n   - PO line item details\n   \n   Format: Excel, CSV, PDF\n   Includes: PO number, date, amount, status, line items\n\n2. INVOICES & PAYMENTS:\n   - Invoice history\n   - Payment status and dates\n   - Remittance details\n   - Aging report\n   \n   Format: Excel, CSV, PDF\n   Date range: Configurable\n\n3. PERFORMANCE METRICS:\n   - Delivery performance\n   - Quality scores\n   - Response times\n   - Trend analysis\n   \n   Format: Excel dashboard, PDF report\n   Charts: Timeline, comparisons\n\n4. PRODUCT CATALOG:\n   - Complete catalog export\n   - Pricing information\n   - Inventory levels\n   - Product specifications\n   \n   Format: Excel, CSV, XML\n   Template: Standard/custom\n\n5. COMMUNICATIONS:\n   - Message history\n   - Collaboration threads\n   - Notifications log\n   \n   Format: PDF, CSV\n   Date range: Last 30/60/90 days\n\n6. DOCUMENTS:\n   - All uploaded documents\n   - Certificates and compliance\n   - Organized by category\n   \n   Format: ZIP archive\n   Includes: Original files + index\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSCHEDULED EXPORTS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAutomate regular exports:\n□ Daily - New POs and changes\n□ Weekly - Invoice summary\n□ Monthly - Performance report\n□ Quarterly - Complete data export\n\nDelivery Method:\n☑ Email attachment\n□ FTP/SFTP upload\n□ API webhook\n□ Cloud storage (Dropbox, Google Drive)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCUSTOM EXPORT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSelect data fields:\n☑ Supplier information\n☑ Contact details\n☑ PO information\n☑ Invoice & payment data\n☑ Performance metrics\n□ Communication logs\n□ Document metadata\n\nDate Range: Last 90 days\nFormat: Excel (.xlsx)\nDelivery: Download immediately\n\nProceed with export?');
+    // Export the live portal dataset (suppliers) to CSV, client-side.
+    downloadCsv(
+      'supplier-portal-suppliers.csv',
+      suppliers.map((s) => ({
+        name: s.name,
+        code: s.code,
+        category: s.category,
+        status: s.status,
+        rating: s.rating,
+        totalSpend: s.totalSpend,
+        activeOrders: s.activeOrders,
+        onTimeDelivery: s.onTimeDelivery,
+        qualityScore: s.qualityScore,
+        paymentTerms: s.paymentTerms,
+        contactName: s.contact.name,
+        contactEmail: s.contact.email,
+        lastActivity: s.lastActivity,
+      })),
+    );
   };
 
   const handleViewMessages = () => {
-    console.log('Viewing messages...');
-
-    const unreadCount = messages.filter(m => m.status === 'unread').length;
-
-    alert(`Message Center\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMESSAGE SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Messages: ${messages.length}\nUnread: ${unreadCount}\nRead: ${messages.filter(m => m.status === 'read').length}\nResponded: ${messages.filter(m => m.status === 'responded').length}\n\nHigh Priority: ${messages.filter(m => m.priority === 'high').length}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRECENT MESSAGES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${messages.slice(0, 5).map((msg, idx) =>
-  `${idx + 1}. [${msg.type.toUpperCase()}] ${msg.subject}\n   From: ${msg.supplierName}\n   Date: ${msg.createdAt}\n   Status: ${msg.status.toUpperCase()}\n   Priority: ${msg.priority.toUpperCase()}\n   ${msg.attachments ? `📎 ${msg.attachments} attachment(s)` : ''}\n   ${msg.status === 'unread' ? '⚠️ NEEDS ATTENTION' : msg.status === 'responded' ? `✓ Responded ${msg.respondedAt}` : '👁 Read'}`
-).join('\n\n')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nACTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n• View all messages\n• Compose new message\n• Filter by type/status\n• Search messages\n• Mark all as read\n• Archive old messages\n• Set up message rules`);
+    setFormError(null);
+    setModal({ type: 'messages' });
   };
 
   const handleManageDocuments = () => {
-    console.log('Managing documents...');
-
-    const validDocs = documents.filter(d => d.status === 'valid').length;
-    const expiringDocs = documents.filter(d => d.status === 'expiring').length;
-    const expiredDocs = documents.filter(d => d.status === 'expired').length;
-
-    alert(`Document Management Center\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT OVERVIEW\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Documents: ${documents.length}\n✓ Valid: ${validDocs}\n⚠️ Expiring Soon: ${expiringDocs}\n❌ Expired: ${expiredDocs}\n\nTotal Storage: ${(documents.length * 2.5).toFixed(1)} MB\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDOCUMENT CATEGORIES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${Array.from(new Set(documents.map(d => d.documentType))).map((type, idx) =>
-  `${idx + 1}. ${type}: ${documents.filter(d => d.documentType === type).length} document(s)`
-).join('\n')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRECENT UPLOADS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${documents.slice(0, 3).map((doc, idx) =>
-  `${idx + 1}. ${doc.fileName}\n   Type: ${doc.documentType}\n   Uploaded: ${doc.uploadedAt}\n   Size: ${doc.size}\n   Status: ${doc.status.toUpperCase()}`
-).join('\n\n')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nACTION ITEMS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${expiredDocs > 0 || expiringDocs > 0 ? `❗ ATTENTION REQUIRED:\n${documents.filter(d => d.status === 'expired' || d.status === 'expiring').map(d =>
-  `- ${d.documentType}: ${d.status === 'expired' ? 'EXPIRED ' + d.expiryDate : 'Expires ' + d.expiryDate}`
-).join('\n')}\n\nPlease upload renewed documents to maintain compliance.\n\n` : '✓ All documents are current.\n\n'}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nQUICK ACTIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n• Upload new document\n• Renew expiring certificate\n• Download all documents\n• View document history\n• Set expiry reminders\n• Organize by category\n• Share with buyer`);
+    setFormError(null);
+    setModal({ type: 'manage-documents' });
   };
 
   const handleTrackPerformance = (supplier: SupplierProfile) => {
-    console.log('Tracking performance for:', supplier.id);
-
-    alert(`Performance Tracking: ${supplier.name}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPERFORMANCE SCORECARD\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOVERALL RATING: ${supplier.rating}/5.0 ⭐\n\nKEY METRICS:\n\n1. ON-TIME DELIVERY: ${supplier.onTimeDelivery}%\n   Target: ≥ 95%\n   Trend: ${supplier.onTimeDelivery >= 95 ? '📈 Above target' : supplier.onTimeDelivery >= 90 ? '→ Meeting expectations' : '📉 Below target'}\n   Last 12 months: ${(supplier.onTimeDelivery - 2).toFixed(1)}% → ${supplier.onTimeDelivery}%\n\n2. QUALITY SCORE: ${supplier.qualityScore}%\n   Target: ≥ 98%\n   Defect Rate: ${(100 - supplier.qualityScore).toFixed(1)}%\n   Rejection Rate: ${((100 - supplier.qualityScore) / 2).toFixed(2)}%\n   Returns: ${Math.floor((100 - supplier.qualityScore) * 10)} units (YTD)\n\n3. RESPONSIVENESS: ${(95 + Math.random() * 5).toFixed(1)}%\n   Avg Response Time: 4.2 hours\n   Target: < 8 hours\n   Quote Turnaround: 1.8 days\n   Issue Resolution: 2.3 days\n\n4. COMPLIANCE: ${(98 + Math.random() * 2).toFixed(1)}%\n   Certifications: Up to date\n   Documentation: Complete\n   Safety Records: Excellent\n   Environmental: Compliant\n\n5. COST COMPETITIVENESS: ${(90 + Math.random() * 10).toFixed(1)}%\n   Price vs Market: ${Math.random() > 0.5 ? 'Competitive' : 'Above average'}\n   Cost Savings (YTD): $${(supplier.totalSpend * 0.05).toLocaleString()}\n   Value for Money: High\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPERFORMANCE TRENDS (12 Months)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOn-Time Delivery:\nQ1: ${(supplier.onTimeDelivery - 3).toFixed(1)}%\nQ2: ${(supplier.onTimeDelivery - 1.5).toFixed(1)}%\nQ3: ${(supplier.onTimeDelivery - 0.5).toFixed(1)}%\nQ4: ${supplier.onTimeDelivery}% (Current)\nTrend: ↗ Improving\n\nQuality Score:\nQ1: ${(supplier.qualityScore - 1).toFixed(1)}%\nQ2: ${(supplier.qualityScore - 0.5).toFixed(1)}%\nQ3: ${supplier.qualityScore}%\nQ4: ${supplier.qualityScore}% (Current)\nTrend: → Stable\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSTRENGTHS & OPPORTUNITIES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSTRENGTHS:\n✓ Consistently high quality (${supplier.qualityScore}%)\n✓ Excellent on-time delivery\n✓ Quick response to issues\n✓ Strong technical support\n✓ Competitive pricing\n\nOPPORTUNITIES:\n${supplier.onTimeDelivery < 95 ? '• Improve delivery timeliness\n' : ''}${supplier.qualityScore < 98 ? '• Reduce defect rate\n' : ''}• Expand product offerings\n• Implement EDI for faster processing\n• Offer volume discounts\n• Enhance sustainability practices\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBUSINESS IMPACT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSpend Analysis:\nTotal Spend (YTD): $${supplier.totalSpend.toLocaleString()}\nOrders Placed: ${supplier.activeOrders * 8}\nAvg Order Value: $${(supplier.totalSpend / (supplier.activeOrders * 8)).toLocaleString()}\nGrowth vs Last Year: +${(15 + Math.random() * 10).toFixed(1)}%\n\nValue Created:\n✓ Cost Savings: $${(supplier.totalSpend * 0.05).toLocaleString()}\n✓ Quality Improvement: ${Math.floor(Math.random() * 50 + 10)} fewer defects\n✓ Lead Time Reduction: ${Math.floor(Math.random() * 5 + 2)} days\n✓ Process Efficiency: +${(10 + Math.random() * 10).toFixed(1)}%\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nRECOMMENDATIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${supplier.rating >= 4.8 ? '⭐ STRATEGIC PARTNER RECOMMENDATION:\n- Increase business volume\n- Negotiate long-term contract\n- Collaborative product development\n- Preferred supplier status\n- Joint cost reduction initiatives' : supplier.rating >= 4.5 ? '✓ PREFERRED SUPPLIER:\n- Maintain current relationship\n- Explore growth opportunities\n- Address minor performance gaps\n- Annual business review' : '⚠️ DEVELOPMENT NEEDED:\n- Performance improvement plan\n- Quarterly reviews\n- Address quality/delivery issues\n- Consider alternative suppliers'}\n\nNext Review Date: ${new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`);
+    setFormError(null);
+    setModal({ type: 'performance', supplier });
   };
 
   const renderSuppliers = () => (
@@ -446,6 +685,14 @@ const SupplierPortal: React.FC = () => {
                         <span className="text-green-700">Invoice</span>
                       </button>
                       <button
+                        onClick={() => handleSubmitQuote(supplier)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-teal-300 bg-teal-50 rounded-lg hover:bg-teal-100 text-sm transition-colors"
+                        title="Submit Quote"
+                      >
+                        <FileText className="w-4 h-4 text-teal-600" />
+                        <span className="text-teal-700">Quote</span>
+                      </button>
+                      <button
                         onClick={() => handleUpdateCatalog(supplier)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 border border-purple-300 bg-purple-50 rounded-lg hover:bg-purple-100 text-sm transition-colors"
                         title="Update Catalog"
@@ -473,6 +720,13 @@ const SupplierPortal: React.FC = () => {
                         title="Track Performance"
                       >
                         <BarChart3 className="w-4 h-4 text-indigo-600" />
+                      </button>
+                      <button
+                        onClick={() => handleViewSupplierProfile(supplier)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 bg-slate-50 rounded-lg hover:bg-slate-100 text-sm transition-colors"
+                        title="View Profile"
+                      >
+                        <Eye className="w-4 h-4 text-slate-600" />
                       </button>
                     </div>
                   </td>
@@ -763,8 +1017,449 @@ const SupplierPortal: React.FC = () => {
       {activeView === 'suppliers' && renderSuppliers()}
       {activeView === 'collaboration' && renderCollaboration()}
       {activeView === 'documents' && renderDocuments()}
+
+      {modal && renderModal()}
     </div>
   );
+
+  function renderModal() {
+    if (!modal) return null;
+    const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500';
+    const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+
+    let title = '';
+    let body: React.ReactNode = null;
+    let footer: React.ReactNode = (
+      <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+    );
+
+    if (modal.type === 'pos') {
+      title = `Purchase Orders — ${modal.supplier.name}`;
+      body = modal.pos.length === 0 ? (
+        <p className="text-sm text-gray-500">No purchase orders on record for this supplier.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-600">
+                <th className="py-2 pr-3">PO Number</th>
+                <th className="py-2 pr-3">PO Date</th>
+                <th className="py-2 pr-3">Delivery</th>
+                <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3 text-right">Amount</th>
+                <th className="py-2 pr-3 text-right">Received %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modal.pos.map((po) => (
+                <tr key={po.poNumber} className="border-b hover:bg-gray-50">
+                  <td className="py-2 pr-3 font-medium">{po.poNumber}</td>
+                  <td className="py-2 pr-3">{po.poDate}</td>
+                  <td className="py-2 pr-3">{po.deliveryDate}</td>
+                  <td className="py-2 pr-3">{po.status}</td>
+                  <td className="py-2 pr-3 text-right">{po.currency} {po.totalAmount.toLocaleString()}</td>
+                  <td className="py-2 pr-3 text-right">{po.receivedPercentage}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          {modal.pos.length > 0 && (
+            <button
+              onClick={() => downloadCsv(`pos-${modal.supplier.code || modal.supplier.id}.csv`, modal.pos as unknown as Array<Record<string, unknown>>)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
+          )}
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+        </div>
+      );
+    } else if (modal.type === 'invoice') {
+      const s = modal.supplier;
+      title = `Submit Invoice — ${s.name}`;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Invoice Number *</label>
+            <input className={inputCls} value={invoiceForm.invoiceNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>PO Number</label>
+            <input className={inputCls} value={invoiceForm.poNumber} onChange={(e) => setInvoiceForm({ ...invoiceForm, poNumber: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Invoice Date</label>
+            <input type="date" className={inputCls} value={invoiceForm.invoiceDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceDate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Due Date</label>
+            <input type="date" className={inputCls} value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Amount *</label>
+            <input type="number" className={inputCls} value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Currency</label>
+            <input className={inputCls} value={invoiceForm.currency} onChange={(e) => setInvoiceForm({ ...invoiceForm, currency: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelCls}>Notes</label>
+            <textarea className={inputCls} rows={2} value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitInvoice(s)} disabled={submitting} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
+            {submitting ? 'Submitting…' : 'Submit Invoice'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'quote') {
+      const s = modal.supplier;
+      title = `Submit Quote — ${s.name}`;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2">
+            <label className={labelCls}>Item Name *</label>
+            <input className={inputCls} value={quoteForm.itemName} onChange={(e) => setQuoteForm({ ...quoteForm, itemName: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Reference (RFQ/PO)</label>
+            <input className={inputCls} value={quoteForm.reference} onChange={(e) => setQuoteForm({ ...quoteForm, reference: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Quantity</label>
+            <input type="number" className={inputCls} value={quoteForm.quantity} onChange={(e) => setQuoteForm({ ...quoteForm, quantity: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Unit Price *</label>
+            <input type="number" className={inputCls} value={quoteForm.unitPrice} onChange={(e) => setQuoteForm({ ...quoteForm, unitPrice: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Currency</label>
+            <input className={inputCls} value={quoteForm.currency} onChange={(e) => setQuoteForm({ ...quoteForm, currency: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Lead Time (days)</label>
+            <input type="number" className={inputCls} value={quoteForm.leadTimeDays} onChange={(e) => setQuoteForm({ ...quoteForm, leadTimeDays: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Valid Until</label>
+            <input type="date" className={inputCls} value={quoteForm.validUntil} onChange={(e) => setQuoteForm({ ...quoteForm, validUntil: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelCls}>Notes</label>
+            <textarea className={inputCls} rows={2} value={quoteForm.notes} onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitQuote(s)} disabled={submitting} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 disabled:opacity-50">
+            {submitting ? 'Submitting…' : 'Submit Quote'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'catalog') {
+      const s = modal.supplier;
+      title = `Update Catalog — ${s.name}`;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>SKU *</label>
+            <input className={inputCls} value={catalogForm.sku} onChange={(e) => setCatalogForm({ ...catalogForm, sku: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Product Name *</label>
+            <input className={inputCls} value={catalogForm.name} onChange={(e) => setCatalogForm({ ...catalogForm, name: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Category</label>
+            <input className={inputCls} value={catalogForm.category} onChange={(e) => setCatalogForm({ ...catalogForm, category: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Unit of Measure</label>
+            <input className={inputCls} value={catalogForm.uom} onChange={(e) => setCatalogForm({ ...catalogForm, uom: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Unit Price</label>
+            <input type="number" className={inputCls} value={catalogForm.unitPrice} onChange={(e) => setCatalogForm({ ...catalogForm, unitPrice: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Currency</label>
+            <input className={inputCls} value={catalogForm.currency} onChange={(e) => setCatalogForm({ ...catalogForm, currency: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Lead Time (days)</label>
+            <input type="number" className={inputCls} value={catalogForm.leadTimeDays} onChange={(e) => setCatalogForm({ ...catalogForm, leadTimeDays: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Status</label>
+            <select className={inputCls} value={catalogForm.status} onChange={(e) => setCatalogForm({ ...catalogForm, status: e.target.value })}>
+              <option value="active">Active</option>
+              <option value="discontinued">Discontinued</option>
+            </select>
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitCatalog(s)} disabled={submitting} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50">
+            {submitting ? 'Saving…' : 'Save Catalog Item'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'documents') {
+      title = `Documents — ${modal.supplier.name}`;
+      body = modal.docs.length === 0 ? (
+        <p className="text-sm text-gray-500">No documents on file for this supplier.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-600">
+                <th className="py-2 pr-3">Type</th>
+                <th className="py-2 pr-3">File</th>
+                <th className="py-2 pr-3">Uploaded</th>
+                <th className="py-2 pr-3">Expiry</th>
+                <th className="py-2 pr-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modal.docs.map((d) => (
+                <tr key={d.id} className="border-b hover:bg-gray-50">
+                  <td className="py-2 pr-3">{d.documentType}</td>
+                  <td className="py-2 pr-3 text-blue-600">{d.fileName}</td>
+                  <td className="py-2 pr-3">{d.uploadedAt}</td>
+                  <td className="py-2 pr-3">{d.expiryDate ?? '—'}</td>
+                  <td className="py-2 pr-3">
+                    <span className={`px-2 py-1 rounded-full text-xs ${getDocumentStatusColor(d.status)}`}>{d.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          {modal.docs.length > 0 && (
+            <button onClick={() => exportSupplierDocuments(modal.docs, modal.supplier)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-2">
+              <Download className="w-4 h-4" /> Download List (CSV)
+            </button>
+          )}
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+        </div>
+      );
+    } else if (modal.type === 'upload') {
+      const s = modal.supplier;
+      title = `Upload Document — ${s.name}`;
+      body = (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Document Type *</label>
+            <input className={inputCls} placeholder="e.g. ISO 9001 Certificate" value={uploadForm.documentType} onChange={(e) => setUploadForm({ ...uploadForm, documentType: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>File Name *</label>
+            <input className={inputCls} placeholder="e.g. iso9001.pdf" value={uploadForm.fileName} onChange={(e) => setUploadForm({ ...uploadForm, fileName: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Expiry Date</label>
+            <input type="date" className={inputCls} value={uploadForm.expiryDate} onChange={(e) => setUploadForm({ ...uploadForm, expiryDate: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitUpload(s)} disabled={submitting} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50">
+            {submitting ? 'Uploading…' : 'Upload'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'message') {
+      const s = modal.supplier;
+      title = `Message Buyer — ${s.name}`;
+      body = (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Subject *</label>
+            <input className={inputCls} value={messageForm.subject} onChange={(e) => setMessageForm({ ...messageForm, subject: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Message *</label>
+            <textarea className={inputCls} rows={4} value={messageForm.body} onChange={(e) => setMessageForm({ ...messageForm, body: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitMessage(s)} disabled={submitting} className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 disabled:opacity-50">
+            {submitting ? 'Sending…' : 'Send Message'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'profile') {
+      const s = modal.supplier;
+      title = `Supplier Profile — ${s.name}`;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <div><span className="text-gray-500">Code:</span> <span className="font-medium">{s.code}</span></div>
+          <div><span className="text-gray-500">Category:</span> <span className="font-medium">{s.category}</span></div>
+          <div><span className="text-gray-500">Status:</span> <span className="font-medium">{s.status}</span></div>
+          <div><span className="text-gray-500">Rating:</span> <span className="font-medium">{s.rating}/5.0</span></div>
+          <div><span className="text-gray-500">Contact:</span> <span className="font-medium">{s.contact.name || '—'}</span></div>
+          <div><span className="text-gray-500">Email:</span> <span className="font-medium">{s.contact.email || '—'}</span></div>
+          <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{s.contact.phone || '—'}</span></div>
+          <div><span className="text-gray-500">Payment Terms:</span> <span className="font-medium">{s.paymentTerms || '—'}</span></div>
+          <div><span className="text-gray-500">Total Spend (YTD):</span> <span className="font-medium">${s.totalSpend.toLocaleString()}</span></div>
+          <div><span className="text-gray-500">Active Orders:</span> <span className="font-medium">{s.activeOrders}</span></div>
+          <div><span className="text-gray-500">On-Time Delivery:</span> <span className="font-medium">{s.onTimeDelivery}%</span></div>
+          <div><span className="text-gray-500">Quality Score:</span> <span className="font-medium">{s.qualityScore}%</span></div>
+          <div><span className="text-gray-500">Last Activity:</span> <span className="font-medium">{s.lastActivity || '—'}</span></div>
+        </div>
+      );
+    } else if (modal.type === 'performance') {
+      const s = modal.supplier;
+      title = `Performance — ${s.name}`;
+      body = (
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-gray-500">Overall Rating</div>
+              <div className="text-2xl font-bold">{s.rating}/5.0</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-gray-500">On-Time Delivery</div>
+              <div className="text-2xl font-bold">{s.onTimeDelivery}%</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-gray-500">Quality Score</div>
+              <div className="text-2xl font-bold">{s.qualityScore}%</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-gray-500">Total Spend (YTD)</div>
+              <div className="text-2xl font-bold">${s.totalSpend.toLocaleString()}</div>
+            </div>
+          </div>
+          <p className="text-gray-500">Metrics reflect the current vendor record. On-time delivery and quality scores are 0 until evaluation data is captured.</p>
+        </div>
+      );
+    } else if (modal.type === 'messages') {
+      const unread = messages.filter((m) => m.status === 'unread').length;
+      title = 'Message Center';
+      body = (
+        <div className="space-y-3 text-sm">
+          <div className="flex gap-4">
+            <span>Total: <strong>{messages.length}</strong></span>
+            <span>Unread: <strong>{unread}</strong></span>
+            <span>High priority: <strong>{messages.filter((m) => m.priority === 'high').length}</strong></span>
+          </div>
+          {messages.length === 0 ? (
+            <p className="text-gray-500">No messages yet.</p>
+          ) : (
+            <div className="divide-y max-h-96 overflow-y-auto">
+              {messages.map((m) => (
+                <div key={m.id} className="py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${getMessageStatusColor(m.status)}`}>{m.status}</span>
+                    <span className="font-medium">{m.subject}</span>
+                  </div>
+                  <div className="text-gray-500 text-xs">{m.supplierName} · {m.createdAt}</div>
+                  <div className="text-gray-700">{m.message}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    } else if (modal.type === 'manage-documents') {
+      title = 'Document Management';
+      const byType = Array.from(new Set(documents.map((d) => d.documentType)));
+      body = (
+        <div className="space-y-3 text-sm">
+          <div className="flex gap-4">
+            <span>Total: <strong>{documents.length}</strong></span>
+            <span>Valid: <strong>{documents.filter((d) => d.status === 'valid').length}</strong></span>
+            <span>Expiring: <strong>{documents.filter((d) => d.status === 'expiring').length}</strong></span>
+            <span>Expired: <strong>{documents.filter((d) => d.status === 'expired').length}</strong></span>
+          </div>
+          <div>
+            <div className="font-medium mb-1">By type</div>
+            {byType.length === 0 ? <p className="text-gray-500">No documents.</p> : (
+              <ul className="list-disc pl-5">
+                {byType.map((t) => (
+                  <li key={t}>{t}: {documents.filter((d) => d.documentType === t).length}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={() => { closeModal(); handleUploadDocument(); }} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 flex items-center gap-2">
+            <Upload className="w-4 h-4" /> Upload Document
+          </button>
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+        </div>
+      );
+    } else if (modal.type === 'settings') {
+      title = 'Supplier Portal Settings';
+      body = (
+        <div className="space-y-3 text-sm">
+          <label className="flex items-center justify-between">
+            <span>Email notifications for new POs</span>
+            <input type="checkbox" defaultChecked className="rounded" />
+          </label>
+          <label className="flex items-center justify-between">
+            <span>Certificate expiry reminders (30 days)</span>
+            <input type="checkbox" defaultChecked className="rounded" />
+          </label>
+          <label className="flex items-center justify-between">
+            <span>Require approval for new catalog items</span>
+            <input type="checkbox" defaultChecked className="rounded" />
+          </label>
+          <div>
+            <label className={labelCls}>Items per page</label>
+            <select className={inputCls} defaultValue="25">
+              <option>10</option><option>25</option><option>50</option><option>100</option>
+            </select>
+          </div>
+          <p className="text-gray-500">Display-only preferences (client-side).</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeModal}>
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-3 border-b">
+            <h3 className="text-lg font-semibold">{title}</h3>
+            <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          </div>
+          <div className="px-5 py-4">
+            {formError && (
+              <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{formError}</div>
+            )}
+            {body}
+          </div>
+          <div className="px-5 py-3 border-t flex justify-end">{footer}</div>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default SupplierPortal;

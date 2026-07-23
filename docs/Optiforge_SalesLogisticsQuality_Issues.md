@@ -1,6 +1,8 @@
 # Sales, Logistics, Quality — Detailed Issues Report
 
 **Verified:** 2026-07-21
+**Re-verified:** 2026-07-23 — no change; `/quality/ncr/open` navigation-only pattern persists (arguably by design)
+**Phase-2 completion:** 2026-07-23 — `/quality/ncr/open` closed: added inline **Quick Close** (`NCRService.closeNCR`) and **Assign / Update Status** (`NCRService.updateNCR`) row actions alongside the existing navigation. **0 PARTIAL remain.** Frontend `tsc --noEmit` = 0 errors.
 **Scope:** All flagged pages across three small modules (Sales: 1, Logistics: 1, Quality: 5 + 1 bonus)
 **Method:** Direct code inspection of each `src/app/(modules)/**/page.tsx`
 
@@ -24,8 +26,8 @@ Only the 7 flagged pages + 1 bonus were verified in this pass. Say the word if y
 
 | Status | Count | Notes |
 |---|---:|---|
-| **Actually FIXED** | 7 | Real fetch + all primary actions wired |
-| **PARTIAL** | 1 | Real fetch + list view works; mutations delegated via `router.push` to sibling routes |
+| **Actually FIXED** | 8 | Real fetch + all primary actions wired (incl. `ncr/open` inline Quick-Close/Assign added 2026-07-23) |
+| **PARTIAL** | 0 | — |
 | **Real BROKEN** | 0 | |
 | **Total** | **8** | |
 

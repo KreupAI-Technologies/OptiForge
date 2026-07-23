@@ -70,18 +70,47 @@ export default function GeneratePRPage() {
   const loadProjectData = async (id: string) => {
     setLoading(true);
     try {
-      const [project, receptions] = await Promise.all([
+      const [project, receptions, shortfall] = await Promise.all([
         projectManagementService.getProject(id),
         projectManagementService.getBOMReceptions(id).catch(() => []),
+        projectManagementService.getPrShortfallItems(id).catch(() => []),
       ]);
       setSelectedProject(project);
       // Use the latest released/processed BOM as the requisition source.
       setBomHeaderId(receptions[0]?.id ?? null);
-      // Draft shortfall line-items the planner can adjust before submitting.
-      setItems([
-        { id: 'ITM-002', name: 'Laminate - White Gloss', category: 'Finish', shortfallQty: 20, orderQty: 25, unit: 'sheets', preferredVendor: 'Merino' },
-        { id: 'ITM-003', name: 'Hettich Soft Close Hinge', category: 'Hardware', shortfallQty: 55, orderQty: 60, unit: 'pcs', preferredVendor: 'Hettich India' },
-      ]);
+
+      // Prefer the project's real BOM-vs-stock shortfall lines from the backend.
+      let sourced: PRItem[] = (shortfall ?? []).map((line) => ({
+        id: line.id,
+        name: line.name,
+        category: line.category,
+        shortfallQty: line.shortfallQty,
+        orderQty: line.orderQty,
+        unit: line.unit,
+        preferredVendor: line.preferredVendor,
+      }));
+
+      // If the backend feed is empty, derive shortfall lines from project stock
+      // (available < required), which is the same source of truth client-side.
+      if (sourced.length === 0) {
+        const stock = await projectManagementService.getStockItems(id).catch(() => []);
+        sourced = stock
+          .filter((s) => s.status === 'Shortfall' || s.availableQty < s.requiredQty)
+          .map((s) => {
+            const shortfallQty = Math.max(0, s.requiredQty - s.availableQty);
+            return {
+              id: s.id,
+              name: s.name,
+              category: s.category,
+              shortfallQty,
+              orderQty: shortfallQty,
+              unit: s.unit,
+              preferredVendor: 'Generic',
+            };
+          });
+      }
+
+      setItems(sourced);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/procurement/pr-generation');

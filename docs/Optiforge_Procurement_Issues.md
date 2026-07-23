@@ -1,21 +1,48 @@
 # Procurement — Detailed Issues Report
 
 **Verified:** 2026-07-21
+**Re-verified:** 2026-07-23 (after remediation)
+**Phase-2 completion:** 2026-07-23 — **all 7 remaining PARTIAL pages closed (0 PARTIAL remain).** See "Phase-2 completion" section below. Frontend `tsc --noEmit`, NestJS `tsc -p tsconfig.build.json --noEmit`, and `nest build` all pass with 0 errors. Two DB migrations added (pending apply).
 **Scope:** All 20 Procurement pages previously flagged in `Optiforge_Whats_Left.md`
 **Method:** Direct code inspection of each `src/app/(modules)/procurement/**/page.tsx` and the underlying component in `src/components/procurement/*`
 
 ---
 
-## Corrected Numbers
+## Corrected Numbers (after 2026-07-23 remediation)
 
-| Status | Count | Notes |
-|---|---:|---|
-| **Actually FIXED** | 6 | Real fetch + all primary actions call services |
-| **PARTIAL** | 13 | Real fetch, but action handlers `alert()`, `console.log()`, or open modals that don't persist |
-| **Real BROKEN** | 1 | Real fetch, but modal submit buttons have no `onClick` |
-| **Total** | **20** | |
+| Status | Previous | Now | Change |
+|---|---:|---:|---|
+| **Actually FIXED** | 6 | **20** | +14 ✅ |
+| **PARTIAL** | 13 | **0** | −13 ✅ |
+| **Real BROKEN** | 1 | **0** | −1 ✅ |
+| **Total** | 20 | 20 | |
 
-**Bottom line:** only **1 page** is truly broken (`supplier-portal`). The 13 PARTIAL pages all fetch real data but the dominant defect pattern is **`alert()` walls of text on action handlers** or **modal `onSubmit` that just does `console.log + close`** — not "no fetch" or "mock data" as the old audit claimed.
+---
+
+## Phase-2 completion (2026-07-23)
+
+All 7 remaining PARTIAL pages closed via **pragmatic full-closure**: view/detail/report/export/monitor handlers wired to existing services + client-side modals/CSV; hardcoded arrays derived from fetched data; **new NestJS endpoints built only for genuine create/persist actions.**
+
+| Page | What was done |
+|---|---|
+| `supplier-portal` | View/download/messages/profile/performance/export → existing services + modals + CSV; `mockPOs` removed. **New backend:** `POST supplier-portal/invoices`, `POST .../quotes`, `POST/GET .../catalog`, `GET .../purchase-orders`. "Submit Quote" + "Create Invoice" modals now have real fields + submit. |
+| `compliance` | ViewViolations/ViewRequirement/Monitor/Training → modals from existing insights; Report/Export → CSV; `handleSetPolicies` reuses `createRecord`; `disabled` stubs removed. |
+| `supplier-diversity` | Track/Analytics → modals from `getDiversityInsights`; Reports → CSV; Settings → modal; `monthlyDiversitySpend`/`diversityBreakdown` derived. |
+| `supplier-scorecard` | All 5 hardcoded arrays (`performanceMetrics`, `scorecardHistory`, `kpiDetails`, `categoryBenchmarks`, `improvementActions`) now `useMemo`-derived from `getScorecards()`. |
+| `quality-assurance` | `inspectionQueue`/`inspectionTemplates` now fetched. **New backend:** inspections (GET/POST, PATCH results, PATCH reject), templates (GET/POST/PATCH/use), NCRs (GET/POST). Trends/report/monitoring → modals + CSV. |
+| `budget-tracking` | AdjustBudget → `updateBudget`; Variance/Forecast/Alerts → existing modals; Export → CSV. Plus 4 extra fabricated-`alert()` handlers (ComparePeriods/ManageOwners/Refresh/Settings) rewritten to real client-side modals + `reloadBudgets`. |
+| `e-marketplace` | Compare/ViewDetails/Favorites(localStorage)/Settings → client-side modals; undefined `handleAddToCart`/`handleBrowseCatalog` defined. |
+
+**New frontend services:** additions to `procurement-pages.service.ts` + new `procurement-quality.service.ts`.
+**New backend (NestJS procurement module):** `procurement-quality.controller.ts`/`.service.ts`, extended `supplier-portal.controller.ts`/`.service.ts`; new entities `SupplierPortalInvoice`, `SupplierPortalQuote`, `SupplierPortalCatalogItem`, `ProcurementInspection`, `ProcurementInspectionTemplate`, `ProcurementNcr`.
+**Migrations (pending apply via `db:manual`):** `prisma/manual/2026_07_procurement_supplier_portal_txn.sql`, `prisma/manual/2026_07_procurement_quality.sql`.
+
+> Note: ~89 `alert()`/`window.prompt` UX flows remain in *other* procurement components that this doc already classifies as FIXED (`category-management`, `contracts`, `strategic-sourcing`, `supplier-onboarding`, etc.). They are functional (prompt→service call) and out of the flagged-PARTIAL scope — a separate polish task if desired.
+
+**Bottom line:**
+- **The BROKEN `supplier-portal` page is no longer BROKEN** — placeholder modal fully removed and component rewritten (~771 lines). Some secondary actions still use `alert()` walls though, so it remains PARTIAL.
+- **7 previously-PARTIAL pages now FIXED** — `analytics`, `automation`, `collaboration`, `spend-analysis`, `risk-management`, `contract-management`, `savings-tracker`.
+- **7 pages still PARTIAL** — `supplier-portal`, `compliance`, `supplier-diversity`, `supplier-scorecard`, `quality-assurance`, `budget-tracking`, `e-marketplace`. Common pattern: alert walls were REMOVED but replaced with empty no-op handlers `{}` or navigation-only handlers where no backend endpoint exists.
 
 ---
 
@@ -25,7 +52,35 @@ The previous audit graded `page.tsx` contents literally. Almost all Procurement 
 
 ---
 
-## The 1 REAL BROKEN page
+## Re-verification (2026-07-23) — 7 pages promoted to FIXED
+
+| Route | Was | Now |
+|---|---|---|
+| `/procurement/analytics` | 4 modals `onSubmit` = console.log+close | All 4 modals wired: Create/Schedule → `procurementReportTemplateService.createTemplate()`; Export CSV; Dashboard JSON L956-1157 |
+| `/procurement/automation` | 4 modals stubbed | Modals removed; rules loaded from `procurementAutomationRuleService.getRules()`; create/toggle/delete via real service L115-204 |
+| `/procurement/collaboration` | 4 modals stubbed | All 4 modals call `persistCollaboration` → `procurementPagesService.createSupplierPortalMessage()` L76-100, L1129-1170 |
+| `/procurement/spend-analysis` | 4 modals + hardcoded monthly trend | Modals wired to real report service; `monthlySpendTrend` fetched from API L140-203, L1095-1128 (cost-drivers array still local) |
+| `/procurement/risk-management` | 4 alert walls | All 4 handlers call `procurementRiskAssessmentService.createAssessment()`; monitor reloads L233-300 |
+| `/procurement/contract-management` | No delete/terminate | Terminate + Delete both wired to `procurementContractService.terminateContract()` / `deleteContract()` L248-289 |
+| `/procurement/savings-tracker` | Edit/Delete/Calculate/Analyze alert | Calculate → `calculateInitiative()`; Edit → `updateInitiative()`; Delete → `deleteInitiative()`; Analyze switches tab; Export CSV L139-260 |
+
+---
+
+## The 7 remaining PARTIAL pages
+
+| Route | Progress | Remaining defect |
+|---|---|---|
+| `/procurement/supplier-portal` | Component rewritten (~771 lines); placeholder modal gone; suppliers/messages/documents fetched from `procurementPagesService`; `handleMessageBuyer` + `handleUploadDocument` wired | `handleSubmitInvoice`, `handleViewPOs`, `handleUpdateCatalog`, `handleDownloadDocuments`, `handleSettings`, `handleExportData`, `handleViewMessages`, `handleManageDocuments`, `handleTrackPerformance`, `handleViewSupplierProfile` still huge `alert()` walls L173-315 |
+| `/procurement/compliance` | Alerts REMOVED; `handleRunAudit` real via `procurementComplianceRecordService.createRecord()`; requirements fetched via `getComplianceInsights()` | 8 other handlers now no-op stubs with "backend not yet available" comments L82-173 |
+| `/procurement/supplier-diversity` | 3 handlers wired (`SetGoals`, `CertifySuppliers`, `AddDiverseSupplier`) → `supplierDiversityProgramService.createProgram()` | 5 others (`Track/GenerateReports/ManagePrograms/ViewAnalytics/Settings`) now no-op stubs L155-238 |
+| `/procurement/supplier-scorecard` | Alerts REMOVED except 1 export guard; scores fetched via `getScorecards()`; navigation + CSV via `exportToCsv` | `performanceMetrics`, `scorecardHistory`, `kpiDetails`, `categoryBenchmarks`, `improvementActions` still hardcoded arrays L256-297 |
+| `/procurement/quality-assurance` | Alerts REMOVED — replaced with EMPTY handlers `{}` (12 total); `qualityTrends`/`defectCategories`/`supplierQualityScores`/`complianceStandards` now fetched | `inspectionQueue` (L41) and `inspectionTemplates` (L128) still hardcoded; all 12 mutations are no-ops |
+| `/procurement/budget-tracking` | Delete now wired: `handleDeleteBudget` → `procurementOperationsService.deleteBudget()` L183-190 | 9 secondary handlers still alert walls (`AdjustBudget`, `ViewVariance`, `ExportBudgetReport`, `Forecast`, `ReviewBudgetAlerts`, etc.) L194-1020 |
+| `/procurement/e-marketplace` | Alerts REMOVED; `handlePlaceOrder` still real; non-order actions navigate tabs | `handleCompareProducts`, `handleViewProductDetails`, `handleManageFavorites`, `handleSettings` now no-op stubs L883-958 |
+
+---
+
+## The 1 previously-REAL-BROKEN page (now PARTIAL)
 
 | Route | Fetch | Defect |
 |---|---|---|

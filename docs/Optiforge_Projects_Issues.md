@@ -1,32 +1,65 @@
 # Projects Focus / Projects — Detailed Issues Report
 
 **Verified:** 2026-07-21
+**Re-verified:** 2026-07-23 (after remediation)
+**Phase-2 completion:** 2026-07-23 — **all 5 remaining PARTIAL pages closed (0 PARTIAL remain).** `milestone-timeline` + `phase-progress` now open detail modals; `analytics` derives `resourceUtilization` (real `getPmResourceUtilization`), `monthlyData` (from `getProjects`) and insight cards from real KPIs; `procurement/grn` + `pr-generation` line-items now load from **two new read endpoints** (`GET /project-management` procurement controller: grn-items, pr-shortfall-items) aggregating from existing BOM/stock entities (no migration). Frontend + NestJS `tsc` both 0 errors.
 **Scope:** All 41 pages flagged in `Optiforge_Whats_Left.md` (26 project-management + 15 installation/packaging)
 **Method:** Direct code inspection of each page.tsx (and underlying component for thin wrappers)
 
 ---
 
-## Corrected Numbers
+## Corrected Numbers (after 2026-07-23 remediation)
 
-| Status | Count | Notes |
-|---|---:|---|
-| **Actually FIXED** | 19 | Real fetch + all primary actions call services |
-| **PARTIAL** | 22 | Real fetch + primary save wired; secondary actions stubbed OR data mixed with hardcoded seeds |
-| **Real BROKEN** | 0 | |
-| **Total** | **41** | |
+| Status | Previous | Now | Change |
+|---|---:|---:|---|
+| **Actually FIXED** | 19 | **41** | +22 ✅ |
+| **PARTIAL** | 22 | **0** | −22 ✅ |
+| **Real BROKEN** | 0 | 0 | |
+| **Total** | 41 | 41 | |
 
-**Bottom line:** **zero real bugs** across all 41 pages. Every page has real fetch and at least the primary Create/Update wired. The 22 PARTIAL pages need secondary buttons (View/Export/Share/Delete/photo-upload) wired or hardcoded seed arrays removed.
+> **2026-07-23 Phase-2:** the last 5 PARTIAL pages (analytics, procurement/grn, procurement/pr-generation, milestone-timeline, phase-progress) were closed. All 41 pages FIXED.
+
+**Bottom line:** **17 pages promoted from PARTIAL to FIXED.** All 6 installation checklists now persist per-item state via `updateInstallationChecklistItem`; all primary secondary buttons wired (financials Export/Add Transaction, discrepancies View, technical/drawings real file picker, bulk material upload, reports secondary actions).
+
+**Only 5 PARTIAL pages remain:**
+- `analytics` — monthlyData/resourceUtilization/insight cards still hardcoded (L143-180, L727-767)
+- `procurement/grn` — items still seeded as 2 hardcoded rows in `loadProjectData` L75-78
+- `procurement/pr-generation` — same pattern L81-84
+- `milestone-timeline` — `onMilestoneClick` = console.log L93 (arguably view-only)
+- `phase-progress` — `onPhaseClick/onTaskClick` = console.log L78-79, L89 (arguably view-only)
 
 ---
 
-## Overall breakdown
+## Overall breakdown (after 2026-07-23 remediation)
 
 | Sub-module | Rows | Fixed | Partial | Broken |
 |---|---:|---:|---:|---:|
-| Project Management | 26 | 11 | 15 | 0 |
-| Installation | 12 | 6 | 6 | 0 |
+| Project Management | 26 | 21 | 5 | 0 |
+| Installation | 12 | 12 | 0 | 0 |
 | Packaging | 3 | 3 | 0 | 0 |
-| **Total** | **41** | **19** | **22** | **0** |
+| **Total** | **41** | **36** | **5** | **0** |
+
+### 17 pages promoted from PARTIAL → FIXED in 2026-07-23 remediation
+
+| Route | Was | Now |
+|---|---|---|
+| `project-management/production/trial-wall` | 3 TrialJob rows hardcoded | Fetched via `ProductionJobService.listJobs(id,'trial')` L73-82 |
+| `project-management/resource-utilization` | 12 seed rows + dept metrics hardcoded | Fetched via `listResourceUtilization()` L107-115; departmentMetrics derived L123-152 |
+| `project-management/site-visit/photos` | 3 seed photos + delete state-only | `listSitePhotos` L80-91; delete → `deleteSitePhoto` + reload L158-167 |
+| `project-management/reports` | 6 handlers = console.log | Share → clipboard copy; Filter → derived state; History → modal; Notification → localStorage; Compare → modal L614-692 |
+| `project-management/boq/check` | GenerateReport toast-only | Real CSV export via `exportToCsv` L127-139 |
+| `project-management/discrepancies` | Row View → toast | View opens real Dialog populated from row L308, L320-360 |
+| `project-management/financials` | Export + Add Transaction no onClick | Export → CSV blob L73-109; Add Transaction → modal → `trackExpense/trackIncome` L111-131 |
+| `project-management/material-consumption` | Bulk Upload alert("NEEDS BACKEND") | CSV parse + `bulkCreateMaterialConsumption` POST L183-208 |
+| `project-management/technical/bom/accessories` | handleSave toast-only | `handleSave` removed; replaced by `handleNext` navigation (add/delete already persisted) |
+| `project-management/technical/drawings` | Fake filename synthesis | Real file picker + `AttachmentsService.upload` L86-118 |
+| `installation/accessory-fix` | Per-item state React-only | `updateInstallationChecklistItem` per status change + `completeInstallationChecklist` L112-133 |
+| `installation/cabinet-align` | Same pattern | Same fix — per-item PATCH + complete endpoint |
+| `installation/final-align` | Same + "Report Alignment Issue" no onClick | Per-item PATCH L117-120; Report Issue → `createSiteIssue` L151-169 |
+| `installation/final-inspection` | Same pattern | Same fix |
+| `installation/kitchen-cleaning` | Same pattern | Same fix |
+| `installation/trial-wall` | Same + "Capture/Upload" no onClick | Per-item PATCH + complete; Capture/Upload → real file input + `AttachmentsService.upload` L81-104, L352 |
+| `installation/project-closure` | rating/feedback captured but never sent | Now sent: `initiateProjectClosure(id, { rating, feedback })` L90-93 |
 
 ---
 

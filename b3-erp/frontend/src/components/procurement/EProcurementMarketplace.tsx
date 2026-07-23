@@ -26,6 +26,30 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(true);
 
+  // --- Compare modal state ---
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+
+  // --- Product detail modal state ---
+  const [isProductDetailModalOpen, setIsProductDetailModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+
+  // --- Favorites modal state ---
+  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('eprocurement-favorites') : null;
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // --- Settings modal state ---
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [showOutOfStock, setShowOutOfStock] = useState(true);
+  const [defaultSort, setDefaultSort] = useState('relevance');
+
   // Marketplace products (loaded from backend getMarketplaceInsights().products)
   const [marketplaceProducts, setMarketplaceProducts] = useState<Array<{
     id: string;
@@ -231,9 +255,8 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
               </div>
               <button
                 onClick={handleCompareProducts}
-                disabled
-                className="flex items-center space-x-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Compare Products — not yet available"
+                className="flex items-center space-x-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                title="Compare Products"
               >
                 <BarChart3 className="h-4 w-4" />
                 <span>Compare</span>
@@ -303,9 +326,17 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
                 <div className="mb-3">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-semibold text-lg">{product.name}</h4>
-                    <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                      <Heart className="h-5 w-5 text-gray-400" />
-                      <span className="text-gray-600">Favorite</span>
+                    <button
+                      onClick={() => toggleFavorite(product.id)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm transition-colors ${
+                        favorites.includes(product.id)
+                          ? 'border-red-400 bg-red-50 text-red-600'
+                          : 'border-gray-300 hover:bg-gray-50 text-gray-600'
+                      }`}
+                      title={favorites.includes(product.id) ? 'Remove from Favorites' : 'Add to Favorites'}
+                    >
+                      <Heart className={`h-5 w-5 ${favorites.includes(product.id) ? 'fill-current text-red-500' : 'text-gray-400'}`} />
+                      <span>{favorites.includes(product.id) ? 'Saved' : 'Favorite'}</span>
                     </button>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{product.supplier}</p>
@@ -890,7 +921,7 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   };
 
   const handleCompareProducts = () => {
-    // No product-comparison feature or backend is available yet.
+    setIsCompareModalOpen(true);
   };
 
   const handlePlaceOrder = async () => {
@@ -923,8 +954,8 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   };
 
   const handleViewProductDetails = (product: any) => {
-    // No product-detail modal or backend endpoint exists; keep the user on the catalog.
-    setActiveTab('marketplace');
+    setSelectedProduct(product);
+    setIsProductDetailModalOpen(true);
   };
 
   const handleManageCart = () => {
@@ -942,7 +973,33 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   };
 
   const handleManageFavorites = () => {
-    // No favorites/lists feature or backend is available yet.
+    setIsFavoritesModalOpen(true);
+  };
+
+  const toggleFavorite = (productId: string) => {
+    setFavorites((prev) => {
+      const next = prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId];
+      try {
+        localStorage.setItem('eprocurement-favorites', JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const removeFavorite = (productId: string) => {
+    setFavorites((prev) => {
+      const next = prev.filter((id) => id !== productId);
+      try {
+        localStorage.setItem('eprocurement-favorites', JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
   };
 
   const handleViewOrderHistory = () => {
@@ -954,7 +1011,7 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
   };
 
   const handleSettings = () => {
-    // No settings panel or backend is available yet.
+    setIsSettingsModalOpen(true);
   };
 
   return (
@@ -1000,12 +1057,11 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
             </button>
             <button
               onClick={handleManageFavorites}
-              disabled
-              className="flex items-center space-x-2 px-4 py-2 bg-white text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Manage Favorites — not yet available"
+              className="flex items-center space-x-2 px-4 py-2 bg-white text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
+              title="Manage Favorites"
             >
               <Heart className="h-4 w-4" />
-              <span>Favorites</span>
+              <span>Favorites ({favorites.length})</span>
             </button>
             <button
               onClick={handleRefresh}
@@ -1049,6 +1105,364 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
       {activeTab === 'suppliers' && renderSuppliers()}
       {activeTab === 'orders' && renderOrders()}
       {activeTab === 'analytics' && renderAnalytics()}
+
+      {/* ── Compare Modal ── */}
+      {isCompareModalOpen && (() => {
+        const compareList = selectedForCompare.length >= 2
+          ? marketplaceProducts.filter((p) => selectedForCompare.includes(p.id))
+          : marketplaceProducts.slice(0, Math.min(3, marketplaceProducts.length));
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-lg font-semibold">Compare Products</h3>
+                <button
+                  onClick={() => setIsCompareModalOpen(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <XCircle className="h-6 w-6 text-gray-500" />
+                </button>
+              </div>
+              {compareList.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p>No products to compare. Add products from the marketplace first.</p>
+                </div>
+              ) : (
+                <div className="p-4 overflow-x-auto">
+                  {/* Select products for compare */}
+                  {selectedForCompare.length === 0 && (
+                    <p className="text-sm text-gray-500 mb-3">
+                      Showing first {compareList.length} products. Use checkboxes in the marketplace to select specific products.
+                    </p>
+                  )}
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="text-left p-3 bg-gray-50 border font-medium w-40">Attribute</th>
+                        {compareList.map((p) => (
+                          <th key={p.id} className="p-3 bg-gray-50 border font-medium text-center min-w-[180px]">
+                            {p.name}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: 'Supplier', key: 'supplier' },
+                        { label: 'Price', key: 'price', format: (v: any) => `$${v}` },
+                        { label: 'Unit', key: 'unit' },
+                        { label: 'Rating', key: 'rating', format: (v: any) => `${v} / 5` },
+                        { label: 'Lead Time', key: 'leadTime' },
+                        { label: 'Min Order', key: 'minOrder' },
+                        { label: 'In Stock', key: 'inStock', format: (v: any) => v ? 'Yes' : 'No' },
+                        { label: 'Discount', key: 'discount', format: (v: any) => v > 0 ? `${v}%` : '—' },
+                        { label: 'Certifications', key: 'certifications', format: (v: any) => Array.isArray(v) ? v.join(', ') || '—' : '—' },
+                      ].map(({ label, key, format }) => (
+                        <tr key={key} className="hover:bg-gray-50">
+                          <td className="p-3 border font-medium text-sm text-gray-600">{label}</td>
+                          {compareList.map((p) => {
+                            const val = (p as any)[key];
+                            return (
+                              <td key={p.id} className="p-3 border text-center text-sm">
+                                {format ? format(val) : String(val ?? '—')}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex justify-end p-4 border-t gap-2">
+                {selectedForCompare.length > 0 && (
+                  <button
+                    onClick={() => setSelectedForCompare([])}
+                    className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm"
+                  >
+                    Clear Selection
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsCompareModalOpen(false)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Product Detail Modal ── */}
+      {isProductDetailModalOpen && selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold">Product Details</h3>
+              <button
+                onClick={() => { setIsProductDetailModalOpen(false); setSelectedProduct(null); }}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <XCircle className="h-6 w-6 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              {/* Product image placeholder */}
+              <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+                <Package className="h-16 w-16 text-gray-300" />
+              </div>
+
+              <h2 className="text-2xl font-bold mb-1">{selectedProduct.name}</h2>
+              <p className="text-gray-600 mb-4">{selectedProduct.supplier}</p>
+
+              {/* Rating */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-5 w-5 ${i < Math.floor(selectedProduct.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                    />
+                  ))}
+                </div>
+                <span className="font-medium">{selectedProduct.rating}</span>
+                <span className="text-gray-500">({selectedProduct.reviews} reviews)</span>
+              </div>
+
+              {/* Price */}
+              <div className="flex items-baseline gap-3 mb-4">
+                <span className="text-3xl font-bold text-blue-600">${selectedProduct.price}</span>
+                <span className="text-gray-500">{selectedProduct.unit}</span>
+                {selectedProduct.discount > 0 && (
+                  <span className="bg-red-100 text-red-700 text-sm px-2 py-0.5 rounded">
+                    -{selectedProduct.discount}% off
+                  </span>
+                )}
+              </div>
+
+              {/* Description */}
+              {selectedProduct.description && (
+                <div className="mb-4">
+                  <h4 className="font-semibold mb-1">Description</h4>
+                  <p className="text-gray-600 text-sm">{selectedProduct.description}</p>
+                </div>
+              )}
+
+              {/* Details grid */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Lead Time</p>
+                  <p className="font-semibold flex items-center gap-1">
+                    <Clock className="h-4 w-4 text-gray-400" />
+                    {selectedProduct.leadTime || '—'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Minimum Order</p>
+                  <p className="font-semibold">{selectedProduct.minOrder || '—'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Availability</p>
+                  <p className={`font-semibold flex items-center gap-1 ${selectedProduct.inStock ? 'text-green-600' : 'text-red-600'}`}>
+                    {selectedProduct.inStock ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                    {selectedProduct.inStock ? 'In Stock' : 'Out of Stock'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Category</p>
+                  <p className="font-semibold">{selectedProduct.category || '—'}</p>
+                </div>
+              </div>
+
+              {/* Certifications */}
+              {selectedProduct.certifications?.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-semibold mb-2">Certifications</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProduct.certifications.map((cert: string, i: number) => (
+                      <span key={i} className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full flex items-center gap-1">
+                        <Shield className="h-3 w-3" />
+                        {cert}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 p-4 border-t">
+              <button
+                onClick={() => { handleAddToCart(selectedProduct); setIsProductDetailModalOpen(false); setSelectedProduct(null); }}
+                disabled={!selectedProduct.inStock}
+                className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                Add to Cart
+              </button>
+              <button
+                onClick={() => toggleFavorite(selectedProduct.id)}
+                className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${
+                  favorites.includes(selectedProduct.id)
+                    ? 'border-red-400 bg-red-50 text-red-600'
+                    : 'border-gray-300 hover:bg-gray-50 text-gray-600'
+                }`}
+              >
+                <Heart className={`h-4 w-4 ${favorites.includes(selectedProduct.id) ? 'fill-current text-red-500' : ''}`} />
+                {favorites.includes(selectedProduct.id) ? 'Saved' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setIsProductDetailModalOpen(false); setSelectedProduct(null); }}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Favorites Modal ── */}
+      {isFavoritesModalOpen && (() => {
+        const favoriteProducts = marketplaceProducts.filter((p) => favorites.includes(p.id));
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-lg font-semibold">
+                  My Favorites
+                  <span className="ml-2 text-sm font-normal text-gray-500">({favoriteProducts.length} items)</span>
+                </h3>
+                <button
+                  onClick={() => setIsFavoritesModalOpen(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <XCircle className="h-6 w-6 text-gray-500" />
+                </button>
+              </div>
+              <div className="p-4">
+                {favoriteProducts.length === 0 ? (
+                  <div className="py-12 text-center text-gray-500">
+                    <Heart className="h-12 w-12 mx-auto mb-3 text-gray-200" />
+                    <p className="font-medium mb-1">No favorites yet</p>
+                    <p className="text-sm">Click the heart icon on any product to save it here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {favoriteProducts.map((product) => (
+                      <div key={product.id} className="flex items-center gap-4 border rounded-lg p-3 hover:bg-gray-50">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center">
+                          <Package className="h-8 w-8 text-gray-300" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold truncate">{product.name}</h4>
+                          <p className="text-sm text-gray-500">{product.supplier}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-blue-600 font-bold">${product.price} {product.unit}</span>
+                            <span className={`text-xs ${product.inStock ? 'text-green-600' : 'text-red-600'}`}>
+                              {product.inStock ? 'In Stock' : 'Out of Stock'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => { handleAddToCart(product); }}
+                            disabled={!product.inStock}
+                            className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          >
+                            Add to Cart
+                          </button>
+                          <button
+                            onClick={() => removeFavorite(product.id)}
+                            className="px-3 py-1.5 border border-red-300 text-red-600 rounded hover:bg-red-50 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end p-4 border-t">
+                <button
+                  onClick={() => setIsFavoritesModalOpen(false)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Settings Modal ── */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold">Marketplace Settings</h3>
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <XCircle className="h-6 w-6 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              {/* Show out-of-stock */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Show out-of-stock items</p>
+                  <p className="text-sm text-gray-500">Include unavailable products in search results</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showOutOfStock}
+                    onChange={(e) => setShowOutOfStock(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                </label>
+              </div>
+
+              {/* Default sort */}
+              <div>
+                <label className="block font-medium mb-1">Default sort order</label>
+                <p className="text-sm text-gray-500 mb-2">How products are ordered when browsing the marketplace</p>
+                <select
+                  value={defaultSort}
+                  onChange={(e) => setDefaultSort(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                >
+                  <option value="relevance">Relevance</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="rating">Rating: High to Low</option>
+                  <option value="newest">Newest First</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

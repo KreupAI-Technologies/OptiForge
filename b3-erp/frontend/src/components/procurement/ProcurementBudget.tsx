@@ -23,6 +23,7 @@ import {
   BudgetAlertSetupModal,
   ExportBudgetModal
 } from '@/components/procurement/BudgetModals'
+import { exportToCsv } from '@/lib/export'
 
 export interface BudgetLine {
   id: string;
@@ -51,6 +52,9 @@ const ProcurementBudget: React.FC = () => {
   const [isForecastModalOpen, setIsForecastModalOpen] = useState(false);
   const [isAlertSetupModalOpen, setIsAlertSetupModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [comparePeriodsOpen, setComparePeriodsOpen] = useState(false);
+  const [manageOwnersOpen, setManageOwnersOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<BudgetLine | null>(null);
   const [showRealTimeMonitoring, setShowRealTimeMonitoring] = useState(true);
   const [showAIInsights, setShowAIInsights] = useState(true);
@@ -192,966 +196,65 @@ const ProcurementBudget: React.FC = () => {
   };
 
   const handleAdjustBudget = () => {
-    console.log('Adjusting budget...');
-    alert(`Adjust Budget
-
-BUDGET ADJUSTMENT REQUEST
-
-━━━ CURRENT BUDGET STATUS ━━━
-
-Total Budget: $${totalBudget.toLocaleString()}
-Total Spent: $${totalSpent.toLocaleString()}
-Total Committed: $${totalCommitted.toLocaleString()}
-Total Available: $${totalAvailable.toLocaleString()}
-
-Utilization: ${((totalSpent / totalBudget) * 100).toFixed(1)}%
-Remaining Months: ${Math.ceil(Math.random() * 4) + 1}
-
-━━━ ADJUSTMENT TYPE ━━━
-
-Select adjustment type:
-
-1. INCREASE BUDGET
-   Current: $${totalBudget.toLocaleString()}
-   Increase by: $[_______] or [___]%
-   New Budget: $[Calculated]
-
-   Justification Required:
-   • [_____________________________]
-
-   Funding Source:
-   ○ Contingency reserve
-   ○ Reallocation from other budgets
-   ○ Additional corporate funding
-   ○ Cost savings from other areas
-
-2. DECREASE BUDGET
-   Current: $${totalBudget.toLocaleString()}
-   Decrease by: $[_______] or [___]%
-   New Budget: $[Calculated]
-
-   Reason for Reduction:
-   ○ Change in business priorities
-   ○ Cost saving initiative
-   ○ Project cancellation/delay
-   ○ Reallocation to other areas
-
-   Impact Assessment Required: [Attach]
-
-3. REALLOCATE BETWEEN CATEGORIES
-   Move budget from: [Select Category ▼]
-   To: [Select Category ▼]
-   Amount: $[_______]
-
-   Reason: [_____________________________]
-
-━━━ CATEGORY-SPECIFIC ADJUSTMENTS ━━━
-
-Adjust individual category budgets:
-
-${budgetLines.slice(0, 3).map(line =>
-  `${line.category}:
-  Current Budget: $${line.budgetAmount.toLocaleString()}
-  Current Spent: $${line.spentAmount.toLocaleString()} (${line.utilizationPercent.toFixed(1)}%)
-
-  Adjustment:
-  ○ Increase by: $[_______]
-  ○ Decrease by: $[_______]
-  ○ No change
-
-  New Budget: $[Calculated]
-  Justification: [_____________________________]`
-).join('\n\n')}
-
-━━━ TIMING & IMPACT ━━━
-
-Effective Date:
-○ Immediate (Today)
-○ Start of next month
-○ Start of next quarter
-○ Custom date: [__/__/____]
-
-Impact Analysis:
-• Affected purchase orders: ${Math.floor(Math.random() * 20) + 5}
-• Pending approvals: ${Math.floor(Math.random() * 10) + 2}
-• Categories impacted: ${Math.floor(Math.random() * 4) + 2}
-
-Notifications:
-☑ Notify budget owners
-☑ Notify department heads
-☑ Notify procurement team
-☑ Update dashboards and reports
-
-━━━ APPROVAL REQUIRED ━━━
-
-Adjustment Amount: $[Calculated]
-Percentage Change: [___]%
-
-Approval Required From:
-${Math.abs(totalBudget * 0.1) > 100000 ? '• CFO (>10% change)\n' : ''}${Math.abs(totalBudget * 0.1) > 50000 ? '• Finance Director\n' : ''}• Budget Owner
-• Department Head
-
-Approval Workflow:
-1. Submit adjustment request
-2. Budget owner review (2 days)
-3. Finance review (3 days)
-4. Executive approval (5 days)
-5. Activation
-
-━━━ SUBMIT REQUEST ━━━
-
-Request Summary:
-• Type: [Selected adjustment type]
-• Amount: $[_______]
-• Effective: [Date]
-• Approvers: ${Math.floor(Math.random() * 3) + 2}
-
-[Submit Request] [Save Draft] [Cancel]`);
+    if (budgetLines.length === 0) {
+      alert('No budgets loaded yet.');
+      return;
+    }
+    setSelectedBudget(budgetLines[0]);
+    setIsAdjustModalOpen(true);
   };
 
   const handleViewVariance = () => {
-    console.log('Viewing budget variance...');
-    alert(`Budget Variance Analysis
-
-VARIANCE REPORT - ${selectedPeriod === 'current' ? 'Current Month' : 'YTD'}
-
-━━━ OVERALL VARIANCE ━━━
-
-Total Budget: $${totalBudget.toLocaleString()}
-Total Spent: $${totalSpent.toLocaleString()}
-Total Variance: $${(totalBudget - totalSpent).toLocaleString()}
-Variance %: ${(((totalBudget - totalSpent) / totalBudget) * 100).toFixed(1)}%
-
-Status: ${totalSpent > totalBudget ? '⚠ OVER BUDGET' : totalSpent > totalBudget * 0.9 ? '⚠ APPROACHING LIMIT' : '✓ WITHIN BUDGET'}
-
-━━━ CATEGORY VARIANCE BREAKDOWN ━━━
-
-${budgetLines.map(line => {
-  const variance = line.budgetAmount - line.spentAmount;
-  const variancePercent = (variance / line.budgetAmount) * 100;
-  return `${line.category}:
-  Budget: $${line.budgetAmount.toLocaleString()}
-  Spent: $${line.spentAmount.toLocaleString()}
-  Variance: $${variance.toLocaleString()} (${variancePercent.toFixed(1)}%)
-  Status: ${line.status.toUpperCase()}
-  ${variance < 0 ? '  ⚠ OVER BUDGET' : variancePercent < 10 ? '  ⚠ LOW REMAINING' : '  ✓ ON TRACK'}`;
-}).join('\n\n')}
-
-━━━ VARIANCE DRIVERS ━━━
-
-Top Positive Variances (Under Budget):
-${budgetLines
-  .filter(line => line.variance < 0)
-  .sort((a, b) => a.variance - b.variance)
-  .slice(0, 3)
-  .map((line, idx) =>
-    `${idx + 1}. ${line.category}: $${Math.abs(line.variance).toLocaleString()} under budget
-   Reason: ${['Lower than expected prices', 'Delayed purchases', 'Demand reduction', 'Process efficiency'][Math.floor(Math.random() * 4)]}`
-  ).join('\n')}
-
-Top Negative Variances (Over Budget):
-${budgetLines
-  .filter(line => line.variance > 0 || line.utilizationPercent > 95)
-  .sort((a, b) => b.utilizationPercent - a.utilizationPercent)
-  .slice(0, 2)
-  .map((line, idx) =>
-    `${idx + 1}. ${line.category}: ${line.variance > 0 ? '$' + line.variance.toLocaleString() + ' over' : 'Approaching limit (' + line.utilizationPercent.toFixed(1) + '%'}
-   Reason: ${['Unexpected price increases', 'Higher demand', 'Emergency purchases', 'Scope changes'][Math.floor(Math.random() * 4)]}`
-  ).join('\n')}
-
-━━━ TREND ANALYSIS ━━━
-
-3-Month Variance Trend:
-• Month -2: ${(Math.random() * 20 - 10).toFixed(1)}%
-• Month -1: ${(Math.random() * 20 - 10).toFixed(1)}%
-• Current: ${(((totalBudget - totalSpent) / totalBudget) * 100).toFixed(1)}%
-
-Trend: ${Math.random() > 0.5 ? '↗ Increasing variance (improving)' : '↘ Decreasing variance (concerning)'}
-
-━━━ FORECAST VARIANCE ━━━
-
-Based on current trend:
-
-Expected Year-End Variance:
-• Optimistic: $${Math.floor(Math.random() * 100000 + 50000).toLocaleString()} under budget
-• Most Likely: $${Math.floor(Math.random() * 50000 - 25000).toLocaleString()} ${Math.random() > 0.5 ? 'under' : 'over'} budget
-• Pessimistic: $${Math.floor(Math.random() * 100000).toLocaleString()} over budget
-
-Confidence: ${Math.floor(Math.random() * 20) + 70}%
-
-━━━ RECOMMENDATIONS ━━━
-
-Actions Required:
-${budgetLines.filter(l => l.status === 'critical' || l.status === 'overspent').length > 0 ?
-  `⚠ IMMEDIATE:\n${budgetLines.filter(l => l.status === 'critical').map(l =>
-    `  • Review ${l.category} - ${l.utilizationPercent.toFixed(1)}% utilized`
-  ).join('\n')}\n` : ''}
-${budgetLines.filter(l => l.status === 'warning').length > 0 ?
-  `⚠ THIS WEEK:\n${budgetLines.filter(l => l.status === 'warning').slice(0, 2).map(l =>
-    `  • Monitor ${l.category} - Approaching threshold`
-  ).join('\n')}\n` : ''}
-✓ OPPORTUNITIES:
-  • Review under-utilized budgets for reallocation
-  • Lock in favorable pricing while under budget
-  • Plan Q4 spending strategically
-
-[Export Report] [Schedule Review Meeting] [Create Action Plan] [Close]`);
+    setSelectedBudget(budgetLines[0] ?? null);
+    setIsViewDetailsModalOpen(true);
   };
 
   const handleExportBudgetReport = () => {
-    console.log('Exporting budget report...');
-    alert(`Export Budget Report
-
-EXPORT OPTIONS
-
-━━━ REPORT TYPE ━━━
-
-1. EXECUTIVE SUMMARY (PDF)
-   • High-level budget overview
-   • Key metrics and KPIs
-   • Variance analysis summary
-   • Trend charts
-   • 2-3 pages, presentation-ready
-
-2. DETAILED BUDGET REPORT (Excel)
-   • Complete budget breakdown
-   • All categories and line items
-   • Monthly/quarterly details
-   • Variance analysis
-   • Pivot tables and filters
-   • Full data export
-
-3. VARIANCE ANALYSIS (PDF)
-   • Detailed variance report
-   • Category-by-category analysis
-   • Root cause analysis
-   • Trend comparisons
-   • Action recommendations
-
-4. FORECAST REPORT (PowerPoint)
-   • Budget vs. forecast analysis
-   • Projected year-end position
-   • Scenario planning
-   • Visual charts and graphs
-   • Executive presentation format
-
-5. SPENDING DASHBOARD (CSV)
-   • Raw transaction data
-   • All purchases and commitments
-   • Budget vs. actual by line item
-   • For custom analysis
-
-6. COMPLIANCE REPORT (PDF)
-   • Budget adherence metrics
-   • Exception report
-   • Approval compliance
-   • Policy violations (if any)
-
-━━━ TIME PERIOD ━━━
-
-Select reporting period:
-○ Current Month (November 2025)
-○ Current Quarter (Q4 2025)
-○ Year-to-Date (Jan - Nov 2025)
-○ Fiscal Year 2025 (Full year)
-○ Last 12 Months (Rolling)
-○ Custom: [From __/__/____] to [__/__/____]
-
-Compare to:
-☐ Same period last year
-☐ Original budget
-☐ Revised budget
-☐ Industry benchmark
-
-━━━ CONTENT OPTIONS ━━━
-
-Include in report:
-☑ Budget summary
-☑ Category breakdown
-☑ Department allocations
-☑ Variance analysis
-☑ Trend charts (6 months)
-☑ Forecast projections
-☑ Top 10 purchases
-☑ Exception highlights
-☐ Individual PO details
-☐ Vendor analysis
-☐ Approval workflow data
-☐ Audit trail
-
-Detail Level:
-○ Executive (High-level only)
-● Management (Balanced detail)
-○ Operational (Full detail)
-
-━━━ FORMAT & DELIVERY ━━━
-
-File Format:
-• PDF: Professional, read-only
-• Excel: Editable, data analysis
-• PowerPoint: Presentations
-• CSV: Data import/export
-
-Delivery Method:
-○ Download now
-○ Email to recipients:
-  [Enter email addresses]
-
-  Suggested Recipients:
-  ☑ CFO (finance@company.com)
-  ☑ Finance Director
-  ☐ Department Heads
-  ☐ Budget Owners
-  ☐ Procurement Team
-
-○ Save to shared folder:
-  [Select folder ▼]
-
-○ Schedule recurring:
-  Frequency: [Monthly ▼]
-  Next run: [__/__/____]
-
-━━━ BRANDING & CUSTOMIZATION ━━━
-
-Report Settings:
-• Company Logo: ☑ Include
-• Confidentiality: ☑ Mark as Confidential
-• Watermark: ☐ Add "DRAFT"
-• Page numbers: ☑ Include
-• Report ID: Auto-generated
-
-Custom Notes:
-[Add any notes or comments for report recipients]
-_____________________________________________
-_____________________________________________
-
-━━━ GENERATE REPORT ━━━
-
-Report Summary:
-• Type: ${['Executive Summary', 'Detailed Budget', 'Variance Analysis'][Math.floor(Math.random() * 3)]}
-• Period: ${selectedPeriod === 'current' ? 'Current Month' : 'YTD'}
-• Format: PDF
-• Pages: ~${Math.floor(Math.random() * 30) + 10}
-• Size: ~${(Math.random() * 5 + 1).toFixed(1)} MB
-
-Estimated Generation Time: ${Math.floor(Math.random() * 45) + 15} seconds
-
-[Generate Report] [Preview] [Schedule] [Cancel]`);
+    exportToCsv(
+      'budget-report.csv',
+      budgetLines.map((line) => ({
+        id: line.id,
+        category: line.category,
+        department: line.department,
+        budgetAmount: line.budgetAmount,
+        spentAmount: line.spentAmount,
+        committedAmount: line.committedAmount,
+        availableAmount: line.availableAmount,
+        utilizationPercent: line.utilizationPercent,
+        variance: line.variance,
+        variancePercent: line.variancePercent,
+        period: line.period,
+        owner: line.owner,
+        status: line.status,
+        lastModified: line.lastModified,
+      }))
+    );
   };
 
   const handleForecast = () => {
-    console.log('Creating budget forecast...');
-    alert(`Budget Forecast & Projection
-
-FORECAST ANALYSIS - FY 2025
-
-━━━ CURRENT POSITION ━━━
-
-As of: ${new Date().toLocaleDateString()}
-Days Remaining in FY: ${Math.floor(365 - (new Date().getMonth() * 30.5 + new Date().getDate()))}
-
-Budget Summary:
-• Total Annual Budget: $${totalBudget.toLocaleString()}
-• Spent to Date: $${totalSpent.toLocaleString()}
-• Committed: $${totalCommitted.toLocaleString()}
-• Available: $${totalAvailable.toLocaleString()}
-
-Run Rate:
-• Daily: $${Math.floor(totalSpent / 305).toLocaleString()}
-• Monthly: $${Math.floor(totalSpent / 10).toLocaleString()}
-• Projected Annual: $${Math.floor(totalSpent * 1.17).toLocaleString()}
-
-━━━ FORECAST MODELS ━━━
-
-1. LINEAR PROJECTION
-   Based on current spend rate
-
-   Projected Year-End Total: $${Math.floor(totalSpent * 1.17).toLocaleString()}
-   vs Budget: ${((totalSpent * 1.17 / totalBudget - 1) * 100).toFixed(1)}%
-   Expected Variance: $${Math.floor(totalSpent * 1.17 - totalBudget).toLocaleString()}
-   Confidence Level: 65%
-
-   ${totalSpent * 1.17 > totalBudget ? '⚠ PROJECTED TO EXCEED BUDGET' : '✓ PROJECTED WITHIN BUDGET'}
-
-2. SEASONAL ADJUSTMENT
-   Accounts for historical patterns
-
-   Q4 Adjustment Factor: ${(Math.random() * 0.4 + 0.8).toFixed(2)}x
-   Projected Year-End Total: $${Math.floor(totalSpent + (totalBudget - totalSpent) * (Math.random() * 0.4 + 0.8)).toLocaleString()}
-   vs Budget: ${(((totalSpent + (totalBudget - totalSpent) * 0.9) / totalBudget - 1) * 100).toFixed(1)}%
-   Expected Variance: $${Math.floor((totalSpent + (totalBudget - totalSpent) * 0.9) - totalBudget).toLocaleString()}
-   Confidence Level: 78%
-
-3. COMMITMENT-BASED
-   Includes committed amounts
-
-   Spent + Committed: $${(totalSpent + totalCommitted).toLocaleString()}
-   Projected Additional: $${Math.floor((totalBudget - totalSpent - totalCommitted) * 0.7).toLocaleString()}
-   Projected Year-End Total: $${Math.floor(totalSpent + totalCommitted + (totalBudget - totalSpent - totalCommitted) * 0.7).toLocaleString()}
-   vs Budget: ${(((totalSpent + totalCommitted + (totalBudget - totalSpent - totalCommitted) * 0.7) / totalBudget - 1) * 100).toFixed(1)}%
-   Confidence Level: 85%
-
-4. AI/ML PREDICTION (Recommended)
-   Machine learning based forecast
-
-   Projected Year-End Total: $${Math.floor(totalBudget * (Math.random() * 0.1 + 0.95)).toLocaleString()}
-   vs Budget: ${((totalBudget * (Math.random() * 0.1 + 0.95) / totalBudget - 1) * 100).toFixed(1)}%
-   Expected Variance: $${Math.floor(totalBudget * (Math.random() * 0.1 + 0.95) - totalBudget).toLocaleString()}
-   Confidence Level: 92%
-
-━━━ CATEGORY FORECASTS ━━━
-
-${budgetLines.slice(0, 4).map(line => {
-  const projected = line.spentAmount * (1 + Math.random() * 0.3);
-  return `${line.category}:
-  Budget: $${line.budgetAmount.toLocaleString()}
-  Spent YTD: $${line.spentAmount.toLocaleString()}
-  Projected Total: $${projected.toLocaleString()}
-  Forecast Variance: $${(projected - line.budgetAmount).toLocaleString()}
-  Risk Level: ${projected > line.budgetAmount ? 'HIGH ⚠' : projected > line.budgetAmount * 0.95 ? 'MEDIUM ⚠' : 'LOW ✓'}`;
-}).join('\n\n')}
-
-━━━ SCENARIO ANALYSIS ━━━
-
-Best Case (20% probability):
-• Strong cost controls maintained
-• Favorable market conditions
-• Some projects deferred
-• Projected Total: $${Math.floor(totalBudget * 0.92).toLocaleString()}
-• Variance: -${((1 - 0.92) * 100).toFixed(1)}% (Under budget)
-
-Most Likely (60% probability):
-• Current trend continues
-• Normal market conditions
-• All planned activities proceed
-• Projected Total: $${Math.floor(totalBudget * 0.98).toLocaleString()}
-• Variance: -${((1 - 0.98) * 100).toFixed(1)}% (Slightly under)
-
-Worst Case (20% probability):
-• Unexpected price increases
-• Emergency purchases required
-• Scope expansions
-• Projected Total: $${Math.floor(totalBudget * 1.08).toLocaleString()}
-• Variance: +${((1.08 - 1) * 100).toFixed(1)}% (Over budget)
-
-━━━ RISK FACTORS ━━━
-
-Upside Risks (Could reduce spending):
-• Supplier discounts/negotiations
-• Project delays/cancellations
-• Process improvements
-• Demand reduction
-
-Downside Risks (Could increase spending):
-• Inflation/price increases: ${(Math.random() * 5 + 2).toFixed(1)}%
-• Supply chain disruptions
-• Emergency requirements
-• Regulatory changes
-• FX fluctuations
-
-━━━ RECOMMENDATIONS ━━━
-
-Actions to Stay Within Budget:
-${totalSpent * 1.17 > totalBudget ?
-  `⚠ IMMEDIATE ACTIONS REQUIRED:
-  1. Freeze non-essential spending
-  2. Review all pending commitments
-  3. Seek additional budget allocation
-  4. Negotiate payment terms
-  5. Defer projects to next FY` :
-  `✓ PROACTIVE MEASURES:
-  1. Monitor categories approaching limits
-  2. Optimize remaining spend
-  3. Lock in favorable pricing
-  4. Build contingency for Q4
-  5. Plan FY 2026 budget`}
-
-Forecast Accuracy:
-• Update forecast: Monthly
-• Review assumptions: Quarterly
-• Adjust models: As needed
-
-[Export Forecast] [Set Alerts] [Create Action Plan] [Close]`);
+    setSelectedBudget(budgetLines[0] ?? null);
+    setIsForecastModalOpen(true);
   };
 
   const handleReviewBudgetAlerts = () => {
-    console.log('Reviewing budget alerts...');
-    const criticalCount = budgetLines.filter(l => l.status === 'critical' || l.status === 'overspent').length;
-    const warningCount = budgetLines.filter(l => l.status === 'warning').length;
-
-    alert(`Budget Alerts & Notifications
-
-ACTIVE ALERTS - ${new Date().toLocaleDateString()}
-
-━━━ CRITICAL ALERTS (${criticalCount}) ━━━
-
-${budgetLines.filter(l => l.status === 'critical' || l.status === 'overspent').map((line, idx) =>
-  `${idx + 1}. ${line.category} - ${line.department}
-   🔴 CRITICAL: ${line.utilizationPercent.toFixed(1)}% utilized
-   Budget: $${line.budgetAmount.toLocaleString()}
-   Spent: $${line.spentAmount.toLocaleString()}
-   Available: $${line.availableAmount.toLocaleString()}
-   Owner: ${line.owner}
-
-   Actions Required:
-   • Request budget increase OR
-   • Defer non-essential purchases OR
-   • Reallocate from other categories
-
-   Response Due: IMMEDIATE`
-).join('\n\n')}
-
-${criticalCount === 0 ? '✓ No critical alerts\n' : ''}
-
-━━━ WARNING ALERTS (${warningCount}) ━━━
-
-${budgetLines.filter(l => l.status === 'warning').map((line, idx) =>
-  `${idx + 1}. ${line.category} - ${line.department}
-   ⚠ WARNING: ${line.utilizationPercent.toFixed(1)}% utilized
-   Budget: $${line.budgetAmount.toLocaleString()}
-   Remaining: $${line.availableAmount.toLocaleString()}
-   Burn Rate: $${Math.floor(line.spentAmount / 10).toLocaleString()}/month
-   Est. Depletion: ${Math.floor(line.availableAmount / (line.spentAmount / 10))} months
-   Owner: ${line.owner}
-
-   Recommended Actions:
-   • Monitor spending closely
-   • Review upcoming commitments
-   • Consider budget adjustment
-
-   Review By: This week`
-).join('\n\n')}
-
-${warningCount === 0 ? '✓ No warning alerts\n' : ''}
-
-━━━ UPCOMING THRESHOLDS ━━━
-
-Categories Approaching Warning (70-75%):
-${budgetLines.filter(l => l.utilizationPercent >= 70 && l.utilizationPercent < 75).map(line =>
-  `• ${line.category}: ${line.utilizationPercent.toFixed(1)}% (Watch closely)`
-).join('\n')}
-${budgetLines.filter(l => l.utilizationPercent >= 70 && l.utilizationPercent < 75).length === 0 ? '✓ None identified\n' : ''}
-
-━━━ POSITIVE ALERTS ━━━
-
-Under-Utilized Budgets (Opportunities):
-${budgetLines.filter(l => l.utilizationPercent < 60).map(line =>
-  `• ${line.category}: ${line.utilizationPercent.toFixed(1)}% utilized
-    Available: $${line.availableAmount.toLocaleString()}
-    Consider: Reallocation or strategic spending`
-).join('\n')}
-
-━━━ NOTIFICATION SETTINGS ━━━
-
-Current Alert Thresholds:
-☑ Critical Alert: 90% utilization
-☑ Warning Alert: 75% utilization
-☑ Info Alert: 60% utilization
-
-Notification Channels:
-☑ Email notifications
-☑ Dashboard alerts
-☑ Mobile push (if app installed)
-☑ Weekly summary report
-☐ Slack/Teams integration
-
-Recipients by Alert Type:
-• Critical: CFO, Finance Director, Budget Owner
-• Warning: Budget Owner, Department Head
-• Info: Budget Owner only
-
-Frequency:
-• Critical: Immediate
-• Warning: Daily digest
-• Info: Weekly summary
-
-━━━ ALERT HISTORY ━━━
-
-Last 30 Days:
-• Critical Alerts Sent: ${Math.floor(Math.random() * 10) + 5}
-• Warning Alerts Sent: ${Math.floor(Math.random() * 20) + 10}
-• Alerts Resolved: ${Math.floor(Math.random() * 25) + 15}
-• Avg Response Time: ${Math.floor(Math.random() * 48) + 12} hours
-
-━━━ ACTIONS ━━━
-
-[Acknowledge Alerts] [Configure Thresholds] [Manage Recipients] [View History] [Close]
-
-⚠ ${criticalCount + warningCount} alerts require attention`);
+    setSelectedBudget(budgetLines[0] ?? null);
+    setIsAlertSetupModalOpen(true);
   };
 
   const handleComparePeriods = () => {
-    console.log('Comparing budget periods...');
-    alert(`Budget Period Comparison
-
-COMPARATIVE ANALYSIS
-
-━━━ PERIOD SELECTION ━━━
-
-Compare:
-Period A: [FY 2025 ▼]
-Period B: [FY 2024 ▼]
-
-Alternatively compare:
-○ This Month vs Last Month
-○ This Quarter vs Last Quarter
-○ This Year vs Last Year
-○ Current Budget vs Original Budget
-○ Actual vs Forecast
-
-━━━ OVERALL COMPARISON ━━━
-
-                    FY 2025         FY 2024         Change
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Total Budget:       $${totalBudget.toLocaleString()}    $${Math.floor(totalBudget * 0.95).toLocaleString()}    +${((totalBudget / (totalBudget * 0.95) - 1) * 100).toFixed(1)}%
-Spent to Date:      $${totalSpent.toLocaleString()}    $${Math.floor(totalSpent * 0.92).toLocaleString()}    +${((totalSpent / (totalSpent * 0.92) - 1) * 100).toFixed(1)}%
-Utilization:        ${((totalSpent / totalBudget) * 100).toFixed(1)}%         ${((totalSpent * 0.92) / (totalBudget * 0.95) * 100).toFixed(1)}%         ${(((totalSpent / totalBudget) - ((totalSpent * 0.92) / (totalBudget * 0.95))) * 100).toFixed(1)}pp
-Available:          $${totalAvailable.toLocaleString()}    $${Math.floor(totalAvailable * 1.1).toLocaleString()}    ${((totalAvailable / (totalAvailable * 1.1) - 1) * 100).toFixed(1)}%
-
-━━━ CATEGORY COMPARISON ━━━
-
-${budgetLines.slice(0, 4).map(line => {
-  const lastYear = line.budgetAmount * (Math.random() * 0.2 + 0.9);
-  const change = ((line.budgetAmount / lastYear - 1) * 100).toFixed(1);
-  return `${line.category}:
-  FY 2025: $${line.budgetAmount.toLocaleString()}
-  FY 2024: $${lastYear.toLocaleString()}
-  Change: ${change}% ${parseFloat(change) > 0 ? '↗' : '↘'}
-
-  Spending Pace:
-  FY 2025: ${line.utilizationPercent.toFixed(1)}% (Current)
-  FY 2024: ${(line.utilizationPercent * (Math.random() * 0.2 + 0.9)).toFixed(1)}% (Same period)
-  Trend: ${line.utilizationPercent > (line.utilizationPercent * 0.95) ? 'Faster ⚠' : 'Slower ✓'}`;
-}).join('\n\n')}
-
-━━━ KEY INSIGHTS ━━━
-
-Budget Growth:
-• Overall increase: ${((totalBudget / (totalBudget * 0.95) - 1) * 100).toFixed(1)}%
-• Inflation adjustment: ~${(Math.random() * 3 + 2).toFixed(1)}%
-• Strategic increase: ~${(Math.random() * 2 + 1).toFixed(1)}%
-
-Spending Patterns:
-• Similar pace: ${budgetLines.filter(l => Math.abs(l.utilizationPercent - 80) < 10).length} categories
-• Faster pace: ${budgetLines.filter(l => l.utilizationPercent > 85).length} categories
-• Slower pace: ${budgetLines.filter(l => l.utilizationPercent < 75).length} categories
-
-Top Changes:
-1. Largest increase: ${budgetLines.sort((a, b) => b.budgetAmount - a.budgetAmount)[0].category} (+${(Math.random() * 30 + 10).toFixed(1)}%)
-2. Largest decrease: ${budgetLines[budgetLines.length - 1].category} (-${(Math.random() * 15 + 5).toFixed(1)}%)
-
-━━━ TREND ANALYSIS ━━━
-
-3-Year Trend:
-FY 2023: $${Math.floor(totalBudget * 0.88).toLocaleString()}
-FY 2024: $${Math.floor(totalBudget * 0.95).toLocaleString()} (+${((0.95 / 0.88 - 1) * 100).toFixed(1)}%)
-FY 2025: $${totalBudget.toLocaleString()} (+${((1 / 0.95 - 1) * 100).toFixed(1)}%)
-
-CAGR: ${((Math.pow(totalBudget / (totalBudget * 0.88), 1/3) - 1) * 100).toFixed(1)}%
-
-━━━ RECOMMENDATIONS ━━━
-
-Based on comparison:
-${totalSpent / totalBudget > (totalSpent * 0.92) / (totalBudget * 0.95) ?
-  `⚠ Spending pace faster than last year:
-  • Review high-growth categories
-  • Implement tighter controls
-  • Consider mid-year adjustment` :
-  `✓ Spending pace aligned with last year:
-  • Maintain current controls
-  • Monitor for seasonal variations
-  • Plan for year-end optimization`}
-
-[Export Comparison] [Add Another Period] [View Details] [Close]`);
+    setComparePeriodsOpen(true);
   };
 
   const handleManageBudgetOwners = () => {
-    console.log('Managing budget owners...');
-    alert(`Manage Budget Owners
-
-BUDGET OWNERSHIP & ACCOUNTABILITY
-
-━━━ CURRENT OWNERS ━━━
-
-${budgetLines.map(line =>
-  `${line.category}:
-  Primary Owner: ${line.owner}
-  Department: ${line.department}
-  Budget: $${line.budgetAmount.toLocaleString()}
-  Utilization: ${line.utilizationPercent.toFixed(1)}%
-  Status: ${line.status.toUpperCase()}
-  Last Updated: ${line.lastModified}
-
-  Responsibilities:
-  ☑ Approve purchases within budget
-  ☑ Monitor spending vs. budget
-  ☑ Submit variance explanations
-  ☑ Request budget adjustments
-  ☑ Report on utilization monthly`
-).join('\n\n')}
-
-━━━ ASSIGN / CHANGE OWNER ━━━
-
-Select Category: [${budgetLines[0].category} ▼]
-Current Owner: ${budgetLines[0].owner}
-
-New Owner:
-[Search users...▼]
-
-Available Users:
-• Sarah Johnson (Manufacturing Director)
-• Michael Chen (IT Director)
-• Emily Davis (Admin Manager)
-• Robert Wilson (Operations VP)
-• Lisa Anderson (Facilities Manager)
-• David Lee (Marketing Director)
-
-Backup Owner (Optional):
-[Search users...▼]
-
-Effective Date:
-○ Immediate
-○ Start of next month: Dec 1, 2025
-○ Custom: [__/__/____]
-
-Transition Actions:
-☑ Notify current owner
-☑ Notify new owner
-☑ Transfer pending approvals
-☑ Update access permissions
-☑ Schedule handover meeting
-
-━━━ OWNER PERFORMANCE ━━━
-
-${budgetLines.slice(0, 3).map(line =>
-  `${line.owner}:
-  Categories Managed: ${budgetLines.filter(l => l.owner === line.owner).length}
-  Total Budget: $${budgetLines.filter(l => l.owner === line.owner).reduce((sum, l) => sum + l.budgetAmount, 0).toLocaleString()}
-  Avg Utilization: ${(budgetLines.filter(l => l.owner === line.owner).reduce((sum, l) => sum + l.utilizationPercent, 0) / budgetLines.filter(l => l.owner === line.owner).length).toFixed(1)}%
-  On-Time Reports: ${Math.floor(Math.random() * 20) + 80}%
-  Budget Adherence: ${Math.floor(Math.random() * 15) + 85}%
-  Rating: ${'⭐'.repeat(Math.floor(Math.random() * 2) + 3)}`
-).join('\n\n')}
-
-━━━ DELEGATION SETTINGS ━━━
-
-Allow owners to delegate:
-☑ Approval authority (up to $[______])
-☑ Report submission
-☐ Budget adjustment requests
-☐ Owner reassignment
-
-Delegation requires:
-☑ Notification to finance team
-☑ Documentation of reason
-☐ Executive approval
-
-━━━ NOTIFICATIONS & REMINDERS ━━━
-
-Owner Notifications:
-☑ Daily: Critical alerts (>90% utilization)
-☑ Weekly: Budget summary
-☑ Monthly: Variance report due
-☑ Quarterly: Performance review
-
-Reminder Schedule:
-• 5 days before: Monthly report due
-• 3 days before: Quarterly review
-• 1 day before: Budget deadline
-
-━━━ TRAINING & SUPPORT ━━━
-
-Budget Owner Training:
-• Next Session: Dec 15, 2025
-• Duration: 2 hours
-• Topics: Budget management, reporting, compliance
-• Registration: [Register ▼]
-
-Support Resources:
-• Budget Management Guide (PDF)
-• Video Tutorials (12 modules)
-• Help Desk: finance-help@company.com
-• Office Hours: Tuesdays 2-4 PM
-
-[Assign Owner] [Update Delegation] [Schedule Training] [Close]`);
+    setManageOwnersOpen(true);
   };
 
   const handleRefresh = () => {
-    console.log('Refreshing budget data...');
-    alert(`Refresh Budget Data
-
-Synchronizing from all systems:
-✓ Financial system (ERP)
-✓ Procurement system
-✓ Purchase order database
-✓ Invoice processing
-✓ Contract management
-✓ Expense reports
-
-Updated Data:
-• Budget allocations: ${budgetLines.length} lines
-• Total budget: $${totalBudget.toLocaleString()}
-• Total spent: $${totalSpent.toLocaleString()}
-• Total committed: $${totalCommitted.toLocaleString()}
-• Last transaction: ${Math.floor(Math.random() * 60)} minutes ago
-
-Recent Changes (Last Hour):
-• ${Math.floor(Math.random() * 5)} new purchase orders
-• ${Math.floor(Math.random() * 3)} invoices processed
-• ${Math.floor(Math.random() * 2)} budget adjustments
-• ${Math.floor(Math.random() * 4)} commitments updated
-
-Data Quality:
-• Completeness: 99.${Math.floor(Math.random() * 9) + 1}%
-• Accuracy: 99.${Math.floor(Math.random() * 9) + 1}%
-• Timeliness: Real-time (< 5 min delay)
-
-Last Refresh: ${new Date().toLocaleTimeString()}
-Next Auto-Refresh: ${new Date(Date.now() + 300000).toLocaleTimeString()}
-
-[Refresh Complete]`);
+    reloadBudgets();
   };
 
   const handleSettings = () => {
-    console.log('Opening budget settings...');
-    alert(`Budget Management Settings
-
-━━━ GENERAL SETTINGS ━━━
-
-Fiscal Year:
-• Start Date: January 1
-• End Date: December 31
-• Current FY: 2025
-• Next FY: 2026
-
-Currency:
-• Primary: USD ($)
-• Secondary: EUR (€) [Optional]
-• Exchange Rate Update: Daily
-
-Number Format:
-• Decimal Places: 2
-• Thousand Separator: Comma
-• Negative Numbers: (Red with parentheses)
-
-━━━ BUDGET STRUCTURE ━━━
-
-Budget Hierarchy:
-○ Category-based (Current)
-○ Department-based
-○ Project-based
-○ Cost center-based
-○ Matrix (Category + Department)
-
-Budget Periods:
-☑ Annual
-☑ Quarterly
-☑ Monthly
-☐ Weekly
-
-Carryover Rules:
-○ No carryover (use it or lose it)
-● Allow up to 10% carryover
-○ Full carryover allowed
-○ Carryover with approval
-
-━━━ CONTROLS & THRESHOLDS ━━━
-
-Spending Controls:
-☑ Require budget before PO approval
-☑ Block spending when budget exhausted
-☑ Allow emergency overrides (with approval)
-☑ Real-time budget checking
-
-Alert Thresholds:
-• Warning: 75% utilization
-• Critical: 90% utilization
-• Overrun: 100%+ utilization
-
-Auto-Approvals:
-• Individual items: < $5,000
-• Budget variance: < 5%
-
-━━━ APPROVAL WORKFLOWS ━━━
-
-Budget Creation/Modification:
-<$50K: Budget owner
-$50K-$200K: + Finance manager
-$200K-$500K: + Finance director
->$500K: + CFO approval
-
-Overspend Approval:
-<10%: Budget owner + Manager
-10-25%: + Director
->25%: + Executive committee
-
-Response Time SLA:
-• Budget owner: 2 business days
-• Manager: 3 business days
-• Director: 5 business days
-• Executive: 7 business days
-
-━━━ REPORTING & NOTIFICATIONS ━━━
-
-Standard Reports:
-☑ Daily: Transaction summary
-☑ Weekly: Utilization report
-☑ Monthly: Variance analysis
-☑ Quarterly: Executive summary
-☑ Annual: Year-end report
-
-Auto-Distribution:
-• Budget owners: All their budgets
-• Department heads: Department roll-up
-• Finance team: All budgets
-• Executives: Summary only
-
-Notification Preferences:
-☑ Email notifications
-☑ Dashboard alerts
-☐ SMS for critical alerts
-☐ Mobile app push notifications
-
-━━━ DATA & INTEGRATION ━━━
-
-Integration Settings:
-☑ ERP sync: Real-time
-☑ Procurement system: Real-time
-☑ GL sync: Nightly at 11 PM
-☐ Credit card feeds: Not configured
-
-Data Retention:
-• Current FY: Full detail
-• Previous 2 FY: Full detail
-• Older: Summary only
-• Audit trail: 7 years
-
-Export Options:
-• Default format: Excel
-• Include archived data: No
-• Max export rows: 100,000
-
-━━━ SECURITY & ACCESS ━━━
-
-Role-Based Access:
-• Budget Owner: View/edit own budgets
-• Manager: View team budgets
-• Finance: View/edit all budgets
-• Executive: View all, edit restricted
-• Admin: Full access
-
-Audit Trail:
-☑ Log all changes
-☑ Require change reason
-☑ Track user actions
-☑ Retain for 7 years
-
-Data Privacy:
-☑ Mask salary data
-☑ Restrict vendor details
-☐ Anonymize user data
-
-[Save Settings] [Reset to Defaults] [Import Settings] [Cancel]`);
+    setSettingsOpen(true);
   };
 
   return (
@@ -1839,8 +942,7 @@ Data Privacy:
           committedAmount: selectedBudget.committedAmount,
           availableAmount: selectedBudget.availableAmount
         } : undefined}
-        onSubmit={(data) => {
-          console.log('Forecast generated:', data);
+        onSubmit={() => {
           setIsForecastModalOpen(false);
         }}
       />
@@ -1854,8 +956,7 @@ Data Privacy:
           owner: selectedBudget.owner,
           department: selectedBudget.department
         } : undefined}
-        onSubmit={(data) => {
-          console.log('Alert configured:', data);
+        onSubmit={() => {
           setIsAlertSetupModalOpen(false);
         }}
       />
@@ -1863,11 +964,101 @@ Data Privacy:
       <ExportBudgetModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Export initiated:', data);
+        onSubmit={() => {
           setIsExportModalOpen(false);
         }}
       />
+
+      {comparePeriodsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setComparePeriodsOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Compare Budget Periods</h3>
+              <button onClick={() => setComparePeriodsOpen(false)} className="text-gray-400 hover:text-gray-600"><XCircle className="h-5 w-5" /></button>
+            </div>
+            {quarterlyForecast.length > 0 ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="py-2">Quarter</th><th>Budget</th><th>Actual</th><th>Forecast</th><th>Variance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quarterlyForecast.map((q) => (
+                    <tr key={q.quarter} className="border-b">
+                      <td className="py-2">{q.quarter}</td>
+                      <td>${q.budget.toLocaleString()}</td>
+                      <td>${q.actual.toLocaleString()}</td>
+                      <td>${q.forecast.toLocaleString()}</td>
+                      <td className={q.variance < 0 ? 'text-red-600' : 'text-green-600'}>${q.variance.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-sm text-gray-500">Period comparison will populate once budget insights are available. Current total budget ${totalBudget.toLocaleString()}, spent ${totalSpent.toLocaleString()}.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {manageOwnersOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setManageOwnersOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Budget Owners</h3>
+              <button onClick={() => setManageOwnersOpen(false)} className="text-gray-400 hover:text-gray-600"><XCircle className="h-5 w-5" /></button>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="py-2">Category</th><th>Owner</th><th>Department</th><th>Budget</th><th>Utilization</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {budgetLines.map((line) => (
+                  <tr key={line.id} className="border-b">
+                    <td className="py-2">{line.category}</td>
+                    <td>{line.owner}</td>
+                    <td>{line.department}</td>
+                    <td>${line.budgetAmount.toLocaleString()}</td>
+                    <td>{line.utilizationPercent}%</td>
+                    <td><span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(line.status)}`}>{line.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSettingsOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Budget Settings</h3>
+              <button onClick={() => setSettingsOpen(false)} className="text-gray-400 hover:text-gray-600"><XCircle className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-3 text-sm">
+              <label className="flex items-center justify-between">
+                <span>Real-time monitoring</span>
+                <input type="checkbox" checked={showRealTimeMonitoring} onChange={(e) => setShowRealTimeMonitoring(e.target.checked)} />
+              </label>
+              <label className="flex items-center justify-between">
+                <span>AI insights</span>
+                <input type="checkbox" checked={showAIInsights} onChange={(e) => setShowAIInsights(e.target.checked)} />
+              </label>
+              <label className="flex items-center justify-between">
+                <span>Auto-refresh</span>
+                <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button onClick={() => setSettingsOpen(false)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

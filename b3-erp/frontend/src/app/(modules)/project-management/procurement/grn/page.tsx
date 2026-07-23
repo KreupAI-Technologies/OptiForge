@@ -70,12 +70,39 @@ export default function GRNEntryPage() {
   const loadProjectData = async (id: string) => {
     setLoading(true);
     try {
-      const project = await projectManagementService.getProject(id);
-      setSelectedProject(project);
-      setItems([
-        { id: '1', description: 'Laminate - White Gloss (Merino)', orderedQty: 25, receivedQty: 25, unit: 'sheets', accepted: true, remarks: '' },
-        { id: '2', description: 'Hettich Soft Close Hinge', orderedQty: 60, receivedQty: 58, unit: 'pcs', accepted: true, remarks: '2 pcs missing' },
+      const [project, grnItems] = await Promise.all([
+        projectManagementService.getProject(id),
+        projectManagementService.getGrnItems(id).catch(() => []),
       ]);
+      setSelectedProject(project);
+
+      // Prefer the project's real BOM line-items from the backend GRN feed.
+      let sourced: GRNItem[] = (grnItems ?? []).map((line) => ({
+        id: line.id,
+        description: line.description,
+        orderedQty: line.orderedQty,
+        receivedQty: line.receivedQty,
+        unit: line.unit,
+        accepted: true,
+        remarks: '',
+      }));
+
+      // If the BOM feed is empty, derive received items from project stock lines
+      // (required qty is what was ordered against the project).
+      if (sourced.length === 0) {
+        const stock = await projectManagementService.getStockItems(id).catch(() => []);
+        sourced = stock.map((s) => ({
+          id: s.id,
+          description: s.name,
+          orderedQty: s.requiredQty,
+          receivedQty: s.requiredQty,
+          unit: s.unit,
+          accepted: true,
+          remarks: '',
+        }));
+      }
+
+      setItems(sourced);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to load project data." });
       router.push('/project-management/procurement/grn');

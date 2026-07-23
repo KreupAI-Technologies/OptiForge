@@ -15,17 +15,72 @@ import {
   AreaChart, Area, ScatterChart, Scatter, Treemap, Sankey
 } from 'recharts';
 import { procurementPagesService } from '@/services/procurement-pages.service';
+import {
+  procurementQualityService,
+  ProcurementInspection,
+  ProcurementInspectionTemplate,
+  ProcurementNcr,
+} from '@/services/procurement-quality.service';
 
 interface QualityAssuranceProps {}
 
+interface SupplierQualityScore {
+  supplier: string;
+  score: number;
+  trend: string;
+  inspections: number;
+}
+
+type QAModal =
+  | { type: 'create-inspection' }
+  | { type: 'record-results'; inspection: ProcurementInspection }
+  | { type: 'reject'; inspection: ProcurementInspection }
+  | { type: 'view-inspection'; inspection: ProcurementInspection }
+  | { type: 'issue-ncr'; inspection?: ProcurementInspection }
+  | { type: 'create-template' }
+  | { type: 'edit-template'; template: ProcurementInspectionTemplate }
+  | { type: 'track-trends' }
+  | { type: 'supplier-report'; supplierName: string }
+  | { type: 'compliance-monitoring' };
+
+function toCsv(rows: Array<Record<string, unknown>>): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown): string => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [
+    headers.join(','),
+    ...rows.map((r) => headers.map((h) => escape(r[h])).join(',')),
+  ].join('\n');
+}
+
+function downloadCsv(filename: string, rows: Array<Record<string, unknown>>): void {
+  const csv = toCsv(rows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedInspection, setSelectedInspection] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showRealTimeMonitoring, setShowRealTimeMonitoring] = useState(true);
   const [showAIInsights, setShowAIInsights] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
+
+  const [modal, setModal] = useState<QAModal | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const closeModal = () => { setModal(null); setFormError(null); setSubmitting(false); };
 
   // Quality metrics - loaded from API (falls back to derived defaults)
   const [qualityMetrics, setQualityMetrics] = useState({
@@ -37,45 +92,43 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
     complianceScore: 98.2
   });
 
-  // Mock data for inspection queue
-  const inspectionQueue = [
-    {
-      id: 'INS001',
-      poNumber: 'PO2024-001',
-      supplier: 'Tech Components Ltd',
-      items: 'Electronic Components',
-      quantity: 5000,
-      priority: 'high',
-      dueDate: '2024-12-20',
-      status: 'pending',
-      inspector: null,
-      riskLevel: 'medium'
-    },
-    {
-      id: 'INS002',
-      poNumber: 'PO2024-002',
-      supplier: 'Metal Works Inc',
-      items: 'Steel Plates',
-      quantity: 200,
-      priority: 'medium',
-      dueDate: '2024-12-21',
-      status: 'in_progress',
-      inspector: 'John Smith',
-      riskLevel: 'low'
-    },
-    {
-      id: 'INS003',
-      poNumber: 'PO2024-003',
-      supplier: 'Chemical Supply Co',
-      items: 'Raw Chemicals',
-      quantity: 1000,
-      priority: 'critical',
-      dueDate: '2024-12-19',
-      status: 'pending',
-      inspector: null,
-      riskLevel: 'high'
+  // Inspection queue — loaded from the procurement quality backend.
+  const [inspectionQueue, setInspectionQueue] = useState<ProcurementInspection[]>([]);
+  const [ncrs, setNcrs] = useState<ProcurementNcr[]>([]);
+
+  const loadInspections = React.useCallback(async () => {
+    try {
+      const data = await procurementQualityService.getInspections(filterStatus);
+      setInspectionQueue(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load inspections:', err);
+      setInspectionQueue([]);
     }
-  ];
+  }, [filterStatus]);
+
+  const loadNcrs = React.useCallback(async () => {
+    try {
+      const data = await procurementQualityService.getNcrs();
+      setNcrs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load NCRs:', err);
+      setNcrs([]);
+    }
+  }, []);
+
+  useEffect(() => { void loadInspections(); }, [loadInspections]);
+  useEffect(() => { void loadNcrs(); }, [loadNcrs]);
+
+  const displayedInspections = inspectionQueue.filter((i) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      (i.poNumber ?? '').toLowerCase().includes(term) ||
+      (i.supplier ?? '').toLowerCase().includes(term) ||
+      (i.items ?? '').toLowerCase().includes(term) ||
+      (i.id ?? '').toLowerCase().includes(term)
+    );
+  });
 
   // Quality trends - loaded from API
   const [qualityTrends, setQualityTrends] = useState<{ month: string; passRate: number; defectRate: number; inspections: number }[]>([]);
@@ -84,7 +137,7 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
   const [defectCategories, setDefectCategories] = useState<{ name: string; value: number; color: string }[]>([]);
 
   // Supplier quality scores - loaded from API
-  const [supplierQualityScores, setSupplierQualityScores] = useState<any[]>([]);
+  const [supplierQualityScores, setSupplierQualityScores] = useState<SupplierQualityScore[]>([]);
 
   useEffect(() => {
     const loadSupplierQualityScores = async () => {
@@ -124,74 +177,271 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
     loadSupplierQualityScores();
   }, []);
 
-  // Mock data for inspection templates
-  const inspectionTemplates = [
-    {
-      id: 'TPL001',
-      name: 'Electronics Inspection',
-      category: 'Electronics',
-      checkpoints: 25,
-      lastUsed: '2024-12-15',
-      usage: 156
-    },
-    {
-      id: 'TPL002',
-      name: 'Raw Material Quality Check',
-      category: 'Materials',
-      checkpoints: 18,
-      lastUsed: '2024-12-14',
-      usage: 203
-    },
-    {
-      id: 'TPL003',
-      name: 'Packaging Verification',
-      category: 'Packaging',
-      checkpoints: 12,
-      lastUsed: '2024-12-16',
-      usage: 89
+  // Inspection templates — loaded from the procurement quality backend.
+  const [inspectionTemplates, setInspectionTemplates] = useState<ProcurementInspectionTemplate[]>([]);
+
+  const loadTemplates = React.useCallback(async () => {
+    try {
+      const data = await procurementQualityService.getTemplates();
+      setInspectionTemplates(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load inspection templates:', err);
+      setInspectionTemplates([]);
     }
-  ];
+  }, []);
+
+  useEffect(() => { void loadTemplates(); }, [loadTemplates]);
 
   // Compliance standards - loaded from API
   const [complianceStandards, setComplianceStandards] = useState<{ standard: string; status: string; score: number; lastAudit: string }[]>([]);
 
-  // Handler 1: Create Inspection - Comprehensive inspection creation wizard with template selection and assignment
-  const handleCreateInspection = () => {};
+  // ---- form state ----
+  const emptyInspection = {
+    poNumber: '', supplier: '', items: '', quantity: '', priority: 'medium', dueDate: '', riskLevel: 'medium', templateId: '',
+  };
+  const emptyResults = { result: 'pass', defectsFound: '', inspector: '', resultNotes: '' };
+  const emptyTemplate = { name: '', category: '', checkpoints: '', description: '' };
+  const emptyNcr = { title: '', description: '', severity: 'minor', supplier: '', rootCause: '' };
+  const [inspectionForm, setInspectionForm] = useState(emptyInspection);
+  const [resultsForm, setResultsForm] = useState(emptyResults);
+  const [rejectReason, setRejectReason] = useState('');
+  const [templateForm, setTemplateForm] = useState(emptyTemplate);
+  const [ncrForm, setNcrForm] = useState(emptyNcr);
 
-  // Handler 2: Record Results - Record detailed inspection results with measurements and defect tracking
-  const handleRecordResults = () => {};
+  // Handler 1: Create Inspection
+  const handleCreateInspection = () => {
+    setInspectionForm(emptyInspection);
+    setFormError(null);
+    setModal({ type: 'create-inspection' });
+  };
+  const submitInspection = async () => {
+    if (!inspectionForm.supplier.trim() && !inspectionForm.poNumber.trim()) {
+      setFormError('Provide at least a PO number or supplier.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementQualityService.createInspection({
+        poNumber: inspectionForm.poNumber.trim() || undefined,
+        supplier: inspectionForm.supplier.trim() || undefined,
+        items: inspectionForm.items.trim() || undefined,
+        quantity: Number(inspectionForm.quantity) || 0,
+        priority: inspectionForm.priority,
+        dueDate: inspectionForm.dueDate || undefined,
+        riskLevel: inspectionForm.riskLevel,
+        templateId: inspectionForm.templateId || undefined,
+        status: 'pending',
+      });
+      await loadInspections();
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create inspection');
+      setSubmitting(false);
+    }
+  };
 
-  // Handler 3: Reject Material - Material rejection workflow with NCR generation and supplier notification
-  const handleRejectMaterial = () => {};
+  // Handler 2: Record Results
+  const handleRecordResults = (inspection?: ProcurementInspection) => {
+    const target = inspection ?? inspectionQueue[0];
+    if (!target) {
+      setFormError('No inspection available to record results for. Create one first.');
+      setModal({ type: 'create-inspection' });
+      return;
+    }
+    setResultsForm(emptyResults);
+    setFormError(null);
+    setModal({ type: 'record-results', inspection: target });
+  };
+  const submitResults = async (inspection: ProcurementInspection) => {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementQualityService.recordResults(inspection.id, {
+        result: resultsForm.result,
+        defectsFound: resultsForm.defectsFound ? Number(resultsForm.defectsFound) : undefined,
+        inspector: resultsForm.inspector.trim() || undefined,
+        resultNotes: resultsForm.resultNotes.trim() || undefined,
+        status: 'completed',
+      });
+      await loadInspections();
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to record results');
+      setSubmitting(false);
+    }
+  };
 
-  // Handler 4: Issue NCR - Generate Non-Conformance Report with root cause analysis and CAPA
-  const handleIssueNCR = () => {};
+  // Handler 3: Reject Material
+  const handleRejectMaterial = (inspection?: ProcurementInspection) => {
+    const target = inspection ?? inspectionQueue[0];
+    if (!target) {
+      setFormError('No inspection available to reject. Create one first.');
+      setModal({ type: 'create-inspection' });
+      return;
+    }
+    setRejectReason('');
+    setFormError(null);
+    setModal({ type: 'reject', inspection: target });
+  };
+  const submitReject = async (inspection: ProcurementInspection) => {
+    if (!rejectReason.trim()) {
+      setFormError('Rejection reason is required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementQualityService.rejectInspection(inspection.id, { rejectionReason: rejectReason.trim() });
+      await loadInspections();
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to reject material');
+      setSubmitting(false);
+    }
+  };
 
-  // Handler 5: Track Trends - Analyze quality trends with statistical process control and predictive analytics
-  const handleTrackTrends = () => {};
+  // Handler 4: Issue NCR
+  const handleIssueNCR = (inspection?: ProcurementInspection) => {
+    setNcrForm({ ...emptyNcr, supplier: inspection?.supplier ?? '' });
+    setFormError(null);
+    setModal({ type: 'issue-ncr', inspection });
+  };
+  const submitNcr = async (inspection?: ProcurementInspection) => {
+    if (!ncrForm.title.trim()) {
+      setFormError('NCR title is required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementQualityService.createNcr({
+        title: ncrForm.title.trim(),
+        description: ncrForm.description.trim() || undefined,
+        severity: ncrForm.severity,
+        supplier: ncrForm.supplier.trim() || undefined,
+        rootCause: ncrForm.rootCause.trim() || undefined,
+        inspectionId: inspection?.id,
+        supplierId: inspection?.supplierId,
+        status: 'open',
+      });
+      await loadNcrs();
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to issue NCR');
+      setSubmitting(false);
+    }
+  };
 
-  // Handler 6: View Supplier Report - Detailed supplier quality performance report
-  const handleViewSupplierReport = (supplierName: string) => {};
+  // Handler 5: Track Trends
+  const handleTrackTrends = () => { setFormError(null); setModal({ type: 'track-trends' }); };
 
-  // Handler 7: New Inspection Button - Start creating a new inspection
+  // Handler 6: View Supplier Report
+  const handleViewSupplierReport = (supplierName: string) => { setFormError(null); setModal({ type: 'supplier-report', supplierName }); };
+
+  // Handler 7: New Inspection Button
   const handleNewInspection = () => {
     handleCreateInspection();
   };
 
-  // Handler 8: Generate Report - Generate quality reports
-  const handleGenerateReport = () => {};
+  // Handler 8: Generate Report -> CSV of the live inspection queue.
+  const handleGenerateReport = () => {
+    downloadCsv(
+      'quality-inspections.csv',
+      inspectionQueue.map((i) => ({
+        poNumber: i.poNumber ?? '',
+        supplier: i.supplier ?? '',
+        items: i.items ?? '',
+        quantity: i.quantity,
+        priority: i.priority,
+        status: i.status,
+        result: i.result ?? '',
+        defectsFound: i.defectsFound ?? '',
+        inspector: i.inspector ?? '',
+        dueDate: i.dueDate ?? '',
+      })),
+    );
+  };
 
-  // Handler 9: Create Template - Create a new inspection template
-  const handleCreateTemplate = () => {};
+  // Handler 9: Create Template
+  const handleCreateTemplate = () => {
+    setTemplateForm(emptyTemplate);
+    setFormError(null);
+    setModal({ type: 'create-template' });
+  };
+  const submitCreateTemplate = async () => {
+    if (!templateForm.name.trim()) {
+      setFormError('Template name is required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementQualityService.createTemplate({
+        name: templateForm.name.trim(),
+        category: templateForm.category.trim() || undefined,
+        checkpoints: Number(templateForm.checkpoints) || 0,
+        description: templateForm.description.trim() || undefined,
+      });
+      await loadTemplates();
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create template');
+      setSubmitting(false);
+    }
+  };
 
-  // Handler 10: Use Template - Use an existing template for inspection
-  const handleUseTemplate = (templateName: string) => {};
+  // Handler 10: Use Template -> bumps usage counter, opens a prefilled inspection.
+  const handleUseTemplate = async (template: ProcurementInspectionTemplate) => {
+    try {
+      await procurementQualityService.useTemplate(template.id);
+      await loadTemplates();
+    } catch (err) {
+      console.error('Failed to mark template used:', err);
+    }
+    setInspectionForm({ ...emptyInspection, templateId: template.id });
+    setFormError(null);
+    setModal({ type: 'create-inspection' });
+  };
 
-  // Handler 11: Edit Template - Edit an existing inspection template
-  const handleEditTemplate = (templateId: string) => {};
+  // Handler 11: Edit Template
+  const handleEditTemplate = (template: ProcurementInspectionTemplate) => {
+    setTemplateForm({
+      name: template.name ?? '',
+      category: template.category ?? '',
+      checkpoints: String(template.checkpoints ?? ''),
+      description: template.description ?? '',
+    });
+    setFormError(null);
+    setModal({ type: 'edit-template', template });
+  };
+  const submitEditTemplate = async (template: ProcurementInspectionTemplate) => {
+    if (!templateForm.name.trim()) {
+      setFormError('Template name is required.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await procurementQualityService.updateTemplate(template.id, {
+        name: templateForm.name.trim(),
+        category: templateForm.category.trim() || undefined,
+        checkpoints: Number(templateForm.checkpoints) || 0,
+        description: templateForm.description.trim() || undefined,
+      });
+      await loadTemplates();
+      closeModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update template');
+      setSubmitting(false);
+    }
+  };
 
-  // Handler 12: Compliance Monitoring - Monitor compliance standards and audit readiness
-  const handleComplianceMonitoring = () => {};
+  // Handler 12: Compliance Monitoring
+  const handleComplianceMonitoring = () => { setFormError(null); setModal({ type: 'compliance-monitoring' }); };
+
+  // View an inspection detail.
+  const handleViewInspection = (inspection: ProcurementInspection) => { setFormError(null); setModal({ type: 'view-inspection', inspection }); };
 
   const renderOverview = () => (
     <div className="space-y-3">
@@ -347,9 +597,8 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
                   <td className="py-2">
                     <button
                       onClick={() => handleViewSupplierReport(supplier.supplier)}
-                      disabled
-                      title="View supplier report — backend not yet available"
-                      className="text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="View supplier report"
+                      className="text-blue-600 hover:text-blue-800"
                     >
                       View Report
                     </button>
@@ -392,9 +641,8 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
           </div>
           <button
             onClick={handleNewInspection}
-            disabled
-            title="New inspection — backend not yet available"
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="New inspection"
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
             New Inspection
@@ -404,12 +652,17 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
 
       {/* Inspection Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2">
-        {inspectionQueue.map((inspection) => (
+        {displayedInspections.length === 0 && (
+          <div className="col-span-full bg-white rounded-lg shadow p-6 text-center text-sm text-gray-500">
+            No inspections in the queue. Use “New Inspection” to create one.
+          </div>
+        )}
+        {displayedInspections.map((inspection) => (
           <div key={inspection.id} className="bg-white rounded-lg shadow p-3 hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h4 className="font-semibold text-lg">{inspection.id}</h4>
-                <p className="text-gray-600 text-sm">{inspection.poNumber}</p>
+                <h4 className="font-semibold text-lg">{inspection.poNumber || inspection.id.slice(0, 8)}</h4>
+                <p className="text-gray-600 text-sm">{inspection.supplier || '—'}</p>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs ${
                 inspection.priority === 'critical' ? 'bg-red-100 text-red-800' :
@@ -461,11 +714,19 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
               </span>
 
               <div className="flex gap-2">
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                <button
+                  onClick={() => handleViewInspection(inspection)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                  title="View inspection"
+                >
                   <Eye className="h-4 w-4 text-gray-600" />
                   <span className="text-gray-700">View</span>
                 </button>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm">
+                <button
+                  onClick={() => handleRecordResults(inspection)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 text-sm"
+                  title="Record results"
+                >
                   <ClipboardCheck className="h-4 w-4 text-green-600" />
                   <span className="text-green-600">Check</span>
                 </button>
@@ -559,9 +820,8 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
         <h3 className="text-xl font-semibold">Inspection Templates</h3>
         <button
           onClick={handleCreateTemplate}
-          disabled
-          title="Create template — backend not yet available"
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Create template"
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
           Create Template
@@ -579,15 +839,20 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {inspectionTemplates.length === 0 && (
+          <div className="col-span-full bg-white rounded-lg shadow p-6 text-center text-sm text-gray-500">
+            No inspection templates yet. Use “Create Template” to add one.
+          </div>
+        )}
         {inspectionTemplates.map((template) => (
           <div key={template.id} className="bg-white rounded-lg shadow p-3 hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start mb-2">
               <FileText className="h-10 w-10 text-blue-500" />
-              <span className="text-xs text-gray-500">{template.id}</span>
+              <span className="text-xs text-gray-500">{template.id.slice(0, 8)}</span>
             </div>
 
             <h4 className="font-semibold text-lg mb-2">{template.name}</h4>
-            <p className="text-gray-600 text-sm mb-2">Category: {template.category}</p>
+            <p className="text-gray-600 text-sm mb-2">Category: {template.category || '—'}</p>
 
             <div className="space-y-2 mb-2">
               <div className="flex justify-between text-sm">
@@ -596,7 +861,7 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Last Used:</span>
-                <span>{template.lastUsed}</span>
+                <span>{template.lastUsed ? String(template.lastUsed).slice(0, 10) : '—'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Total Usage:</span>
@@ -606,18 +871,16 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
 
             <div className="flex gap-2">
               <button
-                onClick={() => handleUseTemplate(template.name)}
-                disabled
-                title="Use template — backend not yet available"
-                className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => handleUseTemplate(template)}
+                title="Use template"
+                className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 text-sm"
               >
                 Use Template
               </button>
               <button
-                onClick={() => handleEditTemplate(template.id)}
-                disabled
-                title="Edit template — backend not yet available"
-                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => handleEditTemplate(template)}
+                title="Edit template"
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
               >
                 <Edit3 className="h-4 w-4 text-gray-600" />
                 <span className="text-gray-700">Edit</span>
@@ -908,9 +1171,8 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
         </div>
         <button
           onClick={handleGenerateReport}
-          disabled
-          title="Generate report — backend not yet available"
-          className="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Generate report (CSV)"
+          className="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
         >
           <Download className="h-4 w-4" />
           Generate Report
@@ -1090,54 +1352,48 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
       <div className="mb-3 flex flex-wrap gap-3">
         <button
           onClick={handleCreateInspection}
-          disabled
-          title="Create inspection — backend not yet available"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Create inspection"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <ClipboardCheck className="h-5 w-5" />
           Create Inspection
         </button>
         <button
-          onClick={handleRecordResults}
-          disabled
-          title="Record results — backend not yet available"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => handleRecordResults()}
+          title="Record results"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
         >
           <CheckCircle className="h-5 w-5" />
           Record Results
         </button>
         <button
-          onClick={handleRejectMaterial}
-          disabled
-          title="Reject material — backend not yet available"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => handleRejectMaterial()}
+          title="Reject material"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
         >
           <XCircle className="h-5 w-5" />
           Reject Material
         </button>
         <button
-          onClick={handleIssueNCR}
-          disabled
-          title="Issue NCR — backend not yet available"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => handleIssueNCR()}
+          title="Issue NCR"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
         >
           <AlertTriangle className="h-5 w-5" />
           Issue NCR
         </button>
         <button
           onClick={handleTrackTrends}
-          disabled
-          title="Track trends — backend not yet available"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Track trends"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
         >
           <TrendingUp className="h-5 w-5" />
           Track Trends
         </button>
         <button
           onClick={handleComplianceMonitoring}
-          disabled
-          title="Compliance monitoring — backend not yet available"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Compliance monitoring"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <Shield className="h-5 w-5" />
           Compliance
@@ -1334,8 +1590,309 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
       {activeTab === 'templates' && renderTemplates()}
       {activeTab === 'compliance' && renderCompliance()}
       {activeTab === 'reports' && renderReports()}
+
+      {modal && renderModal()}
     </div>
   );
+
+  function renderModal() {
+    if (!modal) return null;
+    const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+    const labelCls = 'block text-sm font-medium text-gray-700 mb-1';
+
+    let title = '';
+    let body: React.ReactNode = null;
+    let footer: React.ReactNode = (
+      <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+    );
+
+    if (modal.type === 'create-inspection') {
+      title = 'Create Inspection';
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>PO Number</label>
+            <input className={inputCls} value={inspectionForm.poNumber} onChange={(e) => setInspectionForm({ ...inspectionForm, poNumber: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Supplier</label>
+            <input className={inputCls} value={inspectionForm.supplier} onChange={(e) => setInspectionForm({ ...inspectionForm, supplier: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Items</label>
+            <input className={inputCls} value={inspectionForm.items} onChange={(e) => setInspectionForm({ ...inspectionForm, items: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Quantity</label>
+            <input type="number" className={inputCls} value={inspectionForm.quantity} onChange={(e) => setInspectionForm({ ...inspectionForm, quantity: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Priority</label>
+            <select className={inputCls} value={inspectionForm.priority} onChange={(e) => setInspectionForm({ ...inspectionForm, priority: e.target.value })}>
+              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Risk Level</label>
+            <select className={inputCls} value={inspectionForm.riskLevel} onChange={(e) => setInspectionForm({ ...inspectionForm, riskLevel: e.target.value })}>
+              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Due Date</label>
+            <input type="date" className={inputCls} value={inspectionForm.dueDate} onChange={(e) => setInspectionForm({ ...inspectionForm, dueDate: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Template</label>
+            <select className={inputCls} value={inspectionForm.templateId} onChange={(e) => setInspectionForm({ ...inspectionForm, templateId: e.target.value })}>
+              <option value="">None</option>
+              {inspectionTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={submitInspection} disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+            {submitting ? 'Creating…' : 'Create Inspection'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'record-results') {
+      const ins = modal.inspection;
+      title = `Record Results — ${ins.poNumber || ins.id.slice(0, 8)}`;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Result</label>
+            <select className={inputCls} value={resultsForm.result} onChange={(e) => setResultsForm({ ...resultsForm, result: e.target.value })}>
+              <option value="pass">Pass</option><option value="fail">Fail</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Defects Found</label>
+            <input type="number" className={inputCls} value={resultsForm.defectsFound} onChange={(e) => setResultsForm({ ...resultsForm, defectsFound: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Inspector</label>
+            <input className={inputCls} value={resultsForm.inspector} onChange={(e) => setResultsForm({ ...resultsForm, inspector: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelCls}>Notes</label>
+            <textarea className={inputCls} rows={3} value={resultsForm.resultNotes} onChange={(e) => setResultsForm({ ...resultsForm, resultNotes: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitResults(ins)} disabled={submitting} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
+            {submitting ? 'Saving…' : 'Record Results'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'reject') {
+      const ins = modal.inspection;
+      title = `Reject Material — ${ins.poNumber || ins.id.slice(0, 8)}`;
+      body = (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">Supplier: {ins.supplier || '—'} · Items: {ins.items || '—'}</p>
+          <div>
+            <label className={labelCls}>Rejection Reason *</label>
+            <textarea className={inputCls} rows={3} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitReject(ins)} disabled={submitting} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50">
+            {submitting ? 'Rejecting…' : 'Reject Material'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'view-inspection') {
+      const ins = modal.inspection;
+      title = `Inspection — ${ins.poNumber || ins.id.slice(0, 8)}`;
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <div><span className="text-gray-500">Supplier:</span> <span className="font-medium">{ins.supplier || '—'}</span></div>
+          <div><span className="text-gray-500">Items:</span> <span className="font-medium">{ins.items || '—'}</span></div>
+          <div><span className="text-gray-500">Quantity:</span> <span className="font-medium">{ins.quantity}</span></div>
+          <div><span className="text-gray-500">Priority:</span> <span className="font-medium">{ins.priority}</span></div>
+          <div><span className="text-gray-500">Status:</span> <span className="font-medium">{ins.status}</span></div>
+          <div><span className="text-gray-500">Risk Level:</span> <span className="font-medium">{ins.riskLevel}</span></div>
+          <div><span className="text-gray-500">Result:</span> <span className="font-medium">{ins.result ?? '—'}</span></div>
+          <div><span className="text-gray-500">Defects:</span> <span className="font-medium">{ins.defectsFound ?? '—'}</span></div>
+          <div><span className="text-gray-500">Inspector:</span> <span className="font-medium">{ins.inspector ?? '—'}</span></div>
+          <div><span className="text-gray-500">Due Date:</span> <span className="font-medium">{ins.dueDate ?? '—'}</span></div>
+          {ins.rejectionReason && <div className="md:col-span-2"><span className="text-gray-500">Rejection:</span> <span className="font-medium">{ins.rejectionReason}</span></div>}
+          {ins.resultNotes && <div className="md:col-span-2"><span className="text-gray-500">Notes:</span> <span className="font-medium">{ins.resultNotes}</span></div>}
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={() => { const i = ins; closeModal(); handleRecordResults(i); }} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Record Results</button>
+          <button onClick={() => { const i = ins; closeModal(); handleRejectMaterial(i); }} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Reject</button>
+          <button onClick={() => { const i = ins; closeModal(); handleIssueNCR(i); }} className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700">Issue NCR</button>
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Close</button>
+        </div>
+      );
+    } else if (modal.type === 'issue-ncr') {
+      const ins = modal.inspection;
+      title = 'Issue Non-Conformance Report';
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2">
+            <label className={labelCls}>Title *</label>
+            <input className={inputCls} value={ncrForm.title} onChange={(e) => setNcrForm({ ...ncrForm, title: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Severity</label>
+            <select className={inputCls} value={ncrForm.severity} onChange={(e) => setNcrForm({ ...ncrForm, severity: e.target.value })}>
+              <option value="minor">Minor</option><option value="major">Major</option><option value="critical">Critical</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Supplier</label>
+            <input className={inputCls} value={ncrForm.supplier} onChange={(e) => setNcrForm({ ...ncrForm, supplier: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelCls}>Description</label>
+            <textarea className={inputCls} rows={2} value={ncrForm.description} onChange={(e) => setNcrForm({ ...ncrForm, description: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelCls}>Root Cause</label>
+            <textarea className={inputCls} rows={2} value={ncrForm.rootCause} onChange={(e) => setNcrForm({ ...ncrForm, rootCause: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button onClick={() => submitNcr(ins)} disabled={submitting} className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 disabled:opacity-50">
+            {submitting ? 'Issuing…' : 'Issue NCR'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'create-template' || modal.type === 'edit-template') {
+      const editing = modal.type === 'edit-template';
+      title = editing ? 'Edit Template' : 'Create Template';
+      body = (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2">
+            <label className={labelCls}>Name *</label>
+            <input className={inputCls} value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Category</label>
+            <input className={inputCls} value={templateForm.category} onChange={(e) => setTemplateForm({ ...templateForm, category: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Checkpoints</label>
+            <input type="number" className={inputCls} value={templateForm.checkpoints} onChange={(e) => setTemplateForm({ ...templateForm, checkpoints: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelCls}>Description</label>
+            <textarea className={inputCls} rows={2} value={templateForm.description} onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })} />
+          </div>
+        </div>
+      );
+      footer = (
+        <div className="flex gap-2">
+          <button onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+          <button
+            onClick={() => (editing ? submitEditTemplate(modal.template) : submitCreateTemplate())}
+            disabled={submitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? 'Saving…' : editing ? 'Save Changes' : 'Create Template'}
+          </button>
+        </div>
+      );
+    } else if (modal.type === 'track-trends') {
+      title = 'Quality Trends';
+      body = (
+        <div className="space-y-3 text-sm">
+          {qualityTrends.length === 0 ? (
+            <p className="text-gray-500">No trend data available.</p>
+          ) : (
+            <table className="w-full">
+              <thead><tr className="border-b text-left text-gray-600"><th className="py-2 pr-3">Month</th><th className="py-2 pr-3">Pass Rate</th><th className="py-2 pr-3">Defect Rate</th><th className="py-2 pr-3">Inspections</th></tr></thead>
+              <tbody>
+                {qualityTrends.map((t) => (
+                  <tr key={t.month} className="border-b"><td className="py-2 pr-3">{t.month}</td><td className="py-2 pr-3">{t.passRate}%</td><td className="py-2 pr-3">{t.defectRate}%</td><td className="py-2 pr-3">{t.inspections}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="pt-2 border-t">
+            <div className="font-medium mb-1">Recent NCRs ({ncrs.length})</div>
+            {ncrs.length === 0 ? <p className="text-gray-500">No NCRs raised.</p> : (
+              <ul className="list-disc pl-5">{ncrs.slice(0, 5).map((n) => <li key={n.id}>{n.ncrNumber} — {n.title} ({n.severity})</li>)}</ul>
+            )}
+          </div>
+        </div>
+      );
+    } else if (modal.type === 'supplier-report') {
+      const sup = supplierQualityScores.find((s) => s.supplier === modal.supplierName);
+      title = `Supplier Report — ${modal.supplierName}`;
+      body = sup ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <div><span className="text-gray-500">Quality Score:</span> <span className="font-medium">{sup.score}%</span></div>
+          <div><span className="text-gray-500">Trend:</span> <span className="font-medium">{sup.trend}</span></div>
+          <div><span className="text-gray-500">Inspections:</span> <span className="font-medium">{sup.inspections}</span></div>
+          <div className="md:col-span-2 pt-2 border-t">
+            <div className="font-medium mb-1">NCRs for this supplier</div>
+            {ncrs.filter((n) => n.supplier === modal.supplierName).length === 0 ? (
+              <p className="text-gray-500">No NCRs on record.</p>
+            ) : (
+              <ul className="list-disc pl-5">{ncrs.filter((n) => n.supplier === modal.supplierName).map((n) => <li key={n.id}>{n.title} ({n.severity})</li>)}</ul>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500">No score data for this supplier.</p>
+      );
+    } else if (modal.type === 'compliance-monitoring') {
+      title = 'Compliance Monitoring';
+      body = (
+        <div className="space-y-3 text-sm">
+          {complianceStandards.length === 0 ? (
+            <p className="text-gray-500">No compliance standards loaded.</p>
+          ) : (
+            <table className="w-full">
+              <thead><tr className="border-b text-left text-gray-600"><th className="py-2 pr-3">Standard</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Score</th><th className="py-2 pr-3">Last Audit</th></tr></thead>
+              <tbody>
+                {complianceStandards.map((s) => (
+                  <tr key={s.standard} className="border-b"><td className="py-2 pr-3">{s.standard}</td><td className="py-2 pr-3">{s.status}</td><td className="py-2 pr-3">{s.score}%</td><td className="py-2 pr-3">{s.lastAudit}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeModal}>
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-3 border-b">
+            <h3 className="text-lg font-semibold">{title}</h3>
+            <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          </div>
+          <div className="px-5 py-4">
+            {formError && (
+              <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{formError}</div>
+            )}
+            {body}
+          </div>
+          <div className="px-5 py-3 border-t flex justify-end">{footer}</div>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default QualityAssurance;

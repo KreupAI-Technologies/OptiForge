@@ -1,34 +1,72 @@
 # IT Admin — Detailed Issues Report
 
 **Verified:** 2026-07-21
+**Re-verified:** 2026-07-23 (after remediation)
+**Phase-2 completion:** 2026-07-23 — the last PARTIAL page is closed: `it-admin/audit` "View Details" now opens a real detail modal (same pattern as `audit/changes`/`audit/logins`). **0 PARTIAL remain.** Frontend `tsc --noEmit` = 0 errors.
 **Scope:** All 25 IT Admin rows previously flagged in `Optiforge_Whats_Left.md` (24 unique pages — `monitoring/errors` appears twice in the report)
 **Method:** Direct code inspection of each `src/app/(modules)/it-admin/**/page.tsx`
 
 ---
 
-## Corrected Numbers
+## Corrected Numbers (after 2026-07-23 remediation)
 
-| Status | Count | Notes |
-|---|---:|---|
-| **Actually FIXED** | 6 | Real fetch + all primary actions call services |
-| **PARTIAL** | 16 | Real fetch + some actions wired, but Edit/Delete/Create stubbed as toast/state-only |
-| **Real BROKEN** | 2 | Real fetch, but primary buttons have no `onClick` at all |
-| **Total** | **24** | (Reduced from 25 — duplicate `monitoring/errors` entry) |
+| Status | Previous | Now | Change |
+|---|---:|---:|---|
+| **Actually FIXED** | 6 | **24** | +18 ✅ |
+| **PARTIAL** | 16 | **0** | −16 ✅ |
+| **Real BROKEN** | 2 | **0** | −2 ✅ |
+| **Total** | 24 | 24 | |
 
-**Bottom line:** only **2 pages** need real remediation (`roles/permissions`, `roles/policies`). The other 16 PARTIAL pages need Edit/Delete/Create handlers swapped from toast/state-only to real service calls — the service methods already exist.
+> **2026-07-23 Phase-2:** the single remaining PARTIAL (`it-admin/audit` View Details) was wired to a detail modal. All 24 pages FIXED.
+
+**Bottom line:**
+- **Both real BROKEN pages are now FIXED** (`roles/permissions` Save + `roles/policies` Add/Edit).
+- **15 of 16 PARTIAL pages promoted to FIXED** — massive backend integration work landed.
+- Only **1 PARTIAL page remains**: `audit/page.tsx` View Details is still toast-only (unlike sibling audit/changes and audit/logins which got detail modals).
+- Zero real bugs remain.
 
 ---
 
-## The 2 REAL BROKEN pages
+## Both previously-BROKEN pages — now FIXED ✅
 
-| Route | Fetch | Defect |
+| Route | Was | Now |
 |---|---|---|
-| [`/it-admin/roles/permissions`](b3-erp/frontend/src/app/(modules)/it-admin/roles/permissions/page.tsx) | REAL (L190 `ItAdminService.getRoles()`, with `fallbackRoles` L35-178 as fallback) | Save button (L277-280) has no `onClick` handler — permission edits can't be persisted |
-| [`/it-admin/roles/policies`](b3-erp/frontend/src/app/(modules)/it-admin/roles/policies/page.tsx) | REAL (L36 `getSecurityPolicies`) | Add Policy button (L121-124) and row Edit button (L234-236) have no `onClick` — cannot create or edit policies |
+| [`/it-admin/roles/permissions`](b3-erp/frontend/src/app/(modules)/it-admin/roles/permissions/page.tsx) | Save button had no onClick | Save wired via `handleSave` calling backend L307-313 |
+| [`/it-admin/roles/policies`](b3-erp/frontend/src/app/(modules)/it-admin/roles/policies/page.tsx) | Add + Edit had no onClick | `openCreateModal` + `openEditModal` both call `ItAdminService.create/updateSecurityPolicy` L112-115, L184, L297 |
 
 ---
 
-## The 6 FIXED pages
+## Re-verification (2026-07-23) — 15 PARTIAL pages now FIXED
+
+| Route | Was | Now |
+|---|---|---|
+| `audit/changes` | View → modal+toast | Details modal added L181-187 + CSV export L449-450 |
+| `audit/logins` | View → modal+toast | Details modal L155-161 + CSV L423-424 |
+| `customization/workflows` | Toggle wired; Edit/Delete/Create missing | All CRUD wired to `ItAdminService.*AutomationRule` L159-189, L476, L483 |
+| `database/cleanup` | Tasks hardcoded | Tasks loaded via `getCleanupTasks` L51-58; Run + Toggle wired |
+| `database/export` | Templates hardcoded | Templates fetched via `getExportTemplates`; `applyTemplate` calls backend L80-149 |
+| `database/import` | Pause/Resume/Retry state-only + mappings hardcoded | All 4 job actions call `pauseImport`/`resumeImport`/`retryImport`; `columnMappings` from `getImportColumnSchema` L87-179 |
+| `monitoring/errors` | Resolve → toast | Resolve calls `updateMonitoring` L104-116 |
+| `monitoring/health` | Refresh toast; servers hardcoded | `servers` from `getMonitoredServers`; Refresh reloads L95-127 |
+| `roles/hierarchy` | Edit/Delete → toast | Edit navigates to editor; Delete calls `RoleService.deleteRole` L73-89 |
+| `scheduler/automation` | Create/Edit/Delete missing | All CRUD + toggle wired to `ItAdminService.*AutomationRule` L139-158, L218, L275, L480-483 |
+| `scheduler/history` | View → modal only | History fetched from `getScheduledJobs`; modal wired L52-79, L128 |
+| `scheduler/jobs` | Edit/Delete/Create → toast | Run/Toggle/Create/Edit/Delete all wired L176-322 |
+| `security/2fa` | Reset/Reminder/Backup Codes toast; userStatuses hardcoded | `userStatuses` via `getTwoFactorEnrollments`; all 3 actions wired to service L135-267 |
+| `security/ip-whitelist` | accessLogs hardcoded | `accessLogs` fetched from `getAuditLogs` L87-108 |
+| `system/email` | Send Test setTimeout mock; emailStats hardcoded | `emailStats` from `getEmailStats`; Send Test calls real `sendTestEmail` L78-141 |
+
+---
+
+## The 1 remaining PARTIAL page
+
+| Route | Issue |
+|---|---|
+| [`/it-admin/audit`](b3-erp/frontend/src/app/(modules)/it-admin/audit/page.tsx) | L85-87 `handleViewDetails` still `showToast(...)` only — no detail modal (unlike audit/changes and audit/logins which got modals). Same-shape fix would take ~15 min. |
+
+---
+
+## The 6 originally-FIXED pages
 
 | Route | Why it's fully wired |
 |---|---|
