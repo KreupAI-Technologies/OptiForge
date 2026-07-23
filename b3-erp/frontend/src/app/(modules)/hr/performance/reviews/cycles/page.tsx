@@ -40,6 +40,8 @@ export default function ReviewCyclesPage() {
     const [createError, setCreateError] = useState<string | null>(null);
     const [createForm, setCreateForm] = useState({ cycleName: '', cycleType: 'quarterly', startDate: '', endDate: '', description: '' });
 
+    const [detailCycle, setDetailCycle] = useState<ReviewCycle | null>(null);
+
     const [editCycle, setEditCycle] = useState<ReviewCycle | null>(null);
     const [editSaving, setEditSaving] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
@@ -267,7 +269,7 @@ export default function ReviewCyclesPage() {
                                         <button onClick={() => openEditCycle(cycle)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm font-medium">
                                             Settings
                                         </button>
-                                        <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium">
+                                        <button onClick={() => setDetailCycle(cycle)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium">
                                             View Details
                                             <ArrowRight className="w-4 h-4" />
                                         </button>
@@ -325,6 +327,54 @@ export default function ReviewCyclesPage() {
                         <div className="flex justify-end gap-2 mt-4">
                             <button onClick={() => setShowCreate(false)} className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm">Cancel</button>
                             <button onClick={handleCreateCycle} disabled={saving} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Create Cycle'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {detailCycle && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDetailCycle(null)}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-white">Cycle Details</h2>
+                            <button onClick={() => setDetailCycle(null)} className="text-gray-400 hover:text-white text-sm">✕</button>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-xl font-bold text-white">{detailCycle.name}</h3>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(detailCycle.status)}`}>{detailCycle.status}</span>
+                            </div>
+                            <p className="text-gray-400 text-sm">{detailCycle.description}</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-gray-700/50 rounded-lg p-3">
+                                    <p className="text-xs text-gray-400 uppercase mb-1">Type</p>
+                                    <p className="text-white font-semibold">{detailCycle.type}</p>
+                                </div>
+                                <div className="bg-gray-700/50 rounded-lg p-3">
+                                    <p className="text-xs text-gray-400 uppercase mb-1">Participants</p>
+                                    <p className="text-white font-semibold">{detailCycle.participants}</p>
+                                </div>
+                                <div className="bg-gray-700/50 rounded-lg p-3">
+                                    <p className="text-xs text-gray-400 uppercase mb-1">Start Date</p>
+                                    <p className="text-white font-semibold">{new Date(detailCycle.startDate).toLocaleDateString()}</p>
+                                </div>
+                                <div className="bg-gray-700/50 rounded-lg p-3">
+                                    <p className="text-xs text-gray-400 uppercase mb-1">End Date</p>
+                                    <p className="text-white font-semibold">{new Date(detailCycle.endDate).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            <div className="bg-gray-700/50 rounded-lg p-3">
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-400">Completion Rate</span>
+                                    <span className="text-white font-bold">{detailCycle.completionRate}%</span>
+                                </div>
+                                <div className="w-full bg-gray-600 rounded-full h-2">
+                                    <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full" style={{ width: `${detailCycle.completionRate}%` }} />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <button onClick={() => setDetailCycle(null)} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">Close</button>
                         </div>
                     </div>
                 </div>

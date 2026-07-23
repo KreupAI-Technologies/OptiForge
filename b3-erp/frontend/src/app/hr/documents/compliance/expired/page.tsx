@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { XCircle, AlertTriangle, Upload, FileText } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { XCircle, AlertTriangle, Upload, FileText, X } from 'lucide-react';
 import { DocumentManagementService } from '@/services/document-management.service';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface ExpiredDocument {
   id: string;
@@ -16,6 +17,8 @@ interface ExpiredDocument {
   lastReminderSent?: string;
   uploadedOn: string;
   severity: 'critical' | 'high' | 'medium';
+  fileUrl?: string;
+  documentUrl?: string;
 }
 
 export default function ExpiredDocumentsPage() {
@@ -25,6 +28,10 @@ export default function ExpiredDocumentsPage() {
   const [mockExpiredDocs, setMockExpiredDocs] = useState<ExpiredDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [viewDoc, setViewDoc] = useState<ExpiredDocument | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<ExpiredDocument | null>(null);
 
   const [cancelledRef] = useState<{ current: boolean }>({ current: false });
 
@@ -58,6 +65,8 @@ export default function ExpiredDocumentsPage() {
           lastReminderSent: r.lastReminderAt || undefined,
           uploadedOn: r.submittedDate || '',
           severity,
+          fileUrl: (r as unknown as Record<string, unknown>).fileUrl as string | undefined,
+          documentUrl: (r as unknown as Record<string, unknown>).documentUrl as string | undefined,
         };
       });
       if (!cancelledRef.current) setMockExpiredDocs(mapped);
@@ -93,13 +102,52 @@ export default function ExpiredDocumentsPage() {
     }
   };
 
-  const handleUploadRenewed = () => {
-    // TODO(storage-integration): wire to real file storage once available.
-    window.alert('Document upload is not yet available — file storage integration pending');
+  const handleUploadRenewed = (doc: ExpiredDocument) => {
+    uploadTargetRef.current = doc;
+    fileInputRef.current?.click();
   };
 
-  const handleViewOldDocument = () => {
-    window.alert('File not available');
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const doc = uploadTargetRef.current;
+    if (!file || !doc) return;
+    // Reset so the same file can be re-selected if needed
+    e.target.value = '';
+    setUploadingId(doc.id);
+    setLoadError(null);
+    try {
+      await HrComplianceDocsService.uploadDocumentFile(
+        file,
+        {
+          docCategory: doc.category,
+          documentType: doc.documentType,
+          title: doc.documentType,
+          status: 'pending',
+          meta: {
+            employeeId: doc.employeeId,
+            employeeName: doc.employeeName,
+            department: doc.department,
+            renewedForDocumentId: doc.id,
+          },
+        },
+        doc.id,
+      );
+      await loadData();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to upload document');
+    } finally {
+      setUploadingId(null);
+      uploadTargetRef.current = null;
+    }
+  };
+
+  const handleViewOldDocument = (doc: ExpiredDocument) => {
+    const url = doc.fileUrl || doc.documentUrl;
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      setViewDoc(doc);
+    }
   };
 
   const filteredDocs = useMemo(() => {
@@ -281,14 +329,18 @@ export default function ExpiredDocumentsPage() {
             </div>
 
             <div className="flex gap-2 pt-4 border-t border-gray-200">
-              <button onClick={handleUploadRenewed} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+              <button
+                onClick={() => handleUploadRenewed(doc)}
+                disabled={uploadingId === doc.id}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60"
+              >
                 <Upload className="h-4 w-4" />
-                Upload Renewed Document
+                {uploadingId === doc.id ? 'Uploading…' : 'Upload Renewed Document'}
               </button>
               <button onClick={() => handleSendReminder(doc.id)} className="px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg font-medium text-sm">
                 Send Renewal Reminder
               </button>
-              <button onClick={handleViewOldDocument} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button onClick={() => handleViewOldDocument(doc)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
                 View Old Document
               </button>
             </div>
@@ -318,6 +370,67 @@ export default function ExpiredDocumentsPage() {
           <li>• Bi-weekly reminders for medium severity expired documents</li>
         </ul>
       </div>
+
+      {/* Hidden file input for upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
+      {/* View Old Document modal (shown when no URL is stored) */}
+      {viewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Document Details</h2>
+              <button onClick={() => setViewDoc(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Document Type</p>
+                  <p className="font-semibold text-gray-900">{viewDoc.documentType}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Category</p>
+                  <p className="font-semibold text-gray-900 capitalize">{viewDoc.category}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Employee</p>
+                  <p className="font-semibold text-gray-900">{viewDoc.employeeName}</p>
+                  <p className="text-xs text-gray-500">{viewDoc.employeeId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Department</p>
+                  <p className="font-semibold text-gray-900">{viewDoc.department}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Expired On</p>
+                  <p className="font-semibold text-red-700">{new Date(viewDoc.expiryDate).toLocaleDateString('en-IN')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Severity</p>
+                  <p className="font-semibold text-gray-900 capitalize">{viewDoc.severity}</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">No file is stored for this document. Upload a renewed copy using the Upload button.</p>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setViewDoc(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

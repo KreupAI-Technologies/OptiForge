@@ -63,6 +63,102 @@ export default function Page() {
     }
   };
   const [showForm, setShowForm] = useState(false);
+  const [editContract, setEditContract] = useState<AMCContract | null>(null);
+  const [editForm, setEditForm] = useState({
+    contractId: '',
+    assetCategory: 'laptop',
+    vendor: '',
+    vendorContact: '',
+    startDate: '',
+    endDate: '',
+    duration: '',
+    numberOfAssets: '',
+    contractValue: '',
+    paymentTerms: 'annual',
+    coverage: '',
+    responseTime: '',
+    location: '',
+    contactPerson: '',
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const openEditContract = (contract: AMCContract) => {
+    setEditContract(contract);
+    setEditForm({
+      contractId: contract.contractId,
+      assetCategory: contract.assetCategory,
+      vendor: contract.vendor,
+      vendorContact: contract.vendorContact,
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      duration: String(contract.duration),
+      numberOfAssets: String(contract.numberOfAssets),
+      contractValue: String(contract.contractValue),
+      paymentTerms: contract.paymentTerms,
+      coverage: contract.coverage.join(', '),
+      responseTime: contract.responseTime,
+      location: contract.location,
+      contactPerson: contract.contactPerson,
+    });
+    setEditError(null);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editContract) return;
+    setIsEditing(true);
+    setEditError(null);
+    try {
+      const coverageArr = editForm.coverage
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      await HrAssetsService.updateAmcContract(editContract.id, {
+        contractId: editForm.contractId,
+        assetCategory: editForm.assetCategory,
+        vendor: editForm.vendor,
+        vendorContact: editForm.vendorContact,
+        startDate: editForm.startDate,
+        endDate: editForm.endDate,
+        duration: Number(editForm.duration) || 0,
+        numberOfAssets: Number(editForm.numberOfAssets) || 0,
+        contractValue: Number(editForm.contractValue) || 0,
+        paymentTerms: editForm.paymentTerms,
+        coverage: JSON.stringify(coverageArr),
+        responseTime: editForm.responseTime,
+        location: editForm.location,
+        contactPerson: editForm.contactPerson,
+      });
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.id === editContract.id
+            ? {
+                ...c,
+                contractId: editForm.contractId,
+                assetCategory: editForm.assetCategory as AMCContract['assetCategory'],
+                vendor: editForm.vendor,
+                vendorContact: editForm.vendorContact,
+                startDate: editForm.startDate,
+                endDate: editForm.endDate,
+                duration: Number(editForm.duration) || 0,
+                numberOfAssets: Number(editForm.numberOfAssets) || 0,
+                contractValue: Number(editForm.contractValue) || 0,
+                paymentTerms: editForm.paymentTerms as AMCContract['paymentTerms'],
+                coverage: coverageArr,
+                responseTime: editForm.responseTime,
+                location: editForm.location,
+                contactPerson: editForm.contactPerson,
+              }
+            : c,
+        ),
+      );
+      setEditContract(null);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to update contract');
+    } finally {
+      setIsEditing(false);
+    }
+  };
 
   const emptyForm = {
     contractId: '',
@@ -410,7 +506,7 @@ export default function Page() {
                   </button>
                 )}
                 {contract.status === 'active' && (
-                  <button onClick={() => setDetailContract(contract)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                  <button onClick={() => openEditContract(contract)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                     Edit Contract
                   </button>
                 )}
@@ -501,6 +597,106 @@ export default function Page() {
               <button onClick={() => setDetailContract(null)} className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editContract && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Edit AMC Contract</h2>
+              <button onClick={() => setEditContract(null)} className="text-white hover:text-blue-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              {editError && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {editError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contract ID</label>
+                  <input value={editForm.contractId} onChange={(e) => setEditForm({ ...editForm, contractId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asset Category</label>
+                  <select value={editForm.assetCategory} onChange={(e) => setEditForm({ ...editForm, assetCategory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="printer">Printer</option>
+                    <option value="server">Server</option>
+                    <option value="network">Network</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+                  <input value={editForm.vendor} onChange={(e) => setEditForm({ ...editForm, vendor: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Contact</label>
+                  <input value={editForm.vendorContact} onChange={(e) => setEditForm({ ...editForm, vendorContact: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input type="date" value={editForm.startDate} onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                  <input type="date" value={editForm.endDate} onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (months)</label>
+                  <input type="number" value={editForm.duration} onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Number of Assets</label>
+                  <input type="number" value={editForm.numberOfAssets} onChange={(e) => setEditForm({ ...editForm, numberOfAssets: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contract Value</label>
+                  <input type="number" value={editForm.contractValue} onChange={(e) => setEditForm({ ...editForm, contractValue: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
+                  <select value={editForm.paymentTerms} onChange={(e) => setEditForm({ ...editForm, paymentTerms: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half_yearly">Half-Yearly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Response Time</label>
+                  <input value={editForm.responseTime} onChange={(e) => setEditForm({ ...editForm, responseTime: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                  <input value={editForm.contactPerson} onChange={(e) => setEditForm({ ...editForm, contactPerson: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Coverage (comma-separated)</label>
+                  <input value={editForm.coverage} onChange={(e) => setEditForm({ ...editForm, coverage: e.target.value })} placeholder="On-site support, Parts replacement" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={handleEditSubmit} disabled={isEditing} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60">
+                  {isEditing ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button onClick={() => setEditContract(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

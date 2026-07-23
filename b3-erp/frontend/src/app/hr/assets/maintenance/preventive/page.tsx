@@ -49,6 +49,43 @@ export default function Page() {
   const [detailSchedule, setDetailSchedule] = useState<PreventiveMaintenance | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [transitioningId, setTransitioningId] = useState<string | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<PreventiveMaintenance | null>(null);
+  const [rescheduleForm, setRescheduleForm] = useState({ nextMaintenanceDate: '', remarks: '' });
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+
+  const openReschedule = (schedule: PreventiveMaintenance) => {
+    setRescheduleTarget(schedule);
+    setRescheduleForm({
+      nextMaintenanceDate: schedule.nextMaintenanceDate,
+      remarks: schedule.remarks ?? '',
+    });
+    setRescheduleError(null);
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleTarget) return;
+    setIsRescheduling(true);
+    setRescheduleError(null);
+    try {
+      await HrAssetsService.updatePreventiveMaintenance(rescheduleTarget.id, {
+        nextMaintenanceDate: rescheduleForm.nextMaintenanceDate,
+        remarks: rescheduleForm.remarks || undefined,
+      });
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === rescheduleTarget.id
+            ? { ...s, nextMaintenanceDate: rescheduleForm.nextMaintenanceDate, remarks: rescheduleForm.remarks || undefined }
+            : s,
+        ),
+      );
+      setRescheduleTarget(null);
+    } catch (err) {
+      setRescheduleError(err instanceof Error ? err.message : 'Failed to reschedule');
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
 
   const handleStartMaintenance = async (schedule: PreventiveMaintenance) => {
     setTransitioningId(schedule.id);
@@ -416,7 +453,7 @@ export default function Page() {
 
               <div className="flex gap-2">
                 {schedule.status === 'upcoming' && (
-                  <button onClick={() => setDetailSchedule(schedule)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+                  <button onClick={() => openReschedule(schedule)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
                     Reschedule
                   </button>
                 )}
@@ -605,6 +642,60 @@ export default function Page() {
                   {isSubmitting ? 'Adding…' : 'Add Schedule'}
                 </button>
                 <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rescheduleTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 rounded-t-xl">
+              <h2 className="text-lg font-bold text-white">Reschedule Maintenance</h2>
+              <button onClick={() => setRescheduleTarget(null)} className="text-white hover:text-gray-200">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-gray-600">
+                Rescheduling: <span className="font-semibold text-gray-900">{rescheduleTarget.assetName}</span> ({rescheduleTarget.scheduleId})
+              </p>
+              {rescheduleError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {rescheduleError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Scheduled Date</label>
+                <input
+                  type="date"
+                  value={rescheduleForm.nextMaintenanceDate}
+                  onChange={(e) => setRescheduleForm({ ...rescheduleForm, nextMaintenanceDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes / Remarks</label>
+                <input
+                  value={rescheduleForm.remarks}
+                  onChange={(e) => setRescheduleForm({ ...rescheduleForm, remarks: e.target.value })}
+                  placeholder="Optional reason for rescheduling"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={handleReschedule}
+                  disabled={isRescheduling || !rescheduleForm.nextMaintenanceDate}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-60"
+                >
+                  {isRescheduling ? 'Saving…' : 'Confirm Reschedule'}
+                </button>
+                <button onClick={() => setRescheduleTarget(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
                   Cancel
                 </button>
               </div>

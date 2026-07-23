@@ -29,6 +29,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [detailAudit, setDetailAudit] = useState<ComplianceAudit | null>(null);
+  const [findingsAudit, setFindingsAudit] = useState<ComplianceAudit | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: '',
@@ -325,11 +327,11 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">
+              <button onClick={() => setDetailAudit(audit)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">
                 View Details
               </button>
               {audit.status === 'completed' && (
-                <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
+                <button onClick={() => setFindingsAudit(audit)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
                   View Findings
                 </button>
               )}
@@ -346,6 +348,69 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailAudit && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Audit Details — {detailAudit.auditId}</h2>
+              <button onClick={() => setDetailAudit(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><span className="text-gray-500">Title:</span> <span className="font-medium text-gray-900">{detailAudit.title}</span></div>
+              <div><span className="text-gray-500">Audit Type:</span> <span className="font-medium text-gray-900">{detailAudit.auditType}</span></div>
+              <div><span className="text-gray-500">Auditor:</span> <span className="font-medium text-gray-900">{detailAudit.auditor}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailAudit.status}</span></div>
+              <div><span className="text-gray-500">Scheduled Date:</span> <span className="font-medium text-gray-900">{detailAudit.scheduledDate}</span></div>
+              {detailAudit.completedDate && <div><span className="text-gray-500">Completed Date:</span> <span className="font-medium text-gray-900">{detailAudit.completedDate}</span></div>}
+              {detailAudit.nextAuditDue && <div><span className="text-gray-500">Next Audit Due:</span> <span className="font-medium text-gray-900">{detailAudit.nextAuditDue}</span></div>}
+              {detailAudit.complianceScore !== undefined && <div><span className="text-gray-500">Compliance Score:</span> <span className="font-medium text-gray-900">{detailAudit.complianceScore}%</span></div>}
+              <div><span className="text-gray-500">Findings:</span> <span className="font-medium text-gray-900">{detailAudit.findings}</span></div>
+              <div><span className="text-gray-500">Critical Findings:</span> <span className="font-medium text-red-700">{detailAudit.criticalFindings}</span></div>
+            </div>
+            {detailAudit.scope && detailAudit.scope.length > 0 && (
+              <div className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Scope</p>
+                <p className="text-sm text-gray-900">{detailAudit.scope.join(', ')}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailAudit(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {findingsAudit && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Findings — {findingsAudit.auditId}</h2>
+              <button onClick={() => setFindingsAudit(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                <p className="text-xs text-orange-600 uppercase font-medium">Total Findings</p>
+                <p className="text-3xl font-bold text-orange-900">{findingsAudit.findings}</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                <p className="text-xs text-red-600 uppercase font-medium">Critical Findings</p>
+                <p className="text-3xl font-bold text-red-900">{findingsAudit.criticalFindings}</p>
+              </div>
+            </div>
+            {findingsAudit.complianceScore !== undefined && (
+              <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200 mb-3">
+                <p className="text-xs text-indigo-600 uppercase font-medium mb-1">Compliance Score</p>
+                <p className="text-2xl font-bold text-indigo-900">{findingsAudit.complianceScore}%</p>
+              </div>
+            )}
+            <p className="text-sm text-gray-600">Audit completed: {findingsAudit.completedDate || '—'}</p>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setFindingsAudit(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

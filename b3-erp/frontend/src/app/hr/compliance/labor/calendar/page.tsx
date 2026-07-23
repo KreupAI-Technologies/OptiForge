@@ -72,6 +72,7 @@ export default function Page() {
   }, [load]);
 
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [detailDeadline, setDetailDeadline] = useState<ComplianceDeadline | null>(null);
 
   // ---- Add Event (backed by hr/compliance-returns; an event is a dated return) ----
   const [showAdd, setShowAdd] = useState(false);
@@ -324,7 +325,7 @@ export default function Page() {
                     {completingId === deadline.id ? 'Marking...' : 'Mark Completed'}
                   </button>
                 )}
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">
+                <button onClick={() => setDetailDeadline(deadline)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">
                   View Details
                 </button>
               </div>
@@ -338,6 +339,36 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {detailDeadline && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Compliance Deadline Details</h2>
+              <button onClick={() => setDetailDeadline(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div className="col-span-2"><span className="text-gray-500">Title:</span> <span className="font-medium text-gray-900">{detailDeadline.title}</span></div>
+              <div><span className="text-gray-500">Act:</span> <span className="font-medium text-gray-900">{detailDeadline.act}</span></div>
+              <div><span className="text-gray-500">Due Date:</span> <span className="font-medium text-gray-900">{detailDeadline.dueDate}</span></div>
+              <div><span className="text-gray-500">Frequency:</span> <span className="font-medium text-gray-900">{detailDeadline.frequency}</span></div>
+              <div><span className="text-gray-500">Responsibility:</span> <span className="font-medium text-gray-900">{detailDeadline.responsibility}</span></div>
+              <div><span className="text-gray-500">Priority:</span> <span className="font-medium text-gray-900">{detailDeadline.priority}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailDeadline.status}</span></div>
+              <div><span className="text-gray-500">Reminder Days:</span> <span className="font-medium text-gray-900">{detailDeadline.reminderDays}</span></div>
+            </div>
+            {detailDeadline.description && (
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-3">
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Description</p>
+                <p className="text-sm text-gray-900">{detailDeadline.description}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailDeadline(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

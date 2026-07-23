@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ClipboardList,
   Search,
@@ -10,9 +11,40 @@ import {
   Clock,
   ChevronRight,
   ShieldAlert,
-  FileCheck
+  FileCheck,
+  X
 } from 'lucide-react';
 import { HrSafetyService, SafetyTraining } from '@/services/hr-safety.service';
+
+interface QuickGuide {
+  title: string;
+  meta: string;
+  color: string;
+  body: string;
+}
+
+// Static reference content for the quick-guide tiles (no backend record type
+// exists for these training snippets); opened in a lightweight modal on click.
+const QUICK_GUIDES: QuickGuide[] = [
+  {
+    title: 'Proper Lifting Technique',
+    meta: 'Video • 2 min',
+    color: 'text-purple-600',
+    body: 'Keep your back straight and bend at the knees. Hold the load close to your body, lift with your legs, and avoid twisting. Ask for help or use a mechanical aid for loads over 25 kg.',
+  },
+  {
+    title: 'Fire Extinguisher Usage',
+    meta: 'Video • 3 min',
+    color: 'text-blue-600',
+    body: 'Remember P.A.S.S.: Pull the pin, Aim at the base of the fire, Squeeze the handle, and Sweep side to side. Always keep an exit behind you and evacuate if the fire grows.',
+  },
+  {
+    title: 'PPE Selection Guide',
+    meta: 'Interactive • 5 min',
+    color: 'text-green-600',
+    body: 'Match protective equipment to the hazard: eye protection for splash/impact, hearing protection above 85 dB, respiratory protection for airborne contaminants, and cut-resistant gloves for sharp materials. Inspect PPE before each use.',
+  },
+];
 
 interface Procedure {
   id: string;
@@ -32,10 +64,12 @@ interface ContactRow {
 }
 
 export default function SafetyProceduresPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [importantContacts, setImportantContacts] = useState<ContactRow[]>([]);
+  const [activeGuide, setActiveGuide] = useState<QuickGuide | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -214,7 +248,10 @@ export default function SafetyProceduresPage() {
               ))}
             </ul>
             <div className="mt-4 pt-4 border-t border-red-100">
-              <button className="w-full py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 transition-colors flex items-center justify-center">
+              <button
+                onClick={() => router.push('/hr/safety/incidents/tracking')}
+                className="w-full py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 transition-colors flex items-center justify-center"
+              >
                 <AlertTriangle className="w-4 h-4 mr-2" />
                 Report Incident
               </button>
@@ -225,31 +262,61 @@ export default function SafetyProceduresPage() {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Quick Guides</h3>
             <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer border border-transparent hover:border-gray-200 transition-all">
-                <PlayCircle className="w-8 h-8 text-purple-600 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Proper Lifting Technique</p>
-                  <p className="text-xs text-gray-500">Video • 2 min</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer border border-transparent hover:border-gray-200 transition-all">
-                <PlayCircle className="w-8 h-8 text-blue-600 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Fire Extinguisher Usage</p>
-                  <p className="text-xs text-gray-500">Video • 3 min</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer border border-transparent hover:border-gray-200 transition-all">
-                <PlayCircle className="w-8 h-8 text-green-600 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">PPE Selection Guide</p>
-                  <p className="text-xs text-gray-500">Interactive • 5 min</p>
-                </div>
-              </div>
+              {QUICK_GUIDES.map((guide) => (
+                <button
+                  key={guide.title}
+                  onClick={() => setActiveGuide(guide)}
+                  className="w-full text-left flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer border border-transparent hover:border-gray-200 transition-all"
+                >
+                  <PlayCircle className={`w-8 h-8 ${guide.color} flex-shrink-0`} />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{guide.title}</p>
+                    <p className="text-xs text-gray-500">{guide.meta}</p>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </div>
+
+      {activeGuide && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setActiveGuide(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <PlayCircle className={`w-8 h-8 ${activeGuide.color} flex-shrink-0`} />
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">{activeGuide.title}</h2>
+                  <p className="text-xs text-gray-500">{activeGuide.meta}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveGuide(null)}
+                className="p-1 text-gray-400 hover:text-gray-700"
+                aria-label="Close guide"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-700">{activeGuide.body}</p>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setActiveGuide(null)}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

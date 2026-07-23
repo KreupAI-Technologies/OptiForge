@@ -47,6 +47,27 @@ export default function Page() {
   const [rows, setRows] = useState<DevelopmentPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<DevelopmentPlan | null>(null);
+  const [editForm, setEditForm] = useState<Partial<DevelopmentPlan>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { id, ...rest } = { ...editRow, ...editForm } as DevelopmentPlan;
+      await HrTalentService.updateSuccession(editRow.id, { data: rest });
+      setRows(prev => prev.map(r => r.id === editRow.id ? { ...r, ...editForm } : r));
+      setEditRow(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -338,10 +359,64 @@ export default function Page() {
                   Mentor: {plan.mentor}
                 </div>
               </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => { setEditRow(plan); setEditForm({ status: plan.status, progress: plan.progress, targetCompletionDate: plan.targetCompletionDate, mentor: plan.mentor, spentBudget: plan.spentBudget }); setSaveError(null); }}
+                  className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
+                  Edit Plan
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {editRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Edit Development Plan</h2>
+              <p className="text-sm text-gray-600">{editRow.employeeName} • {editRow.currentRole} → {editRow.targetRole}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={editForm.status ?? 'not_started'} onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value as DevelopmentPlan['status'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="not_started">Not Started</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="on_track">On Track</option>
+                  <option value="at_risk">At Risk</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Progress (%)</label>
+                <input type="number" min={0} max={100} value={editForm.progress ?? 0} onChange={(e) => setEditForm(f => ({ ...f, progress: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target Completion Date</label>
+                <input type="date" value={editForm.targetCompletionDate ?? ''} onChange={(e) => setEditForm(f => ({ ...f, targetCompletionDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mentor</label>
+                <input type="text" value={editForm.mentor ?? ''} onChange={(e) => setEditForm(f => ({ ...f, mentor: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Spent Budget (₹)</label>
+                <input type="number" min={0} value={editForm.spentBudget ?? 0} onChange={(e) => setEditForm(f => ({ ...f, spentBudget: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+            {saveError && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <button onClick={() => setEditRow(null)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm disabled:opacity-50">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

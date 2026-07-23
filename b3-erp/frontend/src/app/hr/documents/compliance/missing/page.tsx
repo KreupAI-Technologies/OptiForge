@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { AlertCircle, Upload, FileText, User } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { AlertCircle, Upload, FileText, User, X } from 'lucide-react';
 import { DocumentManagementService } from '@/services/document-management.service';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface MissingDocument {
   id: string;
@@ -23,6 +24,10 @@ export default function MissingDocumentsPage() {
   const [mockMissingDocs, setMockMissingDocs] = useState<MissingDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [profileDoc, setProfileDoc] = useState<MissingDocument | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<MissingDocument | null>(null);
 
   const [cancelledRef] = useState<{ current: boolean }>({ current: false });
 
@@ -83,13 +88,45 @@ export default function MissingDocumentsPage() {
     }
   };
 
-  const handleUploadDocument = () => {
-    // TODO(storage-integration): wire to real file storage once available.
-    window.alert('Document upload is not yet available — file storage integration pending');
+  const handleUploadDocument = (doc: MissingDocument) => {
+    uploadTargetRef.current = doc;
+    fileInputRef.current?.click();
   };
 
-  const handleViewEmployeeProfile = (employeeName: string) => {
-    window.alert(`Employee profile view is not yet available for ${employeeName || 'this employee'}`);
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const doc = uploadTargetRef.current;
+    if (!file || !doc) return;
+    e.target.value = '';
+    setUploadingId(doc.id);
+    setLoadError(null);
+    try {
+      await HrComplianceDocsService.uploadDocumentFile(
+        file,
+        {
+          docCategory: doc.category,
+          documentType: doc.documentType,
+          title: doc.documentType,
+          status: 'pending',
+          meta: {
+            employeeId: doc.employeeId,
+            employeeName: doc.employeeName,
+            department: doc.department,
+          },
+        },
+        doc.id,
+      );
+      await loadData();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to upload document');
+    } finally {
+      setUploadingId(null);
+      uploadTargetRef.current = null;
+    }
+  };
+
+  const handleViewEmployeeProfile = (doc: MissingDocument) => {
+    setProfileDoc(doc);
   };
 
   const filteredDocs = useMemo(() => {
@@ -263,14 +300,19 @@ export default function MissingDocumentsPage() {
             )}
 
             <div className="flex gap-2 pt-4 border-t border-gray-200">
-              <button onClick={handleUploadDocument} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+              <button
+                onClick={() => handleUploadDocument(doc)}
+                disabled={uploadingId === doc.id}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm disabled:opacity-60"
+              >
                 <Upload className="h-4 w-4" />
-                Upload Document
+                {uploadingId === doc.id ? 'Uploading…' : 'Upload Document'}
               </button>
               <button onClick={() => handleSendReminder(doc.id)} className="px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg font-medium text-sm">
                 Send Reminder
               </button>
-              <button onClick={() => handleViewEmployeeProfile(doc.employeeName)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button onClick={() => handleViewEmployeeProfile(doc)} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+                <User className="h-4 w-4" />
                 View Employee Profile
               </button>
             </div>
@@ -300,6 +342,76 @@ export default function MissingDocumentsPage() {
           <li>• Maintain audit trail of all document requests and reminders</li>
         </ul>
       </div>
+
+      {/* Hidden file input for upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
+      {/* Employee Profile modal */}
+      {profileDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Employee Summary</h2>
+              <button onClick={() => setProfileDoc(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <User className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">{profileDoc.employeeName}</p>
+                <p className="text-sm text-gray-500">{profileDoc.employeeId}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Department</p>
+                <p className="font-semibold text-gray-900">{profileDoc.department}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Missing Document</p>
+                <p className="font-semibold text-gray-900">{profileDoc.documentType}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Category</p>
+                <p className="font-semibold text-gray-900 capitalize">{profileDoc.category}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Priority</p>
+                <p className="font-semibold text-gray-900 uppercase">{profileDoc.priority}</p>
+              </div>
+              {profileDoc.requestedOn && (
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Requested On</p>
+                  <p className="font-semibold text-gray-900">{new Date(profileDoc.requestedOn).toLocaleDateString('en-IN')}</p>
+                </div>
+              )}
+              {profileDoc.lastReminder && (
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-1">Last Reminder</p>
+                  <p className="font-semibold text-gray-900">{new Date(profileDoc.lastReminder).toLocaleDateString('en-IN')}</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setProfileDoc(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

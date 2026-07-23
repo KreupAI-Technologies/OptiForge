@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Bell, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { Bell, Calendar, FileText, AlertCircle, X, Mail } from 'lucide-react';
 import { DocumentManagementService } from '@/services/document-management.service';
 
 interface RenewalReminder {
@@ -17,6 +17,9 @@ interface RenewalReminder {
   urgency: 'urgent' | 'soon' | 'upcoming';
   remindersSent: number;
   lastReminderDate?: string;
+  fileUrl?: string;
+  documentUrl?: string;
+  email?: string;
 }
 
 export default function RenewalRemindersPage() {
@@ -33,6 +36,8 @@ export default function RenewalRemindersPage() {
   const [mockRenewals, setMockRenewals] = useState<RenewalReminder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [viewRenewal, setViewRenewal] = useState<RenewalReminder | null>(null);
+  const [contactRenewal, setContactRenewal] = useState<RenewalReminder | null>(null);
 
   const [cancelledRef] = useState<{ current: boolean }>({ current: false });
 
@@ -62,6 +67,9 @@ export default function RenewalRemindersPage() {
             urgency,
             remindersSent: r.remindersSent || 0,
             lastReminderDate: r.lastReminderAt || undefined,
+            fileUrl: (r as unknown as Record<string, unknown>).fileUrl as string | undefined,
+            documentUrl: (r as unknown as Record<string, unknown>).documentUrl as string | undefined,
+            email: (r as unknown as Record<string, unknown>).email as string | undefined,
           };
         })
         .filter((r) => r.daysUntilExpiry >= 0);
@@ -98,12 +106,21 @@ export default function RenewalRemindersPage() {
     }
   };
 
-  const handleViewCurrentDocument = () => {
-    window.alert('File not available');
+  const handleViewCurrentDocument = (renewal: RenewalReminder) => {
+    const url = renewal.fileUrl || renewal.documentUrl;
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      setViewRenewal(renewal);
+    }
   };
 
-  const handleContactEmployee = (employeeName: string) => {
-    window.alert(`Contact ${employeeName || 'the employee'} to follow up on this renewal`);
+  const handleContactEmployee = (renewal: RenewalReminder) => {
+    if (renewal.email) {
+      window.location.href = `mailto:${renewal.email}?subject=Document%20Renewal%20Required%3A%20${encodeURIComponent(renewal.documentType)}&body=Dear%20${encodeURIComponent(renewal.employeeName)}%2C%0A%0AYour%20document%20%22${encodeURIComponent(renewal.documentType)}%22%20expires%20on%20${encodeURIComponent(new Date(renewal.expiryDate).toLocaleDateString('en-IN'))}.%20Please%20initiate%20the%20renewal%20process.%0A%0AThank%20you.`;
+    } else {
+      setContactRenewal(renewal);
+    }
   };
 
   const handleResolve = async (id: string) => {
@@ -318,10 +335,11 @@ export default function RenewalRemindersPage() {
               <button onClick={() => handleSendReminder(renewal.id)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
                 Send Renewal Reminder
               </button>
-              <button onClick={handleViewCurrentDocument} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button onClick={() => handleViewCurrentDocument(renewal)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
                 View Current Document
               </button>
-              <button onClick={() => handleContactEmployee(renewal.employeeName)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+              <button onClick={() => handleContactEmployee(renewal)} className="flex items-center gap-1 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+                <Mail className="h-4 w-4" />
                 Contact Employee
               </button>
               <button onClick={() => handleResolve(renewal.id)} className="px-4 py-2 text-green-600 hover:bg-green-50 rounded-lg font-medium text-sm">
@@ -354,6 +372,86 @@ export default function RenewalRemindersPage() {
           <li>• Employees can request early renewal at any time</li>
         </ul>
       </div>
+
+      {/* View Document modal (shown when no URL is stored) */}
+      {viewRenewal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Document Details</h2>
+              <button onClick={() => setViewRenewal(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Document Type</p>
+                <p className="font-semibold text-gray-900">{viewRenewal.documentType}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Category</p>
+                <p className="font-semibold text-gray-900 capitalize">{viewRenewal.category}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Employee</p>
+                <p className="font-semibold text-gray-900">{viewRenewal.employeeName}</p>
+                <p className="text-xs text-gray-500">{viewRenewal.employeeId}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Expiry Date</p>
+                <p className="font-semibold text-gray-900">{new Date(viewRenewal.expiryDate).toLocaleDateString('en-IN')}</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-3">No file is stored for this document — the employee must upload the renewed copy.</p>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setViewRenewal(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Employee modal (shown when no email is stored) */}
+      {contactRenewal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Contact Employee</h2>
+              <button onClick={() => setContactRenewal(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm">
+              <p className="text-gray-700">
+                Please contact <strong>{contactRenewal.employeeName}</strong> ({contactRenewal.employeeId}) in the{' '}
+                <strong>{contactRenewal.department}</strong> department regarding the renewal of{' '}
+                <strong>{contactRenewal.documentType}</strong>, which expires on{' '}
+                <strong>{new Date(contactRenewal.expiryDate).toLocaleDateString('en-IN')}</strong>.
+              </p>
+              <p className="text-xs text-gray-500">No email address is stored for this employee. Reach out through internal channels or send a manual reminder.</p>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => { handleSendReminder(contactRenewal.id); setContactRenewal(null); }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                <Bell className="h-4 w-4" />
+                Send System Reminder
+              </button>
+              <button
+                onClick={() => setContactRenewal(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

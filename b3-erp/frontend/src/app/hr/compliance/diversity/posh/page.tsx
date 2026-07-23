@@ -49,6 +49,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [detailComplaint, setDetailComplaint] = useState<POSHComplaint | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -380,7 +381,7 @@ export default function Page() {
               )}
 
               <div className="flex gap-2">
-                <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2">
+                <button onClick={() => setDetailComplaint(complaint)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   View Detailed Report
                 </button>
@@ -435,6 +436,48 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {detailComplaint && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">POSH Complaint — {detailComplaint.complaintNumber}</h2>
+              <button onClick={() => setDetailComplaint(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">Filed Date:</span> <span className="font-medium text-gray-900">{detailComplaint.filedDate}</span></div>
+              <div><span className="text-gray-500">Complainant:</span> <span className="font-medium text-gray-900">{detailComplaint.complainantDetails}</span></div>
+              <div><span className="text-gray-500">Respondent:</span> <span className="font-medium text-gray-900">{detailComplaint.respondentName}</span></div>
+              <div><span className="text-gray-500">Designation:</span> <span className="font-medium text-gray-900">{detailComplaint.respondentDesignation}</span></div>
+              <div><span className="text-gray-500">Department:</span> <span className="font-medium text-gray-900">{detailComplaint.respondentDepartment}</span></div>
+              <div><span className="text-gray-500">Incident Date:</span> <span className="font-medium text-gray-900">{detailComplaint.incidentDate}</span></div>
+              <div><span className="text-gray-500">Location:</span> <span className="font-medium text-gray-900">{detailComplaint.incidentLocation}</span></div>
+              <div><span className="text-gray-500">Category:</span> <span className="font-medium text-gray-900">{detailComplaint.category}</span></div>
+              <div><span className="text-gray-500">Severity:</span> <span className="font-medium text-gray-900">{detailComplaint.severity}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailComplaint.status}</span></div>
+              <div><span className="text-gray-500">IC Assigned:</span> <span className="font-medium text-gray-900">{detailComplaint.icAssigned}</span></div>
+              <div><span className="text-gray-500">Target Completion:</span> <span className="font-medium text-gray-900">{detailComplaint.targetCompletionDate}</span></div>
+              {detailComplaint.actualCompletionDate && <div><span className="text-gray-500">Actual Completion:</span> <span className="font-medium text-gray-900">{detailComplaint.actualCompletionDate}</span></div>}
+              <div><span className="text-gray-500">Confidential:</span> <span className="font-medium text-gray-900">{detailComplaint.confidential ? 'Yes' : 'No'}</span></div>
+            </div>
+            {detailComplaint.actionTaken && (
+              <div className="bg-green-50 rounded-lg p-3 border border-green-200 mb-3">
+                <p className="text-xs text-green-600 uppercase font-medium mb-1">Action Taken</p>
+                <p className="text-sm text-green-900">{detailComplaint.actionTaken}</p>
+              </div>
+            )}
+            {detailComplaint.remarks && (
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 mb-3">
+                <p className="text-xs text-yellow-600 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm text-yellow-900">{detailComplaint.remarks}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailComplaint(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

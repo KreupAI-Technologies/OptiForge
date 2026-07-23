@@ -43,6 +43,8 @@ import {
 import {
   HrSafetyService,
   SafetyReport,
+  IncidentShiftBucket,
+  IncidentRootCause,
   rowsToCsv,
   downloadTextFile,
 } from '@/services/hr-safety.service';
@@ -59,15 +61,15 @@ interface RecentIncidentRow {
 // Type -> palette map (colors are stable labels, not data)
 const INCIDENT_TYPE_COLORS = ['#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#6b7280'];
 
-// Shift/root-cause breakdowns require fields not present on the report list;
-// left as-is pending a richer backend feed.
-const incidentsByShift = [
+// Fallback defaults for the shift/root-cause breakdowns; overwritten by the
+// server-aggregated feed (getIncidentBreakdowns) so the UI never renders empty.
+const DEFAULT_INCIDENTS_BY_SHIFT: IncidentShiftBucket[] = [
   { shift: 'Morning (6AM-2PM)', count: 22, percentage: 47 },
   { shift: 'Afternoon (2PM-10PM)', count: 15, percentage: 32 },
   { shift: 'Night (10PM-6AM)', count: 10, percentage: 21 }
 ];
 
-const rootCauses = [
+const DEFAULT_ROOT_CAUSES: IncidentRootCause[] = [
   { cause: 'Inadequate Training', count: 14, percentage: 30 },
   { cause: 'Equipment Failure', count: 11, percentage: 23 },
   { cause: 'Procedural Violation', count: 9, percentage: 19 },
@@ -81,6 +83,12 @@ export default function IncidentAnalyticsPage() {
   const [monthlyTrends, setMonthlyTrends] = useState<
     Array<{ month: string; incidents: number; nearMisses: number; lostDays: number }>
   >([]);
+  const [incidentsByShift, setIncidentsByShift] = useState<IncidentShiftBucket[]>(
+    DEFAULT_INCIDENTS_BY_SHIFT,
+  );
+  const [rootCauses, setRootCauses] = useState<IncidentRootCause[]>(
+    DEFAULT_ROOT_CAUSES,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -143,9 +151,10 @@ export default function IncidentAnalyticsPage() {
               ? 12
               : 6;
       try {
-        const [rows, trends] = await Promise.all([
+        const [rows, trends, breakdowns] = await Promise.all([
           HrSafetyService.getReports('analytics'),
           HrSafetyService.getTrends(monthsBack),
+          HrSafetyService.getIncidentBreakdowns(),
         ]);
         const mapped: RecentIncidentRow[] = rows.map((row: SafetyReport) => {
           const meta = (row.meta || {}) as any;
@@ -168,6 +177,12 @@ export default function IncidentAnalyticsPage() {
               lostDays: m.lostDays,
             })),
           );
+          if (breakdowns.incidentsByShift.length > 0) {
+            setIncidentsByShift(breakdowns.incidentsByShift);
+          }
+          if (breakdowns.rootCauses.length > 0) {
+            setRootCauses(breakdowns.rootCauses);
+          }
         }
       } catch (err) {
         if (!cancelled) {

@@ -77,6 +77,38 @@ export default function Page() {
   }, [load]);
 
   const [remindingId, setRemindingId] = useState<string | null>(null);
+  const [detailAck, setDetailAck] = useState<PolicyAcknowledgment | null>(null);
+
+  const handleDownloadAck = (ack: PolicyAcknowledgment) => {
+    const url = (ack as any).documentUrl || (ack as any).fileUrl || (ack as any).url;
+    if (url) {
+      window.open(url, '_blank');
+      return;
+    }
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Policy Acknowledgment</title>
+<style>body{font-family:Arial,sans-serif;padding:40px;color:#1f2937}.header{background:#16a34a;color:white;padding:20px;border-radius:8px;margin-bottom:24px}table{width:100%;border-collapse:collapse}td{padding:8px 12px;border:1px solid #e5e7eb}tr:nth-child(even){background:#f9fafb}</style></head>
+<body><div class="header"><h1>Policy Acknowledgment Record</h1><p>${ack.policyName} v${ack.policyVersion}</p></div>
+<table>
+<tr><td><strong>Employee</strong></td><td>${ack.employeeName} (${ack.employeeId})</td></tr>
+<tr><td><strong>Department</strong></td><td>${ack.department}</td></tr>
+<tr><td><strong>Designation</strong></td><td>${ack.designation}</td></tr>
+<tr><td><strong>Policy Category</strong></td><td>${ack.policyCategory.replace('_', ' ').toUpperCase()}</td></tr>
+<tr><td><strong>Assigned Date</strong></td><td>${ack.assignedDate}</td></tr>
+<tr><td><strong>Due Date</strong></td><td>${ack.dueDate}</td></tr>
+<tr><td><strong>Status</strong></td><td>${ack.status.toUpperCase()}</td></tr>
+${ack.acknowledgmentDate ? `<tr><td><strong>Acknowledged On</strong></td><td>${ack.acknowledgmentDate}</td></tr>` : ''}
+${ack.acknowledgedVia ? `<tr><td><strong>Via</strong></td><td>${ack.acknowledgedVia.replace('_', ' ').toUpperCase()}</td></tr>` : ''}
+</table></body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `policy-ack-${ack.employeeId || ack.id}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  };
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<{ employeeName: string; employeeId: string; department: string; policyName: string; policyVersion: string; assignedDate: string; dueDate: string; status: string }>({
@@ -392,11 +424,11 @@ export default function Page() {
                 )}
 
                 <div className="flex gap-2">
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2">
+                  <button onClick={() => setDetailAck(ack)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2">
                     <FileText className="h-4 w-4" />
                     View Policy
                   </button>
-                  <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <button onClick={() => handleDownloadAck(ack)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 flex items-center gap-2">
                     <Download className="h-4 w-4" />
                     Download
                   </button>
@@ -421,6 +453,40 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {detailAck && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Policy Acknowledgment — {detailAck.policyName}</h2>
+              <button onClick={() => setDetailAck(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">Employee:</span> <span className="font-medium text-gray-900">{detailAck.employeeName} ({detailAck.employeeId})</span></div>
+              <div><span className="text-gray-500">Department:</span> <span className="font-medium text-gray-900">{detailAck.department}</span></div>
+              <div><span className="text-gray-500">Designation:</span> <span className="font-medium text-gray-900">{detailAck.designation}</span></div>
+              <div><span className="text-gray-500">Policy Version:</span> <span className="font-medium text-gray-900">{detailAck.policyVersion}</span></div>
+              <div><span className="text-gray-500">Category:</span> <span className="font-medium text-gray-900">{detailAck.policyCategory}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailAck.status}</span></div>
+              <div><span className="text-gray-500">Assigned Date:</span> <span className="font-medium text-gray-900">{detailAck.assignedDate}</span></div>
+              <div><span className="text-gray-500">Due Date:</span> <span className="font-medium text-gray-900">{detailAck.dueDate}</span></div>
+              {detailAck.acknowledgmentDate && <div><span className="text-gray-500">Acknowledged On:</span> <span className="font-medium text-gray-900">{detailAck.acknowledgmentDate}</span></div>}
+              {detailAck.acknowledgedVia && <div><span className="text-gray-500">Acknowledged Via:</span> <span className="font-medium text-gray-900">{detailAck.acknowledgedVia}</span></div>}
+              <div><span className="text-gray-500">Reminders Sent:</span> <span className="font-medium text-gray-900">{detailAck.remindersSent}</span></div>
+              {detailAck.lastReminderDate && <div><span className="text-gray-500">Last Reminder:</span> <span className="font-medium text-gray-900">{detailAck.lastReminderDate}</span></div>}
+            </div>
+            {detailAck.remarks && (
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-3">
+                <p className="text-xs text-gray-500 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm text-gray-900">{detailAck.remarks}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailAck(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

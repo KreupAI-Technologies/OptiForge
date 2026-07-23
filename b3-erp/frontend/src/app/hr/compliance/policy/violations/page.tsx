@@ -65,6 +65,7 @@ export default function Page() {
   }, [load]);
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [detailViolation, setDetailViolation] = useState<PolicyViolation | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<{ employeeName: string; employeeId: string; department: string; policyName: string; violationType: string; severity: string; violationDate: string; reportedBy: string; description: string; status: string }>({
@@ -315,7 +316,7 @@ export default function Page() {
             )}
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2">
+              <button onClick={() => setDetailViolation(violation)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 View Full Report
               </button>
@@ -332,6 +333,48 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailViolation && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Violation Report — {detailViolation.employeeName}</h2>
+              <button onClick={() => setDetailViolation(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">Employee ID:</span> <span className="font-medium text-gray-900">{detailViolation.employeeId}</span></div>
+              <div><span className="text-gray-500">Department:</span> <span className="font-medium text-gray-900">{detailViolation.department}</span></div>
+              <div><span className="text-gray-500">Violation Type:</span> <span className="font-medium text-gray-900">{detailViolation.violationType.replace(/_/g, ' ')}</span></div>
+              <div><span className="text-gray-500">Policy Violated:</span> <span className="font-medium text-gray-900">{detailViolation.policyViolated}</span></div>
+              <div><span className="text-gray-500">Severity:</span> <span className="font-medium text-gray-900">{detailViolation.severity}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailViolation.status}</span></div>
+              <div><span className="text-gray-500">Incident Date:</span> <span className="font-medium text-gray-900">{detailViolation.incidentDate}</span></div>
+              <div><span className="text-gray-500">Reported Date:</span> <span className="font-medium text-gray-900">{detailViolation.reportedDate}</span></div>
+              <div><span className="text-gray-500">Reported By:</span> <span className="font-medium text-gray-900">{detailViolation.reportedBy}</span></div>
+              {detailViolation.investigationAssignedTo && <div><span className="text-gray-500">Investigation:</span> <span className="font-medium text-gray-900">{detailViolation.investigationAssignedTo}</span></div>}
+            </div>
+            <div className="bg-red-50 rounded-lg p-3 border border-red-200 mb-3">
+              <p className="text-xs text-red-600 uppercase font-medium mb-1">Description</p>
+              <p className="text-sm text-red-900">{detailViolation.description}</p>
+            </div>
+            {detailViolation.actionTaken && (
+              <div className="bg-green-50 rounded-lg p-3 border border-green-200 mb-3">
+                <p className="text-xs text-green-600 uppercase font-medium mb-1">Action Taken</p>
+                <p className="text-sm text-green-900">{detailViolation.actionTaken}</p>
+              </div>
+            )}
+            {detailViolation.remarks && (
+              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 mb-3">
+                <p className="text-xs text-yellow-600 uppercase font-medium mb-1">Remarks</p>
+                <p className="text-sm text-yellow-900">{detailViolation.remarks}</p>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailViolation(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

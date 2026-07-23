@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, Calendar, Target, MessageCircle, CheckCircle } from 'lucide-react';
+import { Users, TrendingUp, Calendar, Target, MessageCircle, CheckCircle, Pencil } from 'lucide-react';
 import { HrTalentService } from '@/services/hr-talent.service';
 
 interface MentoringPair {
@@ -42,6 +42,27 @@ export default function Page() {
   const [rows, setRows] = useState<MentoringPair[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<MentoringPair | null>(null);
+  const [editForm, setEditForm] = useState<Partial<MentoringPair>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { id, ...rest } = { ...editRow, ...editForm } as MentoringPair;
+      await HrTalentService.updateSuccession(editRow.id, { data: rest });
+      setRows(prev => prev.map(r => r.id === editRow.id ? { ...r, ...editForm } : r));
+      setEditRow(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -279,10 +300,69 @@ export default function Page() {
                   {pair.nextMeetingDate && <span className="ml-4">Next: <span className="font-semibold text-teal-700">{new Date(pair.nextMeetingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span></span>}
                 </div>
               </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => { setEditRow(pair); setEditForm({ status: pair.status, progress: pair.progress, meetingFrequency: pair.meetingFrequency, programType: pair.programType }); setSaveError(null); }}
+                  className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit Pair
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {editRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Edit Mentoring Pair</h2>
+              <p className="text-sm text-gray-600">{editRow.mentor.name} → {editRow.mentee.name}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={editForm.status ?? 'active'} onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value as MentoringPair['status'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="on_hold">On Hold</option>
+                  <option value="discontinued">Discontinued</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
+                <select value={editForm.programType ?? 'succession'} onChange={(e) => setEditForm(f => ({ ...f, programType: e.target.value as MentoringPair['programType'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="succession">Succession</option>
+                  <option value="leadership">Leadership</option>
+                  <option value="technical">Technical</option>
+                  <option value="career_development">Career Development</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Progress (%)</label>
+                <input type="number" min={0} max={100} value={editForm.progress ?? 0} onChange={(e) => setEditForm(f => ({ ...f, progress: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Frequency</label>
+                <select value={editForm.meetingFrequency ?? 'monthly'} onChange={(e) => setEditForm(f => ({ ...f, meetingFrequency: e.target.value as MentoringPair['meetingFrequency'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+            </div>
+            {saveError && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <button onClick={() => setEditRow(null)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm disabled:opacity-50">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

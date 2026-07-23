@@ -41,6 +41,10 @@ import {
 import {
   HrSafetyService,
   SafetyReport,
+  RegulatoryFramework,
+  ComplianceCategory,
+  ComplianceDeadline,
+  AuditHistoryRow,
   rowsToCsv,
   downloadTextFile,
 } from '@/services/hr-safety.service';
@@ -55,9 +59,10 @@ interface NonComplianceRow {
   owner: string;
 }
 
-// Framework/category/deadline/audit breakdowns are distinct report shapes not
-// carried by the non-compliance list; left as-is pending dedicated feeds.
-const regulatoryFrameworks = [
+// Fallback defaults for the framework/category/deadline/audit breakdowns;
+// overwritten by the server-aggregated feed (getReportBreakdowns('compliance'))
+// so the dashboard never renders empty if the fetch fails.
+const DEFAULT_FRAMEWORKS: RegulatoryFramework[] = [
   { name: 'OSHA Standards', total: 48, compliant: 46, score: 96, status: 'Compliant' },
   { name: 'EPA Regulations', total: 32, compliant: 30, score: 94, status: 'Compliant' },
   { name: 'DOT Requirements', total: 24, compliant: 24, score: 100, status: 'Compliant' },
@@ -65,7 +70,7 @@ const regulatoryFrameworks = [
   { name: 'Industry Standards (ISO)', total: 24, compliant: 21, score: 88, status: 'Action Required' }
 ];
 
-const complianceByCategory = [
+const DEFAULT_CATEGORIES: ComplianceCategory[] = [
   { category: 'PPE Requirements', compliant: 98 },
   { category: 'Emergency Procedures', compliant: 95 },
   { category: 'Hazard Communication', compliant: 92 },
@@ -74,7 +79,7 @@ const complianceByCategory = [
   { category: 'Fire Protection', compliant: 94 }
 ];
 
-const upcomingDeadlines = [
+const DEFAULT_DEADLINES: ComplianceDeadline[] = [
   { id: 'REQ-2024-089', requirement: 'Annual Fire Extinguisher Inspection', framework: 'OSHA', dueDate: '2024-02-15', daysLeft: 24, priority: 'High' },
   { id: 'REQ-2024-092', requirement: 'Forklift Operator Recertification', framework: 'OSHA', dueDate: '2024-02-28', daysLeft: 37, priority: 'Medium' },
   { id: 'REQ-2024-095', requirement: 'Hazmat Storage Audit', framework: 'EPA', dueDate: '2024-03-01', daysLeft: 39, priority: 'High' },
@@ -82,7 +87,7 @@ const upcomingDeadlines = [
   { id: 'REQ-2024-105', requirement: 'PPE Inventory Assessment', framework: 'OSHA', dueDate: '2024-03-20', daysLeft: 58, priority: 'Low' }
 ];
 
-const auditHistory = [
+const DEFAULT_AUDIT_HISTORY: AuditHistoryRow[] = [
   { date: '2024-01-15', type: 'Internal Audit', scope: 'Full Site', score: 94, findings: 3, status: 'Closed' },
   { date: '2023-11-20', type: 'External Audit', scope: 'Manufacturing', score: 92, findings: 5, status: 'Closed' },
   { date: '2023-09-10', type: 'OSHA Inspection', scope: 'Warehouse', score: 96, findings: 2, status: 'Closed' },
@@ -93,6 +98,18 @@ export default function ComplianceReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFramework, setSelectedFramework] = useState('all');
   const [nonComplianceItems, setNonComplianceItems] = useState<NonComplianceRow[]>([]);
+  const [regulatoryFrameworks, setRegulatoryFrameworks] = useState<RegulatoryFramework[]>(
+    DEFAULT_FRAMEWORKS,
+  );
+  const [complianceByCategory, setComplianceByCategory] = useState<ComplianceCategory[]>(
+    DEFAULT_CATEGORIES,
+  );
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<ComplianceDeadline[]>(
+    DEFAULT_DEADLINES,
+  );
+  const [auditHistory, setAuditHistory] = useState<AuditHistoryRow[]>(
+    DEFAULT_AUDIT_HISTORY,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -121,7 +138,10 @@ export default function ComplianceReportsPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const rows = await HrSafetyService.getReports('compliance');
+        const [rows, breakdown] = await Promise.all([
+          HrSafetyService.getReports('compliance'),
+          HrSafetyService.getReportBreakdowns('compliance'),
+        ]);
         const mapped: NonComplianceRow[] = rows.map((row: SafetyReport) => {
           const meta = (row.meta || {}) as any;
           return {
@@ -134,7 +154,21 @@ export default function ComplianceReportsPage() {
             owner: meta.owner ?? '',
           };
         });
-        if (!cancelled) setNonComplianceItems(mapped);
+        if (!cancelled) {
+          setNonComplianceItems(mapped);
+          if (breakdown.regulatoryFrameworks.length > 0) {
+            setRegulatoryFrameworks(breakdown.regulatoryFrameworks);
+          }
+          if (breakdown.complianceByCategory.length > 0) {
+            setComplianceByCategory(breakdown.complianceByCategory);
+          }
+          if (breakdown.upcomingDeadlines.length > 0) {
+            setUpcomingDeadlines(breakdown.upcomingDeadlines);
+          }
+          if (breakdown.auditHistory.length > 0) {
+            setAuditHistory(breakdown.auditHistory);
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load compliance items');

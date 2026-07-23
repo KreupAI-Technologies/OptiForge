@@ -163,6 +163,67 @@ export class SafetyIncidentService {
     };
   }
 
+  /**
+   * Incident breakdowns for the analytics dashboard, computed from the flat
+   * incident rows. Empty-safe: returns empty arrays when no rows exist.
+   *   - incidentsByShift: buckets on the hour parsed from `incidentTime`
+   *     (Morning 06:00-13:59, Afternoon 14:00-21:59, Night 22:00-05:59).
+   *     Rows without a parseable time fall into Morning (the default shift).
+   *   - rootCauses: groups on `rootCause`, falling back to `type` then 'Other'.
+   */
+  async getBreakdowns(companyId: string): Promise<{
+    incidentsByShift: Array<{ shift: string; count: number; percentage: number }>;
+    rootCauses: Array<{ cause: string; count: number; percentage: number }>;
+  }> {
+    const rows = await this.repo.find({ where: { companyId } });
+    const total = rows.length;
+    const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+
+    const shiftLabels = [
+      'Morning (6AM-2PM)',
+      'Afternoon (2PM-10PM)',
+      'Night (10PM-6AM)',
+    ];
+    const shiftCounts = [0, 0, 0];
+    const parseHour = (raw?: string | null): number | null => {
+      if (!raw) return null;
+      const m = String(raw).match(/(\d{1,2})\s*:?\s*(\d{2})?\s*(am|pm)?/i);
+      if (!m) return null;
+      let h = parseInt(m[1], 10);
+      if (isNaN(h)) return null;
+      const ap = (m[3] || '').toLowerCase();
+      if (ap === 'pm' && h < 12) h += 12;
+      if (ap === 'am' && h === 12) h = 0;
+      return h % 24;
+    };
+    for (const r of rows) {
+      const h = parseHour(r.incidentTime);
+      let idx = 0; // default: Morning
+      if (h !== null) {
+        if (h >= 6 && h < 14) idx = 0;
+        else if (h >= 14 && h < 22) idx = 1;
+        else idx = 2;
+      }
+      shiftCounts[idx] += 1;
+    }
+    const incidentsByShift = shiftLabels.map((shift, i) => ({
+      shift,
+      count: shiftCounts[i],
+      percentage: pct(shiftCounts[i]),
+    }));
+
+    const causeMap = new Map<string, number>();
+    for (const r of rows) {
+      const key = (r.rootCause || r.type || 'Other').trim() || 'Other';
+      causeMap.set(key, (causeMap.get(key) || 0) + 1);
+    }
+    const rootCauses = Array.from(causeMap.entries())
+      .map(([cause, count]) => ({ cause, count, percentage: pct(count) }))
+      .sort((a, b) => b.count - a.count);
+
+    return { incidentsByShift, rootCauses };
+  }
+
   async create(
     data: Partial<SafetyIncident> & { companyId: string },
   ): Promise<SafetyIncident> {

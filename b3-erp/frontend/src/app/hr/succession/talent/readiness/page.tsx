@@ -37,6 +37,27 @@ export default function Page() {
   const [rows, setRows] = useState<ReadinessAssessment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<ReadinessAssessment | null>(null);
+  const [editForm, setEditForm] = useState<Partial<ReadinessAssessment>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!editRow) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { id, ...rest } = { ...editRow, ...editForm } as ReadinessAssessment;
+      await HrTalentService.updateSuccession(editRow.id, { data: rest });
+      setRows(prev => prev.map(r => r.id === editRow.id ? { ...r, ...editForm } : r));
+      setEditRow(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -322,10 +343,76 @@ export default function Page() {
                 <span>Assessed by: {assessment.assessor}</span>
                 <span>Assessment Date: {new Date(assessment.assessmentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
               </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => { setEditRow(assessment); setEditForm({ readinessLevel: assessment.readinessLevel, overallScore: assessment.overallScore, technicalReadiness: assessment.technicalReadiness, leadershipReadiness: assessment.leadershipReadiness, strategicReadiness: assessment.strategicReadiness, culturalFit: assessment.culturalFit, businessAcumen: assessment.businessAcumen, estimatedReadyDate: assessment.estimatedReadyDate }); setSaveError(null); }}
+                  className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
+                  Edit Assessment
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {editRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-3">
+              <h2 className="text-lg font-bold text-gray-900">Edit Readiness Assessment</h2>
+              <p className="text-sm text-gray-600">{editRow.name} • {editRow.currentRole} → {editRow.targetRole}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-5 py-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Readiness Level</label>
+                <select value={editForm.readinessLevel ?? 'ready_now'} onChange={(e) => setEditForm(f => ({ ...f, readinessLevel: e.target.value as ReadinessAssessment['readinessLevel'] }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <option value="ready_now">Ready Now</option>
+                  <option value="6_months">Ready in 6 Months</option>
+                  <option value="1_year">Ready in 1 Year</option>
+                  <option value="2_years">Ready in 2 Years</option>
+                  <option value="3_plus_years">Ready in 3+ Years</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Overall Score (%)</label>
+                <input type="number" min={0} max={100} value={editForm.overallScore ?? 0} onChange={(e) => setEditForm(f => ({ ...f, overallScore: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Technical Readiness (%)</label>
+                <input type="number" min={0} max={100} value={editForm.technicalReadiness ?? 0} onChange={(e) => setEditForm(f => ({ ...f, technicalReadiness: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Leadership Readiness (%)</label>
+                <input type="number" min={0} max={100} value={editForm.leadershipReadiness ?? 0} onChange={(e) => setEditForm(f => ({ ...f, leadershipReadiness: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Strategic Readiness (%)</label>
+                <input type="number" min={0} max={100} value={editForm.strategicReadiness ?? 0} onChange={(e) => setEditForm(f => ({ ...f, strategicReadiness: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cultural Fit (%)</label>
+                <input type="number" min={0} max={100} value={editForm.culturalFit ?? 0} onChange={(e) => setEditForm(f => ({ ...f, culturalFit: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Business Acumen (%)</label>
+                <input type="number" min={0} max={100} value={editForm.businessAcumen ?? 0} onChange={(e) => setEditForm(f => ({ ...f, businessAcumen: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Ready Date</label>
+                <input type="date" value={editForm.estimatedReadyDate ?? ''} onChange={(e) => setEditForm(f => ({ ...f, estimatedReadyDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+            {saveError && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+              <button onClick={() => setEditRow(null)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm disabled:opacity-50">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

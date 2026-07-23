@@ -94,6 +94,7 @@ export default function Page() {
   };
 
   const sourceRegisters = items;
+  const [detailRegister, setDetailRegister] = useState<StatutoryRegister | null>(null);
 
   const handleExport = (register: StatutoryRegister) => {
     const headers = ['Register Name', 'Act', 'Form Number', 'Applicability', 'Frequency', 'Responsibility', 'Format', 'Status', 'Total Entries', 'Retention Period', 'Last Updated'];
@@ -306,7 +307,7 @@ export default function Page() {
             </div>
 
             <div className="flex gap-2">
-              <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+              <button onClick={() => setDetailRegister(register)} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
                 <FileText className="h-4 w-4" />
                 View Register
               </button>
@@ -321,6 +322,35 @@ export default function Page() {
           </div>
         ))}
       </div>
+
+      {detailRegister && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Register Details — {detailRegister.registerName}</h2>
+              <button onClick={() => setDetailRegister(null)} className="text-gray-500 hover:text-gray-700 text-xl font-bold">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+              <div><span className="text-gray-500">Act:</span> <span className="font-medium text-gray-900">{detailRegister.act}</span></div>
+              <div><span className="text-gray-500">Form Number:</span> <span className="font-medium text-gray-900">{detailRegister.formNumber}</span></div>
+              <div><span className="text-gray-500">Frequency:</span> <span className="font-medium text-gray-900">{detailRegister.frequency}</span></div>
+              <div><span className="text-gray-500">Responsibility:</span> <span className="font-medium text-gray-900">{detailRegister.responsibility}</span></div>
+              <div><span className="text-gray-500">Last Updated:</span> <span className="font-medium text-gray-900">{detailRegister.lastUpdated}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{detailRegister.status}</span></div>
+              <div><span className="text-gray-500">Total Entries:</span> <span className="font-medium text-gray-900">{detailRegister.totalEntries}</span></div>
+              <div><span className="text-gray-500">Format:</span> <span className="font-medium text-gray-900">{detailRegister.format}</span></div>
+              <div><span className="text-gray-500">Retention Period:</span> <span className="font-medium text-gray-900">{detailRegister.retentionPeriod}</span></div>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-3">
+              <p className="text-xs text-blue-600 uppercase font-medium mb-1">Applicability</p>
+              <p className="text-sm text-blue-900">{detailRegister.applicability}</p>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setDetailRegister(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

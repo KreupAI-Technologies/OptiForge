@@ -31,6 +31,28 @@ export default function SearchRepositoryPage() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [activeType, setActiveType] = useState<'All' | 'PDF' | 'Word' | 'Excel'>('All');
+  const [lastThirtyDays, setLastThirtyDays] = useState(false);
+
+  const extOf = (name: string) => name.toLowerCase().split('.').pop() ?? '';
+  const matchesType = (r: SearchResult) => {
+    if (activeType === 'All') return true;
+    const ext = extOf(r.name);
+    if (activeType === 'PDF') return ext === 'pdf';
+    if (activeType === 'Word') return ext === 'doc' || ext === 'docx';
+    if (activeType === 'Excel') return ext === 'xls' || ext === 'xlsx' || ext === 'csv';
+    return true;
+  };
+  const matchesDate = (r: SearchResult) => {
+    if (!lastThirtyDays) return true;
+    if (!r.lastModified) return false;
+    const t = new Date(r.lastModified).getTime();
+    return !Number.isNaN(t) && Date.now() - t <= 30 * 24 * 60 * 60 * 1000;
+  };
+  const visibleResults = searchResults.filter((r) => matchesType(r) && matchesDate(r));
+
+  const pillClass = (active: boolean) =>
+    `px-3 py-1 text-sm rounded-full ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -138,24 +160,24 @@ export default function SearchRepositoryPage() {
           </button>
         </div>
 
-        {/* Filter pills are visual only — the primary Search + result View/Download are wired to the backend. */}
+        {/* Filter pills filter the loaded results client-side by file type and recency. */}
         <div className="mt-4 flex gap-2">
-          <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">All Types</button>
-          <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">PDF</button>
-          <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">Word</button>
-          <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">Excel</button>
-          <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">Last 30 days</button>
+          <button onClick={() => setActiveType('All')} className={pillClass(activeType === 'All')}>All Types</button>
+          <button onClick={() => setActiveType('PDF')} className={pillClass(activeType === 'PDF')}>PDF</button>
+          <button onClick={() => setActiveType('Word')} className={pillClass(activeType === 'Word')}>Word</button>
+          <button onClick={() => setActiveType('Excel')} className={pillClass(activeType === 'Excel')}>Excel</button>
+          <button onClick={() => setLastThirtyDays((v) => !v)} className={pillClass(lastThirtyDays)}>Last 30 days</button>
         </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-gray-900">Search Results</h2>
-          <span className="text-sm text-gray-600">{searchResults.length} results found</span>
+          <span className="text-sm text-gray-600">{visibleResults.length} results found</span>
         </div>
 
         <div className="space-y-3">
-          {searchResults.map((result) => (
+          {visibleResults.map((result) => (
             <div key={result.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
               <div className="flex items-center gap-3 flex-1">
                 <File className="h-6 w-6 text-blue-600" />

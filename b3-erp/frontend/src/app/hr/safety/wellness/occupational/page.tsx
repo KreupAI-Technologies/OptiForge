@@ -21,7 +21,12 @@ import {
   Database,
   BarChart3
 } from 'lucide-react';
-import { HrSafetyService, SafetyWellness } from '@/services/hr-safety.service';
+import {
+  HrSafetyService,
+  SafetyWellness,
+  ExposureMetric,
+} from '@/services/hr-safety.service';
+import type { LucideIcon } from 'lucide-react';
 
 interface SurveillanceRow {
   id: string;
@@ -33,17 +38,29 @@ interface SurveillanceRow {
   status: string;
 }
 
-// Ambient sensor readings — distinct data shape not carried by the
-// surveillance-record list; left as reference thresholds pending a sensor feed.
-const exposureMetrics = [
-  { label: 'Ambient Noise', value: '72 dB', limit: '85 dB', status: 'Safe', icon: Volume2, color: 'text-blue-500' },
-  { label: 'Airborne Dust', value: '1.2 mg/m³', limit: '5.0 mg/m³', status: 'Safe', icon: Wind, color: 'text-teal-500' },
-  { label: 'Chemical Vapor', value: '0.04 ppm', limit: '0.10 ppm', status: 'Warning', icon: ShieldAlert, color: 'text-orange-500' }
+// Maps the icon name returned by the backend exposure feed to the lucide
+// component. Falls back to BarChart3 for any unknown name.
+const EXPOSURE_ICONS: Record<string, LucideIcon> = {
+  Volume2,
+  Wind,
+  ShieldAlert,
+  BarChart3,
+};
+
+// Fallback exposure thresholds; overwritten by the server feed
+// (getReportBreakdowns('occupational')) so the tiles never render empty.
+const DEFAULT_EXPOSURE_METRICS: ExposureMetric[] = [
+  { label: 'Ambient Noise', value: '72 dB', limit: '85 dB', status: 'Safe', icon: 'Volume2', color: 'text-blue-500' },
+  { label: 'Airborne Dust', value: '1.2 mg/m³', limit: '5.0 mg/m³', status: 'Safe', icon: 'Wind', color: 'text-teal-500' },
+  { label: 'Chemical Vapor', value: '0.04 ppm', limit: '0.10 ppm', status: 'Warning', icon: 'ShieldAlert', color: 'text-orange-500' }
 ];
 
 export default function OccupationalHealthPage() {
   const [filter, setFilter] = useState('All');
   const [surveillanceLog, setSurveillanceLog] = useState<SurveillanceRow[]>([]);
+  const [exposureMetrics, setExposureMetrics] = useState<ExposureMetric[]>(
+    DEFAULT_EXPOSURE_METRICS,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -54,7 +71,10 @@ export default function OccupationalHealthPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const rows = await HrSafetyService.getWellness('occupational');
+      const [rows, breakdown] = await Promise.all([
+        HrSafetyService.getWellness('occupational'),
+        HrSafetyService.getReportBreakdowns('occupational'),
+      ]);
       const mapped: SurveillanceRow[] = rows.map((row: SafetyWellness) => {
         const meta = (row.meta || {}) as any;
         return {
@@ -68,6 +88,9 @@ export default function OccupationalHealthPage() {
         };
       });
       setSurveillanceLog(mapped);
+      if (breakdown.exposureMetrics.length > 0) {
+        setExposureMetrics(breakdown.exposureMetrics);
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load surveillance records');
       setSurveillanceLog([]);
@@ -185,7 +208,9 @@ export default function OccupationalHealthPage() {
 
       {/* Real-time Exposure Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {exposureMetrics.map((met, i) => (
+        {exposureMetrics.map((met, i) => {
+          const MetIcon = EXPOSURE_ICONS[met.icon] ?? BarChart3;
+          return (
           <div key={i} className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
             <div className="flex justify-between items-start relative z-10">
               <div>
@@ -193,7 +218,7 @@ export default function OccupationalHealthPage() {
                 <h4 className="text-3xl font-black text-gray-900 tracking-tighter italic leading-none">{met.value}</h4>
               </div>
               <div className={`p-3 rounded-xl bg-gray-50 ${met.color}`}>
-                <met.icon className="w-6 h-6" />
+                <MetIcon className="w-6 h-6" />
               </div>
             </div>
             <div className="mt-8 relative z-10 flex justify-between items-end">
@@ -206,7 +231,8 @@ export default function OccupationalHealthPage() {
             </div>
             <div className="absolute top-0 right-0 w-16 h-1 bg-orange-600 opacity-20 transform translate-x-8 -translate-y-4 rotate-45"></div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
