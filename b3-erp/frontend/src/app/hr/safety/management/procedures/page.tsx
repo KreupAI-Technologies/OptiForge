@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ClipboardList,
@@ -12,7 +12,9 @@ import {
   ChevronRight,
   ShieldAlert,
   FileCheck,
-  X
+  X,
+  Eye,
+  CheckCircle,
 } from 'lucide-react';
 import { HrSafetyService, SafetyTraining } from '@/services/hr-safety.service';
 
@@ -55,6 +57,7 @@ interface Procedure {
   duration: string;
   lastReview: string;
   importance: string;
+  status: string;
 }
 
 interface ContactRow {
@@ -62,6 +65,8 @@ interface ContactRow {
   number: string;
   type: string;
 }
+
+type Toast = { message: string; type: 'success' | 'error' };
 
 export default function SafetyProceduresPage() {
   const router = useRouter();
@@ -73,56 +78,83 @@ export default function SafetyProceduresPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // View modal
+  const [viewProc, setViewProc] = useState<Procedure | null>(null);
+
+  // Status action
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+
+  // Toast
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const load = useCallback(async () => {
     let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const [rows, contactRows] = await Promise.all([
-          HrSafetyService.getTrainings('procedure'),
-          HrSafetyService.getDrills('contact'),
-        ]);
-        const mapped: Procedure[] = rows.map((row: SafetyTraining) => {
-          const meta = (row.meta || {}) as any;
-          return {
-            id: String(row.code ?? row.id ?? ''),
-            title: row.title ?? '',
-            category: row.category ?? '',
-            description: row.description ?? '',
-            steps: meta.steps ?? 0,
-            duration: row.duration ?? '',
-            lastReview: row.reviewDate ?? row.effectiveDate ?? '',
-            importance: meta.importance ?? '',
-          };
-        });
-        const contacts: ContactRow[] = contactRows
-          .filter((c) => c.phone)
-          .slice(0, 5)
-          .map((c) => ({
-            name: c.contactName ?? c.name ?? '',
-            number: c.phone ?? '',
-            type: c.serviceType ? 'External' : 'Internal',
-          }));
-        if (!cancelled) {
-          setProcedures(mapped);
-          setImportantContacts(contacts);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load procedures');
-          setProcedures([]);
-          setImportantContacts([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [rows, contactRows] = await Promise.all([
+        HrSafetyService.getTrainings('procedure'),
+        HrSafetyService.getDrills('contact'),
+      ]);
+      const mapped: Procedure[] = rows.map((row: SafetyTraining) => {
+        const meta = (row.meta || {}) as Record<string, unknown>;
+        return {
+          id: String(row.code ?? row.id ?? ''),
+          title: row.title ?? '',
+          category: row.category ?? '',
+          description: row.description ?? '',
+          steps: (meta.steps as number) ?? 0,
+          duration: row.duration ?? '',
+          lastReview: row.reviewDate ?? row.effectiveDate ?? '',
+          importance: (meta.importance as string) ?? '',
+          status: row.status ?? 'active',
+        };
+      });
+      const contacts: ContactRow[] = contactRows
+        .filter((c) => c.phone)
+        .slice(0, 5)
+        .map((c) => ({
+          name: c.contactName ?? c.name ?? '',
+          number: c.phone ?? '',
+          type: c.serviceType ? 'External' : 'Internal',
+        }));
+      if (!cancelled) {
+        setProcedures(mapped);
+        setImportantContacts(contacts);
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    } catch (err) {
+      if (!cancelled) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load procedures');
+        setProcedures([]);
+        setImportantContacts([]);
+      }
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleStartProcedure = async (proc: Procedure) => {
+    setStatusUpdating(proc.id);
+    try {
+      await HrSafetyService.updateTraining(proc.id, { status: 'in_progress' });
+      showToast(`"${proc.title}" started`, 'success');
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update procedure', 'error');
+    } finally {
+      setStatusUpdating(null);
+    }
+  };
 
   const filteredProcedures = procedures.filter(proc => {
     const matchesSearch = proc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -135,6 +167,14 @@ export default function SafetyProceduresPage() {
 
   return (
     <div className="p-6 space-y-3">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[60] flex items-center gap-2 rounded-lg border px-4 py-3 text-sm shadow-lg ${toast.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+          {toast.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          {toast.message}
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
@@ -197,13 +237,13 @@ export default function SafetyProceduresPage() {
 
           <div className="space-y-2">
             {filteredProcedures.map((proc) => (
-              <div key={proc.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 hover:shadow-md transition-shadow cursor-pointer group">
+              <div key={proc.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 hover:shadow-md transition-shadow group">
                 <div className="flex items-start justify-between">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-1">
                     <div className={`p-3 rounded-lg flex-shrink-0 ${proc.importance === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
                       {proc.importance === 'Critical' ? <ShieldAlert className="w-6 h-6" /> : <FileCheck className="w-6 h-6" />}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{proc.title}</h3>
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">{proc.id}</span>
@@ -217,9 +257,35 @@ export default function SafetyProceduresPage() {
                         <span className="flex items-center"><Clock className="w-3 h-3 mr-1" /> {proc.duration}</span>
                         <span className="flex items-center">Updated: {proc.lastReview}</span>
                       </div>
+                      {/* Per-card actions */}
+                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-gray-100">
+                        <button
+                          onClick={() => setViewProc(proc)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          View Details
+                        </button>
+                        {proc.status !== 'in_progress' && (
+                          <button
+                            onClick={() => handleStartProcedure(proc)}
+                            disabled={statusUpdating === proc.id}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50"
+                          >
+                            <PlayCircle className="h-3.5 w-3.5" />
+                            {statusUpdating === proc.id ? 'Updating…' : 'Start'}
+                          </button>
+                        )}
+                        {proc.status === 'in_progress' && (
+                          <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-lg">
+                            <Clock className="h-3.5 w-3.5" />
+                            In Progress
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-orange-500" />
+                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-orange-500 flex-shrink-0" />
                 </div>
               </div>
             ))}
@@ -280,6 +346,7 @@ export default function SafetyProceduresPage() {
         </div>
       </div>
 
+      {/* Quick Guide Modal */}
       {activeGuide && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -310,6 +377,93 @@ export default function SafetyProceduresPage() {
               <button
                 onClick={() => setActiveGuide(null)}
                 className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Procedure Detail Modal */}
+      {viewProc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setViewProc(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${viewProc.importance === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                  {viewProc.importance === 'Critical' ? <ShieldAlert className="w-6 h-6" /> : <FileCheck className="w-6 h-6" />}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">{viewProc.title}</h2>
+                  <p className="text-xs text-gray-500">{viewProc.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewProc(null)}
+                className="p-1 text-gray-400 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-xs font-semibold text-gray-500 uppercase">Description</dt>
+                <dd className="mt-1 text-gray-700">{viewProc.description || '—'}</dd>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Category</dt>
+                  <dd className="mt-1 text-gray-700">{viewProc.category || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Importance</dt>
+                  <dd className="mt-1">
+                    {viewProc.importance === 'Critical'
+                      ? <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded font-medium">CRITICAL</span>
+                      : <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded font-medium">{viewProc.importance || 'Standard'}</span>
+                    }
+                  </dd>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Steps</dt>
+                  <dd className="mt-1 font-medium text-gray-900">{viewProc.steps}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Duration</dt>
+                  <dd className="mt-1 text-gray-700">{viewProc.duration || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Status</dt>
+                  <dd className="mt-1 text-gray-700 capitalize">{viewProc.status.replace('_', ' ')}</dd>
+                </div>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-gray-500 uppercase">Last Reviewed</dt>
+                <dd className="mt-1 text-gray-700">{viewProc.lastReview || '—'}</dd>
+              </div>
+            </dl>
+            <div className="mt-6 flex justify-end gap-2">
+              {viewProc.status !== 'in_progress' && (
+                <button
+                  onClick={() => { setViewProc(null); handleStartProcedure(viewProc); }}
+                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+                >
+                  Start Procedure
+                </button>
+              )}
+              <button
+                onClick={() => setViewProc(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Close
               </button>

@@ -1,18 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, Download, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import {
+  HrComplianceDocsService,
+  EEOCategoryDto,
+  PromotionDataDto,
+  CompensationDataDto,
+  EeoTrainingDataDto,
+} from '@/services/hr-compliance-docs.service';
 
-interface EEOCategory {
-  category: string;
-  male: number;
-  female: number;
-  other: number;
-  total: number;
-  targetFemale: number;
-  targetMet: boolean;
-}
+type EEOCategory = EEOCategoryDto;
 
 interface HiringData {
   year: string;
@@ -32,7 +30,9 @@ export default function Page() {
   const [selectedYear, setSelectedYear] = useState('2025');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const eeoCategories: EEOCategory[] = [
+  // Seeded with reference defaults so the UI never renders empty; overwritten
+  // from GET /hr/diversity/breakdown?kind=eeo on load.
+  const [eeoCategories, setEeoCategories] = useState<EEOCategory[]>([
     { category: 'Executive/Senior Officials', male: 22, female: 6, other: 0, total: 28, targetFemale: 30, targetMet: false },
     { category: 'Managers', male: 52, female: 18, other: 0, total: 70, targetFemale: 30, targetMet: false },
     { category: 'Professionals', male: 85, female: 42, other: 1, total: 128, targetFemale: 35, targetMet: false },
@@ -41,11 +41,56 @@ export default function Page() {
     { category: 'Administrative Support', male: 15, female: 22, other: 0, total: 37, targetFemale: 50, targetMet: true },
     { category: 'Craft Workers', male: 32, female: 1, other: 1, total: 34, targetFemale: 10, targetMet: false },
     { category: 'Operatives', male: 20, female: 1, other: 1, total: 22, targetFemale: 10, targetMet: false }
-  ];
+  ]);
+
+  const [promotionData, setPromotionData] = useState<PromotionDataDto>({
+    totalPromotions: 45,
+    malePromoted: 32,
+    femalePromoted: 13,
+    malePromotionRate: 71.1,
+    femalePromotionRate: 28.9,
+    targetFemalePromotionRate: 30.0
+  });
+
+  const [compensationData, setCompensationData] = useState<CompensationDataDto>({
+    avgMaleSalary: 725000,
+    avgFemaleSalary: 698000,
+    genderPayGap: 3.7,
+    targetPayGap: 5.0,
+    compliant: true
+  });
+
+  const [trainingData, setTrainingData] = useState<EeoTrainingDataDto>({
+    totalTrainingHours: 8540,
+    maleTrainingHours: 5850,
+    femaleTrainingHours: 2690,
+    avgMaleTraining: 18.4,
+    avgFemaleTraining: 21.0,
+    diversityTrainingCompleted: 425,
+    diversityTrainingTarget: 450
+  });
 
   const [hiringData2025, setHiringData2025] = useState<HiringData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    HrComplianceDocsService.getDiversityBreakdown('eeo')
+      .then((data) => {
+        if (cancelled) return;
+        if (data.eeoCategories?.length) setEeoCategories(data.eeoCategories);
+        if (data.promotionData) setPromotionData(data.promotionData);
+        if (data.compensationData) setCompensationData(data.compensationData);
+        if (data.trainingData) setTrainingData(data.trainingData);
+      })
+      .catch(() => {
+        /* keep seeded reference defaults on failure */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,33 +130,6 @@ export default function Page() {
       cancelled = true;
     };
   }, []);
-
-  const promotionData = {
-    totalPromotions: 45,
-    malePromoted: 32,
-    femalePromoted: 13,
-    malePromotionRate: 71.1,
-    femalePromotionRate: 28.9,
-    targetFemalePromotionRate: 30.0
-  };
-
-  const compensationData = {
-    avgMaleSalary: 725000,
-    avgFemaleSalary: 698000,
-    genderPayGap: 3.7,
-    targetPayGap: 5.0,
-    compliant: true
-  };
-
-  const trainingData = {
-    totalTrainingHours: 8540,
-    maleTrainingHours: 5850,
-    femaleTrainingHours: 2690,
-    avgMaleTraining: 18.4,
-    avgFemaleTraining: 21.0,
-    diversityTrainingCompleted: 425,
-    diversityTrainingTarget: 450
-  };
 
   const handleDownloadEEO = () => {
     const escape = (v: string) => `"${(String(v) ?? '').replace(/"/g, '""')}"`;

@@ -283,6 +283,117 @@ export interface HrDocument {
 export interface CertificateRequest { id: string; companyId: string; recordType?: string; requestDate?: string; purpose?: string; addressedTo?: string; period?: string; includeBreakup?: boolean; includeDetails?: string; deliveryMode?: string; status?: string; requestedBy?: string; approvedBy?: string; approvedOn?: string; generatedOn?: string; deliveredOn?: string; rejectedReason?: string; remarks?: string; }
 export interface DocumentAuditLog { id: string; companyId: string; timestamp?: string; action?: string; documentType?: string; documentId?: string; employeeId?: string; employeeName?: string; performedBy?: string; performedByRole?: string; ipAddress?: string; remarks?: string; }
 
+// ---- Diversity / EEO breakdown (GET /hr/diversity/breakdown?kind=...) -------
+// Aggregated from hr_employees where the schema supports it; demographics the
+// schema does not model come back as a stable server-side reference shape.
+
+export type DiversityKind = 'eeo' | 'metrics' | 'posh';
+export type DiversityMetricTrend = 'up' | 'down' | 'stable';
+
+export interface EEOCategoryDto {
+  category: string;
+  male: number;
+  female: number;
+  other: number;
+  total: number;
+  targetFemale: number;
+  targetMet: boolean;
+}
+
+export interface PromotionDataDto {
+  totalPromotions: number;
+  malePromoted: number;
+  femalePromoted: number;
+  malePromotionRate: number;
+  femalePromotionRate: number;
+  targetFemalePromotionRate: number;
+}
+
+export interface CompensationDataDto {
+  avgMaleSalary: number;
+  avgFemaleSalary: number;
+  genderPayGap: number;
+  targetPayGap: number;
+  compliant: boolean;
+}
+
+export interface EeoTrainingDataDto {
+  totalTrainingHours: number;
+  maleTrainingHours: number;
+  femaleTrainingHours: number;
+  avgMaleTraining: number;
+  avgFemaleTraining: number;
+  diversityTrainingCompleted: number;
+  diversityTrainingTarget: number;
+}
+
+export interface EeoBreakdown {
+  eeoCategories: EEOCategoryDto[];
+  promotionData: PromotionDataDto;
+  compensationData: CompensationDataDto;
+  trainingData: EeoTrainingDataDto;
+}
+
+export interface DiversityMetricDto {
+  category: string;
+  subcategory: string;
+  total: number;
+  percentage: number;
+  trend: DiversityMetricTrend;
+  trendValue: number;
+}
+
+export interface LeadershipMetricsDto {
+  totalLeadership: number;
+  maleLeaders: number;
+  femaleLeaders: number;
+  malePercentage: number;
+  femalePercentage: number;
+  targetFemaleLeadership: number;
+}
+
+export interface HiringMetricsDto {
+  totalHired2025: number;
+  maleHired: number;
+  femaleHired: number;
+  maleHiredPercentage: number;
+  femaleHiredPercentage: number;
+  diverseHires: number;
+  diverseHiresPercentage: number;
+}
+
+export interface MetricsBreakdown {
+  genderMetrics: DiversityMetricDto[];
+  ageMetrics: DiversityMetricDto[];
+  disabilityMetrics: DiversityMetricDto[];
+  educationMetrics: DiversityMetricDto[];
+  ethnicityMetrics: DiversityMetricDto[];
+  leadershipMetrics: LeadershipMetricsDto;
+  hiringMetrics: HiringMetricsDto;
+}
+
+export interface IcMemberDto {
+  name: string;
+  designation: string;
+  role: 'Presiding Officer' | 'Member' | 'External Member';
+  gender: 'Male' | 'Female';
+  tenure: string;
+}
+
+export interface PoshTrainingSessionDto {
+  id: string;
+  date: string;
+  topic: string;
+  attendees: number;
+  trainer: string;
+  department: string;
+}
+
+export interface PoshBreakdown {
+  icMembers: IcMemberDto[];
+  trainingData: PoshTrainingSessionDto[];
+}
+
 export class HrComplianceDocsService {
   static async getLicenses(
     recordType?: string,
@@ -562,5 +673,18 @@ export class HrComplianceDocsService {
     companyId = 'company-1',
   ): Promise<any> {
     return putJson<any>(`/hr/policy-acknowledgments/${id}`, { companyId, ...payload });
+  }
+
+  // ---- Diversity / EEO breakdown -------------------------------------------
+
+  static getDiversityBreakdown(kind: 'eeo'): Promise<EeoBreakdown>;
+  static getDiversityBreakdown(kind: 'metrics'): Promise<MetricsBreakdown>;
+  static getDiversityBreakdown(kind: 'posh'): Promise<PoshBreakdown>;
+  static getDiversityBreakdown(
+    kind: DiversityKind,
+  ): Promise<EeoBreakdown | MetricsBreakdown | PoshBreakdown> {
+    return getJson<EeoBreakdown | MetricsBreakdown | PoshBreakdown>(
+      `/hr/diversity/breakdown?kind=${encodeURIComponent(kind)}`,
+    );
   }
 }
