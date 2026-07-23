@@ -223,6 +223,10 @@ import { RemediationPlanService } from './services/remediation-plan.service';
 import { DocumentAuditLogService } from './services/document-audit-log.service';
 import { AssetReportService } from './services/asset-report.service';
 
+// HR Diversity / EEO breakdown (aggregates hr_employees + reference config)
+import { DiversityController } from './controllers/diversity.controller';
+import { DiversityService } from './services/diversity.service';
+
 // Net-new HR Documents backend: policies, document-repository (view over
 // hr_documents), document-compliance (computed over hr_documents)
 import { HrPolicy } from './entities/hr-policy.entity';
@@ -615,6 +619,8 @@ import { PrismaModule } from '../prisma/prisma.module';
     ComplianceAuditController,
     HrGrievanceController,
     HrDocumentController,
+    // HR Diversity / EEO breakdown
+    DiversityController,
     // Net-new HR Documents backend
     HrPolicyController,
     DocumentRepositoryController,
@@ -748,6 +754,8 @@ import { PrismaModule } from '../prisma/prisma.module';
     ComplianceAuditService,
     HrGrievanceService,
     HrDocumentService,
+    // HR Diversity / EEO breakdown
+    DiversityService,
     // Net-new HR Documents backend
     HrPolicyService,
     DocumentRepositoryService,

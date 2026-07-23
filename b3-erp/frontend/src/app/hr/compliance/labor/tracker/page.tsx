@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CheckSquare, AlertCircle, CheckCircle, Clock, FileText, Calendar, Users, Plus } from 'lucide-react';
+import { CheckSquare, AlertCircle, CheckCircle, Clock, FileText, Calendar, Users, Plus, Eye, X } from 'lucide-react';
 import { HrComplianceDocsService, ComplianceRegister } from '@/services/hr-compliance-docs.service';
 
 interface ComplianceItem {
@@ -17,6 +17,8 @@ interface ComplianceItem {
   documents: string[];
   penalties?: string;
 }
+
+type Toast = { message: string; type: 'success' | 'error' };
 
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -34,6 +36,20 @@ export default function Page() {
     nextDue: '',
     status: 'compliant',
   });
+
+  // View modal
+  const [viewItem, setViewItem] = useState<ComplianceItem | null>(null);
+
+  // Edit / Mark Complete state
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+
+  // Toast
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -85,6 +101,22 @@ export default function Page() {
     }
   };
 
+  const handleMarkComplete = async (item: ComplianceItem) => {
+    setStatusUpdating(item.id);
+    try {
+      await HrComplianceDocsService.updateRegister(item.id, {
+        status: 'compliant',
+        lastCompleted: new Date().toISOString().slice(0, 10),
+      });
+      showToast(`"${item.act || 'Item'}" marked as Compliant`, 'success');
+      await load();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to update status', 'error');
+    } finally {
+      setStatusUpdating(null);
+    }
+  };
+
   const sourceCompliance = items;
 
   const filteredCompliance = sourceCompliance.filter(item => {
@@ -116,6 +148,14 @@ export default function Page() {
 
   return (
     <div className="w-full h-full px-3 py-2">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[60] flex items-center gap-2 rounded-lg border px-4 py-3 text-sm shadow-lg ${toast.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+          {toast.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          {toast.message}
+        </div>
+      )}
+
       <div className="mb-3 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -257,7 +297,7 @@ export default function Page() {
               </div>
 
               {item.penalties && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
                     <div>
@@ -269,15 +309,120 @@ export default function Page() {
               )}
 
               {item.lastCompleted && (
-                <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-600">
+                <div className="mb-2 text-xs text-gray-600">
                   Last Completed: {new Date(item.lastCompleted).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </div>
               )}
+
+              {/* Per-card actions */}
+              <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                <button
+                  onClick={() => setViewItem(item)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View
+                </button>
+                {item.status !== 'compliant' && (
+                  <button
+                    onClick={() => handleMarkComplete(item)}
+                    disabled={statusUpdating === item.id}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    {statusUpdating === item.id ? 'Updating…' : 'Mark Compliant'}
+                  </button>
+                )}
+                <button
+                  onClick={() => handleMarkComplete(item)}
+                  disabled={statusUpdating === item.id}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  {statusUpdating === item.id ? 'Updating…' : 'Log Completion'}
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
 
+      {/* View Detail Modal */}
+      {viewItem && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-start justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Compliance Item Detail</h2>
+              <button onClick={() => setViewItem(null)} className="p-1 text-gray-400 hover:text-gray-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-xs font-semibold text-gray-500 uppercase">Act / Law</dt>
+                <dd className="mt-1 font-medium text-gray-900">{viewItem.act || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-gray-500 uppercase">Requirement</dt>
+                <dd className="mt-1 text-gray-700">{viewItem.requirement || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-gray-500 uppercase">Applicability</dt>
+                <dd className="mt-1 text-gray-700">{viewItem.applicability || '—'}</dd>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Frequency</dt>
+                  <dd className="mt-1 text-gray-700 capitalize">{viewItem.frequency.replace('_', ' ')}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Responsibility</dt>
+                  <dd className="mt-1 text-gray-700">{viewItem.responsibility || '—'}</dd>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Next Due</dt>
+                  <dd className="mt-1 text-gray-700">{viewItem.nextDue || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Last Completed</dt>
+                  <dd className="mt-1 text-gray-700">{viewItem.lastCompleted ? new Date(viewItem.lastCompleted).toLocaleDateString('en-IN') : '—'}</dd>
+                </div>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-gray-500 uppercase">Status</dt>
+                <dd className="mt-1">
+                  <span className={`px-2 py-1 text-xs rounded font-medium ${statusColors[viewItem.status]}`}>
+                    {viewItem.status.replace('_', ' ').toUpperCase()}
+                  </span>
+                </dd>
+              </div>
+              {viewItem.documents.length > 0 && (
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Required Documents</dt>
+                  <dd className="mt-1 flex flex-wrap gap-1">
+                    {viewItem.documents.map((d, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded border border-blue-200">{d}</span>
+                    ))}
+                  </dd>
+                </div>
+              )}
+              {viewItem.penalties && (
+                <div>
+                  <dt className="text-xs font-semibold text-gray-500 uppercase">Non-Compliance Penalty</dt>
+                  <dd className="mt-1 text-red-700 text-sm">{viewItem.penalties}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="flex justify-end mt-5">
+              <button onClick={() => setViewItem(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Modal */}
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5">

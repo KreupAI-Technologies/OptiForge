@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { Users, TrendingUp, BarChart3, PieChart, AlertCircle } from 'lucide-react';
-import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+import {
+  HrComplianceDocsService,
+  DiversityMetricDto,
+  LeadershipMetricsDto,
+  HiringMetricsDto,
+} from '@/services/hr-compliance-docs.service';
 
-interface DiversityMetric {
-  category: string;
-  subcategory: string;
-  total: number;
-  percentage: number;
-  trend: 'up' | 'down' | 'stable';
-  trendValue: number;
-}
+type DiversityMetric = DiversityMetricDto;
 
 interface DepartmentDiversity {
   department: string;
@@ -71,49 +69,51 @@ export default function Page() {
   const targetFemalePercentage = 30;
   const currentFemalePercentage = 28.4;
 
-  const genderMetrics: DiversityMetric[] = [
+  // Seeded with reference defaults so the UI never renders empty; overwritten
+  // from GET /hr/diversity/breakdown?kind=metrics on load.
+  const [genderMetrics, setGenderMetrics] = useState<DiversityMetric[]>([
     { category: 'Gender', subcategory: 'Male', total: 318, percentage: 70.7, trend: 'down', trendValue: 2.1 },
     { category: 'Gender', subcategory: 'Female', total: 128, percentage: 28.4, trend: 'up', trendValue: 3.2 },
     { category: 'Gender', subcategory: 'Other', total: 4, percentage: 0.9, trend: 'stable', trendValue: 0 }
-  ];
+  ]);
 
-  const ageMetrics: DiversityMetric[] = [
+  const [ageMetrics, setAgeMetrics] = useState<DiversityMetric[]>([
     { category: 'Age', subcategory: '18-25 years', total: 95, percentage: 21.1, trend: 'up', trendValue: 1.8 },
     { category: 'Age', subcategory: '26-35 years', total: 198, percentage: 44.0, trend: 'stable', trendValue: 0.5 },
     { category: 'Age', subcategory: '36-45 years', total: 112, percentage: 24.9, trend: 'down', trendValue: 1.2 },
     { category: 'Age', subcategory: '46-55 years', total: 38, percentage: 8.4, trend: 'down', trendValue: 0.8 },
     { category: 'Age', subcategory: '56+ years', total: 7, percentage: 1.6, trend: 'stable', trendValue: 0.1 }
-  ];
+  ]);
 
-  const disabilityMetrics: DiversityMetric[] = [
+  const [disabilityMetrics, setDisabilityMetrics] = useState<DiversityMetric[]>([
     { category: 'Disability', subcategory: 'Persons with Disabilities', total: 18, percentage: 4.0, trend: 'up', trendValue: 0.5 },
     { category: 'Disability', subcategory: 'Without Disabilities', total: 432, percentage: 96.0, trend: 'down', trendValue: 0.5 }
-  ];
+  ]);
 
-  const educationMetrics: DiversityMetric[] = [
+  const [educationMetrics, setEducationMetrics] = useState<DiversityMetric[]>([
     { category: 'Education', subcategory: 'Post Graduate', total: 112, percentage: 24.9, trend: 'up', trendValue: 2.3 },
     { category: 'Education', subcategory: 'Graduate', total: 248, percentage: 55.1, trend: 'stable', trendValue: 0.3 },
     { category: 'Education', subcategory: 'Diploma', total: 68, percentage: 15.1, trend: 'down', trendValue: 1.5 },
     { category: 'Education', subcategory: 'High School', total: 22, percentage: 4.9, trend: 'down', trendValue: 1.1 }
-  ];
+  ]);
 
-  const ethnicityMetrics: DiversityMetric[] = [
+  const [ethnicityMetrics, setEthnicityMetrics] = useState<DiversityMetric[]>([
     { category: 'Ethnicity', subcategory: 'General', total: 265, percentage: 58.9, trend: 'stable', trendValue: 0.2 },
     { category: 'Ethnicity', subcategory: 'OBC', total: 108, percentage: 24.0, trend: 'up', trendValue: 1.8 },
     { category: 'Ethnicity', subcategory: 'SC', total: 54, percentage: 12.0, trend: 'up', trendValue: 1.2 },
     { category: 'Ethnicity', subcategory: 'ST', total: 23, percentage: 5.1, trend: 'up', trendValue: 0.8 }
-  ];
+  ]);
 
-  const leadershipMetrics = {
+  const [leadershipMetrics, setLeadershipMetrics] = useState<LeadershipMetricsDto>({
     totalLeadership: 45,
     maleLeaders: 36,
     femaleLeaders: 9,
     malePercentage: 80.0,
     femalePercentage: 20.0,
     targetFemaleLeadership: 30.0
-  };
+  });
 
-  const hiringMetrics = {
+  const [hiringMetrics, setHiringMetrics] = useState<HiringMetricsDto>({
     totalHired2025: 82,
     maleHired: 54,
     femaleHired: 28,
@@ -121,7 +121,28 @@ export default function Page() {
     femaleHiredPercentage: 34.1,
     diverseHires: 18,
     diverseHiresPercentage: 22.0
-  };
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    HrComplianceDocsService.getDiversityBreakdown('metrics')
+      .then((data) => {
+        if (cancelled) return;
+        if (data.genderMetrics?.length) setGenderMetrics(data.genderMetrics);
+        if (data.ageMetrics?.length) setAgeMetrics(data.ageMetrics);
+        if (data.disabilityMetrics?.length) setDisabilityMetrics(data.disabilityMetrics);
+        if (data.educationMetrics?.length) setEducationMetrics(data.educationMetrics);
+        if (data.ethnicityMetrics?.length) setEthnicityMetrics(data.ethnicityMetrics);
+        if (data.leadershipMetrics) setLeadershipMetrics(data.leadershipMetrics);
+        if (data.hiringMetrics) setHiringMetrics(data.hiringMetrics);
+      })
+      .catch(() => {
+        /* keep seeded reference defaults on failure */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const allMetrics = [...genderMetrics, ...ageMetrics, ...disabilityMetrics, ...educationMetrics, ...ethnicityMetrics];
 

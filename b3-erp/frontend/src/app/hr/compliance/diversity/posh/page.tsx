@@ -2,7 +2,12 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Shield, Users, Clock, CheckCircle, AlertCircle, FileText, Calendar } from 'lucide-react';
-import { HrComplianceDocsService, HrGrievance } from '@/services/hr-compliance-docs.service';
+import {
+  HrComplianceDocsService,
+  HrGrievance,
+  IcMemberDto,
+  PoshTrainingSessionDto,
+} from '@/services/hr-compliance-docs.service';
 
 interface POSHComplaint {
   id: string;
@@ -102,19 +107,38 @@ export default function Page() {
     }
   };
 
-  const icMembers: ICMember[] = [
+  // Seeded with reference defaults so the UI never renders empty; overwritten
+  // from GET /hr/diversity/breakdown?kind=posh on load. The complaint list and
+  // status action continue to use getGrievances('posh') / updatePoshComplaint.
+  const [icMembers, setIcMembers] = useState<ICMember[]>([
     { name: 'Priya Sharma', designation: 'HR Director', role: 'Presiding Officer', gender: 'Female', tenure: '2024-2026' },
     { name: 'Neha Desai', designation: 'Legal Counsel', role: 'Member', gender: 'Female', tenure: '2024-2026' },
     { name: 'Rajesh Kumar', designation: 'Operations Head', role: 'Member', gender: 'Male', tenure: '2024-2026' },
     { name: 'Dr. Anita Rao (NGO Representative)', designation: 'Women\'s Rights Advocate', role: 'External Member', gender: 'Female', tenure: '2024-2026' }
-  ];
+  ]);
 
-  const trainingData: TrainingSession[] = [
+  const [trainingData, setTrainingData] = useState<TrainingSession[]>([
     { id: '1', date: '2025-01-15', topic: 'POSH Awareness & Prevention', attendees: 125, trainer: 'Dr. Anita Rao', department: 'All Departments' },
     { id: '2', date: '2024-12-10', topic: 'Bystander Intervention Training', attendees: 85, trainer: 'Legal Team', department: 'Manufacturing' },
     { id: '3', date: '2024-11-20', topic: 'ICC Process & Procedures', attendees: 45, trainer: 'HR Team', department: 'Management' },
     { id: '4', date: '2024-10-05', topic: 'Creating Respectful Workplaces', attendees: 200, trainer: 'External Consultant', department: 'All Departments' }
-  ];
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    HrComplianceDocsService.getDiversityBreakdown('posh')
+      .then((data) => {
+        if (cancelled) return;
+        if (data.icMembers?.length) setIcMembers(data.icMembers as ICMember[]);
+        if (data.trainingData?.length) setTrainingData(data.trainingData as TrainingSession[]);
+      })
+      .catch(() => {
+        /* keep seeded reference defaults on failure */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const sourceComplaints = items;
 

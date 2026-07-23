@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Folder, File, Download, Eye, FolderOpen, AlertCircle } from 'lucide-react';
 import { DocumentManagementService } from '@/services/document-management.service';
 
@@ -11,6 +11,12 @@ interface RepoFile {
   type: string;
   lastModified: string;
   fileUrl?: string;
+}
+
+interface DynamicFolder {
+  id: string;
+  name: string;
+  fileCount: number;
 }
 
 export default function BrowseRepositoryPage() {
@@ -50,6 +56,24 @@ export default function BrowseRepositoryPage() {
     };
   }, []);
 
+  // Derive folders dynamically from loaded documents' documentCategory field.
+  // Falls back to a single "All Documents" bucket when there are no documents.
+  const folders = useMemo<DynamicFolder[]>(() => {
+    if (files.length === 0) {
+      return [{ id: 'all', name: 'All Documents', fileCount: 0 }];
+    }
+    const counts = new Map<string, number>();
+    for (const f of files) {
+      const cat = f.type || 'Uncategorised';
+      counts.set(cat, (counts.get(cat) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, fileCount], idx) => ({
+      id: String(idx + 1),
+      name,
+      fileCount,
+    }));
+  }, [files]);
+
   const navigateToPath = (index: number) => {
     // Navigate to a specific path level
     setCurrentPath(currentPath.slice(0, index + 1));
@@ -81,16 +105,11 @@ export default function BrowseRepositoryPage() {
     }
   };
 
-  // Static navigation chrome — these folders are presentational categories used
-  // to navigate the breadcrumb path and do not drive the document data below.
-  const folders = [
-    { id: 1, name: 'HR Policies', fileCount: 12, lastModified: '2025-01-15' },
-    { id: 2, name: 'Employee Handbooks', fileCount: 5, lastModified: '2025-01-10' },
-    { id: 3, name: 'Templates', fileCount: 28, lastModified: '2024-12-20' },
-    { id: 4, name: 'Circulars & Notices', fileCount: 45, lastModified: '2025-01-20' },
-    { id: 5, name: 'Compliance Documents', fileCount: 18, lastModified: '2025-01-05' },
-    { id: 6, name: 'Training Materials', fileCount: 32, lastModified: '2024-11-30' }
-  ];
+  // Filter the files list to match the current folder when navigated into one.
+  const activeFolder = currentPath.length > 1 ? currentPath[currentPath.length - 1] : null;
+  const visibleFiles = activeFolder
+    ? files.filter((f) => (f.type || 'Uncategorised') === activeFolder)
+    : files;
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -129,7 +148,14 @@ export default function BrowseRepositoryPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Folders</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Folders
+          {!loading && (
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              ({folders.length} {folders.length === 1 ? 'category' : 'categories'} from loaded documents)
+            </span>
+          )}
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {folders.map((folder) => (
             <div
@@ -139,8 +165,8 @@ export default function BrowseRepositoryPage() {
             >
               <FolderOpen className="h-8 w-8 text-blue-600 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 truncate">{folder.name}</h3>
-                <p className="text-sm text-gray-600">{folder.fileCount} files</p>
+                <h3 className="font-semibold text-gray-900 truncate capitalize">{folder.name.replace(/_/g, ' ')}</h3>
+                <p className="text-sm text-gray-600">{folder.fileCount} {folder.fileCount === 1 ? 'file' : 'files'}</p>
               </div>
             </div>
           ))}
@@ -148,9 +174,14 @@ export default function BrowseRepositoryPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Files</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Files
+          {activeFolder && (
+            <span className="ml-2 text-sm font-normal text-gray-500">in &quot;{activeFolder.replace(/_/g, ' ')}&quot;</span>
+          )}
+        </h2>
         <div className="space-y-3">
-          {files.map((file) => (
+          {visibleFiles.map((file) => (
             <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
               <div className="flex items-center gap-3 flex-1">
                 <File className="h-6 w-6 text-gray-600" />
@@ -175,6 +206,9 @@ export default function BrowseRepositoryPage() {
               </div>
             </div>
           ))}
+          {visibleFiles.length === 0 && !loading && (
+            <p className="text-sm text-gray-500 py-4 text-center">No files{activeFolder ? ` in "${activeFolder.replace(/_/g, ' ')}"` : ''}</p>
+          )}
         </div>
       </div>
     </div>
