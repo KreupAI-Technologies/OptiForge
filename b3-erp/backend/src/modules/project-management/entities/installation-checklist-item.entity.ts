@@ -33,7 +33,7 @@ export class InstallationChecklistItem {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ name: 'company_id', nullable: true })
+    @Column({ name: 'company_id', type: 'uuid', nullable: true })
     companyId: string | null;
 
     @Column({ name: 'project_id' })
@@ -55,11 +55,11 @@ export class InstallationChecklistItem {
     label: string;
 
     /** Optional grouping/category (used by final-inspection: Functionality/Safety/...). */
-    @Column({ nullable: true })
+    @Column({ type: 'varchar', nullable: true })
     category: string | null;
 
     /** Optional secondary label (used by accessory-fix location). */
-    @Column({ name: 'sub_label', nullable: true })
+    @Column({ name: 'sub_label', type: 'varchar', nullable: true })
     subLabel: string | null;
 
     /**

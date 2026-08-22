@@ -118,16 +118,28 @@ WSGI_APPLICATION = 'optiforge.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+def _db_env(*names, default=None):
+    """First present env var. Accepts Django-style DATABASE_* and shared .env DB_* names."""
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return default
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DATABASE_NAME', 'test_db'),
-        'USER': os.environ.get('DATABASE_USER', 'test'),
-        'PASSWORD': os.environ.get('DATABASE_PASSWORD', 'test'),
-        'HOST': os.environ.get('DATABASE_HOST', 'localhost'),
-        'PORT': os.environ.get('DATABASE_PORT', '5432'),
+        'NAME': _db_env('DATABASE_NAME', 'DB_DATABASE', default='test_db'),
+        'USER': _db_env('DATABASE_USER', 'DB_USERNAME', default='test'),
+        'PASSWORD': _db_env('DATABASE_PASSWORD', 'DB_PASSWORD', default='test'),
+        'HOST': _db_env('DATABASE_HOST', 'DB_HOST', default='localhost'),
+        'PORT': _db_env('DATABASE_PORT', 'DB_PORT', default='5432'),
         'OPTIONS': {
-            'sslmode': os.environ.get('DATABASE_SSLMODE', 'prefer'),
+            'sslmode': _db_env(
+                'DATABASE_SSLMODE',
+                default='require' if _db_env('DB_SSL', default='').lower() == 'true' else 'prefer',
+            ),
         },
     }
 }

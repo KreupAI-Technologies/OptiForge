@@ -149,14 +149,14 @@ export class Employee {
   country: string;
 
   // Employment Details
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   departmentId: string | null;
 
   @ManyToOne(() => Department, (department) => department.employees)
   @JoinColumn({ name: 'departmentId' })
   department: Department;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   designationId: string | null;
 
   @ManyToOne(() => Designation, (designation) => designation.employees)
