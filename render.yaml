@@ -19,6 +19,7 @@ services:
   - type: web
     name: optiforge-platform
     env: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py migrate && gunicorn optiforge.wsgi:application --bind 0.0.0.0:$PORT --workers 3
@@ -48,6 +49,7 @@ services:
   - type: worker
     name: optiforge-celery-worker
     env: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A optiforge worker --loglevel=info
@@ -80,6 +82,7 @@ services:
   - type: web
     name: b3-erp-backend
     env: node
+    plan: free
     rootDir: b3-erp/backend
     buildCommand: npm ci && npx prisma generate && npm run build
     startCommand: npm run start:prod
@@ -108,6 +111,7 @@ services:
   - type: web
     name: b3-erp-frontend
     env: node
+    plan: free
     rootDir: b3-erp/frontend
     buildCommand: npm ci && npm run build
     startCommand: npm run start
