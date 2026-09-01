@@ -117,17 +117,8 @@ services:
       - key: NODE_OPTIONS
         value: "--max-old-space-size=8192"
       - key: NEXT_PUBLIC_PLATFORM_API_URL
-        fromService:
-          type: web
-          name: optiforge-platform
-          property: url
+        value: https://optiforge-platform.onrender.com/api/v1
       - key: NEXT_PUBLIC_DOMAIN_API_URL
-        fromService:
-          type: web
-          name: b3-erp-backend
-          property: url
+        value: https://b3-erp-backend.onrender.com
       - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: optiforge-platform
-          property: url
+        value: https://optiforge-platform.onrender.com/api/v1
