@@ -28,12 +28,12 @@ except ImportError:
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-pni8ntnv+(*dc3^3#3xj1f_%&zhjfvt0sgrsvrr5=vnx8l_(-#'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-pni8ntnv+(*dc3^3#3xj1f_%&zhjfvt0sgrsvrr5=vnx8l_(-#')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',') if h.strip()]
 
 
 # Application definition
@@ -143,6 +143,15 @@ DATABASES = {
         },
     }
 }
+
+if os.environ.get('DATABASE_URL'):
+    import urllib.parse as urlparse
+    url = urlparse.urlparse(os.environ['DATABASE_URL'])
+    DATABASES['default']['NAME'] = url.path.lstrip('/')
+    DATABASES['default']['USER'] = url.username or ''
+    DATABASES['default']['PASSWORD'] = url.password or ''
+    DATABASES['default']['HOST'] = url.hostname or 'localhost'
+    DATABASES['default']['PORT'] = str(url.port) if url.port else '5432'
 
 
 # Password validation

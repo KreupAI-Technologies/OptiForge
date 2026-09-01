@@ -12,7 +12,7 @@
     "start": "npm run dev",
     "build": "npm run build:domain && npm run build:web",
     "build:domain": "cd b3-erp/backend && npm run build",
-    "build:web": "cd b3-erp/frontend && npm run build",
+    "build:web": "cd b3-erp/frontend && NODE_OPTIONS='--max-old-space-size=8192' npm run build",
     "install:all": "npm install && (cd b3-erp/backend && npm install) && (cd b3-erp/frontend && npm install)",
     "db:manual": "cd b3-erp/backend && npm run db:manual",
     "db:manual:status": "cd b3-erp/backend && npm run db:manual:status",

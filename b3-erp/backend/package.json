@@ -128,7 +128,6 @@
       "!src/main.ts"
     ],
     "coverageDirectory": "./coverage",
-    "_comment_coverageThreshold": "RATCHET GATE. Global floor is set just below the measured baseline (stmts 3.57 / branch 3.06 / func 2.62 / lines 3.58 as of 2026-07-04) so coverage can only rise — a merge that DROPS coverage fails. This is regression protection, not the 50% target. When you add tests, raise these numbers to lock in the gains. Issue #125 tracks the uplift to 50%.",
     "coverageThreshold": {
       "global": {
         "statements": 3.5,
