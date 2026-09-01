@@ -5,7 +5,7 @@ databases:
   - name: manufacturingos-db
     databaseName: manufacturingos
     user: manufacturingos
-    plan: starter
+    plan: free
     ipAllowList: []
 
 services:
@@ -13,7 +13,7 @@ services:
   - type: redis
     name: manufacturingos-redis
     ipAllowList: []
-    plan: starter
+    plan: free
 
   # OptiForge Platform Backend (Django)
   - type: web
