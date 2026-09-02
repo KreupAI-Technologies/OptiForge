@@ -5,14 +5,13 @@
 # worker are intentionally NOT deployed here (worker isn't offered on free; the
 # demo pages don't need the platform API). Postgres is external (Neon).
 #
-# Cost target: $0. Free web services sleep after ~15min idle (~50s cold start on
-# the next hit) — pre-warm both before demos:
+# Cost: frontend on Starter ($7/mo, always-on — no cold start); backend on free.
+# The free backend still sleeps after ~15min idle, so pre-warm it before demos:
 #   https://b3-erp-backend.onrender.com/api/v1/health
-#   https://b3-erp-frontend.onrender.com
 #
-# CAVEAT: the frontend is a large Next.js app (1,719 pages). Its build may OOM on
-# Render's 512MB free build box. If the free build fails, bump ONLY that service's
-# `plan:` below to `standard` (more build RAM) — everything else stays free.
+# CAVEAT: the frontend is a large Next.js app (1,719 pages) and Starter still has
+# only 512MB RAM. Starter buys always-on, NOT more build memory. If the build
+# OOMs, bump the frontend `plan:` to `standard` (2GB) — that is the RAM fix.
 
 services:
   # b3-erp Domain Services (NestJS) — the only backend the demo needs
@@ -48,7 +47,7 @@ services:
   - type: web
     name: b3-erp-frontend
     runtime: node
-    plan: free
+    plan: starter
     rootDir: b3-erp/frontend
     buildCommand: npm ci && npm run build
     startCommand: npm run start
