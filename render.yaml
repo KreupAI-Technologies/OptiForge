@@ -5,11 +5,14 @@
 # worker are intentionally NOT deployed here (worker isn't offered on free; the
 # demo pages don't need the platform API). Postgres is external (Neon).
 #
-# Frontend (Next.js, 1,719 pages) is deployed on Vercel, NOT here — a build that
-# large reliably OOMs on Render's 512MB free build. See docs / chat for steps.
+# Cost target: $0. Free web services sleep after ~15min idle (~50s cold start on
+# the next hit) — pre-warm both before demos:
+#   https://b3-erp-backend.onrender.com/api/v1/health
+#   https://b3-erp-frontend.onrender.com
 #
-# Cost: $0. Free web services sleep after ~15min idle (~50s cold start on the
-# next hit) — pre-warm https://b3-erp-backend.onrender.com/api/v1/health before demos.
+# CAVEAT: the frontend is a large Next.js app (1,719 pages). Its build may OOM on
+# Render's 512MB free build box. If the free build fails, bump ONLY that service's
+# `plan:` below to `standard` (more build RAM) — everything else stays free.
 
 services:
   # b3-erp Domain Services (NestJS) — the only backend the demo needs
@@ -36,8 +39,28 @@ services:
       # non-critical for the demo); HTTP/page serving is unaffected.
       - key: JWT_SECRET
         generateValue: true
-      # MUST equal the exact Vercel frontend origin (no trailing slash). In prod
-      # CORS is pinned to this value with credentials:true — a mismatch blocks
-      # every browser call. Update after Vercel gives you the URL, then redeploy.
+      # Prod CORS is pinned to this exact origin with credentials:true — a
+      # mismatch blocks every browser call. Points at the frontend service below.
       - key: FRONTEND_URL
-        value: https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app
+        value: https://b3-erp-frontend.onrender.com
+
+  # Frontend (Next.js) — the demo UI
+  - type: web
+    name: b3-erp-frontend
+    runtime: node
+    plan: free
+    rootDir: b3-erp/frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Cap heap under the 512MB free ceiling so GC runs before the kernel OOM-kills.
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=460"
+      # Both include /api/v1 — service files fall back to localhost:3001/api/v1,
+      # so the prefix belongs in the value. Point at the NestJS backend above.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://b3-erp-backend.onrender.com/api/v1
+      - key: NEXT_PUBLIC_DOMAIN_API_URL
+        value: https://b3-erp-backend.onrender.com/api/v1
