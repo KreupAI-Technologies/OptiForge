@@ -1,113 +1,43 @@
-# Render Blueprint Specification for ManufacturingOS
-# Dual-backend architecture: Django Platform + NestJS Domain Services + Next.js Frontend
-# Uses existing Render Free Tier Postgres DB and Redis instance via sync: false environment variables
+# Render Blueprint — DEMO topology (NestJS-only, free tier)
+#
+# Scope: public demo of the b3-erp (MACBIS) frontend, which for the demo talks
+# ONLY to the NestJS domain backend. The Django platform backend and the Celery
+# worker are intentionally NOT deployed here (worker isn't offered on free; the
+# demo pages don't need the platform API). Postgres is external (Neon).
+#
+# Frontend (Next.js, 1,719 pages) is deployed on Vercel, NOT here — a build that
+# large reliably OOMs on Render's 512MB free build. See docs / chat for steps.
+#
+# Cost: $0. Free web services sleep after ~15min idle (~50s cold start on the
+# next hit) — pre-warm https://b3-erp-backend.onrender.com/api/v1/health before demos.
 
 services:
-  # OptiForge Platform Backend (Django)
-  - type: web
-    name: optiforge-platform
-    env: python
-    plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py migrate && gunicorn optiforge.wsgi:application --bind 0.0.0.0:$PORT --workers 3
-    healthCheckPath: /api/v1/health/
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: optiforge.settings
-      - key: DJANGO_SECRET_KEY
-        generateValue: true
-      - key: DJANGO_DEBUG
-        value: "False"
-      - key: DJANGO_ALLOWED_HOSTS
-        value: "*"
-      - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_WgKoApGEJR54@ep-sweet-recipe-ailz1ddp.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
-      - key: REDIS_URL
-        value: redis://localhost:6379/0
-      - key: JWT_SECRET
-        generateValue: true
-
-  # OptiForge Platform Celery Worker
-  - type: worker
-    name: optiforge-celery-worker
-    env: python
-    plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: celery -A optiforge worker --loglevel=info
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: optiforge.settings
-      - key: DJANGO_SECRET_KEY
-        fromService:
-          type: web
-          name: optiforge-platform
-          envVarKey: DJANGO_SECRET_KEY
-      - key: DJANGO_DEBUG
-        value: "False"
-      - key: DATABASE_URL
-        fromService:
-          type: web
-          name: optiforge-platform
-          envVarKey: DATABASE_URL
-      - key: REDIS_URL
-        fromService:
-          type: web
-          name: optiforge-platform
-          envVarKey: REDIS_URL
-      - key: JWT_SECRET
-        fromService:
-          type: web
-          name: optiforge-platform
-          envVarKey: JWT_SECRET
-
-  # b3-erp Domain Services (NestJS)
+  # b3-erp Domain Services (NestJS) — the only backend the demo needs
   - type: web
     name: b3-erp-backend
-    env: node
+    runtime: node
     plan: free
     rootDir: b3-erp/backend
-    buildCommand: npm ci && npx prisma generate && npm run build
-    startCommand: npm run start:prod
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        fromService:
-          type: web
-          name: optiforge-platform
-          envVarKey: DATABASE_URL
-      - key: DATABASE_SCHEMA
-        value: b3_erp
-      - key: JWT_SECRET
-        fromService:
-          type: web
-          name: optiforge-platform
-          envVarKey: JWT_SECRET
-      - key: REDIS_URL
-        fromService:
-          type: web
-          name: optiforge-platform
-          envVarKey: REDIS_URL
-
-  # Frontend (Next.js)
-  - type: web
-    name: b3-erp-frontend
-    env: node
-    plan: free
-    rootDir: b3-erp/frontend
     buildCommand: npm ci && npm run build
-    startCommand: npm run start
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
-        value: "--max-old-space-size=8192"
-      - key: NEXT_PUBLIC_PLATFORM_API_URL
-        value: https://optiforge-platform.onrender.com/api/v1
-      - key: NEXT_PUBLIC_DOMAIN_API_URL
-        value: https://b3-erp-backend.onrender.com
-      - key: NEXT_PUBLIC_API_URL
-        value: https://optiforge-platform.onrender.com/api/v1
+        value: "--max-old-space-size=460"
+      # TypeORM uses DATABASE_URL directly (ssl: rejectUnauthorized=false → Neon OK)
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_WgKoApGEJR54@ep-sweet-recipe-ailz1ddp.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - key: DB_SYNCHRONIZE
+        value: "false"
+      # No REDIS_URL on purpose: cache.config falls back to in-memory when it's
+      # absent. Bull will log localhost:6379 connection retries (queues are
+      # non-critical for the demo); HTTP/page serving is unaffected.
+      - key: JWT_SECRET
+        generateValue: true
+      # MUST equal the exact Vercel frontend origin (no trailing slash). In prod
+      # CORS is pinned to this value with credentials:true — a mismatch blocks
+      # every browser call. Update after Vercel gives you the URL, then redeploy.
+      - key: FRONTEND_URL
+        value: https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app
