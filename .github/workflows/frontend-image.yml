@@ -1,0 +1,55 @@
+name: frontend-image
+
+# Builds the b3-erp frontend Docker image on GitHub's 16GB runners (the build
+# needs ~7GB RAM and cannot run on Render's affordable tiers) and pushes it to
+# GHCR. Render then deploys the prebuilt image — see render.yaml.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'b3-erp/frontend/**'
+      - '.github/workflows/frontend-image.yml'
+  workflow_dispatch: {}
+
+env:
+  IMAGE: ghcr.io/kreupai-technologies/optiforge-frontend
+  # Baked into the client bundle at build time. Change here (or in the Dockerfile
+  # ARG defaults) if the backend URL changes.
+  NEXT_PUBLIC_API_URL: https://b3-erp-backend.onrender.com/api/v1
+  NEXT_PUBLIC_DOMAIN_API_URL: https://b3-erp-backend.onrender.com/api/v1
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: b3-erp/frontend
+          file: b3-erp/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_DOMAIN_API_URL=${{ env.NEXT_PUBLIC_DOMAIN_API_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,4 +1,4 @@
-# Render Blueprint — DEMO topology (NestJS-only, free tier)
+# Render Blueprint — DEMO topology (NestJS backend + prebuilt Next.js image)
 #
 # Scope: public demo of the b3-erp (MACBIS) frontend, which for the demo talks
 # ONLY to the NestJS domain backend. The Django platform backend and the Celery
@@ -9,9 +9,11 @@
 # The free backend still sleeps after ~15min idle, so pre-warm it before demos:
 #   https://b3-erp-backend.onrender.com/api/v1/health
 #
-# CAVEAT: the frontend is a large Next.js app (1,719 pages) and Starter still has
-# only 512MB RAM. Starter buys always-on, NOT more build memory. If the build
-# OOMs, bump the frontend `plan:` to `standard` (2GB) — that is the RAM fix.
+# The frontend is NOT built on Render: its build needs ~7GB RAM (measured), far
+# above any affordable Render tier. Instead GitHub Actions builds a Docker image
+# (.github/workflows/frontend-image.yml) and pushes it to GHCR; Render just runs
+# that prebuilt image below. Runtime is light (all routes are dynamic/SSR), so
+# Starter (512MB) is plenty.
 
 services:
   # b3-erp Domain Services (NestJS) — the only backend the demo needs
@@ -43,22 +45,24 @@ services:
       - key: FRONTEND_URL
         value: https://b3-erp-frontend.onrender.com
 
-  # Frontend (Next.js) — the demo UI
+  # Frontend (Next.js) — the demo UI, deployed as a prebuilt image from GHCR.
   - type: web
     name: b3-erp-frontend
-    runtime: node
+    runtime: image
     plan: starter
-    rootDir: b3-erp/frontend
-    buildCommand: npm ci && npm run build
-    startCommand: npm run start
+    image:
+      url: ghcr.io/kreupai-technologies/optiforge-frontend:latest
+      # If the GHCR package is kept PRIVATE, create a Render registry credential
+      # (Dashboard → Settings → Registry Credentials, GitHub PAT w/ read:packages)
+      # and reference it here; delete these lines if the package is public.
+      # creds:
+      #   fromRegistryCreds:
+      #     name: ghcr-optiforge
     envVars:
       - key: NODE_ENV
         value: production
-      # Cap heap under the 512MB free ceiling so GC runs before the kernel OOM-kills.
-      - key: NODE_OPTIONS
-        value: "--max-old-space-size=460"
-      # Both include /api/v1 — service files fall back to localhost:3001/api/v1,
-      # so the prefix belongs in the value. Point at the NestJS backend above.
+      # NEXT_PUBLIC_* are baked into the client bundle at BUILD time (CI); these
+      # runtime copies only affect server-side (SSR) fetches. Keep them aligned.
       - key: NEXT_PUBLIC_API_URL
         value: https://b3-erp-backend.onrender.com/api/v1
       - key: NEXT_PUBLIC_DOMAIN_API_URL

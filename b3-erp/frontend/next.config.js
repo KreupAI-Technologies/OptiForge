@@ -2,6 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  // Emit a self-contained server (.next/standalone/server.js) so the Docker
+  // runtime image stays small and boots with a few hundred MB — the heavy part
+  // is the build (~7GB), which runs in CI, not on the Render runtime box.
+  output: 'standalone',
   generateBuildId: async () => {
     // Generate a unique build ID to avoid Next.js 14.1.0 build ID generation bug
     return 'build-' + Date.now()

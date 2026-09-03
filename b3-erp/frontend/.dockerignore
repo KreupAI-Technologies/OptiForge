@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+!.env.local.example
+e2e
+playwright.config.ts
+jest.config.js
+jest.setup.js
+**/*.log
+frontend_startup.log
+tsconfig.tsbuildinfo
+Dockerfile
+.dockerignore
+pnpm-lock.yaml
